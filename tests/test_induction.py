@@ -119,5 +119,84 @@ class TestInductionInConversation(unittest.TestCase):
         self.assertIn("çelişki", self.session.respond("penguen uçamaz"))
 
 
+class TestAGuessNeverBecomesEvidence(unittest.TestCase):
+    """Inference reads from what it was given, never from itself.
+
+    If its own conclusions counted, one wrong placement would breed a rule, the
+    rule would breed another placement, and the chain would end up looking
+    exactly as confident as anything it was actually told. Cutting that loop
+    dropped the rules it forms over the standard packs from 24 to 10 — fourteen
+    of them had been resting on other guesses.
+    """
+
+    def setUp(self):
+        self.memory = Memory()
+        self.reasoning = Reasoning(self.memory)
+        self.induction = Induction(self.memory, self.reasoning)
+
+    def test_a_rule_is_not_built_on_inferred_children(self):
+        self.memory.write(Edge("serçe", IS_A, "kuş", source="sen"))
+        self.memory.write(Edge("kartal", IS_A, "kuş", source="sen"))
+        self.memory.write(Edge("serçe", CAN, "uçmak", source=INFERRED,
+                               confidence=0.45))
+        self.memory.write(Edge("kartal", CAN, "uçmak", source=INFERRED,
+                               confidence=0.45))
+        self.assertIsNone(self.induction.propose())
+
+    def test_the_same_facts_from_a_teacher_do_support_a_rule(self):
+        self.memory.write(Edge("serçe", IS_A, "kuş", source="sen"))
+        self.memory.write(Edge("kartal", IS_A, "kuş", source="sen"))
+        self.memory.write(Edge("serçe", CAN, "uçmak", source="sen"))
+        self.memory.write(Edge("kartal", CAN, "uçmak", source="sen"))
+        self.assertIsNotNone(self.induction.propose())
+
+    def test_a_stranger_is_not_placed_by_guessed_behaviour(self):
+        self.memory.write(Edge("kuş", CAN, "uçmak", source="sen"))
+        self.memory.write(Edge("kuş", HAS_PROPERTY, "tüylü", source="sen"))
+        self.memory.write(Edge("pelikan", CAN, "uçmak", source=INFERRED,
+                               confidence=0.45))
+        self.memory.write(Edge("pelikan", HAS_PROPERTY, "tüylü", source=INFERRED,
+                               confidence=0.45))
+        self.assertEqual(self.induction.placements(), [])
+
+
+class TestPlacingAStranger(unittest.TestCase):
+    """Reasoning from the known to the unknown: something that behaves like a
+    bird is probably a bird, said as a guess and beaten by any correction."""
+
+    def setUp(self):
+        self.memory = Memory()
+        self.reasoning = Reasoning(self.memory)
+        self.induction = Induction(self.memory, self.reasoning)
+        for edge in (Edge("kuş", CAN, "uçmak", source="sen"),
+                     Edge("kuş", HAS_PROPERTY, "tüylü", source="sen"),
+                     Edge("kuş", IS_A, "hayvan", source="sen")):
+            self.memory.write(edge)
+
+    def _teach_pelican(self):
+        self.memory.write(Edge("pelikan", CAN, "uçmak", source="sen"))
+        self.memory.write(Edge("pelikan", HAS_PROPERTY, "tüylü", source="sen"))
+
+    def test_behaviour_suggests_a_category(self):
+        self._teach_pelican()
+        hypothesis = self.induction.propose()
+        self.assertEqual((hypothesis.concept, hypothesis.relation,
+                          hypothesis.target), ("pelikan", IS_A, "kuş"))
+
+    def test_one_shared_habit_is_not_enough(self):
+        self.memory.write(Edge("pelikan", CAN, "uçmak", source="sen"))
+        self.assertEqual(self.induction.placements(), [])
+
+    def test_a_concept_that_knows_what_it_is_stays_put(self):
+        self._teach_pelican()
+        self.memory.write(Edge("pelikan", IS_A, "memeli", source="sen"))
+        self.assertEqual(self.induction.placements(), [])
+
+    def test_the_placement_unlocks_what_its_kind_knows(self):
+        self._teach_pelican()
+        self.induction.learn(self.induction.propose())
+        self.assertIn("hayvan", self.reasoning.ancestors("pelikan"))
+
+
 if __name__ == "__main__":
     unittest.main()
