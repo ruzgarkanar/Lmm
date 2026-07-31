@@ -1,3 +1,4 @@
+.env
 memory.json
 *.json.tmp
 __pycache__/
