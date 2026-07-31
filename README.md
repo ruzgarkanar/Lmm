@@ -41,6 +41,35 @@ Programı kapatıp yeniden açın: hatırlar, bir daha sormaz.
 
 Her sütunun çalıştığının kanıtı: `tests/test_proof_scenarios.py`.
 
+## Bellek Paketleri — LMM'in "model dosyası"
+
+Bir LLM ağırlık dosyası olarak dağıtılır: kimsenin okuyamadığı milyarlarca sayı.
+LMM'de dağıtılan şey **Bellek Paketi**dir: okunabilir, diff'lenebilir, tek tek
+silinebilir bilgiler — her biri kaynağıyla birlikte.
+
+```bash
+python3 -m lmm.pack export memory.json kuslar-tr.json kuslar-tr   # paketle
+python3 -m lmm.pack merge  memory.json kuslar-tr.json             # kur
+```
+
+Kurduktan sonra sistem bilgiyi nereden aldığını söyler:
+
+```
+> penguen nedir
+penguen bir kuştur (kaynak: kuslar-tr@1.0).
+```
+
+Ağırlık dosyalarının yapamadığı üç şey:
+
+- **Birleştirme çelişkiyi ortaya çıkarır.** İki paket aynı konuda ters şey
+  söylüyorsa LMM ortalama almaz, sessizce taraf tutmaz — çelişkiyi raporlar,
+  bilgi yazılmaz.
+- **İstisnalar paketle seyahat eder.** "Kuşlar uçar" ile birlikte "penguen
+  uçamaz" da taşınır; alıcı sistem çıkarımı doğru yapar.
+- **Unutma gerçektir.** `memory.forget("penguen")` → sistem gerçekten bilmez
+  hale gelir, "bilmiyorum" demeye döner. Eğitilmiş ağırlıklardan seçici silme
+  pratikte imkânsızken burada bir liste filtresi.
+
 ## Organlar
 
 | Modül | Görev |
