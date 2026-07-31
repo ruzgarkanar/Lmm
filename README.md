@@ -58,6 +58,22 @@ penguen tüylü ve siyahtır.
 bir çelişki fark ettim: şu an bildiğim: penguen bir kuş çünkü kuş tüylüdür...
 ```
 
+## Üretkenlik — bildiğinden paragraf kurmak
+
+```
+> penguen anlat
+Penguen bir kuştur, kuş da bir canlıdır. Kuş uçar ama penguen uçamaz.
+Kuş olduğu için tüylüdür. Ayrıca yüzer.
+```
+
+Bu paragrafı kimse yazmadı. Sistem ne söyleyeceğini seçti, sıraya koydu ve
+bağlaçlarla birleştirdi — istisnaya "ama" verdi, çünkü onun istisna olduğunu
+biliyor. Bir LLM akıcı yazarken olası kelimeleri örnekler; uydurmasına da aynı
+mekanizma sebep olur. Burada her cümlecik bir bilgiye kadar izlenebilir.
+
+Yapmayacağı şey şiir yazmak. Bilgiden kompozisyon ile olasılık dağılımından
+kompozisyon farklı makinelerdir; bu, uyduramayan olan.
+
 ## Konuşabildikleri
 
 ```
@@ -265,6 +281,7 @@ Ağırlık dosyalarının yapamadığı üç şey:
 | `lmm/induction.py` | Tümevarım: örüntüden kural çıkarma, işaretleme |
 | `lmm/distill.py` | LLM'den bilgi damıtma, denetleyerek |
 | `lmm/harvest.py` | Merakın sorduğunu LLM'e sorup mutabakatla alma |
+| `lmm/exposition.py` | Bildiklerinden paragraf kurma |
 | `lmm/trust.py` | Kaynak güven sıralaması |
 | `lmm/lexicon.py` | Kelime dağarcığı — paketlerle büyür |
 | `lmm/pack.py` | Bellek paketi: dışa aktarma, kurma, çelişkili birleştirme |
