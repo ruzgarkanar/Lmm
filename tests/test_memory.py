@@ -24,13 +24,30 @@ class TestMemory(unittest.TestCase):
         self.assertIsNotNone(m.direct("kuş", CAN, "uçmak"))
         self.assertIsNone(m.direct("kuş", CANNOT, "uçmak"))
 
-    def test_repeated_teaching_raises_confidence(self):
+    def test_the_same_source_twice_is_not_corroboration(self):
+        """One mistake repeated is still one mistake."""
         m = Memory()
-        first = m.write(Edge("kedi", IS_A, "hayvan", confidence=0.6))
-        second = m.write(Edge("kedi", IS_A, "hayvan", confidence=0.6))
+        first = m.write(Edge("kedi", IS_A, "hayvan", source="sen"))
+        before = first.confidence
+        second = m.write(Edge("kedi", IS_A, "hayvan", source="sen"))
         self.assertIs(first, second)  # no duplicate edge is added
-        self.assertAlmostEqual(first.confidence, 0.8)
+        self.assertEqual(first.confidence, before)
         self.assertEqual(len(m.edges), 1)
+
+    def test_an_independent_source_raises_confidence(self):
+        m = Memory()
+        edge = m.write(Edge("kedi", IS_A, "hayvan", source="ansiklopedi.txt"))
+        before = edge.confidence
+        m.write(Edge("kedi", IS_A, "hayvan", source="sozluk.txt"))
+        self.assertGreater(edge.confidence, before)
+        self.assertEqual(edge.sources, ["ansiklopedi.txt", "sozluk.txt"])
+
+    def test_answers_cite_the_strongest_voice(self):
+        m = Memory()
+        edge = m.write(Edge("kedi", IS_A, "hayvan", source="llm:claude"))
+        m.write(Edge("kedi", IS_A, "hayvan", source="sen"))
+        self.assertEqual(edge.source, "sen")
+        self.assertIn("llm:claude", edge.sources)
 
     def test_type_cycle_rejected(self):
         m = Memory()

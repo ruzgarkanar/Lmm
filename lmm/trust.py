@@ -21,6 +21,8 @@ INFERENCE = "çıkarım"
 DISTILLED_PREFIX = "llm:"
 
 CONFIDENCE = {HUMAN: 0.6, DOCUMENT: 0.6, DISTILLED: 0.5, INFERRED: 0.45}
+CORROBORATION = 0.15    # what one more independent source is worth
+CEILING = 0.98          # certainty is never reached, only approached
 
 
 def distilled_source(model_name):
@@ -43,3 +45,17 @@ def confidence_for(source):
 
 def outranks(source, other):
     return level(source) > level(other)
+
+
+def confidence_from(sources):
+    """How sure to be, given everyone who has said it.
+
+    The best source sets the floor and each further *independent* one raises it.
+    Hearing the same thing twice from the same place is not corroboration; that
+    is how a single mistake becomes a consensus of one.
+    """
+    if not sources:
+        return CONFIDENCE[INFERRED]
+    distinct = list(dict.fromkeys(sources))
+    best = max(confidence_for(source) for source in distinct)
+    return min(CEILING, best + CORROBORATION * (len(distinct) - 1))
