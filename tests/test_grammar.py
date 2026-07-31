@@ -213,5 +213,45 @@ class TestInducingPatternsWithNobodyLabelling(unittest.TestCase):
         self.assertEqual(found, [])
 
 
+class TestConceptsMadeOfSeveralWords(unittest.TestCase):
+    """Real domain knowledge is terms, not single words.
+
+    "müşteri bakiyesi", "kredi tahsisi", "tool broker" — every concept in this
+    system used to be one token, which is why a real banking paper taught it
+    almost nothing.
+    """
+
+    def setUp(self):
+        self.intuition = Intuition()
+
+    def _read(self, sentence):
+        intent = self.intuition.understand(sentence)
+        return intent.kind, intent.relation, intent.concept, intent.target
+
+    def test_a_term_is_held_together(self):
+        self.assertEqual(self._read("müşteri bakiyesi bir bilgi türüdür"),
+                         (TEACH, IS_A, "müşteri bakiyesi", "bilgi türü"))
+
+    def test_the_subject_takes_the_modifiers_and_the_predicate_stays_short(self):
+        """It once read this as 'müşteri' being 'bakiyesi gizli'."""
+        self.assertEqual(self._read("müşteri bakiyesi gizlidir"),
+                         (TEACH, HAS_PROPERTY, "müşteri bakiyesi", "gizli"))
+
+    def test_terms_work_in_questions_too(self):
+        self.assertEqual(self._read("müşteri bakiyesi gizli mi"),
+                         (ASK, HAS_PROPERTY, "müşteri bakiyesi", "gizli"))
+
+    def test_single_word_sentences_read_exactly_as_before(self):
+        self.assertEqual(self._read("kuşlar uçar"), (TEACH, CAN, "kuş", "uçmak"))
+        self.assertEqual(self._read("kar beyazdır"),
+                         (TEACH, HAS_PROPERTY, "kar", "beyaz"))
+        self.assertEqual(self._read("penguen bir kuştur"),
+                         (TEACH, IS_A, "penguen", "kuş"))
+
+    def test_a_verb_is_never_swallowed_by_the_subject(self):
+        """Descending widths once broke out of the search on the first try."""
+        self.assertEqual(self._read("kuşlar uçar")[3], "uçmak")
+
+
 if __name__ == "__main__":
     unittest.main()
