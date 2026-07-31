@@ -18,12 +18,20 @@ class TestLearningLoop(unittest.TestCase):
         self.assertIn("öğrendim", message)
         self.assertIsNotNone(self.memory.direct("penguen", IS_A, "kuş"))
 
-    def test_repetition_reinforces(self):
+    def test_repetition_is_recognised_as_already_known(self):
         intent = Intent(TEACH, concept="kedi", relation=IS_A, target="hayvan")
-        self.loop.teach(intent)
+        _, _, first = self.loop.teach(intent)
+        before = first.confidence
         status, _, edge = self.loop.teach(intent)
         self.assertEqual(status, REINFORCED)
-        self.assertGreater(edge.confidence, 0.6)
+        self.assertEqual(edge.confidence, before)   # the same voice, twice
+
+    def test_a_second_source_actually_reinforces(self):
+        intent = Intent(TEACH, concept="kedi", relation=IS_A, target="hayvan")
+        _, _, edge = self.loop.teach(intent, source="kitap.txt")
+        before = edge.confidence
+        self.loop.teach(intent, source="ansiklopedi.txt")
+        self.assertGreater(edge.confidence, before)
 
     def test_conflict_is_not_written_and_asks(self):
         self.loop.teach(Intent(TEACH, concept="kuş", relation=CAN, target="uçmak"))

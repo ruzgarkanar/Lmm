@@ -14,7 +14,7 @@ from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,  # noqa: F401
                            PLACE, SOURCE, OBJECT)
 
 from lmm.lexicon import Lexicon, current
-from lmm.trust import INFERENCE, confidence_for
+from lmm.trust import INFERENCE, confidence_for, confidence_from, outranks
 
 FORMAT_VERSION = 3
 
@@ -29,22 +29,36 @@ class CycleError(Exception):
 
 class Edge:
     def __init__(self, concept, relation, target, object=None, role=None,
-                 source="unknown", confidence=0.6, is_exception=False,
-                 timestamp=None):
+                 source="unknown", confidence=None, is_exception=False,
+                 timestamp=None, sources=None):
         self.concept = concept
         self.relation = relation        # IS_A | CAN | CANNOT
         self.target = target
         self.object = object            # a second concept, if the sentence had one
         self.role = role                # what that concept is doing there
         self.source = source
-        self.confidence = confidence
+        # Everyone who has independently said this. The strongest of them is
+        # what answers cite; how many there are is what confidence rests on.
+        self.sources = list(sources) if sources else [source]
+        # Unless a caller insists, how sure to be follows from who said it.
+        self.confidence = (confidence if confidence is not None
+                           else confidence_from(self.sources))
         self.is_exception = is_exception
         self.timestamp = timestamp if timestamp is not None else time.time()
+
+    def corroborate(self, source):
+        """Another voice for a fact already held. Independent ones count."""
+        if source not in self.sources:
+            self.sources.append(source)
+        if outranks(source, self.source):
+            self.source = source        # answers cite the strongest voice
+        self.confidence = confidence_from(self.sources)
+        return self
 
     def to_dict(self):
         return {"concept": self.concept, "relation": self.relation,
                 "target": self.target, "object": self.object, "role": self.role,
-                "source": self.source,
+                "source": self.source, "sources": self.sources,
                 "confidence": self.confidence, "is_exception": self.is_exception,
                 "timestamp": self.timestamp}
 
@@ -149,7 +163,7 @@ class Memory:
         existing = self.direct(edge.concept, edge.relation, edge.target,
                                edge.object, edge.role)
         if existing is not None:
-            existing.confidence = min(1.0, existing.confidence + 0.2)
+            existing.corroborate(edge.source)
             return existing
         self.edges.append(edge)
         self._index(edge)

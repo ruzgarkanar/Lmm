@@ -56,12 +56,16 @@ class TestMerge(unittest.TestCase):
         self.assertEqual(memory.direct("penguen", IS_A, "kuş").source, "kuslar@2.1")
 
     def test_known_facts_are_reinforced_not_duplicated(self):
+        """A pack agreeing with a person is a second, independent voice."""
         memory = Memory()
-        memory.write(Edge("penguen", IS_A, "kuş", source="sen", confidence=0.6))
+        memory.write(Edge("penguen", IS_A, "kuş", source="sen"))
+        before = memory.direct("penguen", IS_A, "kuş").confidence
         report = merge_pack(memory, self.pack)
         self.assertEqual(len(report.reinforced), 1)
         self.assertEqual(len(report.added), 1)
-        self.assertAlmostEqual(memory.direct("penguen", IS_A, "kuş").confidence, 0.8)
+        edge = memory.direct("penguen", IS_A, "kuş")
+        self.assertGreater(edge.confidence, before)
+        self.assertEqual(len(edge.sources), 2)
 
     def test_declared_exceptions_travel_with_the_pack(self):
         """A pack's exceptions are its most valuable knowledge — they must survive.
