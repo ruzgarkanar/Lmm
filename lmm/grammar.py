@@ -56,18 +56,19 @@ def _widths(slot):
 
 class Pattern:
     def __init__(self, tokens, kind, relation=None, concept=None, target=None,
-                 name=""):
+                 name="", object=None):
         self.tokens = tokens
         self.kind = kind
         self.relation = relation
         self.concept = concept      # slot index, or None if the sentence omits it
         self.target = target
+        self.object = object        # where the object sits — a matter of language
         self.name = name or " ".join(tokens)
 
     def to_dict(self):
         return {"tokens": self.tokens, "kind": self.kind,
                 "relation": self.relation, "concept": self.concept,
-                "target": self.target, "name": self.name}
+                "target": self.target, "object": self.object, "name": self.name}
 
     @staticmethod
     def from_dict(data):
@@ -167,13 +168,14 @@ class Grammar:
         return None
 
     def read(self, pattern, captured):
-        """Turn a match into (kind, relation, concept, target)."""
+        """Turn a match into (kind, relation, concept, target, object)."""
         concept = self._slot_value(pattern, captured, pattern.concept)
         target = self._slot_value(pattern, captured, pattern.target)
+        obj = self._slot_value(pattern, captured, pattern.object)
         relation = pattern.relation
         if relation == FROM_VERB:
             relation = CAN if self._polarity(pattern, captured) else CANNOT
-        return pattern.kind, relation, concept, target
+        return pattern.kind, relation, concept, target, obj
 
     def _slot_value(self, pattern, captured, index):
         if index is None:

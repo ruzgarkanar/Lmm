@@ -85,8 +85,14 @@ PATTERNS = [
     Pattern([KAVRAM, "bir", TUR, SORU], ASK, IS_A, 0, 2, "bir X mı"),
     Pattern([KAVRAM, "nedir"], ASK, IS_A, 0, None, "nedir"),
     Pattern([KAVRAM, "ne"], ASK, IS_A, 0, None, "ne"),
+    # Turkish puts the object before the verb. Which position it takes is a
+    # fact about a language, so it sits in this list and nowhere else.
+    Pattern([KAVRAM, KAVRAM, FIIL, SORU], ASK, CAN, 0, 2, "fare yakalar mı",
+            object=1),
     Pattern([KAVRAM, FIIL, SORU], ASK, CAN, 0, 1, "uçar mı"),
     Pattern([KAVRAM, "bir", TUR], TEACH, IS_A, 0, 2, "bir kuştur"),
+    Pattern([KAVRAM, KAVRAM, FIIL], TEACH, FROM_VERB, 0, 2, "fare yakalar",
+            object=1),
     Pattern([KAVRAM, FIIL], TEACH, FROM_VERB, 0, 1, "uçar"),
     Pattern([KAVRAM, SOZ, SORU], ASK, HAS_PROPERTY, 0, 1, "beyaz mı"),
     Pattern([KAVRAM, NITELIK], TEACH, HAS_PROPERTY, 0, 1, "beyazdır"),

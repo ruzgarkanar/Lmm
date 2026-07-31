@@ -21,10 +21,11 @@ class TestMatching(unittest.TestCase):
         self.lexicon = Lexicon()
 
     def _read(self, sentence):
+        """(kind, relation, concept, target) — the object is checked elsewhere."""
         tokens = sentence.split()
         pattern, captured = self.grammar.match(tokens, self.lexicon)
         self.assertIsNotNone(pattern, sentence)
-        return self.grammar.read(pattern, captured)
+        return self.grammar.read(pattern, captured)[:4]
 
     def test_a_type_lesson(self):
         self.assertEqual(self._read("penguen bir kuştur"),
@@ -46,7 +47,7 @@ class TestMatching(unittest.TestCase):
 
     def test_order_decides_between_two_shapes(self):
         """"kim uçar" and "kuşlar uçar" have the same shape."""
-        kind, _, _, _ = self._read("kim uçar")
+        kind = self._read("kim uçar")[0]
         self.assertEqual(kind, "ASK_WHO")
 
     def test_a_sentence_with_no_pattern_does_not_match(self):
