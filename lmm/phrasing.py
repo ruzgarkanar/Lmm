@@ -6,17 +6,7 @@ labels never leak into what the system says, and a second language would mean
 swapping this file alone.
 """
 from lmm.relations import IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY
-
-# Verb lexicon of the controlled world: surface form -> (infinitive, is_positive)
-VERBS = {
-    "uçar": ("uçmak", True), "uçamaz": ("uçmak", False),
-    "yüzer": ("yüzmek", True), "yüzemez": ("yüzmek", False),
-    "koşar": ("koşmak", True), "koşamaz": ("koşmak", False),
-    "okur": ("okumak", True), "okuyamaz": ("okumak", False),
-    "içer": ("içmek", True), "içemez": ("içmek", False),
-    "konuşur": ("konuşmak", True), "konuşamaz": ("konuşmak", False),
-}
-_SURFACE_FORMS = {value: surface for surface, value in VERBS.items()}
+from lmm.lexicon import ACTIVE
 
 _BACK_UNROUNDED = "aı"
 _FRONT_UNROUNDED = "ei"
@@ -48,9 +38,9 @@ def question_particle(word):
     return "m" + _harmony_vowel(word)
 
 
-def verb_form(infinitive, positive):
+def verb_form(infinitive, positive, lexicon=None):
     """"uçmak", True -> "uçar"; "uçmak", False -> "uçamaz"."""
-    return _SURFACE_FORMS.get((infinitive, positive), infinitive)
+    return (lexicon or ACTIVE).surface(infinitive, positive)
 
 
 def is_a_clause(concept, target):
@@ -122,6 +112,36 @@ def ability_question(concept, action):
     """penguen, yüzmek -> "penguen yüzer mi?"."""
     verb = verb_form(action, True)
     return f"{concept} {verb} {question_particle(verb)}?"
+
+
+# One sample sentence per shape, used to guess at what a teacher meant.
+SHAPE_EXAMPLES = {
+    "TEACH_TYPE": "penguen bir kuştur",
+    "TEACH_NOT_TYPE": "penguen bir memeli değildir",
+    "TEACH_ABILITY": "kuşlar uçar",
+    "TEACH_PROPERTY": "kuşlar tüylüdür",
+    "TEACH_NOT_PROPERTY": "penguen tüylü değildir",
+    "ASK_DEFINITION": "penguen nedir",
+    "ASK_ABILITY": "penguen uçar mı",
+    "ASK_PROPERTY": "penguen tüylü mü",
+    "ASK_WHO": "kimler uçar",
+    "ASK_ABILITIES": "penguen ne yapabilir",
+    "ASK_PROPERTIES": "penguen nasıldır",
+    "ASK_WHY": "penguen neden uçamaz",
+}
+
+KNOWN_SHAPES = ("'penguen bir kuştur', 'kuşlar uçar', 'kuşlar tüylüdür', "
+                "'penguen nedir', 'penguen uçar mı', 'kimler uçar', "
+                "'penguen ne yapabilir', 'penguen neden uçamaz'")
+
+
+def not_understood(resembles=None):
+    """What to say when nothing parsed — with a guess, if there is one."""
+    example = SHAPE_EXAMPLES.get(resembles)
+    if example:
+        return (f"bunu anlamadım. '{example}' gibi bir şey mi demek istedin? "
+                f"kelimelerinden birini bilmiyor olabilirim.")
+    return f"bunu anlamadım. şu kalıpları biliyorum: {KNOWN_SHAPES}."
 
 
 def wondering(question):

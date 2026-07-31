@@ -6,7 +6,7 @@ organ can stay small.
 """
 from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
                            LACKS_PROPERTY)
-from lmm.phrasing import VERBS
+from lmm.lexicon import ACTIVE
 from lmm.language import LanguageOrgan
 
 PUNCTUATION = ".,!?;:\"'"
@@ -48,34 +48,45 @@ class Intent:
         self.relation = relation    # IS_A | CAN | CANNOT
         self.target = target
         self.confidence = confidence
+        self.resembles = None       # shape the network saw, when nothing parsed
+        self.resemblance = 0.0
 
 
 class Intuition(LanguageOrgan):
-    def __init__(self, network=None):
+    def __init__(self, network=None, lexicon=None):
         self.network = network      # MiniNetwork supplies the confidence signal
+        self.lexicon = lexicon or ACTIVE
 
     def understand(self, sentence):
+        """A matched pattern is the evidence; the network speaks when none matched.
+
+        The parser is deterministic, so overriding a successful parse with a
+        network score only ever invents doubt — an earlier version refused a
+        perfectly good sentence because its subject was a word it had never met.
+        When nothing matches, the network says what the sentence resembles, so
+        the system can guess at what you meant instead of shrugging.
+        """
         tokens = tokenize(sentence)
         intent = self._parse_pattern(tokens)
-        if self.network is not None:
-            _, confidence = self.network.predict(tokens)
-            intent.confidence = confidence
+        if intent.kind == UNKNOWN and self.network is not None and tokens:
+            intent.resembles, intent.resemblance = self.network.predict(
+                tokens, self.lexicon)
         return intent
 
     def _parse_pattern(self, tokens):
         # Questions come first: "kim uçar" also fits the teaching shape
         # "X(lar) <verb>", and reading it as a lesson would be wrong.
         # "kimler <verb>" / "ne <verb>"
-        if len(tokens) == 2 and tokens[0] in INTERROGATIVES and tokens[1] in VERBS:
-            infinitive, positive = VERBS[tokens[1]]
+        if len(tokens) == 2 and tokens[0] in INTERROGATIVES and self.lexicon.knows(tokens[1]):
+            infinitive, positive = self.lexicon.reading(tokens[1])
             return Intent(ASK_WHO, relation=CAN if positive else CANNOT,
                           target=infinitive)
         # "X ne yapabilir"
         if len(tokens) == 3 and tokens[1] == "ne" and tokens[2] == "yapabilir":
             return Intent(ASK_ABILITIES, concept=tokens[0])
         # "X neden <verb>"
-        if len(tokens) == 3 and tokens[1] == "neden" and tokens[2] in VERBS:
-            infinitive, positive = VERBS[tokens[2]]
+        if len(tokens) == 3 and tokens[1] == "neden" and self.lexicon.knows(tokens[2]):
+            infinitive, positive = self.lexicon.reading(tokens[2])
             return Intent(ASK_WHY, concept=_strip_suffix(tokens[0], PLURAL_SUFFIXES),
                           relation=CAN if positive else CANNOT, target=infinitive)
         # "X nasıldır"
@@ -96,8 +107,8 @@ class Intuition(LanguageOrgan):
         if len(tokens) == 2 and tokens[1] == "nedir":
             return Intent(ASK, concept=tokens[0], relation=IS_A)
         # "X <verb> mı"
-        if len(tokens) == 3 and tokens[2] in QUESTION_PARTICLES and tokens[1] in VERBS:
-            infinitive, _ = VERBS[tokens[1]]
+        if len(tokens) == 3 and tokens[2] in QUESTION_PARTICLES and self.lexicon.knows(tokens[1]):
+            infinitive, _ = self.lexicon.reading(tokens[1])
             return Intent(ASK, concept=_strip_suffix(tokens[0], PLURAL_SUFFIXES),
                           relation=CAN, target=infinitive)
         # "X bir Y(dır)"
@@ -105,8 +116,8 @@ class Intuition(LanguageOrgan):
             return Intent(TEACH, concept=tokens[0], relation=IS_A,
                           target=_strip_suffix(tokens[2], COPULA_SUFFIXES))
         # "X(lar) <verb>"
-        if len(tokens) == 2 and tokens[1] in VERBS:
-            infinitive, positive = VERBS[tokens[1]]
+        if len(tokens) == 2 and self.lexicon.knows(tokens[1]):
+            infinitive, positive = self.lexicon.reading(tokens[1])
             return Intent(TEACH, concept=_strip_suffix(tokens[0], PLURAL_SUFFIXES),
                           relation=CAN if positive else CANNOT, target=infinitive)
         # "X Y mı" — a property question, once the verb reading is ruled out

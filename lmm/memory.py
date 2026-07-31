@@ -11,7 +11,9 @@ from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,  # noqa: F401
                            LACKS_PROPERTY, TYPE_RELATIONS, ABILITY_RELATIONS,
                            PROPERTY_RELATIONS)
 
-FORMAT_VERSION = 2
+from lmm.lexicon import ACTIVE
+
+FORMAT_VERSION = 3
 
 
 class CycleError(Exception):
@@ -51,6 +53,16 @@ class Memory:
     def __init__(self):
         self.edges = []
         self.asked = set()
+        self.vocabulary = []    # words learned beyond the core lexicon
+
+    def learn_word(self, infinitive, positive, negative, lexicon=None):
+        """Add a verb to what this memory knows how to say, and can hear."""
+        entry = {"infinitive": infinitive, "positive": positive,
+                 "negative": negative}
+        if entry not in self.vocabulary:
+            self.vocabulary.append(entry)
+        (lexicon or ACTIVE).learn_verb(infinitive, positive, negative)
+        return entry
 
     def mark_asked(self, key):
         self.asked.add(key)
@@ -132,7 +144,8 @@ class Memory:
     def save(self, path):
         payload = {"format": FORMAT_VERSION,
                    "edges": [e.to_dict() for e in self.edges],
-                   "asked": sorted(self.asked)}
+                   "asked": sorted(self.asked),
+                   "vocabulary": self.vocabulary}
         temp = path + ".tmp"
         with open(temp, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=1)
@@ -149,6 +162,8 @@ class Memory:
             else:
                 memory.edges = [Edge.from_dict(d) for d in data["edges"]]
                 memory.asked = set(data.get("asked", []))
+                for word in data.get("vocabulary", []):
+                    memory.learn_word(**word)   # words come back with the facts
         except (OSError, ValueError, KeyError, TypeError):
             pass  # missing or corrupt file: start with an empty memory
         return memory

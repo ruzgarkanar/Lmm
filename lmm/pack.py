@@ -17,9 +17,11 @@ FORMAT_VERSION = 1
 
 
 class Pack:
-    def __init__(self, name, facts, version="1.0", author="unknown", created=None):
+    def __init__(self, name, facts, vocabulary=None, version="1.0",
+                 author="unknown", created=None):
         self.name = name
-        self.facts = facts          # list of Edge
+        self.facts = facts                      # list of Edge
+        self.vocabulary = vocabulary or []      # words the facts need
         self.version = version
         self.author = author
         self.created = created if created is not None else time.time()
@@ -32,12 +34,14 @@ class Pack:
     def to_dict(self):
         return {"format": FORMAT_VERSION, "name": self.name, "version": self.version,
                 "author": self.author, "created": self.created,
+                "vocabulary": self.vocabulary,
                 "facts": [e.to_dict() for e in self.facts]}
 
     @staticmethod
     def from_dict(data):
         return Pack(name=data["name"], version=data.get("version", "1.0"),
                     author=data.get("author", "unknown"), created=data.get("created"),
+                    vocabulary=data.get("vocabulary", []),
                     facts=[Edge.from_dict(f) for f in data["facts"]])
 
 
@@ -45,6 +49,7 @@ class MergeReport:
     def __init__(self):
         self.added = []
         self.reinforced = []
+        self.words = []          # vocabulary the pack brought with it
         self.conflicts = []      # (edge, explanation) pairs, never written
 
     @property
@@ -53,7 +58,8 @@ class MergeReport:
 
 
 def export_pack(memory, path, name, version="1.0", author="unknown"):
-    pack = Pack(name=name, version=version, author=author, facts=list(memory.edges))
+    pack = Pack(name=name, version=version, author=author,
+                facts=list(memory.edges), vocabulary=list(memory.vocabulary))
     with open(path, "w", encoding="utf-8") as f:
         json.dump(pack.to_dict(), f, ensure_ascii=False, indent=1)
     return pack
@@ -86,6 +92,9 @@ def merge_pack(memory, pack, reasoning=None):
     """
     reasoning = reasoning if reasoning is not None else Reasoning(memory)
     report = MergeReport()
+    for word in pack.vocabulary:        # words first: the facts are said with them
+        memory.learn_word(**word)
+        report.words.append(word)
     for fact in pack.facts:
         candidate = Edge(fact.concept, fact.relation, fact.target,
                          source=pack.provenance, confidence=fact.confidence,
@@ -115,8 +124,8 @@ def main(argv):
     if command == "merge":
         report = merge_pack(memory, read_pack(pack_path))
         memory.save(memory_path)
-        print(f"{len(report.added)} yeni, {len(report.reinforced)} pekişen, "
-              f"{len(report.conflicts)} çelişkili bilgi.")
+        print(f"{len(report.words)} yeni kelime, {len(report.added)} yeni bilgi, "
+              f"{len(report.reinforced)} pekişen, {len(report.conflicts)} çelişkili.")
         for edge, explanation in report.conflicts:
             print(f"  çelişki: {edge.concept} — {explanation}")
         return 0
