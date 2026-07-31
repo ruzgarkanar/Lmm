@@ -154,11 +154,39 @@ class Session:
         self.memory.save(self.path)
 
 
+HELP = """
+ÖĞRETMEK                          SORMAK
+  penguen bir kuştur                penguen nedir
+  penguen bir memeli değildir       penguen bir kuş mu
+  kuşlar uçar                       penguen uçar mı
+  penguen uçamaz                    kimler uçar
+  kuşlar tüylüdür                   penguen tüylü mü
+  bazı kuşlar uçmaz                 bazı kuşlar uçar mı
+  kuşun kanadı var                  kuşun kanadı var mı
+  penguen kutupta yaşar             penguen neden uçamaz
+  kediler fare yakalar              penguen ne yapabilir
+  kartal serçeden büyüktür          penguen nasıldır
+  kelime: koşmak = koşar / koşamaz  penguen anlat
+                                    17 çarpı 43 kaç
+
+  Konuşmayı sürdürür: "peki yüzer mi", "anlat", "nasıldır"
+  Komutlar: yardım · durum · çık
+"""
+
+
+def _status(session):
+    memory = session.memory
+    return (f"{len(memory.edges)} bilgi · {len(memory.concepts())} kavram · "
+            f"{len(memory.vocabulary)} öğrenilmiş kelime · "
+            f"{len(memory.kinds.known())} ilişki türü")
+
+
 def main():
     path = sys.argv[1] if len(sys.argv) > 1 else "memory.json"
     session = Session(path)
-    print(f"LMM v0 — yaşayan bellek: {path} ({len(session.memory.edges)} bilgi)")
-    print("öğret: 'penguen bir kuştur' | sor: 'penguen uçar mı' | çık: 'çık'")
+    print(f"LMM — yaşayan bellek: {path}")
+    print(f"  {_status(session)}")
+    print("  'yardım' yazarsan ne söyleyebileceğini gösteririm.")
     while True:
         try:
             line = input("> ").strip()
@@ -168,6 +196,12 @@ def main():
             continue
         if lower(line) in EXIT_WORDS:
             break
+        if lower(line) in ("yardım", "yardim", "help", "?"):
+            print(HELP)
+            continue
+        if lower(line) in ("durum", "istatistik"):
+            print("  " + _status(session))
+            continue
         print(session.respond(line))
         session.save()
     session.save()
