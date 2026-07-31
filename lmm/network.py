@@ -25,7 +25,7 @@ CLASSES = ["TEACH_TYPE", "TEACH_NOT_TYPE", "TEACH_ABILITY", "TEACH_PROPERTY",
            "ASK_DESCRIBE"]
 
 FUNCTION_WORDS = ({"bir", "değildir", "nedir", "neden", "nasıldır", "nasıl",
-                   "yapabilir", "anlat"} | set(QUESTION_PARTICLES) | set(INTERROGATIVES))
+                   "yapabilir", "anlat", "nedir"} | set(QUESTION_PARTICLES) | set(INTERROGATIVES))
 
 CONCEPT = "<kavram>"
 CONCEPTS = "<kavram-çoğul>"
@@ -78,11 +78,16 @@ def _shapes():
         ([CONCEPT, "nasıldır"], "ASK_PROPERTIES"),
         ([CONCEPT, "nasıl"], "ASK_PROPERTIES"),
         ([CONCEPT, "anlat"], "ASK_DESCRIBE"),
+        (["anlat"], "ASK_DESCRIBE"),
+        (["nedir"], "ASK_DEFINITION"),
+        (["nasıldır"], "ASK_PROPERTIES"),
+        (["ne", "yapabilir"], "ASK_ABILITIES"),
     ]
     for particle in QUESTION_PARTICLES:
         examples.append(([CONCEPT, VERB, particle], "ASK_ABILITY"))
         examples.append(([CONCEPTS, VERB, particle], "ASK_ABILITY"))
         examples.append(([CONCEPT, CONCEPT, particle], "ASK_PROPERTY"))
+        examples.append(([VERB, particle], "ASK_ABILITY"))
     for interrogative in INTERROGATIVES:
         examples.append(([interrogative, VERB], "ASK_WHO"))
         examples.append(([interrogative, VERB_NEGATIVE], "ASK_WHO"))

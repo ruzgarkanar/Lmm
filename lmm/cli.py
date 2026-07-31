@@ -4,7 +4,8 @@ import sys
 from lmm.memory import Memory
 from lmm.reasoning import Reasoning
 from lmm.gate import EpistemicGate
-from lmm.intuition import Intuition, TEACH, ASK, UNKNOWN, lower
+from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
+                           PRONOUNS, lower)
 from lmm.learning import LearningLoop, CONFLICT, LEARNED, CORRECTED
 from lmm.induction import Induction
 from lmm.network import MiniNetwork
@@ -18,6 +19,7 @@ CONFIDENCE_THRESHOLD = 0.35
 RESEMBLANCE = 0.5       # below this, guessing at what you meant is noise
 AFFIRMATIVE = ("evet", "e")
 EXIT_WORDS = ("çık", "cik", "exit")
+SUBJECTLESS = (ASK_WHO, UNKNOWN)   # the only kinds that need no subject
 
 
 class Session:
@@ -37,11 +39,12 @@ class Session:
         self.pending = None   # an edge awaiting the teacher's confirmation
         self.goal = None      # a question it is still trying to earn the answer to
         self.goal_steps = set()
+        self.focus = None     # what "o" and a bare question refer to
 
     def respond(self, line):
         if self.pending is not None:
             return self._resolve_pending(line)
-        intent = self.language.understand(line)
+        intent = self._in_context(self.language.understand(line))
         if intent.kind == UNKNOWN or intent.confidence < CONFIDENCE_THRESHOLD:
             resembles = intent.resembles if intent.resemblance >= RESEMBLANCE else None
             return not_understood(resembles)
@@ -54,6 +57,23 @@ class Session:
         if status in (LEARNED, CORRECTED):
             return f"{message} {self._after_learning()}".strip()
         return message
+
+    def _in_context(self, intent):
+        """Fill in what the sentence left out, and remember what it was about.
+
+        Nothing here is a context window: knowledge is already permanent. This
+        only tracks the thread of the conversation, so "peki yüzer mi" means
+        what a person would take it to mean.
+        """
+        if intent.concept is None or intent.concept in PRONOUNS:
+            intent.concept = self.focus
+        elif intent.concept:
+            self.focus = intent.concept
+        if intent.concept is None and intent.kind not in SUBJECTLESS:
+            # Nothing said, nothing to carry on from: better to admit it than
+            # to answer about None.
+            return Intent(UNKNOWN, confidence=0.0)
+        return intent
 
     def _question(self, intent):
         if intent.kind == ASK and not self.pursuit.resolved(intent):
