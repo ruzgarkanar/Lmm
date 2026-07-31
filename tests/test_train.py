@@ -49,27 +49,27 @@ class TestARun(unittest.TestCase):
         export_pack(source, os.path.join(cls.directory, "ek.json"), name="ek")
 
         cls.model = os.path.join(cls.directory, "model.lmm")
-        cls.memory, cls.run = train(cls.directory, cls.model)
+        cls.memory, cls.report = train(cls.directory, cls.model)
 
     def test_every_kind_of_source_was_absorbed(self):
-        self.assertGreater(self.run.learned, 100)
-        self.assertGreater(self.run.words, 0)
+        self.assertGreater(self.report.learned, 100)
+        self.assertGreater(self.report.words, 0)
         self.assertIsNotNone(self.memory.direct("köstebek", CAN, "kazmak"))
 
     def test_contradictions_were_refused_and_attributed(self):
-        self.assertTrue(self.run.refused)
-        for source, concept, explanation in self.run.refused:
+        self.assertTrue(self.report.refused)
+        for source, concept, explanation in self.report.refused:
             self.assertTrue(source.endswith((".txt", ".json")))
             self.assertTrue(explanation)
 
     def test_unparsable_sentences_were_skipped_not_guessed(self):
         self.assertTrue(any("kalıpta" in sentence
-                            for _, sentence in self.run.skipped))
+                            for _, sentence in self.report.skipped))
 
     def test_it_formed_rules_of_its_own_and_marked_them(self):
-        self.assertTrue(self.run.rules)
+        self.assertTrue(self.report.rules)
         inferred = [e for e in self.memory.edges if e.source == INFERRED]
-        self.assertEqual(len(inferred), len(self.run.rules))
+        self.assertEqual(len(inferred), len(self.report.rules))
 
     def test_most_of_what_it_can_answer_was_never_written(self):
         stated, derived, guessed = evaluate(self.memory)
