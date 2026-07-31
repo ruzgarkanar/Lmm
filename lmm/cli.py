@@ -5,11 +5,13 @@ from lmm.memory import Memory
 from lmm.reasoning import Reasoning
 from lmm.gate import EpistemicGate
 from lmm.intuition import Intuition, TEACH, ASK, UNKNOWN
-from lmm.learning import LearningLoop, CONFLICT, LEARNED
+from lmm.learning import LearningLoop, CONFLICT, LEARNED, CORRECTED
+from lmm.induction import Induction
 from lmm.network import MiniNetwork
 from lmm.curiosity import Curiosity
 from lmm.pursuit import Pursuit
-from lmm.phrasing import wondering, not_understood, now_i_can
+from lmm.phrasing import (wondering, not_understood, now_i_can,
+                          generalising, describe)
 
 # A custom LanguageOrgan may report graded confidence; ours parses or does not.
 CONFIDENCE_THRESHOLD = 0.35
@@ -31,6 +33,7 @@ class Session:
         self.learning = LearningLoop(self.memory, reasoning)
         self.curiosity = Curiosity(self.memory, reasoning)
         self.pursuit = Pursuit(self.memory, reasoning)
+        self.induction = Induction(self.memory, reasoning)
         self.pending = None   # an edge awaiting the teacher's confirmation
         self.goal = None      # a question it is still trying to earn the answer to
         self.goal_steps = set()
@@ -48,7 +51,7 @@ class Session:
         if status == CONFLICT:
             self.pending = edge
             return message
-        if status == LEARNED:
+        if status in (LEARNED, CORRECTED):
             return f"{message} {self._after_learning()}".strip()
         return message
 
@@ -76,6 +79,12 @@ class Session:
                 self.goal_steps.add(step.key)
                 return step.text
             return ""
+        hypothesis = self.induction.propose()
+        if hypothesis is not None:
+            self.induction.learn(hypothesis)
+            return generalising(hypothesis.examples,
+                                describe(hypothesis.concept, hypothesis.relation,
+                                         hypothesis.target))
         question = self.curiosity.next_question()
         return wondering(question.text) if question is not None else ""
 

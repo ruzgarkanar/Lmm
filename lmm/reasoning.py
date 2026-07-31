@@ -6,7 +6,7 @@ says is unexplainable.
 from lmm.memory import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
                         TYPE_RELATIONS, ABILITY_RELATIONS, PROPERTY_RELATIONS)
 from lmm.phrasing import (ability_clause, property_clause, is_a_clause,
-                          is_not_a_clause)
+                          is_not_a_clause, attribution)
 
 
 class Reasoning:
@@ -30,14 +30,34 @@ class Reasoning:
 
         None means memory holds nothing on this — the caller must not guess.
         """
-        return self._inherited(concept, action, CAN, CANNOT, ability_clause)
+        answer, chain, _ = self._resolve(concept, action, CAN, CANNOT,
+                                         ability_clause)
+        return answer, chain
 
     def has_property(self, concept, prop):
         """Same shape as can_do, for "kar beyazdır" style knowledge."""
-        return self._inherited(concept, prop, HAS_PROPERTY, LACKS_PROPERTY,
-                               property_clause)
+        answer, chain, _ = self._resolve(concept, prop, HAS_PROPERTY,
+                                         LACKS_PROPERTY, property_clause)
+        return answer, chain
 
-    def _inherited(self, concept, target, affirms, denies, clause):
+    def basis(self, candidate):
+        """The edge behind the current belief about a candidate's claim.
+
+        Lets a caller ask *why* it believes something — in particular whether a
+        belief came from a teacher or from the system's own generalisation.
+        """
+        if candidate.relation in ABILITY_RELATIONS:
+            return self._resolve(candidate.concept, candidate.target, CAN,
+                                 CANNOT, ability_clause)[2]
+        if candidate.relation in PROPERTY_RELATIONS:
+            return self._resolve(candidate.concept, candidate.target,
+                                 HAS_PROPERTY, LACKS_PROPERTY,
+                                 property_clause)[2]
+        return self.memory.direct(candidate.concept,
+                                  IS_A if candidate.relation == NOT_A else NOT_A,
+                                  candidate.target)
+
+    def _resolve(self, concept, target, affirms, denies, clause):
         """Direct knowledge first, then the type hierarchy, nearest ancestor first.
 
         A direct fact always beats an inherited one — that is exactly what makes
@@ -47,14 +67,14 @@ class Reasoning:
             edge = self.memory.direct(concept, relation, target)
             if edge:
                 return polarity, [f"{clause(concept, target, polarity)} "
-                                  f"(doğrudan bilgi, kaynak: {edge.source})"]
+                                  f"({attribution(edge.source)})"], edge
         for ancestor in self.ancestors(concept):
             for polarity, relation in ((False, denies), (True, affirms)):
                 edge = self.memory.direct(ancestor, relation, target)
                 if edge:
                     return polarity, [f"{concept} bir {ancestor}",
-                                      clause(ancestor, target, polarity)]
-        return None, []
+                                      clause(ancestor, target, polarity)], edge
+        return None, [], None
 
     def abilities(self, concept):
         """[(action, True|False)] for every action this memory knows about."""

@@ -89,6 +89,42 @@ yetkiye sahip olmaz**, çünkü doğruluk bellekte yaşar ve cevabı kapı kurar
 session = Session("memory.json", language=BenimDilOrganım())
 ```
 
+## Tümevarım — kimsenin söylemediğini öğrenmek
+
+Verilen bilgileri zincirlemek öğrenmek değildir. Bir LLM'in asıl üstünlüğü
+**genelleme**dir: kimsenin yazmadığı şeyler hakkında cevap verebilir. LMM bunu
+açıkta yapar:
+
+```
+> serçe bir kuştur
+> kartal bir kuştur
+> serçe uçar
+> kartal uçar
+öğrendim: kartal uçar. şunu fark ettim: serçe ve kartal — sanırım kuş uçar.
+> güvercin bir kuştur
+> güvercin uçar mı
+evet, çünkü güvercin bir kuş ve kuş uçar.        ← kimse söylemedi
+```
+
+Kural, bilgi gibi belleğe yazılır ama **kaynağı sistemin kendisidir** ve güveni
+düşük tutulur:
+
+```
+> kuşlar uçar mı
+evet, çünkü kuş uçar (kendi çıkarımım).
+```
+
+En önemlisi, kendi tahminini savunmaz. Bir insan aksini söylediğinde tartışmadan
+geri adım atar — ama **öğretilmiş** bilgiyi aynı sertlikte korumaya devam eder:
+
+```
+> penguen uçamaz
+bunu çıkarımla varsaymıştım, seninkini üstün tutuyorum: penguen uçamaz.
+```
+
+Bir LLM de genelleme yapar. Ama sana genelleme yaptığını söyleyemez, kendisini
+ikna eden örnekleri gösteremez, ve tek bir noktada düzeltilemez.
+
 ## Okuyarak öğrenme — konuşmadan önce
 
 Sohbet tek giriş kanalı değil. Bir metin dosyası verildiğinde LMM anladığı
@@ -226,6 +262,7 @@ Ağırlık dosyalarının yapamadığı üç şey:
 | `lmm/curiosity.py` | Kendi boşluğunu fark etme ve soru sorma |
 | `lmm/pursuit.py` | Hedef takibi: eksik halkayı bulup isteme |
 | `lmm/reading.py` | Dokümandan öğrenme, atlama ve çelişki raporu |
+| `lmm/induction.py` | Tümevarım: örüntüden kural çıkarma, işaretleme |
 | `lmm/lexicon.py` | Kelime dağarcığı — paketlerle büyür |
 | `lmm/pack.py` | Bellek paketi: dışa aktarma, kurma, çelişkili birleştirme |
 | `lmm/phrasing.py` | Türkçe yüzey dili (ünlü uyumu dahil) |
