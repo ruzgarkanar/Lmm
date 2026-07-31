@@ -5,21 +5,22 @@ from lmm.memory import Memory
 from lmm.reasoning import Reasoning
 from lmm.gate import EpistemicGate
 from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
-                           PRONOUNS, lower)
+                           UNKNOWN_WORD, PRONOUNS, lower)
+from lmm.distill import split_words
 from lmm.learning import LearningLoop, CONFLICT, LEARNED, CORRECTED
 from lmm.induction import Induction
 from lmm.network import MiniNetwork
 from lmm.curiosity import Curiosity
 from lmm.pursuit import Pursuit
-from lmm.phrasing import (wondering, not_understood, now_i_can,
-                          generalising, describe)
+from lmm.phrasing import (wondering, not_understood, now_i_can, generalising,
+                          describe, teach_me_the_word, learned_word)
 
 # A custom LanguageOrgan may report graded confidence; ours parses or does not.
 CONFIDENCE_THRESHOLD = 0.35
 RESEMBLANCE = 0.5       # below this, guessing at what you meant is noise
 AFFIRMATIVE = ("evet", "e")
 EXIT_WORDS = ("çık", "cik", "exit")
-SUBJECTLESS = (ASK_WHO, UNKNOWN)   # the only kinds that need no subject
+SUBJECTLESS = (ASK_WHO, UNKNOWN, UNKNOWN_WORD)   # kinds needing no subject
 
 
 class Session:
@@ -44,7 +45,15 @@ class Session:
     def respond(self, line):
         if self.pending is not None:
             return self._resolve_pending(line)
+        words, rest = split_words(line)
+        if words:                       # "kelime: uçmak = uçar / uçamaz"
+            for infinitive, positive, negative in words:
+                self.memory.learn_word(infinitive, positive, negative)
+            infinitive, positive, negative = words[-1]
+            return learned_word(infinitive, positive, negative)
         intent = self._in_context(self.language.understand(line))
+        if intent.kind == UNKNOWN_WORD:
+            return teach_me_the_word(intent.target)
         if intent.kind == UNKNOWN or intent.confidence < CONFIDENCE_THRESHOLD:
             resembles = intent.resembles if intent.resemblance >= RESEMBLANCE else None
             return not_understood(resembles)

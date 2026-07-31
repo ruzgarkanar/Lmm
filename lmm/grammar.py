@@ -1,0 +1,169 @@
+"""Grammar as data, not as code.
+
+Sentence patterns used to be a chain of `if len(tokens) == 3 and ...` in the
+parser, which meant the system could learn any fact but not a single new way of
+saying one — and a second language would have meant a second parser.
+
+A pattern is knowledge like any other, so it lives in a list that can be added
+to, shipped in a pack, or worked out from an example. Nothing here is Turkish
+except the entries themselves; the machinery matches slots against tokens and
+knows nothing about which language it is looking at.
+
+A slot is one of:
+    KAVRAM   a thing being spoken about, plural stripped
+    TUR      a type name, its copula stripped if it carries one
+    NITELIK  a property, which must carry a copula
+    SOZ      any word at all
+    FIIL     a verb the lexicon knows, in either polarity
+    SORU     a question particle
+    KIM      an interrogative
+Anything else in a pattern is a literal that must appear exactly.
+"""
+from lmm.relations import IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY
+
+KAVRAM = "{kavram}"
+TUR = "{tür}"
+NITELIK = "{nitelik}"
+SOZ = "{söz}"
+FIIL = "{fiil}"
+SORU = "{soru}"
+KIM = "{kim}"
+
+SLOTS = (KAVRAM, TUR, NITELIK, SOZ, FIIL, SORU, KIM)
+
+FROM_VERB = "fiilden"       # the relation follows the verb's own polarity
+
+
+class Pattern:
+    def __init__(self, tokens, kind, relation=None, concept=None, target=None,
+                 name=""):
+        self.tokens = tokens
+        self.kind = kind
+        self.relation = relation
+        self.concept = concept      # slot index, or None if the sentence omits it
+        self.target = target
+        self.name = name or " ".join(tokens)
+
+    def to_dict(self):
+        return {"tokens": self.tokens, "kind": self.kind,
+                "relation": self.relation, "concept": self.concept,
+                "target": self.target, "name": self.name}
+
+    @staticmethod
+    def from_dict(data):
+        return Pattern(**data)
+
+
+class Grammar:
+    """An ordered list of patterns and the machinery to match tokens against it.
+
+    Order carries meaning: "kim uçar" has the same shape as "kuşlar uçar", so
+    the question has to be tried before the lesson.
+    """
+
+    def __init__(self, patterns, morphology):
+        self.patterns = list(patterns)
+        self.morphology = morphology    # supplies the language's suffix rules
+
+    def add(self, pattern, first=False):
+        self.patterns.insert(0, pattern) if first else self.patterns.append(pattern)
+        return pattern
+
+    def match(self, tokens, lexicon):
+        """First pattern that fits, with the slots it captured."""
+        for pattern in self.patterns:
+            captured = self._fit(pattern, tokens, lexicon)
+            if captured is not None:
+                return pattern, captured
+        return None, None
+
+    def _fit(self, pattern, tokens, lexicon):
+        if len(tokens) != len(pattern.tokens):
+            return None
+        captured = []
+        for slot, token in zip(pattern.tokens, tokens):
+            value = self._capture(slot, token, lexicon)
+            if value is None:
+                return None
+            captured.append(value)
+        return captured
+
+    def _capture(self, slot, token, lexicon):
+        """What this token means in this slot, or None if it does not fit."""
+        morphology = self.morphology
+        if slot not in SLOTS:
+            return token if token == slot else None
+        if slot == KAVRAM:
+            return morphology.strip_plural(token)
+        if slot == SOZ:
+            return token
+        if slot == TUR:
+            return morphology.strip_copula(token)
+        if slot == NITELIK:
+            if not morphology.has_copula(token):
+                return None
+            return morphology.strip_copula(token)
+        if slot == FIIL:
+            reading = lexicon.reading(token)
+            return reading if reading is not None else None
+        if slot == SORU:
+            return token if token in morphology.question_particles else None
+        if slot == KIM:
+            return token if token in morphology.interrogatives else None
+        return None
+
+    def read(self, pattern, captured):
+        """Turn a match into (kind, relation, concept, target)."""
+        concept = self._slot_value(pattern, captured, pattern.concept)
+        target = self._slot_value(pattern, captured, pattern.target)
+        relation = pattern.relation
+        if relation == FROM_VERB:
+            relation = CAN if self._polarity(pattern, captured) else CANNOT
+        return pattern.kind, relation, concept, target
+
+    def _slot_value(self, pattern, captured, index):
+        if index is None:
+            return None
+        value = captured[index]
+        return value[0] if isinstance(value, tuple) else value
+
+    @staticmethod
+    def _polarity(pattern, captured):
+        for slot, value in zip(pattern.tokens, captured):
+            if slot == FIIL:
+                return value[1]
+        return True
+
+
+def learn_pattern(tokens, kind, relation, concept_index, target_index,
+                  lexicon, morphology):
+    """Work out a reusable pattern from one labelled sentence.
+
+    Given "kediler zıplar" labelled as a lesson about ability, this decides
+    which words were the example and which were the shape, and returns a pattern
+    that will match the next sentence built the same way.
+    """
+    slots = []
+    for index, token in enumerate(tokens):
+        if index in (concept_index, target_index):
+            slots.append(_slot_for(token, index, target_index, relation,
+                                   lexicon, morphology))
+        elif token in morphology.question_particles:
+            slots.append(SORU)
+        elif token in morphology.interrogatives:
+            slots.append(KIM)
+        elif lexicon.knows(token):
+            slots.append(FIIL)
+        else:
+            slots.append(token)         # a function word: part of the shape
+    return Pattern(slots, kind, relation, concept_index, target_index)
+
+
+def _slot_for(token, index, target_index, relation, lexicon, morphology):
+    if lexicon.knows(token):
+        return FIIL
+    if index == target_index and relation in (IS_A, NOT_A):
+        return TUR
+    if index == target_index and relation in (HAS_PROPERTY, LACKS_PROPERTY):
+        return NITELIK if morphology.has_copula(token) else SOZ
+    return KAVRAM

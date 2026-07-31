@@ -27,7 +27,7 @@ class EpistemicGate:
         if intent.kind == ASK_ABILITIES:
             return self._abilities(intent.concept)
         if intent.kind == ASK_WHY:
-            return self._why(intent.concept, intent.target, intent.relation == CAN)
+            return self._why(intent)
         if intent.kind == ASK_DESCRIBE:
             return self.exposition.describe(intent.concept)
         if intent.kind == ASK_PROPERTIES:
@@ -83,12 +83,17 @@ class EpistemicGate:
             return f"{concept} ne yapabilir, bunu hiç öğrenmedim."
         return ability_summary(concept, found) + "."
 
-    def _why(self, concept, action, positive):
-        known, chain = self.reasoning.can_do(concept, action)
+    def _why(self, intent):
+        """Why questions work the same for what a thing does and how it is."""
+        about_property = intent.relation == HAS_PROPERTY
+        lookup = (self.reasoning.has_property if about_property
+                  else self.reasoning.can_do)
+        clause = property_clause if about_property else ability_clause
+        known, chain = lookup(intent.concept, intent.target)
         if known is None:
-            return self._dont_know(concept)
-        if known != positive:
-            return f"aslında {ability_clause(concept, action, known)}."
+            return self._dont_know(intent.concept)
+        if known is not True:
+            return f"aslında {clause(intent.concept, intent.target, known)}."
         return "çünkü " + " ve ".join(chain) + "."
 
     def _definition(self, concept):
