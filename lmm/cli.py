@@ -2,6 +2,7 @@
 import sys
 
 from lmm.memory import Memory
+from lmm import lexicon
 from lmm.reasoning import Reasoning
 from lmm.gate import EpistemicGate
 from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
@@ -32,10 +33,12 @@ class Session:
     def __init__(self, path, language=None):
         self.path = path
         self.memory = Memory.load(path)
+        lexicon.use(self.memory.lexicon)    # this session speaks its own words
         reasoning = Reasoning(self.memory)
         self.gate = EpistemicGate(self.memory, reasoning)
         # any LanguageOrgan fits here; the other organs never see a sentence
-        self.language = language or Intuition(network=MiniNetwork.default())
+        self.language = language or Intuition(network=MiniNetwork.default(),
+                                              lexicon=self.memory.lexicon)
         for entry in self.memory.patterns:      # ways of speaking it was taught
             self.language.grammar.add(Pattern.from_dict(entry), first=True)
         self.learning = LearningLoop(self.memory, reasoning)

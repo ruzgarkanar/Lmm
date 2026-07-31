@@ -15,6 +15,7 @@ import os
 import sys
 
 from lmm.memory import Memory
+from lmm import lexicon
 from lmm.reasoning import Reasoning
 from lmm.learning import LearningLoop, LEARNED, REINFORCED, CONFLICT, REJECTED
 from lmm.intuition import Intuition, TEACH, UNKNOWN
@@ -58,6 +59,7 @@ def sentences(text):
 
 def read_text(text, memory, source, reasoning=None, language=None):
     """Fold a document into a memory. Returns a ReadingReport."""
+    lexicon.use(memory.lexicon)     # read in this memory's own words
     reasoning = reasoning or Reasoning(memory)
     language = language or Intuition(network=MiniNetwork.default())
     learning = LearningLoop(memory, reasoning)

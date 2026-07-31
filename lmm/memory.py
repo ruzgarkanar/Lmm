@@ -13,7 +13,7 @@ from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,  # noqa: F401
                            ABILITY_RELATIONS, PROPERTY_RELATIONS, PART_RELATIONS,
                            PLACE, SOURCE, OBJECT)
 
-from lmm.lexicon import ACTIVE
+from lmm.lexicon import Lexicon, current
 from lmm.trust import INFERENCE, confidence_for
 
 FORMAT_VERSION = 3
@@ -61,7 +61,10 @@ class Memory:
     forever — which is the opposite of learning.
     """
 
-    def __init__(self):
+    def __init__(self, lexicon=None):
+        # Its own vocabulary, so two memories in one process never teach each
+        # other words. A service holds more than one at a time.
+        self.lexicon = lexicon if lexicon is not None else Lexicon()
         self.edges = []
         self.asked = set()
         self.vocabulary = []    # words learned beyond the core lexicon
@@ -111,7 +114,7 @@ class Memory:
                  "negative": negative}
         if entry not in self.vocabulary:
             self.vocabulary.append(entry)
-        (lexicon or ACTIVE).learn_verb(infinitive, positive, negative)
+        (lexicon or self.lexicon).learn_verb(infinitive, positive, negative)
         return entry
 
     def learn_pattern(self, pattern):
