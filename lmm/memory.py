@@ -3,6 +3,7 @@
 Knowledge does not live in weights here — it lives in this graph, writable at any
 moment, persisted to disk, and always carrying its source and confidence.
 """
+import gzip
 import json
 import os
 import time
@@ -171,13 +172,23 @@ class Memory:
             queue.extend(e.target for e in self.query(current, IS_A))
         return False
 
+    @staticmethod
+    def _opener(path):
+        """A .lmm file is the same JSON, gzipped — around twenty times smaller.
+
+        Compression is a storage detail, not a change of kind: gunzip it and you
+        are looking at the same readable facts. Nothing becomes a black box.
+        """
+        return (gzip.open, "wt", "rt") if path.endswith(".lmm") else (open, "w", "r")
+
     def save(self, path):
         payload = {"format": FORMAT_VERSION,
                    "edges": [e.to_dict() for e in self.edges],
                    "asked": sorted(self.asked),
                    "vocabulary": self.vocabulary}
+        opener, write_mode, _ = self._opener(path)
         temp = path + ".tmp"
-        with open(temp, "w", encoding="utf-8") as f:
+        with opener(temp, write_mode, encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=1)
         os.replace(temp, path)  # atomic: a half-written file never appears
 
@@ -185,7 +196,8 @@ class Memory:
     def load(path):
         memory = Memory()
         try:
-            with open(path, encoding="utf-8") as f:
+            opener, _, read_mode = Memory._opener(path)
+            with opener(path, read_mode, encoding="utf-8") as f:
                 data = json.load(f)
             if isinstance(data, list):        # format 1: a bare list of edges
                 memory.edges = [Edge.from_dict(d) for d in data]

@@ -99,3 +99,46 @@ class TestItStaysFastAsItGrows(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCompressedModelFile(unittest.TestCase):
+    """A .lmm file: the same facts, twenty times smaller, still readable.
+
+    Compression is a storage detail. Gunzip it and the facts are there in plain
+    text — the opposite of a weights file, where small means opaque.
+    """
+
+    def setUp(self):
+        self.memory = Memory()
+        self.memory.learn_word("zıplamak", "zıplar", "zıplayamaz")
+        for i in range(200):
+            self.memory.write(Edge(f"kavram{i}", IS_A, f"tur{i % 20}",
+                                   source="sen"))
+        self.memory.mark_asked("type:kavram0")
+
+    def test_a_round_trip_keeps_everything(self):
+        import gzip
+        import json
+        import os
+        import tempfile
+        path = os.path.join(tempfile.mkdtemp(), "model.lmm")
+        self.memory.save(path)
+
+        reloaded = Memory.load(path)
+        self.assertEqual(len(reloaded.edges), len(self.memory.edges))
+        self.assertEqual(reloaded.concepts(), self.memory.concepts())
+        self.assertEqual(reloaded.vocabulary, self.memory.vocabulary)
+        self.assertTrue(reloaded.has_asked("type:kavram0"))
+
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["format"], 3)   # plain JSON inside
+
+    def test_it_is_much_smaller_than_the_plain_file(self):
+        import os
+        import tempfile
+        directory = tempfile.mkdtemp()
+        plain = os.path.join(directory, "model.json")
+        packed = os.path.join(directory, "model.lmm")
+        self.memory.save(plain)
+        self.memory.save(packed)
+        self.assertLess(os.path.getsize(packed), os.path.getsize(plain) / 5)
