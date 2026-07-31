@@ -153,6 +153,16 @@ def not_understood(resembles=None):
     return f"bunu anlamadım. şu kalıpları biliyorum: {KNOWN_SHAPES}."
 
 
+def teach_me_the_word(word):
+    """Asking for vocabulary the way it asks for anything else it lacks."""
+    return (f"'{word}' kelimesini bilmiyorum. şöyle öğretebilirsin: "
+            f"kelime: <mastar> = {word} / <olumsuzu>")
+
+
+def learned_word(infinitive, positive, negative):
+    return f"kelimeyi öğrendim: {positive} / {negative} ({infinitive})."
+
+
 def wondering(question):
     """How the system voices a gap it noticed in itself."""
     return f"bu arada, bunu hiç öğrenmedim: {question}"

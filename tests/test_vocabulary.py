@@ -9,7 +9,7 @@ import unittest
 
 from lmm.lexicon import Lexicon, ACTIVE
 from lmm.memory import Memory, Edge, CAN, CANNOT
-from lmm.intuition import Intuition, TEACH, UNKNOWN
+from lmm.intuition import Intuition, TEACH, UNKNOWN_WORD
 from lmm.pack import export_pack, read_pack, merge_pack
 from lmm.cli import Session
 
@@ -33,10 +33,11 @@ class TestLexicon(unittest.TestCase):
         lexicon.learn_verb("öğrenmek", "öğrenir", "öğrenemez")
         self.assertNotEqual(before, lexicon.signature())
 
-    def test_an_unknown_verb_cannot_be_parsed(self):
+    def test_an_unknown_verb_is_named_rather_than_shrugged_at(self):
         """The 'before' half of the story, on a lexicon of its own."""
-        intuition = Intuition(lexicon=Lexicon())
-        self.assertEqual(intuition.understand("robotlar çalışır").kind, UNKNOWN)
+        intent = Intuition(lexicon=Lexicon()).understand("robotlar çalışır")
+        self.assertEqual(intent.kind, UNKNOWN_WORD)
+        self.assertEqual(intent.target, "çalışır")   # it asks for this word
 
     def test_a_learned_verb_can_be_parsed(self):
         lexicon = Lexicon()

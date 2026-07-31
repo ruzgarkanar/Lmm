@@ -1,33 +1,30 @@
 """Language Intuition Core: sentence -> Intent.
 
-Carries no knowledge of the world. Its only job is turning Turkish sentences into
-structured intents; everything factual comes from memory. That split is why this
-organ can stay small.
+Carries no knowledge of the world, and no knowledge of Turkish either. It
+tokenises, hands the tokens to a grammar, and turns whatever matched into an
+intent. The patterns are a list and the morphology is a set of suffix rules —
+both data, both replaceable, neither written into this file.
+
+That is what makes a second language a second data module rather than a second
+parser, and what lets the system be taught a new way of saying something while
+it is running.
 """
-from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
-                           LACKS_PROPERTY)
 from lmm.lexicon import ACTIVE
 from lmm.language import LanguageOrgan
+from lmm.turkish import (turkish, TurkishMorphology, TEACH, ASK, ASK_WHO,  # noqa: F401
+                         ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES, ASK_DESCRIBE)
 
 PUNCTUATION = ".,!?;:\"'"
 
-QUESTION_PARTICLES = ("mı", "mi", "mu", "mü")
-COPULA_SUFFIXES = ("tur", "tır", "dur", "dır", "tür", "tir", "dür", "dir")
-PLURAL_SUFFIXES = ("lar", "ler")
-INTERROGATIVES = ("kim", "kimler", "ne", "neler")
-# Words that only resume the thread: "peki uçar mı" is "uçar mı" about the
-# thing we were just discussing.
-OPENERS = ("peki", "ya", "hem")
-PRONOUNS = ("o", "onu", "onun", "bu", "bunu", "şu", "şunu")
-
-TEACH = "TEACH"
-ASK = "ASK"
-ASK_WHO = "ASK_WHO"
-ASK_ABILITIES = "ASK_ABILITIES"
-ASK_WHY = "ASK_WHY"
-ASK_PROPERTIES = "ASK_PROPERTIES"
-ASK_DESCRIBE = "ASK_DESCRIBE"
 UNKNOWN = "UNKNOWN"
+UNKNOWN_WORD = "UNKNOWN_WORD"
+
+_MORPHOLOGY = TurkishMorphology()
+QUESTION_PARTICLES = _MORPHOLOGY.question_particles
+COPULA_SUFFIXES = _MORPHOLOGY.copula_suffixes
+PLURAL_SUFFIXES = _MORPHOLOGY.plural_suffixes
+INTERROGATIVES = _MORPHOLOGY.interrogatives
+PRONOUNS = _MORPHOLOGY.pronouns
 
 
 def lower(text):
@@ -57,115 +54,50 @@ def _strip_suffix(word, suffixes):
 
 
 class Intent:
-    def __init__(self, kind, concept=None, relation=None, target=None, confidence=1.0):
-        self.kind = kind            # TEACH | ASK | UNKNOWN
+    def __init__(self, kind, concept=None, relation=None, target=None,
+                 confidence=1.0):
+        self.kind = kind
         self.concept = concept
-        self.relation = relation    # IS_A | CAN | CANNOT
+        self.relation = relation
         self.target = target
         self.confidence = confidence
-        self.resembles = None       # shape the network saw, when nothing parsed
+        self.resembles = None       # shape the network saw, when nothing matched
         self.resemblance = 0.0
 
 
 class Intuition(LanguageOrgan):
-    def __init__(self, network=None, lexicon=None):
-        self.network = network      # MiniNetwork supplies the confidence signal
+    def __init__(self, network=None, lexicon=None, grammar=None):
+        self.network = network      # MiniNetwork supplies the resemblance hint
         self.lexicon = lexicon or ACTIVE
+        self.grammar = grammar or turkish()
 
     def understand(self, sentence):
         """A matched pattern is the evidence; the network speaks when none matched.
 
-        The parser is deterministic, so overriding a successful parse with a
+        The grammar is deterministic, so overriding a successful match with a
         network score only ever invents doubt — an earlier version refused a
         perfectly good sentence because its subject was a word it had never met.
-        When nothing matches, the network says what the sentence resembles, so
-        the system can guess at what you meant instead of shrugging.
         """
         tokens = tokenize(sentence)
-        while tokens and tokens[0] in OPENERS:
-            tokens = tokens[1:]
-        intent = self._parse_pattern(tokens)
-        if intent.kind == UNKNOWN and self.network is not None and tokens:
+        morphology = self.grammar.morphology
+        while tokens and tokens[0] in morphology.openers:
+            tokens = tokens[1:]         # "peki uçar mı" is "uçar mı"
+
+        pattern, captured = self.grammar.match(tokens, self.lexicon)
+        if pattern is not None:
+            kind, relation, concept, target = self.grammar.read(pattern, captured)
+            return Intent(kind, concept, relation, target)
+
+        # A subject followed by something that is neither a known verb nor a
+        # property is almost certainly a verb nobody taught us. Saying so is
+        # more useful than shrugging, and it is how vocabulary grows.
+        if len(tokens) == 2 and not self.lexicon.knows(tokens[1]):
+            return Intent(UNKNOWN_WORD,
+                          concept=morphology.strip_plural(tokens[0]),
+                          target=tokens[1])
+
+        intent = Intent(UNKNOWN, confidence=0.0)
+        if self.network is not None and tokens:
             intent.resembles, intent.resemblance = self.network.predict(
                 tokens, self.lexicon)
         return intent
-
-    def _parse_pattern(self, tokens):
-        # A bare question carries on about whatever was last discussed; the
-        # session fills the subject in, since only it knows the thread.
-        if len(tokens) == 2 and tokens[1] in QUESTION_PARTICLES \
-                and self.lexicon.knows(tokens[0]):
-            infinitive, _ = self.lexicon.reading(tokens[0])
-            return Intent(ASK, relation=CAN, target=infinitive)
-        if len(tokens) == 1 and tokens[0] == "nedir":
-            return Intent(ASK, relation=IS_A)
-        if len(tokens) == 1 and tokens[0] in ("anlat", "anlatsana"):
-            return Intent(ASK_DESCRIBE)
-        if len(tokens) == 1 and tokens[0] in ("nasıldır", "nasıl"):
-            return Intent(ASK_PROPERTIES)
-        if len(tokens) == 2 and tokens[0] == "ne" and tokens[1] == "yapabilir":
-            return Intent(ASK_ABILITIES)
-        # Questions come first: "kim uçar" also fits the teaching shape
-        # "X(lar) <verb>", and reading it as a lesson would be wrong.
-        # "kimler <verb>" / "ne <verb>"
-        if len(tokens) == 2 and tokens[0] in INTERROGATIVES and self.lexicon.knows(tokens[1]):
-            infinitive, positive = self.lexicon.reading(tokens[1])
-            return Intent(ASK_WHO, relation=CAN if positive else CANNOT,
-                          target=infinitive)
-        # "X ne yapabilir"
-        if len(tokens) == 3 and tokens[1] == "ne" and tokens[2] == "yapabilir":
-            return Intent(ASK_ABILITIES, concept=tokens[0])
-        # "X neden <verb>"
-        if len(tokens) == 3 and tokens[1] == "neden" and self.lexicon.knows(tokens[2]):
-            infinitive, positive = self.lexicon.reading(tokens[2])
-            return Intent(ASK_WHY, concept=_strip_suffix(tokens[0], PLURAL_SUFFIXES),
-                          relation=CAN if positive else CANNOT, target=infinitive)
-        # "X anlat"
-        if len(tokens) == 2 and tokens[1] in ("anlat", "anlatsana"):
-            return Intent(ASK_DESCRIBE, concept=tokens[0])
-        # "X nasıldır"
-        if len(tokens) == 2 and tokens[1] in ("nasıldır", "nasıl"):
-            return Intent(ASK_PROPERTIES, concept=tokens[0])
-        # "X bir Y değildir" (type) / "X Y değildir" (property)
-        # The word "bir" is what separates being something from being like
-        # something — Turkish already draws the line for us.
-        if tokens and tokens[-1] == "değildir":
-            body = tokens[:-1]
-            if len(body) == 3 and body[1] == "bir":
-                return Intent(TEACH, concept=body[0], relation=NOT_A, target=body[2])
-            if len(body) == 2:
-                return Intent(TEACH,
-                              concept=_strip_suffix(body[0], PLURAL_SUFFIXES),
-                              relation=LACKS_PROPERTY, target=body[1])
-        # "X bir Y mı"
-        if (len(tokens) == 4 and tokens[1] == "bir"
-                and tokens[3] in QUESTION_PARTICLES):
-            return Intent(ASK, concept=tokens[0], relation=IS_A,
-                          target=_strip_suffix(tokens[2], COPULA_SUFFIXES))
-        # "X nedir"
-        if len(tokens) == 2 and tokens[1] == "nedir":
-            return Intent(ASK, concept=tokens[0], relation=IS_A)
-        # "X <verb> mı"
-        if len(tokens) == 3 and tokens[2] in QUESTION_PARTICLES and self.lexicon.knows(tokens[1]):
-            infinitive, _ = self.lexicon.reading(tokens[1])
-            return Intent(ASK, concept=_strip_suffix(tokens[0], PLURAL_SUFFIXES),
-                          relation=CAN, target=infinitive)
-        # "X bir Y(dır)"
-        if len(tokens) == 3 and tokens[1] == "bir":
-            return Intent(TEACH, concept=tokens[0], relation=IS_A,
-                          target=_strip_suffix(tokens[2], COPULA_SUFFIXES))
-        # "X(lar) <verb>"
-        if len(tokens) == 2 and self.lexicon.knows(tokens[1]):
-            infinitive, positive = self.lexicon.reading(tokens[1])
-            return Intent(TEACH, concept=_strip_suffix(tokens[0], PLURAL_SUFFIXES),
-                          relation=CAN if positive else CANNOT, target=infinitive)
-        # "X Y mı" — a property question, once the verb reading is ruled out
-        if len(tokens) == 3 and tokens[2] in QUESTION_PARTICLES:
-            return Intent(ASK, concept=_strip_suffix(tokens[0], PLURAL_SUFFIXES),
-                          relation=HAS_PROPERTY, target=tokens[1])
-        # "X(lar) Y(dır)" — a property, since no "bir" made it a type
-        if len(tokens) == 2 and _has_suffix(tokens[1], COPULA_SUFFIXES):
-            return Intent(TEACH, concept=_strip_suffix(tokens[0], PLURAL_SUFFIXES),
-                          relation=HAS_PROPERTY,
-                          target=_strip_suffix(tokens[1], COPULA_SUFFIXES))
-        return Intent(UNKNOWN, confidence=0.0)
