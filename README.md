@@ -89,6 +89,34 @@ yetkiye sahip olmaz**, çünkü doğruluk bellekte yaşar ve cevabı kapı kurar
 session = Session("memory.json", language=BenimDilOrganım())
 ```
 
+## Okuyarak öğrenme — konuşmadan önce
+
+Sohbet tek giriş kanalı değil. Bir metin dosyası verildiğinde LMM anladığı
+cümleleri kalıcı olarak öğrenir, anlamadıklarını **tahmin etmeden atlar**,
+bildiğiyle çelişenleri ise yazmadan raporlar:
+
+```bash
+python3 -m lmm.reading memory.json packs/hayvanlar.txt
+```
+
+```
+hayvanlar.txt: 16 cümle okundu — 14 yeni bilgi, 0 pekişen, 1 çelişkili, 1 atlandı.
+  çelişki: penguen — şu an bildiğim: penguen bir kuş çünkü kuş uçar
+  atlandı (anlaşılmadı): Bu cümle sistemin bilmediği bir kalıpta yazılmıştır
+```
+
+Çelişkiyi kendi başına çözmez, çünkü klavyenin başında karar verecek kimse
+yoktur ve iki kaynak arasında sessizce taraf tutmak tahmindir. Rapor insana
+gider, insan sohbette karara bağlar. Okuduktan sonra sistem soru sormaz,
+cevaplar — ve bilgiyi hangi dosyadan aldığını söyler:
+
+```
+> balık tüylü mü
+hayır, çünkü balık tüylü değildir (doğrudan bilgi, kaynak: hayvanlar.txt).
+> kimler uçar
+kuş, penguen, serçe ve kartal uçar.
+```
+
 ## Hedef takibi — ajanın başka türlüsü
 
 Cevabı bilmediği bir soru sorulduğunda LMM omuz silkmez. **Cevaplayabilmek için
@@ -197,6 +225,7 @@ Ağırlık dosyalarının yapamadığı üç şey:
 | `lmm/learning.py` | Çelişki kontrollü kalıcı öğrenme |
 | `lmm/curiosity.py` | Kendi boşluğunu fark etme ve soru sorma |
 | `lmm/pursuit.py` | Hedef takibi: eksik halkayı bulup isteme |
+| `lmm/reading.py` | Dokümandan öğrenme, atlama ve çelişki raporu |
 | `lmm/lexicon.py` | Kelime dağarcığı — paketlerle büyür |
 | `lmm/pack.py` | Bellek paketi: dışa aktarma, kurma, çelişkili birleştirme |
 | `lmm/phrasing.py` | Türkçe yüzey dili (ünlü uyumu dahil) |
