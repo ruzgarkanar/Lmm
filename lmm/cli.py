@@ -7,6 +7,7 @@ from lmm.gate import EpistemicGate
 from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
                            UNKNOWN_WORD, PRONOUNS, lower)
 from lmm.distill import split_words
+from lmm.grammar import Pattern
 from lmm.learning import LearningLoop, CONFLICT, LEARNED, CORRECTED
 from lmm.induction import Induction
 from lmm.network import MiniNetwork
@@ -33,6 +34,8 @@ class Session:
         self.gate = EpistemicGate(self.memory, reasoning)
         # any LanguageOrgan fits here; the other organs never see a sentence
         self.language = language or Intuition(network=MiniNetwork.default())
+        for entry in self.memory.patterns:      # ways of speaking it was taught
+            self.language.grammar.add(Pattern.from_dict(entry), first=True)
         self.learning = LearningLoop(self.memory, reasoning)
         self.curiosity = Curiosity(self.memory, reasoning)
         self.pursuit = Pursuit(self.memory, reasoning)

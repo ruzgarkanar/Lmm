@@ -111,5 +111,47 @@ class TestLearningAPattern(unittest.TestCase):
         self.assertEqual(pattern.tokens, ["acaba", KAVRAM, FIIL, SORU])
 
 
+class TestTheModelFileCarriesHowToSpeak(unittest.TestCase):
+    """The artifact is everything it learned — facts, words, and ways of saying.
+
+    An LLM ships weights. This ships what it knows and how it can be spoken to,
+    in one file, all of it readable.
+    """
+
+    def test_a_learned_pattern_survives_a_restart(self):
+        import os
+        import tempfile
+        from lmm.cli import Session
+
+        path = os.path.join(tempfile.mkdtemp(), "model.lmm")
+        session = Session(path)
+        session.respond("penguen bir kuştur")
+        pattern = learn_pattern("penguen hakkında konuş".split(), ASK_DESCRIBE,
+                                None, 0, None, session.language.lexicon,
+                                session.language.grammar.morphology)
+        session.memory.learn_pattern(pattern)
+        session.save()
+
+        later = Session(path)                      # a fresh set of organs
+        answer = later.respond("penguen hakkında konuş")
+        self.assertIn("Penguen bir kuştur", answer)
+
+    def test_a_pack_carries_patterns_too(self):
+        import os
+        import tempfile
+        from lmm.memory import Memory
+        from lmm.pack import export_pack, read_pack, merge_pack
+
+        source = Memory()
+        source.learn_pattern(Pattern([KAVRAM, "hakkında", "konuş"], ASK_DESCRIBE,
+                                     None, 0, None))
+        path = os.path.join(tempfile.mkdtemp(), "dil.json")
+        export_pack(source, path, name="konusma")
+
+        target = Memory()
+        merge_pack(target, read_pack(path))
+        self.assertEqual(len(target.patterns), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

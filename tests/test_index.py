@@ -97,10 +97,6 @@ class TestItStaysFastAsItGrows(unittest.TestCase):
         self.assertLess(timed(large), timed(small) * 5 + 0.01)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestCompressedModelFile(unittest.TestCase):
     """A .lmm file: the same facts, twenty times smaller, still readable.
 
@@ -142,3 +138,7 @@ class TestCompressedModelFile(unittest.TestCase):
         self.memory.save(plain)
         self.memory.save(packed)
         self.assertLess(os.path.getsize(packed), os.path.getsize(plain) / 5)
+
+
+if __name__ == "__main__":
+    unittest.main()
