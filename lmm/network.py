@@ -7,11 +7,15 @@ guessing, which is epistemic honesty applied to language itself.
 """
 import math
 
-CLASSES = ["TEACH_TYPE", "TEACH_ABILITY", "ASK_ABILITY", "ASK_DEFINITION"]
+from lmm.phrasing import copula
+
+CLASSES = ["TEACH_TYPE", "TEACH_ABILITY", "TEACH_NOT_TYPE", "ASK_ABILITY",
+           "ASK_DEFINITION", "ASK_WHO", "ASK_ABILITIES", "ASK_WHY"]
 
 _ENTITIES = ["kedi", "köpek", "kuş", "balık", "at", "penguen", "serçe", "çocuk"]
-_TYPES = ["hayvandır", "kuştur", "canlıdır", "varlıktır"]
+_TYPES = ["hayvan", "kuş", "canlı", "varlık"]
 _VERBS = ["uçar", "yüzer", "koşar", "okur", "içer", "konuşur"]
+_INTERROGATIVES = ("kim", "kimler", "ne", "neler")
 _QUESTION_PARTICLES = ("mı", "mi", "mu", "mü")
 
 
@@ -19,14 +23,22 @@ def training_data():
     """(tokens, class) examples generated from the controlled world's patterns."""
     examples = []
     for entity in _ENTITIES:
-        for type_word in _TYPES:
-            examples.append(([entity, "bir", type_word], "TEACH_TYPE"))
+        for bare in _TYPES:
+            # the copula comes from our own phrasing rules, not a hand-typed list
+            examples.append(([entity, "bir", bare + copula(bare)], "TEACH_TYPE"))
+            examples.append(([entity, "bir", bare, "değildir"], "TEACH_NOT_TYPE"))
         for index, verb in enumerate(_VERBS):
             examples.append(([entity + "lar", verb], "TEACH_ABILITY"))
             # rotate the particles so all four are learned without skewing classes
             particle = _QUESTION_PARTICLES[index % len(_QUESTION_PARTICLES)]
             examples.append(([entity, verb, particle], "ASK_ABILITY"))
         examples.append(([entity, "nedir"], "ASK_DEFINITION"))
+        examples.append(([entity, "ne", "yapabilir"], "ASK_ABILITIES"))
+    for verb in _VERBS:
+        for interrogative in _INTERROGATIVES:
+            examples.append(([interrogative, verb], "ASK_WHO"))
+        for entity in _ENTITIES:
+            examples.append(([entity, "neden", verb], "ASK_WHY"))
     return examples
 
 

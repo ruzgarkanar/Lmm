@@ -11,8 +11,12 @@ FORMAT_VERSION = 2
 
 # Relation kinds stored on edges.
 IS_A = "type"
+NOT_A = "not_type"
 CAN = "can"
 CANNOT = "cannot"
+
+TYPE_RELATIONS = (IS_A, NOT_A)
+ABILITY_RELATIONS = (CAN, CANNOT)
 
 
 class CycleError(Exception):
@@ -78,6 +82,24 @@ class Memory:
             return existing
         self.edges.append(edge)
         return edge
+
+    def concepts(self):
+        """Everything that behaves like a thing, in the order it was learned."""
+        ordered = []
+        for edge in self.edges:
+            target = edge.target if edge.relation in TYPE_RELATIONS else None
+            for candidate in (edge.concept, target):
+                if candidate is not None and candidate not in ordered:
+                    ordered.append(candidate)
+        return ordered
+
+    def actions(self):
+        """Every action this memory has ever heard of, in learning order."""
+        ordered = []
+        for edge in self.edges:
+            if edge.relation in ABILITY_RELATIONS and edge.target not in ordered:
+                ordered.append(edge.target)
+        return ordered
 
     def forget(self, concept):
         """Erase everything known about a concept, in or out. Returns the count.
