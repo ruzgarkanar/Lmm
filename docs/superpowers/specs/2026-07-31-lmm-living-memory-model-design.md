@@ -3,8 +3,32 @@
 
 **Tarih:** 31 Temmuz 2026
 **Sahip:** Rüzgar Ersin Kanar
-**Durum:** Tasarım onaylandı — implementasyon planı bekliyor
+**Durum:** v0 uygulandı ve kanıt senaryoları geçiyor (52 test)
 **İlgili araştırma:** `docs/arastirma/2026-07-31-arastirma-haritasi.md`
+**Kod:** `lmm/` — İngilizce isimlendirme; Türkçe yalnızca `lmm/phrasing.py` içinde ve botun konuştuğu cümlelerde.
+
+## 0. v0 Uygulama Notları (kod gerçeği)
+
+| Spec organı | Modül | Sınıf |
+|---|---|---|
+| Dil Sezgisi Çekirdeği | `lmm/intuition.py` + `lmm/network.py` | `Intuition`, `MiniNetwork` |
+| Yaşayan Bellek | `lmm/memory.py` | `Memory`, `Edge` |
+| Epistemik Kapı | `lmm/gate.py` | `EpistemicGate` |
+| Muhakeme Motoru | `lmm/reasoning.py` | `Reasoning` |
+| Öğrenme Döngüsü | `lmm/learning.py` | `LearningLoop` |
+| (yeni) Türkçe yüzey dili | `lmm/phrasing.py` | fonksiyonlar |
+| Sohbet | `lmm/cli.py` | `Session` |
+
+İlişki etiketleri: `IS_A="type"`, `CAN="can"`, `CANNOT="cannot"`.
+
+**Uygulama sırasında ortaya çıkan bulgu — bias terimi:** Mini ağın ilk sürümü, hiç
+görmediği zırva girdiye %92 güvenle sınıf atadı. Sebep, `bias` terimiydi: girdi
+yokken bile taşınan sabit bir kanaat. Bu tam olarak LMM'in var oluş sebebi olan
+patolojinin minyatürü olduğu için ağdan bias tamamen çıkarıldı — skor artık salt
+kanıt toplamıdır, kanıt yoksa dağılım düzgündür ve bu "bunu anlamadım" olarak
+dışarı vurur. Regresyon testi: `tests/test_network.py::test_no_evidence_yields_uniform_distribution`.
+
+Çalıştırma: `python3 -m lmm.cli memory.json` · Test: `python3 -m unittest discover -s tests`
 
 ---
 

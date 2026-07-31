@@ -1,0 +1,4 @@
+memory.json
+*.json.tmp
+__pycache__/
+*.pyc
