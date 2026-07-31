@@ -9,6 +9,7 @@ from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
                            UNKNOWN_WORD, PRONOUNS, lower)
 from lmm.distill import split_words
 from lmm.grammar import Pattern
+from lmm.discovered import words_of
 from lmm import arithmetic
 from lmm.learning import (LearningLoop, CONFLICT, LEARNED, CORRECTED,
                           DISPUTE, FROZEN)
@@ -38,8 +39,11 @@ class Session:
         reasoning = Reasoning(self.memory)
         self.gate = EpistemicGate(self.memory, reasoning)
         # any LanguageOrgan fits here; the other organs never see a sentence
+        # Suffix rules come from the words this memory has met, falling back
+        # to the declared lists while it is still small.
         self.language = language or Intuition(network=MiniNetwork.default(),
-                                              lexicon=self.memory.lexicon)
+                                              lexicon=self.memory.lexicon,
+                                              words=words_of(self.memory))
         for entry in self.memory.patterns:      # ways of speaking it was taught
             self.language.grammar.add(Pattern.from_dict(entry), first=True)
         self.learning = LearningLoop(self.memory, reasoning)
