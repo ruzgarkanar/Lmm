@@ -135,6 +135,25 @@ Kurduktan sonra sistem bilgiyi nereden aldığını söyler:
 penguen bir kuştur (kaynak: kuslar-tr@1.0).
 ```
 
+**Paketler kelime de öğretir.** Bir alan, kendi fiillerini paketle birlikte
+gönderir; motor koduna hiç dokunulmaz. `packs/lmm-tanitim.json` sistemin hiç
+bilmediği dört kelimeyi (öğrenmek, hatırlamak, unutmak, uydurmak) getirir:
+
+```bash
+python3 -m lmm.pack merge memory.json packs/lmm-tanitim.json
+# 4 yeni kelime, 14 yeni bilgi, 0 pekişen, 0 çelişkili.
+```
+
+```
+> lmm ne yapabilir
+lmm öğrenir, hatırlar, unutur ve uyduramaz.
+> llm ne yapabilir
+llm öğrenemez, unutamaz ve uydurur.
+```
+
+Kelimeler bilgiyle aynı dosyada saklanır ve restart sonrası durur — kelime de
+öğrenilen bir şeydir. Yeni kelime öğrenmek hiçbir şeyi yeniden eğitmez.
+
 Ağırlık dosyalarının yapamadığı üç şey:
 
 - **Birleştirme çelişkiyi ortaya çıkarır.** İki paket aynı konuda ters şey

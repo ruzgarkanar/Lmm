@@ -1,0 +1,157 @@
+{
+ "format": 1,
+ "name": "lmm-tanitim",
+ "version": "1.0",
+ "author": "rüzgar",
+ "created": 1785500944.2308202,
+ "vocabulary": [
+  {
+   "infinitive": "öğrenmek",
+   "positive": "öğrenir",
+   "negative": "öğrenemez"
+  },
+  {
+   "infinitive": "hatırlamak",
+   "positive": "hatırlar",
+   "negative": "hatırlayamaz"
+  },
+  {
+   "infinitive": "unutmak",
+   "positive": "unutur",
+   "negative": "unutamaz"
+  },
+  {
+   "infinitive": "uydurmak",
+   "positive": "uydurur",
+   "negative": "uyduramaz"
+  }
+ ],
+ "facts": [
+  {
+   "concept": "llm",
+   "relation": "type",
+   "target": "model",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.2307892
+  },
+  {
+   "concept": "lmm",
+   "relation": "type",
+   "target": "model",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.230795
+  },
+  {
+   "concept": "model",
+   "relation": "type",
+   "target": "yazılım",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.230798
+  },
+  {
+   "concept": "lmm",
+   "relation": "not_type",
+   "target": "llm",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.230803
+  },
+  {
+   "concept": "llm",
+   "relation": "cannot",
+   "target": "öğrenmek",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.230805
+  },
+  {
+   "concept": "lmm",
+   "relation": "can",
+   "target": "öğrenmek",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.230806
+  },
+  {
+   "concept": "lmm",
+   "relation": "can",
+   "target": "hatırlamak",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.230807
+  },
+  {
+   "concept": "lmm",
+   "relation": "can",
+   "target": "unutmak",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.230809
+  },
+  {
+   "concept": "llm",
+   "relation": "cannot",
+   "target": "unutmak",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.2308109
+  },
+  {
+   "concept": "llm",
+   "relation": "can",
+   "target": "uydurmak",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.230813
+  },
+  {
+   "concept": "lmm",
+   "relation": "cannot",
+   "target": "uydurmak",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.230814
+  },
+  {
+   "concept": "llm",
+   "relation": "property",
+   "target": "kapalı",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.230815
+  },
+  {
+   "concept": "lmm",
+   "relation": "property",
+   "target": "okunabilir",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.230816
+  },
+  {
+   "concept": "llm",
+   "relation": "not_property",
+   "target": "okunabilir",
+   "source": "rüzgar",
+   "confidence": 0.9,
+   "is_exception": false,
+   "timestamp": 1785500944.230817
+  }
+ ]
+}

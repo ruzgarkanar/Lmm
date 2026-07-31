@@ -8,9 +8,11 @@ from lmm.intuition import Intuition, TEACH, UNKNOWN
 from lmm.learning import LearningLoop, CONFLICT, LEARNED
 from lmm.network import MiniNetwork
 from lmm.curiosity import Curiosity
-from lmm.phrasing import wondering
+from lmm.phrasing import wondering, not_understood
 
+# A custom LanguageOrgan may report graded confidence; ours parses or does not.
 CONFIDENCE_THRESHOLD = 0.35
+RESEMBLANCE = 0.5       # below this, guessing at what you meant is noise
 AFFIRMATIVE = ("evet", "e")
 EXIT_WORDS = ("çık", "cik", "exit")
 
@@ -34,9 +36,8 @@ class Session:
             return self._resolve_pending(line)
         intent = self.language.understand(line)
         if intent.kind == UNKNOWN or intent.confidence < CONFIDENCE_THRESHOLD:
-            return ("bunu anlamadım. şu kalıpları biliyorum: 'x bir y', "
-                    "'x bir y değildir', 'x uçar', 'x uçar mı', 'x nedir', "
-                    "'kimler uçar', 'x ne yapabilir', 'x neden uçamaz'.")
+            resembles = intent.resembles if intent.resemblance >= RESEMBLANCE else None
+            return not_understood(resembles)
         if intent.kind != TEACH:
             return self.gate.answer(intent)
         status, message, edge = self.learning.teach(intent)
