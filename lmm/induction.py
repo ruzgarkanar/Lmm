@@ -77,17 +77,21 @@ class Induction:
         return placed
 
     def _categories(self):
-        """Anything with enough behaviour to be a shelf, most specific first.
+        """Shelves: concepts something is already said to be, tightest first.
 
-        Restricting these to concepts something is already said to be was too
-        narrow: "kuş" is an obvious home for a stranger that flies and has
-        feathers even when nobody has yet said anything is a bird.
+        Any concept with two habits in common was too loose a bar. Fire and the
+        sun are both hot and both warm things, so a stranger that behaved like
+        either was filed under the other — "sanırım ateş bir güneştir". A shelf
+        has to be a category, and what makes a concept a category is that
+        something already belongs to it.
         """
-        shelves = [(len(self._behaviour(concept)), concept)
-                   for concept in self.memory.concepts()
-                   if len(self._behaviour(concept)) >= MINIMUM_TRAITS]
-        shelves.sort()          # the tightest fit is the most informative one
-        return [concept for _, concept in shelves]
+        kinds = self.memory.kinds.hierarchical()
+        shelves = {edge.target for edge in self.memory.edges
+                   if edge.relation == kinds}
+        ranked = [(len(self._behaviour(shelf)), shelf) for shelf in shelves
+                  if len(self._behaviour(shelf)) >= MINIMUM_TRAITS]
+        ranked.sort()           # the tightest fit is the most informative one
+        return [shelf for _, shelf in ranked]
 
     def _behaviour(self, concept):
         """What a concept is known to do — evidence only, never guesses.

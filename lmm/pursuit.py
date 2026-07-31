@@ -71,7 +71,9 @@ class Pursuit:
         if goal.relation in (HAS_PART, LACKS_PART):
             return phrasing.part_question(concept, goal.target)
         if goal.relation == HAS_PROPERTY:
-            return phrasing.property_question(concept, goal.target)
+            return phrasing.property_question(concept, goal.target,
+                                              getattr(goal, "object", None),
+                                              getattr(goal, "role", None))
         return phrasing.ability_question(concept, goal.target,
                                          getattr(goal, "object", None),
                                          getattr(goal, "role", None))

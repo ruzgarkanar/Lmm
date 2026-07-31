@@ -112,9 +112,10 @@ def part_clause(concept, part, positive=True, object=None, role=None):
     return f"{genitive(concept)} {part} {'var' if positive else 'yok'}"
 
 
-def property_question(concept, prop):
-    """kar, beyaz -> "kar beyaz mı?"."""
-    return f"{concept} {prop} {question_particle(prop)}?"
+def property_question(concept, prop, object=None, role=None):
+    """kar, beyaz -> "kar beyaz mı?"; with a comparison, "kuş serçeden büyük mü?"."""
+    middle = f"{case_form(object, role)} " if object else ""
+    return f"{concept} {middle}{prop} {question_particle(prop)}?"
 
 
 def part_question(concept, part):
