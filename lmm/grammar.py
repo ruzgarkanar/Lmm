@@ -33,6 +33,26 @@ SLOTS = (KAVRAM, TUR, NITELIK, SOZ, FIIL, SORU, KIM)
 
 FROM_VERB = "fiilden"       # the relation follows the verb's own polarity
 
+# Concepts, types and properties are routinely more than one word — "müşteri
+# bakiyesi", "bilgi türü", "çok hızlı". Verbs and particles never are.
+PHRASE_SLOTS = (KAVRAM, TUR, NITELIK, SOZ)
+MAX_PHRASE = 3
+
+
+def _widths(slot):
+    """How many tokens to try for a slot, in the order worth trying.
+
+    A subject absorbs its modifiers while a predicate stays compact: "müşteri
+    bakiyesi gizlidir" is one thing being called one word, not one thing being
+    called two. So a concept reaches for the longest span it can and everything
+    else takes the shortest that works.
+    """
+    if slot == KAVRAM:
+        return range(MAX_PHRASE, 0, -1)
+    if slot in PHRASE_SLOTS:
+        return range(1, MAX_PHRASE + 1)
+    return (1,)
+
 
 class Pattern:
     def __init__(self, tokens, kind, relation=None, concept=None, target=None,
@@ -78,15 +98,44 @@ class Grammar:
         return None, None
 
     def _fit(self, pattern, tokens, lexicon):
-        if len(tokens) != len(pattern.tokens):
-            return None
-        captured = []
-        for slot, token in zip(pattern.tokens, tokens):
-            value = self._capture(slot, token, lexicon)
+        """Match slots against tokens, allowing a concept to span several words.
+
+        "müşteri bakiyesi" and "kredi tahsisi" are one thing each, and a domain
+        is mostly made of terms like them. Shorter spans are tried first, so a
+        sentence that fit before fits the same way now.
+        """
+        return self._fit_from(pattern.tokens, 0, tokens, 0, lexicon, [])
+
+    def _fit_from(self, slots, slot_at, tokens, token_at, lexicon, captured):
+        if slot_at == len(slots):
+            return list(captured) if token_at == len(tokens) else None
+        slot = slots[slot_at]
+        widths = _widths(slot)
+        for width in widths:
+            if token_at + width > len(tokens):
+                continue        # widths are not always ascending — never break
+            value = self._capture_span(slot, tokens[token_at:token_at + width],
+                                       lexicon)
             if value is None:
-                return None
+                continue
             captured.append(value)
-        return captured
+            found = self._fit_from(slots, slot_at + 1, tokens, token_at + width,
+                                   lexicon, captured)
+            captured.pop()
+            if found is not None:
+                return found
+        return None
+
+    def _capture_span(self, slot, span, lexicon):
+        """A slot's value over one or more tokens; suffixes ride the last word."""
+        if len(span) == 1:
+            return self._capture(slot, span[0], lexicon)
+        if slot not in PHRASE_SLOTS:
+            return None
+        tail = self._capture(slot, span[-1], lexicon)
+        if tail is None:
+            return None
+        return " ".join(list(span[:-1]) + [tail])
 
     def _capture(self, slot, token, lexicon):
         """What this token means in this slot, or None if it does not fit."""
