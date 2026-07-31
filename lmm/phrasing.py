@@ -24,20 +24,28 @@ _BACK_ROUNDED = "ou"
 _VOICELESS = "fstkçşhp"
 
 
-def _copula(word):
-    """The -DIr suffix, obeying vowel harmony and consonant assimilation."""
+def _harmony_vowel(word):
+    """The vowel four-way harmony picks for a suffix following this word."""
     vowels = [c for c in word if c in "aeıioöuü"]
     last_vowel = vowels[-1] if vowels else "a"
     if last_vowel in _BACK_UNROUNDED:
-        harmony = "ı"
-    elif last_vowel in _FRONT_UNROUNDED:
-        harmony = "i"
-    elif last_vowel in _BACK_ROUNDED:
-        harmony = "u"
-    else:
-        harmony = "ü"
+        return "ı"
+    if last_vowel in _FRONT_UNROUNDED:
+        return "i"
+    if last_vowel in _BACK_ROUNDED:
+        return "u"
+    return "ü"
+
+
+def _copula(word):
+    """The -DIr suffix, obeying vowel harmony and consonant assimilation."""
     consonant = "t" if word and word[-1] in _VOICELESS else "d"
-    return consonant + harmony + "r"
+    return consonant + _harmony_vowel(word) + "r"
+
+
+def question_particle(word):
+    """The mı/mi/mu/mü that follows this word."""
+    return "m" + _harmony_vowel(word)
 
 
 def verb_form(infinitive, positive):
@@ -53,6 +61,22 @@ def is_a_clause(concept, target):
 def ability_clause(concept, action, positive):
     """penguen, uçmak, False -> "penguen uçamaz"."""
     return f"{concept} {verb_form(action, positive)}"
+
+
+def definition_question(concept):
+    """penguen -> "penguen nedir?"."""
+    return f"{concept} nedir?"
+
+
+def ability_question(concept, action):
+    """penguen, yüzmek -> "penguen yüzer mi?"."""
+    verb = verb_form(action, True)
+    return f"{concept} {verb} {question_particle(verb)}?"
+
+
+def wondering(question):
+    """How the system voices a gap it noticed in itself."""
+    return f"bu arada, bunu hiç öğrenmedim: {question}"
 
 
 def describe(concept, relation, target):

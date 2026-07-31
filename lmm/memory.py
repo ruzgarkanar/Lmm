@@ -7,6 +7,8 @@ import json
 import os
 import time
 
+FORMAT_VERSION = 2
+
 # Relation kinds stored on edges.
 IS_A = "type"
 CAN = "can"
@@ -40,8 +42,22 @@ class Edge:
 
 
 class Memory:
+    """Facts the system knows, plus the questions it has already put to a teacher.
+
+    Both are memory: one is what it believes, the other is what it has already
+    wondered aloud. Without the second, curiosity would ask the same question
+    forever — which is the opposite of learning.
+    """
+
     def __init__(self):
         self.edges = []
+        self.asked = set()
+
+    def mark_asked(self, key):
+        self.asked.add(key)
+
+    def has_asked(self, key):
+        return key in self.asked
 
     def query(self, concept, relation=None):
         return [e for e in self.edges
@@ -90,10 +106,12 @@ class Memory:
         return False
 
     def save(self, path):
+        payload = {"format": FORMAT_VERSION,
+                   "edges": [e.to_dict() for e in self.edges],
+                   "asked": sorted(self.asked)}
         temp = path + ".tmp"
         with open(temp, "w", encoding="utf-8") as f:
-            json.dump([e.to_dict() for e in self.edges], f,
-                      ensure_ascii=False, indent=1)
+            json.dump(payload, f, ensure_ascii=False, indent=1)
         os.replace(temp, path)  # atomic: a half-written file never appears
 
     @staticmethod
@@ -102,7 +120,11 @@ class Memory:
         try:
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
-            memory.edges = [Edge.from_dict(d) for d in data]
-        except (OSError, ValueError):
+            if isinstance(data, list):        # format 1: a bare list of edges
+                memory.edges = [Edge.from_dict(d) for d in data]
+            else:
+                memory.edges = [Edge.from_dict(d) for d in data["edges"]]
+                memory.asked = set(data.get("asked", []))
+        except (OSError, ValueError, KeyError, TypeError):
             pass  # missing or corrupt file: start with an empty memory
         return memory

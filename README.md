@@ -32,6 +32,25 @@ hayır, çünkü penguen uçamaz (doğrudan bilgi, kaynak: sen).
 
 Programı kapatıp yeniden açın: hatırlar, bir daha sormaz.
 
+## Merak — kimsenin kapatmadığı döngü
+
+Sorulunca "bilmiyorum" demek dürüstlüktür. Asıl fark, **kimse sormadan kendi
+eksiğini fark edip sormaktır**:
+
+```
+> kuşlar uçar
+öğrendim: kuş uçar. bu arada, bunu hiç öğrenmedim: kuş nedir?
+> kuş bir hayvandır
+öğrendim: kuş bir hayvandır. bu arada, bunu hiç öğrenmedim: hayvan nedir?
+> balık bir hayvandır
+öğrendim: balık bir hayvandır. bu arada, bunu hiç öğrenmedim: balık uçar mı?
+```
+
+Sorular uydurulmaz; bellekteki gerçek boşluklardan doğar: hiyerarşide yeri
+olmayan bir kavram, ya da dünyada var olduğu bilinen bir eylemle hiç
+bağlanmamış bir kavram. Sorulan soru kalıcı olarak işaretlenir — restart sonrası
+bile aynı soru bir daha sorulmaz. Fark et → sor → öğren → bir daha sorma.
+
 ## Dört sütun
 
 1. **Sürekli kalıcı öğrenme** — yeniden eğitim yok; öğrenilen bilgi restart sonrası durur.
@@ -80,6 +99,8 @@ Ağırlık dosyalarının yapamadığı üç şey:
 | `lmm/intuition.py` | Cümle → niyet (kalıp ayrıştırıcı) |
 | `lmm/network.py` | Elle yazılmış softmax ağı — güven sinyali |
 | `lmm/learning.py` | Çelişki kontrollü kalıcı öğrenme |
+| `lmm/curiosity.py` | Kendi boşluğunu fark etme ve soru sorma |
+| `lmm/pack.py` | Bellek paketi: dışa aktarma, kurma, çelişkili birleştirme |
 | `lmm/phrasing.py` | Türkçe yüzey dili (ünlü uyumu dahil) |
 | `lmm/cli.py` | Sohbet oturumu |
 

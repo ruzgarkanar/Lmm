@@ -17,7 +17,23 @@
 | Muhakeme Motoru | `lmm/reasoning.py` | `Reasoning` |
 | Öğrenme Döngüsü | `lmm/learning.py` | `LearningLoop` |
 | (yeni) Türkçe yüzey dili | `lmm/phrasing.py` | fonksiyonlar |
+| (v0.2) Merak | `lmm/curiosity.py` | `Curiosity` |
+| (v0.2) Bellek paketi | `lmm/pack.py` | `Pack`, `merge_pack` |
 | Sohbet | `lmm/cli.py` | `Session` |
+
+**v0.2 eklentileri.** (1) *Bellek Paketi*: bilginin dağıtım biçimi — okunabilir
+JSON, kaynak bilgisi cevaplara taşınır, birleştirme çelişkiyi raporlar, ilan
+edilmiş istisnalar paketle seyahat eder, `Memory.forget` ile seçici silme gerçek.
+(2) *Merak*: sistem bellekteki yapısal boşluklardan (yeri olmayan kavram,
+bağlanmamış eylem) kendi sorusunu üretir; sorduğu sorular episodik bellekte
+(`Memory.asked`) tutulur, böylece aynı soru bir daha sorulmaz. Bellek dosyası
+format 2'ye geçti (eski düz liste dosyaları hâlâ okunur).
+
+**İkinci uygulama bulgusu — istisnalar paketle seyahat etmeli.** İlk paket
+aktarımında penguen istisnası kayboldu: çelişki mekanizması, paket sahibinin
+zaten karara bağladığı istisnayı yeni bir çelişki sandı. Ayrım netleştirildi —
+miras bilgiyle çelişen *ilan edilmiş* istisna taşınır; alıcının **kendi doğrudan
+bilgisiyle** çelişiyorsa iki kaynağın gerçek anlaşmazlığıdır ve raporlanır.
 
 İlişki etiketleri: `IS_A="type"`, `CAN="can"`, `CANNOT="cannot"`.
 
