@@ -63,6 +63,19 @@ class Memory:
         self.edges.append(edge)
         return edge
 
+    def forget(self, concept):
+        """Erase everything known about a concept, in or out. Returns the count.
+
+        Selective deletion from a trained model's weights is famously impractical;
+        here it is a filter over a list, and afterwards the system genuinely does
+        not know — it goes back to saying "bilmiyorum".
+        """
+        remaining = [e for e in self.edges
+                     if e.concept != concept and e.target != concept]
+        removed = len(self.edges) - len(remaining)
+        self.edges = remaining
+        return removed
+
     def _creates_cycle(self, edge):
         # Walk type edges up from the target: can we reach the concept again?
         queue, seen = [edge.target], set()
