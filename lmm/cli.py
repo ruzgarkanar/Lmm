@@ -5,8 +5,10 @@ from lmm.memory import Memory
 from lmm.reasoning import Reasoning
 from lmm.gate import EpistemicGate
 from lmm.intuition import Intuition, ASK, UNKNOWN
-from lmm.learning import LearningLoop, CONFLICT
+from lmm.learning import LearningLoop, CONFLICT, LEARNED
 from lmm.network import MiniNetwork
+from lmm.curiosity import Curiosity
+from lmm.phrasing import wondering
 
 CONFIDENCE_THRESHOLD = 0.35
 AFFIRMATIVE = ("evet", "e")
@@ -23,6 +25,7 @@ class Session:
         self.gate = EpistemicGate(self.memory, reasoning)
         self.intuition = Intuition(network=MiniNetwork.default())
         self.learning = LearningLoop(self.memory, reasoning)
+        self.curiosity = Curiosity(self.memory, reasoning)
         self.pending = None   # an edge awaiting the teacher's confirmation
 
     def respond(self, line):
@@ -37,6 +40,12 @@ class Session:
         status, message, edge = self.learning.teach(intent)
         if status == CONFLICT:
             self.pending = edge
+            return message
+        if status == LEARNED:
+            # new knowledge opens new gaps — that is the moment to wonder
+            question = self.curiosity.next_question()
+            if question is not None:
+                return f"{message} {wondering(question.text)}"
         return message
 
     def _resolve_pending(self, line):
