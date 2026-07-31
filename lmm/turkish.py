@@ -26,7 +26,16 @@ class TurkishMorphology:
     copula_suffixes = ("tur", "tır", "dur", "dır", "tür", "tir", "dür", "dir")
     plural_suffixes = ("lar", "ler")
     openers = ("peki", "ya", "hem")
+    # Endings that mark a word as playing its own part in the sentence rather
+    # than belonging to the noun beside it: "serçeden" is a comparison, not half
+    # of a compound. Discovery finds these families; until it supplies them,
+    # they are listed.
+    oblique_suffixes = ("den", "dan", "ten", "tan", "yle", "yla", "ile")
     pronouns = ("o", "onu", "onun", "bu", "bunu", "şu", "şunu")
+
+    def is_oblique(self, word):
+        """Does this word carry a case ending, so it stands on its own?"""
+        return self._has(word, self.oblique_suffixes)
 
     def has_copula(self, word):
         return self._has(word, self.copula_suffixes)

@@ -132,6 +132,11 @@ class Grammar:
             return self._capture(slot, span[0], lexicon)
         if slot not in PHRASE_SLOTS:
             return None
+        # A case-marked word is doing its own job in the sentence. Letting one
+        # into a phrase turned "kartal serçeden büyüktür" into the concept
+        # "kartal serçeden" being "büyük", written to memory without a murmur.
+        if any(self.morphology.is_oblique(token) for token in span):
+            return None
         tail = self._capture(slot, span[-1], lexicon)
         if tail is None:
             return None
