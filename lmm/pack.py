@@ -17,11 +17,12 @@ FORMAT_VERSION = 1
 
 
 class Pack:
-    def __init__(self, name, facts, vocabulary=None, version="1.0",
-                 author="unknown", created=None):
+    def __init__(self, name, facts, vocabulary=None, patterns=None,
+                 version="1.0", author="unknown", created=None):
         self.name = name
         self.facts = facts                      # list of Edge
         self.vocabulary = vocabulary or []      # words the facts need
+        self.patterns = patterns or []          # ways of saying them
         self.version = version
         self.author = author
         self.created = created if created is not None else time.time()
@@ -34,7 +35,7 @@ class Pack:
     def to_dict(self):
         return {"format": FORMAT_VERSION, "name": self.name, "version": self.version,
                 "author": self.author, "created": self.created,
-                "vocabulary": self.vocabulary,
+                "vocabulary": self.vocabulary, "patterns": self.patterns,
                 "facts": [e.to_dict() for e in self.facts]}
 
     @staticmethod
@@ -42,6 +43,7 @@ class Pack:
         return Pack(name=data["name"], version=data.get("version", "1.0"),
                     author=data.get("author", "unknown"), created=data.get("created"),
                     vocabulary=data.get("vocabulary", []),
+                    patterns=data.get("patterns", []),
                     facts=[Edge.from_dict(f) for f in data["facts"]])
 
 
@@ -59,7 +61,8 @@ class MergeReport:
 
 def export_pack(memory, path, name, version="1.0", author="unknown"):
     pack = Pack(name=name, version=version, author=author,
-                facts=list(memory.edges), vocabulary=list(memory.vocabulary))
+                facts=list(memory.edges), vocabulary=list(memory.vocabulary),
+                patterns=list(memory.patterns))
     with open(path, "w", encoding="utf-8") as f:
         json.dump(pack.to_dict(), f, ensure_ascii=False, indent=1)
     return pack
@@ -95,6 +98,9 @@ def merge_pack(memory, pack, reasoning=None):
     for word in pack.vocabulary:        # words first: the facts are said with them
         memory.learn_word(**word)
         report.words.append(word)
+    for entry in pack.patterns:
+        if entry not in memory.patterns:
+            memory.patterns.append(entry)
     for fact in pack.facts:
         candidate = Edge(fact.concept, fact.relation, fact.target,
                          source=pack.provenance, confidence=fact.confidence,

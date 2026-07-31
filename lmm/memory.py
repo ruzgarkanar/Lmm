@@ -60,6 +60,7 @@ class Memory:
         self.edges = []
         self.asked = set()
         self.vocabulary = []    # words learned beyond the core lexicon
+        self.patterns = []      # ways of saying things, learned beyond the core
         self._rebuild()
 
     def _rebuild(self):
@@ -105,6 +106,17 @@ class Memory:
         if entry not in self.vocabulary:
             self.vocabulary.append(entry)
         (lexicon or ACTIVE).learn_verb(infinitive, positive, negative)
+        return entry
+
+    def learn_pattern(self, pattern):
+        """Remember a new way of saying something, so it survives a restart.
+
+        A pattern is knowledge like a fact or a word: the model file carries
+        everything the system worked out, including how to be spoken to.
+        """
+        entry = pattern.to_dict()
+        if entry not in self.patterns:
+            self.patterns.append(entry)
         return entry
 
     def mark_asked(self, key):
@@ -185,7 +197,8 @@ class Memory:
         payload = {"format": FORMAT_VERSION,
                    "edges": [e.to_dict() for e in self.edges],
                    "asked": sorted(self.asked),
-                   "vocabulary": self.vocabulary}
+                   "vocabulary": self.vocabulary,
+                   "patterns": self.patterns}
         opener, write_mode, _ = self._opener(path)
         temp = path + ".tmp"
         with opener(temp, write_mode, encoding="utf-8") as f:
@@ -206,6 +219,7 @@ class Memory:
                 memory.edges = [Edge.from_dict(d) for d in data["edges"]]
                 memory._rebuild()
                 memory.asked = set(data.get("asked", []))
+                memory.patterns = data.get("patterns", [])
                 for word in data.get("vocabulary", []):
                     memory.learn_word(**word)   # words come back with the facts
         except (OSError, ValueError, KeyError, TypeError):
