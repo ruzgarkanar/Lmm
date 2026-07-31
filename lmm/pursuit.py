@@ -64,9 +64,11 @@ class Pursuit:
         concept = concept if concept is not None else goal.concept
         if goal.relation == HAS_PROPERTY:
             return self.reasoning.has_property(concept, goal.target)[0]
-        return self.reasoning.can_do(concept, goal.target)[0]
+        return self.reasoning.can_do(concept, goal.target,
+                                     getattr(goal, "object", None))[0]
 
     def _question(self, concept, goal):
         if goal.relation == HAS_PROPERTY:
             return phrasing.property_question(concept, goal.target)
-        return phrasing.ability_question(concept, goal.target)
+        return phrasing.ability_question(concept, goal.target,
+                                         getattr(goal, "object", None))

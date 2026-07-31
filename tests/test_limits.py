@@ -10,10 +10,10 @@ import unittest
 
 from lmm.cli import Session
 
+# "kediler fare yakalar" used to be on this list. It is not any more.
 BEYOND_US = [
     ("sahiplik", "kuşun kanadı var"),
     ("yer", "penguen kutupta yaşar"),
-    ("nesne alan fiil", "kediler fare yakalar"),
     ("karşılaştırma", "kartal serçeden büyüktür"),
     ("belirsiz nicelik", "bazı kuşlar uçmaz"),
     ("sayı", "insanın iki gözü var"),
@@ -67,6 +67,35 @@ class TestCaseMarkingIsNotSwallowedByAPhrase(unittest.TestCase):
     def test_single_word_sentences_are_untouched(self):
         self.session.respond("kuşlar uçar")
         self.assertIsNotNone(self.session.memory.direct("kuş", "can", "uçmak"))
+
+
+class TestObjectsAreNoLongerBeyondUs(unittest.TestCase):
+    """The fact became four parts instead of three, and four sentences moved
+    off the list of things this cannot hold."""
+
+    def setUp(self):
+        self.session = Session(os.path.join(tempfile.mkdtemp(), "memory.json"))
+        self.session.respond("kelime: yakalamak = yakalar / yakalayamaz")
+        self.session.respond("kediler fare yakalar")
+        self.session.respond("tekir bir kedidir")
+
+    def test_the_object_is_part_of_the_fact(self):
+        edge = self.session.memory.direct("kedi", "can", "yakalamak", "fare")
+        self.assertIsNotNone(edge)
+
+    def test_it_says_the_object_back(self):
+        """Turkish drops the subject in a paragraph; the object stays."""
+        self.assertIn("fare yakalar", self.session.respond("kedi anlat"))
+        self.assertIn("fare yakalar", self.session.respond("tekir anlat"))
+
+    def test_an_object_is_inherited(self):
+        answer = self.session.respond("tekir fare yakalar mı")
+        self.assertTrue(answer.startswith("evet"))
+        self.assertIn("tekir bir kedi", answer)
+
+    def test_a_different_object_is_never_assumed(self):
+        answer = self.session.respond("kedi kuş yakalar mı")
+        self.assertNotIn("evet", answer)
 
 
 if __name__ == "__main__":

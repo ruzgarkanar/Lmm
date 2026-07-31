@@ -26,13 +26,13 @@ class Reasoning:
                     queue.append(edge.target)
         return result
 
-    def can_do(self, concept, action):
+    def can_do(self, concept, action, object=None):
         """Returns (True | False | None, explanation chain).
 
         None means memory holds nothing on this — the caller must not guess.
         """
         answer, chain, _ = self._resolve(concept, action, CAN, CANNOT,
-                                         ability_clause)
+                                         ability_clause, object)
         return answer, chain
 
     def has_property(self, concept, prop):
@@ -49,7 +49,7 @@ class Reasoning:
         """
         if candidate.relation in ABILITY_RELATIONS:
             return self._resolve(candidate.concept, candidate.target, CAN,
-                                 CANNOT, ability_clause)[2]
+                                 CANNOT, ability_clause, candidate.object)[2]
         if candidate.relation in PROPERTY_RELATIONS:
             return self._resolve(candidate.concept, candidate.target,
                                  HAS_PROPERTY, LACKS_PROPERTY,
@@ -58,22 +58,22 @@ class Reasoning:
                                   IS_A if candidate.relation == NOT_A else NOT_A,
                                   candidate.target)
 
-    def _resolve(self, concept, target, affirms, denies, clause):
+    def _resolve(self, concept, target, affirms, denies, clause, object=None):
         """Direct knowledge first, then the type hierarchy, nearest ancestor first.
 
         A direct fact always beats an inherited one — that is exactly what makes
         an exception an exception.
         """
         for polarity, relation in ((False, denies), (True, affirms)):
-            edge = self.memory.direct(concept, relation, target)
+            edge = self.memory.direct(concept, relation, target, object)
             if edge:
-                return polarity, [f"{clause(concept, target, polarity)} "
+                return polarity, [f"{clause(concept, target, polarity, object)} "
                                   f"({attribution(edge.source)})"], edge
         for ancestor in self.ancestors(concept):
             for polarity, relation in ((False, denies), (True, affirms)):
-                edge = self.memory.direct(ancestor, relation, target)
+                edge = self.memory.direct(ancestor, relation, target, object)
                 if edge:
-                    inherited = clause(ancestor, target, polarity)
+                    inherited = clause(ancestor, target, polarity, object)
                     if edge.source == INFERENCE:
                         # An inherited guess is still a guess, and must say so.
                         inherited += " (kendi çıkarımım)"
@@ -106,7 +106,8 @@ class Reasoning:
         if candidate.relation in TYPE_RELATIONS:
             return self._type_conflict(candidate)
         if candidate.relation in ABILITY_RELATIONS:
-            known, chain = self.can_do(candidate.concept, candidate.target)
+            known, chain = self.can_do(candidate.concept, candidate.target,
+                                       candidate.object)
             claimed = candidate.relation == CAN
         elif candidate.relation in PROPERTY_RELATIONS:
             known, chain = self.has_property(candidate.concept, candidate.target)

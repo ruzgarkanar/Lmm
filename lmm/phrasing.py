@@ -62,7 +62,7 @@ def is_not_a_clause(concept, target):
     return f"{concept} bir {target} değildir"
 
 
-def property_clause(concept, prop, positive=True):
+def property_clause(concept, prop, positive=True, object=None):
     """kar, beyaz -> "kar beyazdır" / "kar beyaz değildir"."""
     if positive:
         return f"{concept} {prop}{copula(prop)}"
@@ -107,8 +107,11 @@ def ability_summary(concept, abilities):
     return f"{concept} {listing(clauses)}"
 
 
-def ability_clause(concept, action, positive):
-    """penguen, uçmak, False -> "penguen uçamaz"."""
+def ability_clause(concept, action, positive, object=None):
+    """penguen, uçmak, False -> "penguen uçamaz"; with an object, "kedi fare
+    yakalar". Where the object goes is this module's business, being Turkish."""
+    if object:
+        return f"{concept} {object} {verb_form(action, positive)}"
     return f"{concept} {verb_form(action, positive)}"
 
 
@@ -117,10 +120,12 @@ def definition_question(concept):
     return f"{concept} nedir?"
 
 
-def ability_question(concept, action):
-    """penguen, yüzmek -> "penguen yüzer mi?"."""
+def ability_question(concept, action, object=None):
+    """penguen, yüzmek -> "penguen yüzer mi?"; with an object, "kedi fare
+    yakalar mı?"."""
     verb = verb_form(action, True)
-    return f"{concept} {verb} {question_particle(verb)}?"
+    middle = f"{object} " if object else ""
+    return f"{concept} {middle}{verb} {question_particle(verb)}?"
 
 
 # One sample sentence per shape, used to guess at what a teacher meant.
@@ -249,7 +254,7 @@ def capitalize(text):
     return first + text[1:]
 
 
-def predicate(relation, target):
+def predicate(relation, target, object=None):
     """A clause with the subject left out, the way Turkish drops it.
 
     "uçar", "tüylüdür" — so a paragraph can say "kuş olduğu için uçar ve
@@ -263,10 +268,12 @@ def predicate(relation, target):
         return f"{target}{copula(target)}"
     if relation == LACKS_PROPERTY:
         return f"{target} değildir"
+    if object:
+        return f"{object} {verb_form(target, relation == CAN)}"
     return verb_form(target, relation == CAN)
 
 
-def describe(concept, relation, target):
+def describe(concept, relation, target, object=None):
     """A fact stated as a Turkish sentence, whatever its relation."""
     if relation == IS_A:
         return is_a_clause(concept, target)
@@ -274,4 +281,4 @@ def describe(concept, relation, target):
         return is_not_a_clause(concept, target)
     if relation in (HAS_PROPERTY, LACKS_PROPERTY):
         return property_clause(concept, target, relation == HAS_PROPERTY)
-    return ability_clause(concept, target, relation == CAN)
+    return ability_clause(concept, target, relation == CAN, object)

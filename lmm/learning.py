@@ -22,6 +22,7 @@ class LearningLoop:
     def teach(self, intent, source=TEACHER):
         """Returns (status, message, edge). Status is one of the module constants."""
         candidate = Edge(intent.concept, intent.relation, intent.target,
+                         object=getattr(intent, "object", None),
                          source=source, confidence=confidence_for(source))
         conflict = self.reasoning.find_conflict(candidate)
         basis = self.reasoning.basis(candidate)
@@ -46,7 +47,8 @@ class LearningLoop:
             self.memory.write(candidate)
         except CycleError:
             return REJECTED, "bu tür ilişkisi döngü oluşturur, kabul edemem.", None
-        statement = describe(candidate.concept, candidate.relation, candidate.target)
+        statement = describe(candidate.concept, candidate.relation,
+                             candidate.target, candidate.object)
         return LEARNED, f"öğrendim: {statement}.", candidate
 
     def confirm_exception(self, edge):

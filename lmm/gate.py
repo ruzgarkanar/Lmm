@@ -38,7 +38,7 @@ class EpistemicGate:
                 return self._is_a(intent.concept, intent.target)
             return self._definition(intent.concept)
         if intent.relation == CAN:
-            return self._ability(intent.concept, intent.target)
+            return self._ability(intent.concept, intent.target, intent.object)
         if intent.relation == HAS_PROPERTY:
             return self._property(intent.concept, intent.target)
         return self._dont_know(intent.concept)
@@ -107,8 +107,8 @@ class EpistemicGate:
             return "emin değilim ama " + answer
         return answer
 
-    def _ability(self, concept, action):
-        known, chain = self.reasoning.can_do(concept, action)
+    def _ability(self, concept, action, object=None):
+        known, chain = self.reasoning.can_do(concept, action, object)
         if known is None:
             return self._dont_know(concept)
         prefix = "evet" if known else "hayır"

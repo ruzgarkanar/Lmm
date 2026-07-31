@@ -27,11 +27,12 @@ class CycleError(Exception):
 
 
 class Edge:
-    def __init__(self, concept, relation, target, source="unknown",
+    def __init__(self, concept, relation, target, object=None, source="unknown",
                  confidence=0.6, is_exception=False, timestamp=None):
         self.concept = concept
         self.relation = relation        # IS_A | CAN | CANNOT
         self.target = target
+        self.object = object            # what the action was done to, if anything
         self.source = source
         self.confidence = confidence
         self.is_exception = is_exception
@@ -39,7 +40,7 @@ class Edge:
 
     def to_dict(self):
         return {"concept": self.concept, "relation": self.relation,
-                "target": self.target, "source": self.source,
+                "target": self.target, "object": self.object, "source": self.source,
                 "confidence": self.confidence, "is_exception": self.is_exception,
                 "timestamp": self.timestamp}
 
@@ -81,7 +82,7 @@ class Memory:
 
     def _index(self, edge):
         self._by_concept.setdefault(edge.concept, []).append(edge)
-        self._exact[(edge.concept, edge.relation, edge.target)] = edge
+        self._exact[(edge.concept, edge.relation, edge.target, edge.object)] = edge
         self._note_concept(edge.concept)
         if edge.relation in TYPE_RELATIONS:
             self._note_concept(edge.target)
@@ -131,13 +132,14 @@ class Memory:
             return list(found)
         return [e for e in found if e.relation == relation]
 
-    def direct(self, concept, relation, target):
-        return self._exact.get((concept, relation, target))
+    def direct(self, concept, relation, target, object=None):
+        return self._exact.get((concept, relation, target, object))
 
     def write(self, edge):
         if edge.relation == IS_A and self._creates_cycle(edge):
             raise CycleError(f"{edge.concept} -> {edge.target} creates a cycle")
-        existing = self.direct(edge.concept, edge.relation, edge.target)
+        existing = self.direct(edge.concept, edge.relation, edge.target,
+                               edge.object)
         if existing is not None:
             existing.confidence = min(1.0, existing.confidence + 0.2)
             return existing
