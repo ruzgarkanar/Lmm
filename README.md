@@ -263,6 +263,8 @@ Ağırlık dosyalarının yapamadığı üç şey:
 | `lmm/pursuit.py` | Hedef takibi: eksik halkayı bulup isteme |
 | `lmm/reading.py` | Dokümandan öğrenme, atlama ve çelişki raporu |
 | `lmm/induction.py` | Tümevarım: örüntüden kural çıkarma, işaretleme |
+| `lmm/distill.py` | LLM'den bilgi damıtma, denetleyerek |
+| `lmm/trust.py` | Kaynak güven sıralaması |
 | `lmm/lexicon.py` | Kelime dağarcığı — paketlerle büyür |
 | `lmm/pack.py` | Bellek paketi: dışa aktarma, kurma, çelişkili birleştirme |
 | `lmm/phrasing.py` | Türkçe yüzey dili (ünlü uyumu dahil) |

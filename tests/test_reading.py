@@ -85,7 +85,12 @@ class TestReadingThenTalking(unittest.TestCase):
         self.assertIn("hayvanlar.txt", session.respond("penguen nedir"))
 
     def test_a_conflict_the_document_raised_can_be_settled_in_conversation(self):
-        """Read, report, then let a person decide — the loop closes."""
+        """Read, report, then let a person decide — the loop closes.
+
+        A person speaking directly outranks a document they handed over, so the
+        correction is taken without an argument and the superseded source is
+        named aloud.
+        """
         directory = tempfile.mkdtemp()
         path = os.path.join(directory, "memory.json")
         memory = Memory()
@@ -95,8 +100,9 @@ class TestReadingThenTalking(unittest.TestCase):
 
         session = Session(path)
         self.assertTrue(session.respond("penguen uçar mı").startswith("evet"))
-        self.assertIn("çelişki", session.respond("penguen uçamaz"))
-        session.respond("evet")
+        correction = session.respond("penguen uçamaz")
+        self.assertIn("hayvanlar.txt", correction)
+        self.assertIn("senin sözünü üstün tutuyorum", correction)
         self.assertTrue(session.respond("penguen uçar mı").startswith("hayır"))
 
 

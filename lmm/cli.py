@@ -4,7 +4,7 @@ import sys
 from lmm.memory import Memory
 from lmm.reasoning import Reasoning
 from lmm.gate import EpistemicGate
-from lmm.intuition import Intuition, TEACH, ASK, UNKNOWN
+from lmm.intuition import Intuition, TEACH, ASK, UNKNOWN, lower
 from lmm.learning import LearningLoop, CONFLICT, LEARNED, CORRECTED
 from lmm.induction import Induction
 from lmm.network import MiniNetwork
@@ -90,7 +90,7 @@ class Session:
 
     def _resolve_pending(self, line):
         edge, self.pending = self.pending, None
-        if line.lower() in AFFIRMATIVE:
+        if lower(line) in AFFIRMATIVE:
             self.learning.confirm_exception(edge)
             return "öğrendim (istisna olarak işledim)."
         return "tamam, öğrenmedim."
@@ -111,7 +111,7 @@ def main():
             break
         if not line:
             continue
-        if line.lower() in EXIT_WORDS:
+        if lower(line) in EXIT_WORDS:
             break
         print(session.respond(line))
         session.save()
