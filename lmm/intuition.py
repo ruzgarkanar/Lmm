@@ -71,10 +71,10 @@ class Intent:
 
 
 class Intuition(LanguageOrgan):
-    def __init__(self, network=None, lexicon=None, grammar=None):
+    def __init__(self, network=None, lexicon=None, grammar=None, words=None):
         self.network = network      # MiniNetwork supplies the resemblance hint
         self.lexicon = lexicon or ACTIVE
-        self.grammar = grammar or turkish()
+        self.grammar = grammar or turkish(words)
 
     def understand(self, sentence):
         """A matched pattern is the evidence; the network speaks when none matched.

@@ -144,5 +144,19 @@ PATTERNS = [
 ]
 
 
-def turkish():
-    return Grammar(PATTERNS, TurkishMorphology())
+# One example each is enough for discovery to find the whole system: what a
+# suffix *means* cannot be read off its shape, but everything else can.
+ANCHORS = {"çoğul": ("kuş", "kuşlar"), "koşaç": ("kuş", "kuştur")}
+
+
+def turkish(words=None):
+    """The grammar. Given words, its suffix rules are discovered rather than read.
+
+    Discovery needs enough words to see a pattern; below that it falls through
+    to the declared lists, so a thin memory degrades instead of breaking.
+    """
+    morphology = TurkishMorphology()
+    if words:
+        from lmm.discovered import DiscoveredMorphology
+        morphology = DiscoveredMorphology(morphology, words, ANCHORS)
+    return Grammar(PATTERNS, morphology)
