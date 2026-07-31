@@ -195,13 +195,31 @@ def corrected(statement, source):
     return f"bunu {_origin(source)}, senin sözünü üstün tutuyorum: {statement}."
 
 
-def dont_know(concept):
-    return f"bilmiyorum. {concept} hakkında bunu bana öğretir misin?"
+def did_you_mean(suggestions):
+    """The particle harmonises with the last word, like every other suffix."""
+    words = list(suggestions)
+    return f"yoksa {listing(words)} {question_particle(words[-1])} demek istedin?"
 
 
-def need_first(question):
+def dont_know(concept, suggestions=()):
+    """Not knowing, plus the known words it might have been — as a question.
+
+    The suggestion never becomes an answer: the system still says it does not
+    know, and a guess that has to be confirmed cannot turn into a belief.
+    """
+    plain = f"bilmiyorum. {concept} hakkında bunu bana öğretir misin?"
+    if not suggestions:
+        return plain
+    return f"{plain} {did_you_mean(suggestions)}"
+
+
+def need_first(question, suggestions=()):
     """It has a goal but no ground to stand on yet."""
-    return f"bunu bilmiyorum. cevaplayabilmem için önce şunu öğrenmem lazım: {question}"
+    plain = ("bunu bilmiyorum. cevaplayabilmem için önce şunu öğrenmem lazım: "
+             f"{question}")
+    if not suggestions:
+        return plain
+    return f"{plain} {did_you_mean(suggestions)}"
 
 
 def climbing(concept, ancestor, question):

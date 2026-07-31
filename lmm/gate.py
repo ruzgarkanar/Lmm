@@ -8,6 +8,7 @@ from lmm.phrasing import (is_a_clause, is_not_a_clause, ability_clause,
                           property_clause,
                           who_clause, ability_summary, property_summary,
                           verb_form, dont_know)
+from lmm.similarity import nearest
 from lmm.intuition import (ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES,
                            ASK_DESCRIBE)
 from lmm.exposition import Exposition
@@ -114,4 +115,5 @@ class EpistemicGate:
         return f"{prefix}, çünkü {' ve '.join(chain)}."
 
     def _dont_know(self, concept):
-        return dont_know(concept)
+        known = self.memory.concepts()
+        return dont_know(concept, nearest(concept, known) if concept else ())
