@@ -11,7 +11,7 @@ from lmm.distill import split_words
 from lmm.grammar import Pattern
 from lmm import arithmetic
 from lmm.learning import (LearningLoop, CONFLICT, LEARNED, CORRECTED,
-                          DISPUTE)
+                          DISPUTE, FROZEN)
 from lmm.induction import Induction
 from lmm.network import MiniNetwork
 from lmm.curiosity import Curiosity
@@ -80,7 +80,7 @@ class Session:
         if status == CONFLICT:
             self.pending = edge
             return message
-        if status == DISPUTE:
+        if status in (DISPUTE, FROZEN):
             return message
         if status in (LEARNED, CORRECTED):
             return f"{message} {self._after_learning()}".strip()

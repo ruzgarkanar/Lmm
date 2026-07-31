@@ -25,6 +25,7 @@ from lmm.reading import read_file
 from lmm.distill import distill_file, generalise
 from lmm.pack import read_pack, merge_pack
 from lmm.trust import level, DISTILLED, DOCUMENT, HUMAN
+from lmm.drift import frozen_branches, refusal_rate
 
 DOCUMENT_SUFFIX = ".txt"
 PACK_SUFFIX = ".json"
@@ -133,6 +134,11 @@ def train(directory, model_path, harvest_rounds=0):
         print(f"     {rule.concept} — {rule.relation} → {rule.target} "
               f"({', '.join(rule.examples)})")
 
+    frozen = frozen_branches(memory)
+    if frozen:
+        print("   ! DONMUŞ DALLAR — çok fazla çelişki, insan bakmalı")
+        for branch in frozen:
+            print(f"     {branch}: ret oranı %{refusal_rate(memory, branch)*100:.0f}")
     print("6  DEĞERLENDİRME")
     stated, derived, guessed = evaluate(memory)
     total = stated + derived + guessed

@@ -88,6 +88,7 @@ class Memory:
         self.vocabulary = []    # words learned beyond the core lexicon
         self.patterns = []      # ways of saying things, learned beyond the core
         self.reputation = {}    # each source's record of agreeing and disagreeing
+        self.health = {}        # per branch: how much is accepted, how much refused
         self._rebuild()
 
     def _rebuild(self):
@@ -227,7 +228,8 @@ class Memory:
                    "edges": [e.to_dict() for e in self.edges],
                    "asked": sorted(self.asked),
                    "vocabulary": self.vocabulary,
-                   "patterns": self.patterns, "reputation": self.reputation}
+                   "patterns": self.patterns, "reputation": self.reputation,
+                   "health": self.health}
         opener, write_mode, _ = self._opener(path)
         temp = path + ".tmp"
         with opener(temp, write_mode, encoding="utf-8") as f:
@@ -250,6 +252,7 @@ class Memory:
                 memory.asked = set(data.get("asked", []))
                 memory.patterns = data.get("patterns", [])
                 memory.reputation = data.get("reputation", {})
+                memory.health = data.get("health", {})
                 for word in data.get("vocabulary", []):
                     memory.learn_word(**word)   # words come back with the facts
         except (OSError, ValueError, KeyError, TypeError):

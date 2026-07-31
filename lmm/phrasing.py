@@ -262,6 +262,13 @@ def how_many(concept, target, positive, yes, no, rule):
     return f"{concept} hakkında bunu bilmiyorum."
 
 
+def branch_frozen(branch):
+    """A branch is refusing too much of what arrives, so it stops growing."""
+    return (f"'{branch}' dalında son zamanlarda çok fazla çelişki çıktı, "
+            f"o yüzden makine kaynaklarına kapattım. Sen öğretebilirsin; "
+            f"gözden geçirip açmak istersen söyle.")
+
+
 def disputed_note():
     return "kaynaklar bu konuda anlaşmıyor"
 
