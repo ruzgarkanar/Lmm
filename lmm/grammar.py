@@ -20,7 +20,7 @@ A slot is one of:
 Anything else in a pattern is a literal that must appear exactly.
 """
 from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
-                           LACKS_PROPERTY, OBJECT)
+                           LACKS_PROPERTY, OBJECT, ALL)
 
 KAVRAM = "{kavram}"
 TUR = "{tür}"
@@ -30,8 +30,9 @@ FIIL = "{fiil}"
 SORU = "{soru}"
 KIM = "{kim}"
 ROL = "{rol}"        # a second concept wearing a case ending
+NICEL = "{nicel}"    # how much of a kind: bütün / çoğu / bazı / hiçbir
 
-SLOTS = (KAVRAM, TUR, NITELIK, SOZ, FIIL, SORU, KIM, ROL)
+SLOTS = (KAVRAM, TUR, NITELIK, SOZ, FIIL, SORU, KIM, ROL, NICEL)
 
 FROM_VERB = "fiilden"       # the relation follows the verb's own polarity
 
@@ -58,19 +59,21 @@ def _widths(slot):
 
 class Pattern:
     def __init__(self, tokens, kind, relation=None, concept=None, target=None,
-                 name="", object=None):
+                 name="", object=None, quantifier=None):
         self.tokens = tokens
         self.kind = kind
         self.relation = relation
         self.concept = concept      # slot index, or None if the sentence omits it
         self.target = target
         self.object = object        # where the object sits — a matter of language
+        self.quantifier = quantifier    # slot holding "how much of the kind"
         self.name = name or " ".join(tokens)
 
     def to_dict(self):
         return {"tokens": self.tokens, "kind": self.kind,
                 "relation": self.relation, "concept": self.concept,
-                "target": self.target, "object": self.object, "name": self.name}
+                "target": self.target, "object": self.object,
+                "quantifier": self.quantifier, "name": self.name}
 
     @staticmethod
     def from_dict(data):
@@ -151,6 +154,10 @@ class Grammar:
         if slot not in SLOTS:
             return token if token == slot else None
         if slot == KAVRAM:
+            # A closed-class word is never the thing being talked about.
+            # "bazı kuşlar uçmaz" was read as the concept "bazı" doing something.
+            if token in getattr(morphology, "quantifiers", ()):
+                return None
             return morphology.strip_plural(token)
         if slot == SOZ:
             return token
@@ -167,6 +174,8 @@ class Grammar:
             return token if token in morphology.question_particles else None
         if slot == KIM:
             return token if token in morphology.interrogatives else None
+        if slot == NICEL:
+            return morphology.quantifiers.get(token)
         if slot == ROL:
             stem, role = morphology.role_of(token)
             return (stem, role) if role else None
@@ -180,7 +189,8 @@ class Grammar:
         relation = pattern.relation
         if relation == FROM_VERB:
             relation = CAN if self._polarity(pattern, captured) else CANNOT
-        return pattern.kind, relation, concept, target, obj, role
+        return (pattern.kind, relation, concept, target, obj, role,
+                self._slot_value(pattern, captured, pattern.quantifier) or ALL)
 
     def _object_and_role(self, pattern, captured):
         """The second concept and what it is doing, when a pattern captured one."""

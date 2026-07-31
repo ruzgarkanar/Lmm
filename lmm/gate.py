@@ -3,14 +3,14 @@
 There is no path from this class to a sentence that memory does not support, so
 hallucination is not filtered out — it is unreachable.
 """
-from lmm.relations import IS_A, NOT_A, CAN, HAS_PROPERTY
+from lmm.relations import IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY
 from lmm.phrasing import (is_a_clause, is_not_a_clause, ability_clause,
                           property_clause,
                           who_clause, ability_summary, property_summary,
-                          verb_form, dont_know, attribution)
+                          verb_form, dont_know, attribution, how_many)
 from lmm.similarity import nearest
 from lmm.intuition import (ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES,
-                           ASK_DESCRIBE)
+                           ASK_DESCRIBE, ASK_HOW_MANY)
 from lmm.exposition import Exposition
 
 HEDGE_THRESHOLD = 0.5
@@ -31,6 +31,8 @@ class EpistemicGate:
             return self._why(intent)
         if intent.kind == ASK_DESCRIBE:
             return self.exposition.describe(intent.concept)
+        if intent.kind == ASK_HOW_MANY:
+            return self._how_many(intent)
         if intent.kind == ASK_PROPERTIES:
             return self._all_properties(intent.concept)
         if intent.relation == IS_A:
@@ -44,6 +46,14 @@ class EpistemicGate:
             return self._property(intent.concept, intent.target, intent.object,
                                   intent.role)
         return self._dont_know(intent.concept)
+
+    def _how_many(self, intent):
+        """"bazı kuşlar uçar mı" — read off the members, not stored as a fact."""
+        positive = intent.relation == CAN
+        yes, no = self.reasoning.survey(intent.concept, intent.target,
+                                        (CAN, CANNOT))
+        rule, _ = self.reasoning.can_do(intent.concept, intent.target)
+        return how_many(intent.concept, intent.target, positive, yes, no, rule)
 
     def _is_a(self, concept, target):
         """"kalp bir organ mı" — a yes/no about a place in the hierarchy."""

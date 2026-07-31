@@ -241,6 +241,27 @@ def disagreement(statement, others):
             f"'{statement}' iddiasını da tartışmalı olarak kaydettim.")
 
 
+def how_many(concept, target, positive, yes, no, rule):
+    """Answer a question about how much of a kind something covers."""
+    verb = verb_form(target, positive)
+    counted = yes if positive else no
+    others = no if positive else yes
+    contrast = verb_form(target, not positive)
+    if counted and others:
+        return f"evet, {listing(counted)} {verb} ama {listing(others)} {contrast}."
+    if counted:
+        return f"evet, hepsi — {listing(counted)} {verb}."
+    if others and rule is not None and rule == positive:
+        return (f"kural olarak {concept} {verb}, ama bildiğim "
+                f"{listing(others)} {contrast}.")
+    if rule is not None and rule == positive:
+        return f"bildiğim kadarıyla hepsi — {concept} {verb}."
+    if others:
+        return f"hayır, bildiğim {listing(others)} " \
+               f"{verb_form(target, not positive)}."
+    return f"{concept} hakkında bunu bilmiyorum."
+
+
 def disputed_note():
     return "kaynaklar bu konuda anlaşmıyor"
 
