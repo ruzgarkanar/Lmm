@@ -59,6 +59,43 @@ class Memory:
         self.edges = []
         self.asked = set()
         self.vocabulary = []    # words learned beyond the core lexicon
+        self._rebuild()
+
+    def _rebuild(self):
+        """Indexes over the edges. Everything here is derivable from self.edges.
+
+        Without them every question scanned every fact, which is fine at three
+        hundred and hopeless at a million — and curiosity and induction sweep the
+        whole memory, so the cost was quadratic where it hurt most.
+        """
+        self._by_concept = {}
+        self._exact = {}
+        self._concepts = []
+        self._concept_set = set()
+        self._actions, self._action_set = [], set()
+        self._properties, self._property_set = [], set()
+        for edge in self.edges:
+            self._index(edge)
+
+    def _index(self, edge):
+        self._by_concept.setdefault(edge.concept, []).append(edge)
+        self._exact[(edge.concept, edge.relation, edge.target)] = edge
+        self._note_concept(edge.concept)
+        if edge.relation in TYPE_RELATIONS:
+            self._note_concept(edge.target)
+        elif edge.relation in ABILITY_RELATIONS:
+            self._note(edge.target, self._actions, self._action_set)
+        elif edge.relation in PROPERTY_RELATIONS:
+            self._note(edge.target, self._properties, self._property_set)
+
+    def _note_concept(self, name):
+        self._note(name, self._concepts, self._concept_set)
+
+    @staticmethod
+    def _note(name, ordered, seen):
+        if name not in seen:
+            seen.add(name)
+            ordered.append(name)
 
     def learn_word(self, infinitive, positive, negative, lexicon=None):
         """Add a verb to what this memory knows how to say, and can hear."""
@@ -76,14 +113,13 @@ class Memory:
         return key in self.asked
 
     def query(self, concept, relation=None):
-        return [e for e in self.edges
-                if e.concept == concept and (relation is None or e.relation == relation)]
+        found = self._by_concept.get(concept, ())
+        if relation is None:
+            return list(found)
+        return [e for e in found if e.relation == relation]
 
     def direct(self, concept, relation, target):
-        for e in self.edges:
-            if e.concept == concept and e.relation == relation and e.target == target:
-                return e
-        return None
+        return self._exact.get((concept, relation, target))
 
     def write(self, edge):
         if edge.relation == IS_A and self._creates_cycle(edge):
@@ -93,32 +129,20 @@ class Memory:
             existing.confidence = min(1.0, existing.confidence + 0.2)
             return existing
         self.edges.append(edge)
+        self._index(edge)
         return edge
 
     def concepts(self):
         """Everything that behaves like a thing, in the order it was learned."""
-        ordered = []
-        for edge in self.edges:
-            target = edge.target if edge.relation in TYPE_RELATIONS else None
-            for candidate in (edge.concept, target):
-                if candidate is not None and candidate not in ordered:
-                    ordered.append(candidate)
-        return ordered
+        return list(self._concepts)
 
     def actions(self):
         """Every action this memory has ever heard of, in learning order."""
-        return self._targets_of(ABILITY_RELATIONS)
+        return list(self._actions)
 
     def properties(self):
         """Every property this memory has ever heard of, in learning order."""
-        return self._targets_of(PROPERTY_RELATIONS)
-
-    def _targets_of(self, relations):
-        ordered = []
-        for edge in self.edges:
-            if edge.relation in relations and edge.target not in ordered:
-                ordered.append(edge.target)
-        return ordered
+        return list(self._properties)
 
     def forget(self, concept):
         """Erase everything known about a concept, in or out. Returns the count.
@@ -131,6 +155,7 @@ class Memory:
                      if e.concept != concept and e.target != concept]
         removed = len(self.edges) - len(remaining)
         self.edges = remaining
+        self._rebuild()
         return removed
 
     def _creates_cycle(self, edge):
@@ -164,8 +189,10 @@ class Memory:
                 data = json.load(f)
             if isinstance(data, list):        # format 1: a bare list of edges
                 memory.edges = [Edge.from_dict(d) for d in data]
+                memory._rebuild()
             else:
                 memory.edges = [Edge.from_dict(d) for d in data["edges"]]
+                memory._rebuild()
                 memory.asked = set(data.get("asked", []))
                 for word in data.get("vocabulary", []):
                     memory.learn_word(**word)   # words come back with the facts
