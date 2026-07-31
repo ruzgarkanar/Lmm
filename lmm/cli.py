@@ -10,7 +10,8 @@ from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
 from lmm.distill import split_words
 from lmm.grammar import Pattern
 from lmm import arithmetic
-from lmm.learning import LearningLoop, CONFLICT, LEARNED, CORRECTED
+from lmm.learning import (LearningLoop, CONFLICT, LEARNED, CORRECTED,
+                          DISPUTE)
 from lmm.induction import Induction
 from lmm.network import MiniNetwork
 from lmm.curiosity import Curiosity
@@ -78,6 +79,8 @@ class Session:
         status, message, edge = self.learning.teach(intent)
         if status == CONFLICT:
             self.pending = edge
+            return message
+        if status == DISPUTE:
             return message
         if status in (LEARNED, CORRECTED):
             return f"{message} {self._after_learning()}".strip()

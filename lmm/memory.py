@@ -30,7 +30,7 @@ class CycleError(Exception):
 class Edge:
     def __init__(self, concept, relation, target, object=None, role=None,
                  source="unknown", confidence=None, is_exception=False,
-                 timestamp=None, sources=None):
+                 timestamp=None, sources=None, disputed=False):
         self.concept = concept
         self.relation = relation        # IS_A | CAN | CANNOT
         self.target = target
@@ -44,6 +44,7 @@ class Edge:
         self.confidence = (confidence if confidence is not None
                            else confidence_from(self.sources))
         self.is_exception = is_exception
+        self.disputed = disputed        # sources disagree and neither prevailed
         self.timestamp = timestamp if timestamp is not None else time.time()
 
     def corroborate(self, source):
@@ -60,6 +61,7 @@ class Edge:
                 "target": self.target, "object": self.object, "role": self.role,
                 "source": self.source, "sources": self.sources,
                 "confidence": self.confidence, "is_exception": self.is_exception,
+                "disputed": self.disputed,
                 "timestamp": self.timestamp}
 
     @staticmethod
@@ -83,6 +85,7 @@ class Memory:
         self.asked = set()
         self.vocabulary = []    # words learned beyond the core lexicon
         self.patterns = []      # ways of saying things, learned beyond the core
+        self.reputation = {}    # each source's record of agreeing and disagreeing
         self._rebuild()
 
     def _rebuild(self):
@@ -222,7 +225,7 @@ class Memory:
                    "edges": [e.to_dict() for e in self.edges],
                    "asked": sorted(self.asked),
                    "vocabulary": self.vocabulary,
-                   "patterns": self.patterns}
+                   "patterns": self.patterns, "reputation": self.reputation}
         opener, write_mode, _ = self._opener(path)
         temp = path + ".tmp"
         with opener(temp, write_mode, encoding="utf-8") as f:
@@ -244,6 +247,7 @@ class Memory:
                 memory._rebuild()
                 memory.asked = set(data.get("asked", []))
                 memory.patterns = data.get("patterns", [])
+                memory.reputation = data.get("reputation", {})
                 for word in data.get("vocabulary", []):
                     memory.learn_word(**word)   # words come back with the facts
         except (OSError, ValueError, KeyError, TypeError):

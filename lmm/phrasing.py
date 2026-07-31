@@ -235,6 +235,16 @@ def did_you_mean(suggestions):
     return f"yoksa {listing(words)} {question_particle(words[-1])} demek istedin?"
 
 
+def disagreement(statement, others):
+    """Two sources of equal standing disagree, and that is what gets said."""
+    return (f"kaynaklar anlaşmıyor: {listing(list(others))} tersini söylüyor. "
+            f"'{statement}' iddiasını da tartışmalı olarak kaydettim.")
+
+
+def disputed_note():
+    return "kaynaklar bu konuda anlaşmıyor"
+
+
 def dont_know(concept, suggestions=()):
     """Not knowing, plus the known words it might have been — as a question.
 
