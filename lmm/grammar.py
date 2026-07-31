@@ -159,6 +159,77 @@ def learn_pattern(tokens, kind, relation, concept_index, target_index,
     return Pattern(slots, kind, relation, concept_index, target_index)
 
 
+def induce(pairs, parser, morphology, lexicon, max_length=6, evidence=2):
+    """Work patterns out of prose, with nobody labelling anything.
+
+    Each pair holds a passage a person wrote and the plain sentences a model
+    restated it as. We already know what the plain sentences mean, because our
+    own parser reads them — so every pair is a labelled example that no human
+    had to label.
+
+    Alignment is by content: the prose sentence that mentions both the concept
+    and the target is the one that said it. Sentences longer than a handful of
+    words are left alone, since a pattern taken from a twenty-word sentence
+    would only ever match that sentence again.
+
+    A shape has to turn up more than once before it is believed. One occurrence
+    is a coincidence; the same shape twice is a rule — the same standard we hold
+    facts to.
+    """
+    seen = {}
+    for pair in pairs:
+        prose = _sentences(pair.get("düzyazı", ""))
+        for plain in pair.get("sade", "").splitlines():
+            intent = parser(plain)
+            if intent.concept is None or intent.target is None:
+                continue
+            for sentence in prose:
+                tokens = _tokens(sentence, morphology)
+                if not 2 < len(tokens) <= max_length:
+                    continue
+                concept_at = _where(tokens, intent.concept, morphology)
+                target_at = _where(tokens, intent.target, morphology)
+                if concept_at is None or target_at is None or concept_at == target_at:
+                    continue
+                pattern = learn_pattern(tokens, intent.kind, intent.relation,
+                                        concept_at, target_at, lexicon, morphology)
+                key = (tuple(pattern.tokens), pattern.kind, pattern.relation,
+                       pattern.concept, pattern.target)
+                seen[key] = seen.get(key, 0) + 1
+                break
+    return [Pattern(list(tokens), kind, relation, concept, target)
+            for (tokens, kind, relation, concept, target), count in seen.items()
+            if count >= evidence]
+
+
+def _sentences(text):
+    found, current = [], ""
+    for character in text:
+        if character in ".!?\n;":
+            if current.strip():
+                found.append(current.strip())
+            current = ""
+        else:
+            current += character
+    if current.strip():
+        found.append(current.strip())
+    return found
+
+
+def _tokens(sentence, morphology):
+    cleaned = "".join(c for c in sentence if c not in ".,!?;:\"'")
+    return cleaned.replace("İ", "i").replace("I", "ı").lower().split()
+
+
+def _where(tokens, word, morphology):
+    """Which token carried this concept, allowing for the suffixes it wears."""
+    for index, token in enumerate(tokens):
+        stem = morphology.strip_copula(morphology.strip_plural(token))
+        if stem == word or token == word or token.startswith(word):
+            return index
+    return None
+
+
 def _slot_for(token, index, target_index, relation, lexicon, morphology):
     if lexicon.knows(token):
         return FIIL
