@@ -6,7 +6,7 @@ says is unexplainable.
 from lmm.memory import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
                         TYPE_RELATIONS, ABILITY_RELATIONS, PROPERTY_RELATIONS)
 from lmm.phrasing import (ability_clause, property_clause, is_a_clause,
-                          is_not_a_clause, attribution)
+                          is_not_a_clause, attribution, disputed_note)
 from lmm.trust import INFERENCE
 
 
@@ -67,11 +67,19 @@ class Reasoning:
         A direct fact always beats an inherited one — that is exactly what makes
         an exception an exception.
         """
-        for polarity, relation in ((False, denies), (True, affirms)):
-            edge = self.memory.direct(concept, relation, target, object, role)
-            if edge:
-                said = clause(concept, target, polarity, object, role)
-                return polarity, [f"{said} ({attribution(edge.source)})"], edge
+        # Both polarities may be on record when sources disagreed. A settled
+        # claim outranks one still marked disputed, so arbitration actually
+        # changes the answer instead of leaving the loser to speak first.
+        held = [(polarity, self.memory.direct(concept, relation, target, object,
+                                              role))
+                for polarity, relation in ((False, denies), (True, affirms))]
+        held = [(polarity, edge) for polarity, edge in held if edge]
+        held.sort(key=lambda pair: pair[1].disputed)
+        if held:
+            polarity, edge = held[0]
+            said = clause(concept, target, polarity, object, role)
+            note = disputed_note() if edge.disputed else attribution(edge.source)
+            return polarity, [f"{said} ({note})"], edge
         for ancestor in self.ancestors(concept):
             for polarity, relation in ((False, denies), (True, affirms)):
                 edge = self.memory.direct(ancestor, relation, target, object, role)
