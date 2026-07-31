@@ -3,7 +3,7 @@
 Nothing is written blindly. When a fact clashes with what is already known the
 system says so and asks, and only a confirmed clash becomes an exception.
 """
-from lmm.memory import Edge, CycleError, CAN
+from lmm.memory import Edge, CycleError, CAN, ALL
 from lmm.phrasing import describe, corrected, disagreement
 from lmm.trust import (TEACHER, HUMAN, confidence_for, outranks, level,
                        arbitrate, note, CANDIDATE, DISPUTED)
@@ -26,6 +26,7 @@ class LearningLoop:
         candidate = Edge(intent.concept, intent.relation, intent.target,
                          object=getattr(intent, "object", None),
                          role=getattr(intent, "role", None),
+                         quantifier=getattr(intent, "quantifier", ALL),
                          source=source, confidence=confidence_for(source))
         conflict = self.reasoning.find_conflict(candidate)
         basis = self.reasoning.basis(candidate)

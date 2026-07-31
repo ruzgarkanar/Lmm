@@ -20,6 +20,11 @@ CORE_VERBS = {
     "okur": ("okumak", True), "okuyamaz": ("okumak", False),
     "içer": ("içmek", True), "içemez": ("içmek", False),
     "konuşur": ("konuşmak", True), "konuşamaz": ("konuşmak", False),
+    # Turkish separates "does not" from "cannot": uçmaz and uçamaz are both
+    # heard, and both land on the same relation here.
+    "uçmaz": ("uçmak", False), "yüzmez": ("yüzmek", False),
+    "koşmaz": ("koşmak", False), "okumaz": ("okumak", False),
+    "içmez": ("içmek", False), "konuşmaz": ("konuşmak", False),
 }
 
 
@@ -29,7 +34,11 @@ ABILITY_SUFFIXES = ("ebilir", "abilir")
 class Lexicon:
     def __init__(self, verbs=None):
         self.verbs = dict(CORE_VERBS if verbs is None else verbs)
-        self._forms = {value: surface for surface, value in self.verbs.items()}
+        # Several surfaces may mean the same thing — "uçmaz" and "uçamaz" both
+        # deny flight — but only the first stays the one used for speaking.
+        self._forms = {}
+        for surface, value in self.verbs.items():
+            self._forms.setdefault(value, surface)
 
     def knows(self, surface):
         return self.reading(surface) is not None
@@ -56,11 +65,18 @@ class Lexicon:
         """"uçmak", False -> "uçamaz"; falls back to the infinitive itself."""
         return self._forms.get((infinitive, positive), infinitive)
 
-    def learn_verb(self, infinitive, positive, negative):
-        """Teach one verb in both polarities. Idempotent."""
+    def learn_verb(self, infinitive, positive, negative, plain_negative=None):
+        """Teach one verb in both polarities. Idempotent.
+
+        A language may have more than one way to say no — Turkish has "uçmaz"
+        beside "uçamaz" — so extra negative forms are accepted for hearing while
+        the first stays the one used for speaking.
+        """
         for surface, polarity in ((positive, True), (negative, False)):
             self.verbs[surface] = (infinitive, polarity)
             self._forms[(infinitive, polarity)] = surface
+        if plain_negative:
+            self.verbs[plain_negative] = (infinitive, False)
 
     def signature(self):
         """Identity of this vocabulary, for caching things derived from it."""

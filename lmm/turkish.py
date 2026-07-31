@@ -8,9 +8,9 @@ against a pattern list.
 A second language means another module shaped like this one, not another parser.
 """
 from lmm.grammar import (Pattern, Grammar, KAVRAM, TUR, NITELIK, SOZ, FIIL,
-                         SORU, KIM, ROL, FROM_VERB)
+                         SORU, KIM, ROL, NICEL, FROM_VERB)
 from lmm.relations import (IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY,
-                           HAS_PART, PLACE, SOURCE)
+                           HAS_PART, PLACE, SOURCE, ALL, MOST, SOME, NO)
 
 TEACH = "TEACH"
 ASK = "ASK"
@@ -19,6 +19,7 @@ ASK_ABILITIES = "ASK_ABILITIES"
 ASK_WHY = "ASK_WHY"
 ASK_PROPERTIES = "ASK_PROPERTIES"
 ASK_DESCRIBE = "ASK_DESCRIBE"
+ASK_HOW_MANY = "ASK_HOW_MANY"
 
 
 class TurkishMorphology:
@@ -41,6 +42,11 @@ class TurkishMorphology:
     genitive_suffixes = ("nın", "nin", "nun", "nün", "ın", "in", "un", "ün")
     possessive_suffixes = ("sı", "si", "su", "sü", "ı", "i", "u", "ü")
     pronouns = ("o", "onu", "onun", "bu", "bunu", "şu", "şunu")
+    # Qualitative, never numeric. Which words mark how much of a kind is meant.
+    quantifiers = {"bütün": ALL, "tüm": ALL, "her": ALL, "bilcümle": ALL,
+                   "çoğu": MOST, "ekseri": MOST,
+                   "bazı": SOME, "kimi": SOME, "birtakım": SOME,
+                   "hiçbir": NO, "hiç": NO}
 
     def role_of(self, word):
         """(stem, role) when the word carries a case ending, else (word, None)."""
@@ -85,6 +91,13 @@ class TurkishMorphology:
 # Order matters: "kim uçar" has the shape of "kuşlar uçar", so the question has
 # to be tried before the lesson.
 PATTERNS = [
+    # "bazı kuşlar uçmaz" — an existence claim, not a rule about every bird.
+    Pattern([NICEL, KAVRAM, FIIL, SORU], ASK_HOW_MANY, FROM_VERB, 1, 2,
+            "bazı kuşlar uçar mı", quantifier=0),
+    Pattern([NICEL, KAVRAM, FIIL], TEACH, FROM_VERB, 1, 2, "bazı kuşlar uçmaz",
+            quantifier=0),
+    Pattern([NICEL, KAVRAM, NITELIK], TEACH, HAS_PROPERTY, 1, 2,
+            "bazı kuşlar tüylüdür", quantifier=0),
     # A sentence that leaves its subject out, carrying on from the last one.
     Pattern([FIIL, SORU], ASK, CAN, None, 0, "çıplak yetenek sorusu"),
     Pattern(["nedir"], ASK, IS_A, None, None, "çıplak tanım sorusu"),

@@ -5,7 +5,7 @@ cannot hold. The point of the file is that each fails *loudly* — the only outc
 worse than not learning something is learning it wrong in silence.
 
 The list gets shorter as the fact grows. It began with eight entries; objects
-took one, and case roles took two more.
+took one, case roles took two more, and qualitative quantifiers took another.
 """
 import os
 import tempfile
@@ -16,7 +16,6 @@ from lmm.cli import Session
 
 BEYOND_US = [
     ("sahiplik", "kuşun kanadı var"),
-    ("belirsiz nicelik", "bazı kuşlar uçmaz"),
     ("sayı", "insanın iki gözü var"),
     ("koşul", "yağmur yağarsa ıslanırsın"),
     ("sıra", "kuşlar yumurtadan çıkar sonra uçar"),

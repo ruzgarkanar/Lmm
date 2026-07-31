@@ -10,9 +10,11 @@ parser, and what lets the system be taught a new way of saying something while
 it is running.
 """
 from lmm.lexicon import ACTIVE
+from lmm.relations import ALL
 from lmm.language import LanguageOrgan
 from lmm.turkish import (turkish, TurkishMorphology, TEACH, ASK, ASK_WHO,  # noqa: F401
-                         ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES, ASK_DESCRIBE)
+                         ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES, ASK_DESCRIBE,
+                         ASK_HOW_MANY)
 
 PUNCTUATION = ".,!?;:\"'"
 
@@ -55,13 +57,14 @@ def _strip_suffix(word, suffixes):
 
 class Intent:
     def __init__(self, kind, concept=None, relation=None, target=None,
-                 object=None, role=None, confidence=1.0):
+                 object=None, role=None, quantifier=ALL, confidence=1.0):
         self.kind = kind
         self.concept = concept
         self.relation = relation
         self.target = target
         self.object = object        # a second concept, if the sentence had one
         self.role = role            # what that concept is doing there
+        self.quantifier = quantifier    # how much of the kind is meant
         self.confidence = confidence
         self.resembles = None       # shape the network saw, when nothing matched
         self.resemblance = 0.0
@@ -87,9 +90,9 @@ class Intuition(LanguageOrgan):
 
         pattern, captured = self.grammar.match(tokens, self.lexicon)
         if pattern is not None:
-            kind, relation, concept, target, obj, role = self.grammar.read(
-                pattern, captured)
-            return Intent(kind, concept, relation, target, obj, role)
+            (kind, relation, concept, target, obj, role,
+             quantifier) = self.grammar.read(pattern, captured)
+            return Intent(kind, concept, relation, target, obj, role, quantifier)
 
         # A subject followed by something that is neither a known verb nor a
         # property is almost certainly a verb nobody taught us. Saying so is

@@ -11,7 +11,8 @@ import time
 from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,  # noqa: F401
                            LACKS_PROPERTY, HAS_PART, LACKS_PART, TYPE_RELATIONS,
                            ABILITY_RELATIONS, PROPERTY_RELATIONS, PART_RELATIONS,
-                           PLACE, SOURCE, OBJECT)
+                           PLACE, SOURCE, OBJECT, ALL, MOST, SOME, NO,
+                           QUANTIFIERS, INHERITING)
 
 from lmm.lexicon import Lexicon, current
 from lmm.trust import INFERENCE, confidence_for, confidence_from, outranks
@@ -30,7 +31,7 @@ class CycleError(Exception):
 class Edge:
     def __init__(self, concept, relation, target, object=None, role=None,
                  source="unknown", confidence=None, is_exception=False,
-                 timestamp=None, sources=None, disputed=False):
+                 timestamp=None, sources=None, disputed=False, quantifier=ALL):
         self.concept = concept
         self.relation = relation        # IS_A | CAN | CANNOT
         self.target = target
@@ -45,6 +46,7 @@ class Edge:
                            else confidence_from(self.sources))
         self.is_exception = is_exception
         self.disputed = disputed        # sources disagree and neither prevailed
+        self.quantifier = quantifier    # how much of the kind this covers
         self.timestamp = timestamp if timestamp is not None else time.time()
 
     def corroborate(self, source):
@@ -61,7 +63,7 @@ class Edge:
                 "target": self.target, "object": self.object, "role": self.role,
                 "source": self.source, "sources": self.sources,
                 "confidence": self.confidence, "is_exception": self.is_exception,
-                "disputed": self.disputed,
+                "disputed": self.disputed, "quantifier": self.quantifier,
                 "timestamp": self.timestamp}
 
     @staticmethod

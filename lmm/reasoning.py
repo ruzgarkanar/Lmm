@@ -4,7 +4,8 @@ Every answer it produces can name the chain it came from, so nothing the system
 says is unexplainable.
 """
 from lmm.memory import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
-                        TYPE_RELATIONS, ABILITY_RELATIONS, PROPERTY_RELATIONS)
+                        TYPE_RELATIONS, ABILITY_RELATIONS, PROPERTY_RELATIONS,
+                        INHERITING)
 from lmm.phrasing import (ability_clause, property_clause, is_a_clause,
                           is_not_a_clause, attribution, disputed_note)
 from lmm.trust import INFERENCE
@@ -83,6 +84,10 @@ class Reasoning:
         for ancestor in self.ancestors(concept):
             for polarity, relation in ((False, denies), (True, affirms)):
                 edge = self.memory.direct(ancestor, relation, target, object, role)
+                if edge and edge.quantifier not in INHERITING:
+                    # "bazı kuşlar uçmaz" says nothing about this bird. Letting
+                    # it inherit would turn an existence claim into a universal.
+                    continue
                 if edge:
                     inherited = clause(ancestor, target, polarity, object, role)
                     if edge.source == INFERENCE:
@@ -111,6 +116,28 @@ class Reasoning:
         """Every concept known to do (or known not to do) an action."""
         return [c for c in self.memory.concepts()
                 if self.can_do(c, action)[0] is positive]
+
+    def survey(self, concept, target, relation_pair):
+        """Which members of a kind are known to do this, and which are not.
+
+        "Bazı kuşlar uçmaz" does not have to be stored to be answered: the
+        exceptions already on record say it. An existence claim is a reading of
+        the memory, not another fact in it.
+        """
+        lookup = (self.has_property if relation_pair[0] == HAS_PROPERTY
+                  else self.can_do)
+        yes, no = [], []
+        for other in self.memory.concepts():
+            if other == concept or concept not in self.ancestors(other):
+                continue
+            # Inherited counts: a sparrow flies because it is a bird, and the
+            # question is about the members, not about who was told what.
+            known, _ = lookup(other, target)
+            if known is True:
+                yes.append(other)
+            elif known is False:
+                no.append(other)
+        return yes, no
 
     def find_conflict(self, candidate):
         """Explanation string if the candidate edge conflicts with what we know."""
