@@ -4,7 +4,7 @@ There is no path from this class to a sentence that memory does not support, so
 hallucination is not filtered out — it is unreachable.
 """
 from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
-                           HAS_PART, LACKS_PART)
+                           HAS_PART, LACKS_PART, PLACE)
 from lmm.phrasing import (is_a_clause, is_not_a_clause, ability_clause,
                           property_clause,
                           who_clause, ability_summary, property_summary,
@@ -12,7 +12,7 @@ from lmm.phrasing import (is_a_clause, is_not_a_clause, ability_clause,
                           listing, copula)
 from lmm.similarity import nearest
 from lmm.intuition import (ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES,
-                           ASK_DESCRIBE, ASK_HOW_MANY)
+                           ASK_DESCRIBE, ASK_HOW_MANY, ASK_WHERE)
 from lmm.exposition import Exposition
 
 HEDGE_THRESHOLD = 0.5
@@ -34,6 +34,8 @@ class EpistemicGate:
             return self._why(intent)
         if intent.kind == ASK_DESCRIBE:
             return self.exposition.describe(intent.concept)
+        if intent.kind == ASK_WHERE:
+            return self._where(intent)
         if intent.kind == ASK_HOW_MANY:
             return self._how_many(intent)
         if intent.kind == ASK_PROPERTIES:
@@ -51,6 +53,21 @@ class EpistemicGate:
             return self._property(intent.concept, intent.target, intent.object,
                                   intent.role)
         return self._dont_know(intent.concept)
+
+    def _where(self, intent):
+        """"penguen nerede yaşar" — the places recorded for this action."""
+        found = []
+        for concept in [intent.concept] + self.reasoning.ancestors(intent.concept):
+            for edge in self.memory.query(concept, CAN):
+                if edge.target == intent.target and edge.role == PLACE:
+                    found.append((concept, edge.object))
+        if not found:
+            return self._dont_know(intent.concept)
+        concept, place = found[0]
+        clause = ability_clause(intent.concept, intent.target, True, place, PLACE)
+        if concept != intent.concept:
+            return f"{clause}, çünkü {intent.concept} bir {concept}."
+        return clause + "."
 
     def _how_many(self, intent):
         """"bazı kuşlar uçar mı" — read off the members, not stored as a fact."""

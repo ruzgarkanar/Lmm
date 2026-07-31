@@ -16,6 +16,7 @@ import sys
 
 from lmm.memory import Memory
 from lmm import lexicon
+from lmm.discovered import words_of
 from lmm.reasoning import Reasoning
 from lmm.learning import LearningLoop, LEARNED, REINFORCED, CONFLICT, REJECTED
 from lmm.intuition import Intuition, TEACH, UNKNOWN
@@ -61,7 +62,13 @@ def read_text(text, memory, source, reasoning=None, language=None):
     """Fold a document into a memory. Returns a ReadingReport."""
     lexicon.use(memory.lexicon)     # read in this memory's own words
     reasoning = reasoning or Reasoning(memory)
-    language = language or Intuition(network=MiniNetwork.default())
+    # The grammar needs this memory's own words and concepts: without them a
+    # two-way possessive split cannot be resolved and every "kuşun kanadı var"
+    # falls out as ambiguous. The conversation path already passed them.
+    language = language or Intuition(network=MiniNetwork.default(),
+                                     lexicon=memory.lexicon,
+                                     words=words_of(memory),
+                                     known=memory.concepts)
     learning = LearningLoop(memory, reasoning)
     report = ReadingReport(source)
     for sentence in sentences(text):

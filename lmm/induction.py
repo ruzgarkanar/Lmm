@@ -137,9 +137,14 @@ class Induction:
                          if self._stated(c, target, affirms)]
                 disagree = [c for c in children
                             if self._stated(c, target, denies)]
-                if len(agree) >= MINIMUM_EXAMPLES and not disagree:
+                # Two out of twenty is not a rule about the twenty, and two out
+                # of eight is not either: "kuş siyahtır" came from a penguin and
+                # a crow, "hayvan küçüktür" from a cat and a beetle. A third of
+                # the family has to agree before it counts as a rule about it.
+                enough = max(MINIMUM_EXAMPLES, -(-len(children) // 3))
+                if len(agree) >= enough and not disagree:
                     yield Hypothesis(parent, affirms, target, agree)
-                elif len(disagree) >= MINIMUM_EXAMPLES and not agree:
+                elif len(disagree) >= enough and not agree:
                     yield Hypothesis(parent, denies, target, disagree)
 
     def _stated(self, concept, target, relation):
