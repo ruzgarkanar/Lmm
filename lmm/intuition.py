@@ -20,6 +20,7 @@ PUNCTUATION = ".,!?;:\"'"
 
 UNKNOWN = "UNKNOWN"
 UNKNOWN_WORD = "UNKNOWN_WORD"
+AMBIGUOUS = "AMBIGUOUS"
 
 _MORPHOLOGY = TurkishMorphology()
 QUESTION_PARTICLES = _MORPHOLOGY.question_particles
@@ -71,10 +72,11 @@ class Intent:
 
 
 class Intuition(LanguageOrgan):
-    def __init__(self, network=None, lexicon=None, grammar=None, words=None):
+    def __init__(self, network=None, lexicon=None, grammar=None, words=None,
+                 known=()):
         self.network = network      # MiniNetwork supplies the resemblance hint
         self.lexicon = lexicon or ACTIVE
-        self.grammar = grammar or turkish(words)
+        self.grammar = grammar or turkish(words, known)
 
     def understand(self, sentence):
         """A matched pattern is the evidence; the network speaks when none matched.
@@ -101,6 +103,16 @@ class Intuition(LanguageOrgan):
             return Intent(UNKNOWN_WORD,
                           concept=morphology.strip_plural(tokens[0]),
                           target=tokens[1])
+
+        # A possessor that splits two ways and matches nothing known is a real
+        # ambiguity of the language, not a failure to parse. Saying which two
+        # readings they are lets one sentence settle it.
+        readings = getattr(morphology, "genitive_readings", lambda w: [])(tokens[0]) \
+            if tokens else []
+        if len(readings) > 1 and not (set(readings) & self.grammar.known()):
+            intent = Intent(AMBIGUOUS, concept=tokens[0])
+            intent.readings = readings
+            return intent
 
         intent = Intent(UNKNOWN, confidence=0.0)
         if self.network is not None and tokens:

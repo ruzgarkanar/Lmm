@@ -4,11 +4,21 @@ Every answer it produces can name the chain it came from, so nothing the system
 says is unexplainable.
 """
 from lmm.memory import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
-                        TYPE_RELATIONS, ABILITY_RELATIONS, PROPERTY_RELATIONS,
-                        INHERITING)
-from lmm.phrasing import (ability_clause, property_clause, is_a_clause,
-                          is_not_a_clause, attribution, disputed_note)
+                        HAS_PART, LACKS_PART, TYPE_RELATIONS, ABILITY_RELATIONS,
+                        PROPERTY_RELATIONS, PART_RELATIONS, INHERITING)
+from lmm.phrasing import (ability_clause, property_clause, part_clause,
+                          is_a_clause, is_not_a_clause, attribution,
+                          disputed_note)
 from lmm.trust import INFERENCE
+
+
+def _clause_for(relation):
+    """How a relation reads as a sentence. Language, kept out of the reasoning."""
+    if relation in (HAS_PROPERTY, LACKS_PROPERTY):
+        return property_clause
+    if relation in (HAS_PART, LACKS_PART):
+        return part_clause
+    return ability_clause
 
 
 class Reasoning:
@@ -16,16 +26,29 @@ class Reasoning:
         self.memory = memory
 
     def ancestors(self, concept):
-        """Type ancestors, nearest first."""
+        """Type ancestors, nearest first, along whichever relation builds them."""
+        hierarchy = self.memory.kinds.hierarchical()
         result, queue, seen = [], [concept], {concept}
         while queue:
             current = queue.pop(0)
-            for edge in self.memory.query(current, IS_A):
+            for edge in self.memory.query(current, hierarchy):
                 if edge.target not in seen:
                     seen.add(edge.target)
                     result.append(edge.target)
                     queue.append(edge.target)
         return result
+
+    def about(self, concept, relation, target, object=None, role=None):
+        """Any relation at all, read from the registry rather than a branch.
+
+        This is what lets a new kind of fact arrive as data: nothing here knows
+        what "has" means, only that it denies "has_not" and carries down.
+        """
+        affirms, denies = self.memory.kinds.pair(relation)
+        clause = _clause_for(relation)
+        answer, chain, _ = self._resolve(concept, target, affirms, denies,
+                                         clause, object, role)
+        return answer, chain
 
     def can_do(self, concept, action, object=None, role=None):
         """Returns (True | False | None, explanation chain).
@@ -84,6 +107,8 @@ class Reasoning:
         for ancestor in self.ancestors(concept):
             for polarity, relation in ((False, denies), (True, affirms)):
                 edge = self.memory.direct(ancestor, relation, target, object, role)
+                if edge and not self.memory.kinds.inherits(relation):
+                    continue        # some relations simply do not carry down
                 if edge and edge.quantifier not in INHERITING:
                     # "bazı kuşlar uçmaz" says nothing about this bird. Letting
                     # it inherit would turn an existence claim into a universal.
@@ -143,16 +168,13 @@ class Reasoning:
         """Explanation string if the candidate edge conflicts with what we know."""
         if candidate.relation in TYPE_RELATIONS:
             return self._type_conflict(candidate)
-        if candidate.relation in ABILITY_RELATIONS:
-            known, chain = self.can_do(candidate.concept, candidate.target,
-                                       candidate.object, candidate.role)
-            claimed = candidate.relation == CAN
-        elif candidate.relation in PROPERTY_RELATIONS:
-            known, chain = self.has_property(candidate.concept, candidate.target,
-                                             candidate.object, candidate.role)
-            claimed = candidate.relation == HAS_PROPERTY
-        else:
+        affirms, denies = self.memory.kinds.pair(candidate.relation)
+        if denies is None:
             return None
+        known, chain = self.about(candidate.concept, candidate.relation,
+                                  candidate.target, candidate.object,
+                                  candidate.role)
+        claimed = candidate.relation == affirms
         if known is not None and known != claimed:
             return "şu an bildiğim: " + " çünkü ".join(chain)
         return None

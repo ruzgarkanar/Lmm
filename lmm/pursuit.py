@@ -9,7 +9,7 @@ invented; it is read off the hierarchy. "I don't know whether a penguin flies,
 but I know a penguin is a bird — do birds fly?" is a step the memory itself
 dictates.
 """
-from lmm.relations import IS_A, CAN, HAS_PROPERTY
+from lmm.relations import IS_A, CAN, HAS_PROPERTY, HAS_PART, LACKS_PART
 from lmm import phrasing
 from lmm.similarity import nearest
 
@@ -64,11 +64,12 @@ class Pursuit:
         concept = concept if concept is not None else goal.concept
         obj = getattr(goal, "object", None)
         role = getattr(goal, "role", None)
-        if goal.relation == HAS_PROPERTY:
-            return self.reasoning.has_property(concept, goal.target, obj, role)[0]
-        return self.reasoning.can_do(concept, goal.target, obj, role)[0]
+        return self.reasoning.about(concept, goal.relation, goal.target,
+                                    obj, role)[0]
 
     def _question(self, concept, goal):
+        if goal.relation in (HAS_PART, LACKS_PART):
+            return phrasing.part_question(concept, goal.target)
         if goal.relation == HAS_PROPERTY:
             return phrasing.property_question(concept, goal.target)
         return phrasing.ability_question(concept, goal.target,

@@ -31,8 +31,9 @@ SORU = "{soru}"
 KIM = "{kim}"
 ROL = "{rol}"        # a second concept wearing a case ending
 NICEL = "{nicel}"    # how much of a kind: bütün / çoğu / bazı / hiçbir
+SAHIP = "{sahip}"    # a possessor, marked as one by the language
 
-SLOTS = (KAVRAM, TUR, NITELIK, SOZ, FIIL, SORU, KIM, ROL, NICEL)
+SLOTS = (KAVRAM, TUR, NITELIK, SOZ, FIIL, SORU, KIM, ROL, NICEL, SAHIP)
 
 FROM_VERB = "fiilden"       # the relation follows the verb's own polarity
 
@@ -87,9 +88,15 @@ class Grammar:
     the question has to be tried before the lesson.
     """
 
-    def __init__(self, patterns, morphology):
+    def __init__(self, patterns, morphology, known=()):
         self.patterns = list(patterns)
         self.morphology = morphology    # supplies the language's suffix rules
+        # Live, not a snapshot: a concept taught mid-conversation must be
+        # recognisable in the very next sentence.
+        self._known = known
+
+    def known(self):
+        return set(self._known() if callable(self._known) else self._known)
 
     def add(self, pattern, first=False):
         self.patterns.insert(0, pattern) if first else self.patterns.append(pattern)
@@ -174,6 +181,9 @@ class Grammar:
             return token if token in morphology.question_particles else None
         if slot == KIM:
             return token if token in morphology.interrogatives else None
+        if slot == SAHIP:
+            stem = morphology.strip_genitive(token, self.known())
+            return stem if stem != token else None
         if slot == NICEL:
             return morphology.quantifiers.get(token)
         if slot == ROL:

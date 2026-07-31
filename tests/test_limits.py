@@ -5,7 +5,9 @@ cannot hold. The point of the file is that each fails *loudly* — the only outc
 worse than not learning something is learning it wrong in silence.
 
 The list gets shorter as the fact grows. It began with eight entries; objects
-took one, case roles took two more, and qualitative quantifiers took another.
+took one, case roles took two more, qualitative quantifiers took another, and
+possession took the last two — arriving as a pattern and a registry entry with
+no change to the engine.
 """
 import os
 import tempfile
@@ -15,8 +17,6 @@ from lmm.relations import CAN, HAS_PROPERTY, OBJECT, PLACE, SOURCE
 from lmm.cli import Session
 
 BEYOND_US = [
-    ("sahiplik", "kuşun kanadı var"),
-    ("sayı", "insanın iki gözü var"),
     ("koşul", "yağmur yağarsa ıslanırsın"),
     ("sıra", "kuşlar yumurtadan çıkar sonra uçar"),
 ]
@@ -101,6 +101,51 @@ class TestPhrasesStillHoldTogether(unittest.TestCase):
     def test_single_word_sentences_are_untouched(self):
         self.session.respond("kuşlar uçar")
         self.assertIsNotNone(self.session.memory.direct("kuş", CAN, "uçmak"))
+
+
+class TestPossessionArrivedAsData(unittest.TestCase):
+    """Nothing in the reasoning knows what "has" means — only that it denies
+    "has not" and carries down the hierarchy."""
+
+    def setUp(self):
+        self.session = Session(os.path.join(tempfile.mkdtemp(), "memory.json"))
+        self.session.respond("kuşun kanadı var")
+        self.session.respond("penguen bir kuştur")
+        self.session.respond("kedi bir hayvandır")   # introduce it first
+        self.session.respond("kedinin kanadı yok")
+
+    def test_a_possessor_is_read_off_its_ending(self):
+        self.assertIsNotNone(self.session.memory.direct("kuş", "has", "kanadı"))
+
+    def test_it_is_inherited(self):
+        answer = self.session.respond("penguenin kanadı var mı")
+        self.assertTrue(answer.startswith("evet"))
+        self.assertIn("penguen bir kuş", answer)
+
+    def test_the_denial_is_held_apart_from_the_claim(self):
+        self.assertTrue(
+            self.session.respond("kedinin kanadı var mı").startswith("hayır"))
+
+    def test_the_ending_is_rebuilt_when_it_speaks(self):
+        """kuş -> kuşun, kedi -> kedinin, balık -> balığın."""
+        self.assertIn("kedinin kanadı yok",
+                      self.session.respond("kedinin kanadı var mı"))
+
+    def test_a_number_is_kept_but_only_as_part_of_the_phrase(self):
+        """Honest partial support: the count is not a field of its own yet."""
+        self.session.respond("insan bir canlıdır")
+        self.session.respond("insanın iki gözü var")
+        self.assertIsNotNone(
+            self.session.memory.direct("insan", "has", "iki gözü"))
+        self.assertIsNone(self.session.memory.direct("insan", "has", "gözü"))
+
+    def test_an_ambiguous_possessor_names_both_readings(self):
+        """"kedinin" is kedi+nin or kedin+in, and only knowing the word decides."""
+        fresh = Session(os.path.join(tempfile.mkdtemp(), "yeni.json"))
+        answer = fresh.respond("kedinin kuyruğu var")
+        self.assertIn("kedi", answer)
+        self.assertIn("kedin", answer)
+        self.assertEqual(fresh.memory.edges, [])
 
 
 if __name__ == "__main__":
