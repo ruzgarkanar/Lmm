@@ -5,10 +5,12 @@ discuss what we had hardcoded. It is knowledge like any other: learned, stored
 with the memory, and carried by packs. A domain extends the language by shipping
 its verbs alongside its facts — no change to this codebase.
 
-One running LMM has one vocabulary, kept in ACTIVE. Words are only ever added,
-never removed, so growth is safe. A process that hosts several memories at once
-should give each its own Lexicon instance rather than sharing ACTIVE.
+Each memory carries its own vocabulary, because a service holds more than one at
+a time and two tenants must never teach each other words. The module keeps a
+default for the common case of a single memory, and `use()` swaps in another for
+the duration of a request.
 """
+import contextvars
 
 # The starting vocabulary of the controlled world: surface -> (infinitive, is_positive)
 CORE_VERBS = {
@@ -65,4 +67,29 @@ class Lexicon:
         return frozenset(self.verbs)
 
 
-ACTIVE = Lexicon()
+CORE = Lexicon()        # the default, for a process holding a single memory
+_current = contextvars.ContextVar("lexicon", default=None)
+
+
+def current():
+    """The vocabulary in force right now."""
+    return _current.get() or CORE
+
+
+def use(lexicon):
+    """Make a vocabulary current. Returns a token for restoring the previous."""
+    return _current.set(lexicon)
+
+
+def restore(token):
+    _current.reset(token)
+
+
+class _Active:
+    """`ACTIVE.verbs` keeps working while meaning "whichever is current"."""
+
+    def __getattr__(self, name):
+        return getattr(current(), name)
+
+
+ACTIVE = _Active()
