@@ -15,6 +15,10 @@ QUESTION_PARTICLES = ("mı", "mi", "mu", "mü")
 COPULA_SUFFIXES = ("tur", "tır", "dur", "dır", "tür", "tir", "dür", "dir")
 PLURAL_SUFFIXES = ("lar", "ler")
 INTERROGATIVES = ("kim", "kimler", "ne", "neler")
+# Words that only resume the thread: "peki uçar mı" is "uçar mı" about the
+# thing we were just discussing.
+OPENERS = ("peki", "ya", "hem")
+PRONOUNS = ("o", "onu", "onun", "bu", "bunu", "şu", "şunu")
 
 TEACH = "TEACH"
 ASK = "ASK"
@@ -78,6 +82,8 @@ class Intuition(LanguageOrgan):
         the system can guess at what you meant instead of shrugging.
         """
         tokens = tokenize(sentence)
+        while tokens and tokens[0] in OPENERS:
+            tokens = tokens[1:]
         intent = self._parse_pattern(tokens)
         if intent.kind == UNKNOWN and self.network is not None and tokens:
             intent.resembles, intent.resemblance = self.network.predict(
@@ -85,6 +91,20 @@ class Intuition(LanguageOrgan):
         return intent
 
     def _parse_pattern(self, tokens):
+        # A bare question carries on about whatever was last discussed; the
+        # session fills the subject in, since only it knows the thread.
+        if len(tokens) == 2 and tokens[1] in QUESTION_PARTICLES \
+                and self.lexicon.knows(tokens[0]):
+            infinitive, _ = self.lexicon.reading(tokens[0])
+            return Intent(ASK, relation=CAN, target=infinitive)
+        if len(tokens) == 1 and tokens[0] == "nedir":
+            return Intent(ASK, relation=IS_A)
+        if len(tokens) == 1 and tokens[0] in ("anlat", "anlatsana"):
+            return Intent(ASK_DESCRIBE)
+        if len(tokens) == 1 and tokens[0] in ("nasıldır", "nasıl"):
+            return Intent(ASK_PROPERTIES)
+        if len(tokens) == 2 and tokens[0] == "ne" and tokens[1] == "yapabilir":
+            return Intent(ASK_ABILITIES)
         # Questions come first: "kim uçar" also fits the teaching shape
         # "X(lar) <verb>", and reading it as a lesson would be wrong.
         # "kimler <verb>" / "ne <verb>"

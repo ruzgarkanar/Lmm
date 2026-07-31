@@ -58,6 +58,26 @@ penguen tüylü ve siyahtır.
 bir çelişki fark ettim: şu an bildiğim: penguen bir kuş çünkü kuş tüylüdür...
 ```
 
+## Bağlam — pencere değil, konuşma ipi
+
+```
+> penguen nedir
+penguen bir kuştur (kaynak: llm:claude-fable-5).
+> peki yüzer mi
+evet, çünkü penguen yüzer.
+> nasıldır
+penguen tüylüdür.
+> anlat
+Penguen bir kuştur, kuş da bir canlıdır. Kuş olduğu için uçar ve tüylüdür...
+```
+
+Bir LLM her turda tüm konuşmayı baştan okur ve sabit bir bütçeye sığmayanı
+**unutur** — başı düşer. LMM'de öğrenilen şey zaten kalıcı olduğu için
+unutulacak bir şey yok; 300 cümle sonra bile ilk öğretilen bilgi yerinde
+(`tests/test_context.py`). Eksik olan tek şey konuşmanın *ipiydi*: "peki yüzer
+mi" sorusunun neyi kastettiği. O da artık var, ve ip yoksa sistem tahmin
+etmiyor — anlamadığını söylüyor.
+
 ## Üretkenlik — bildiğinden paragraf kurmak
 
 ```
