@@ -8,7 +8,7 @@ against a pattern list.
 A second language means another module shaped like this one, not another parser.
 """
 from lmm.grammar import (Pattern, Grammar, KAVRAM, TUR, NITELIK, SOZ, FIIL,
-                         SORU, KIM, ROL, NICEL, SAHIP, FROM_VERB)
+                         SORU, KIM, ROL, NICEL, SAHIP, NESNEL, FROM_VERB)
 from lmm.relations import (IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY,
                            HAS_PART, LACKS_PART, PLACE, SOURCE, ALL,
                            MOST, SOME, NO)
@@ -67,6 +67,11 @@ class TurkishMorphology:
             if hardened != stem:
                 found.append(hardened)
         return sorted(set(found), key=len, reverse=True)
+
+    accusative_suffixes = ("yı", "yi", "yu", "yü", "ı", "i", "u", "ü")
+
+    def strip_accusative(self, word):
+        return self._strip(word, self.accusative_suffixes)
 
     def strip_genitive(self, word, known=()):
         """"kuşun" -> "kuş", "balığın" -> "balık".
@@ -162,6 +167,18 @@ PATTERNS = [
     Pattern([KAVRAM, "neden", FIIL], ASK_WHY, FROM_VERB, 0, 2, "neden uçar"),
     Pattern([KAVRAM, "neden", SOZ], ASK_WHY, HAS_PROPERTY, 0, 2, "neden beyaz"),
     Pattern([KAVRAM, "anlat"], ASK_DESCRIBE, None, 0, None, "anlat"),
+    # More ways to ask for the same thing, gathered from what people wrote.
+    Pattern([KAVRAM, "açıkla"], ASK_DESCRIBE, None, 0, None, "açıkla"),
+    Pattern([NESNEL, "açıkla"], ASK_DESCRIBE, None, 0, None, "açıkla nesnel"),
+    Pattern([NESNEL, "tarif", "et"], ASK_DESCRIBE, None, 0, None, "tarif et"),
+    Pattern([NESNEL, "tanımla"], ASK_DESCRIBE, None, 0, None, "tanımla"),
+    Pattern([KAVRAM, "hakkında", "bilgi", "ver"], ASK_DESCRIBE, None, 0, None,
+            "hakkında bilgi ver"),
+    Pattern([KAVRAM, "hakkında", "ne", "biliyorsun"], ASK_DESCRIBE, None, 0,
+            None, "hakkında ne biliyorsun"),
+    Pattern([KAVRAM, "kim"], ASK, IS_A, 0, None, "kim"),
+    Pattern([KAVRAM, "kimdir"], ASK, IS_A, 0, None, "kimdir"),
+    Pattern([KIM, SOZ], ASK_WHO, HAS_PROPERTY, None, 1, "kimler beyaz"),
     Pattern([KAVRAM, "anlatsana"], ASK_DESCRIBE, None, 0, None, "anlatsana"),
     Pattern([KAVRAM, "nasıldır"], ASK_PROPERTIES, None, 0, None, "nasıldır"),
     Pattern([KAVRAM, "nasıl"], ASK_PROPERTIES, None, 0, None, "nasıl"),

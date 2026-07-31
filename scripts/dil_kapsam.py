@@ -17,7 +17,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from lmm.intuition import (Intuition, TEACH, ASK, ASK_WHO, ASK_ABILITIES,  # noqa: E402
-                           ASK_WHY, ASK_PROPERTIES, ASK_DESCRIBE, UNKNOWN)
+                           ASK_WHY, ASK_PROPERTIES, ASK_DESCRIBE, UNKNOWN,
+                           UNKNOWN_WORD)
 from lmm.relations import IS_A, CAN, HAS_PROPERTY  # noqa: E402
 from lmm.lexicon import ACTIVE  # noqa: E402
 import lmm.harvest as harvest  # noqa: E402
@@ -74,25 +75,38 @@ def generate():
 
 
 def measure(dataset):
+    """Three buckets, not two.
+
+    A sentence the parser reads is understood. A sentence it cannot read only
+    because a verb was never taught is not a hole in the grammar — the system
+    says which word it needs, and one line fixes it. Counting those together
+    hides where the work actually is.
+    """
     intuition = Intuition()
-    total = understood = 0
+    total = understood = needs_word = 0
     misses = []
-    print(f"\n{'niyet':<16} {'anlaşılan':>10}")
+    print(f"\n{'niyet':<16} {'anlaşılan':>10} {'kelime eksik':>13} {'kalıp yok':>10}")
     for label, sentences in dataset.items():
-        hits = 0
+        hits = words = 0
         for sentence in sentences:
             intent = intuition.understand(sentence)
-            if intent.kind != UNKNOWN and EXPECTED[label](intent):
+            if intent.kind not in (UNKNOWN, UNKNOWN_WORD) and EXPECTED[label](intent):
                 hits += 1
+            elif intent.kind == UNKNOWN_WORD:
+                words += 1
             else:
-                misses.append((label, sentence, intent.kind))
-        total += len(sentences)
+                misses.append((label, sentence))
+        count = len(sentences)
+        total += count
         understood += hits
-        share = hits / len(sentences) * 100 if sentences else 0
-        print(f"{label:<16} {hits:>3}/{len(sentences):<3} %{share:>3.0f}")
-    print(f"\nTOPLAM: {understood}/{total} — %{understood / total * 100:.0f}")
-    print("\nANLAŞILMAYANLAR (ilk 25):")
-    for label, sentence, got in misses[:25]:
+        needs_word += words
+        print(f"{label:<16} {hits:>3}/{count:<3} %{hits / count * 100:>3.0f}"
+              f"   {words:>8}      {count - hits - words:>7}")
+    print(f"\nTOPLAM anlaşılan {understood}/{total} — %{understood / total * 100:.0f}")
+    print(f"       kelime eksik {needs_word} (tek satırla çözülür)")
+    print(f"       kalıp yok    {total - understood - needs_word}")
+    print("\nKALIBI OLMAYANLAR (ilk 20):")
+    for label, sentence in misses[:20]:
         print(f"  [{label}] {sentence}")
     return understood / total
 
