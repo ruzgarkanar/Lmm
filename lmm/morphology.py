@@ -113,10 +113,13 @@ def discover(words, minimum=3, max_length=4):
         # to teach the wrong rule for every word with an "a" in it.
         vowel_votes, ending_votes, examples = {}, {}, []
         for suffix, stems in variants:
+            # A one-letter suffix has no head to alternate: counting its single
+            # character as both head and tail once produced "teachss".
+            head, tail = (suffix[0], suffix[1:]) if len(suffix) > 1 else ("", suffix)
             for stem in stems:
-                _vote(vowel_votes, last_vowel(stem), suffix[-len(suffix) + 1:]
-                      if len(suffix) > 1 else suffix)
-                _vote(ending_votes, stem[-1], suffix[0])
+                _vote(vowel_votes, last_vowel(stem), tail)
+                if head:
+                    _vote(ending_votes, stem[-1], head)
                 examples.append(stem + suffix)
         harmony = {vowel: max(counts, key=counts.get)
                    for vowel, counts in vowel_votes.items()}
