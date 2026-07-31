@@ -3,7 +3,8 @@
 There is no path from this class to a sentence that memory does not support, so
 hallucination is not filtered out — it is unreachable.
 """
-from lmm.relations import IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY
+from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
+                           HAS_PART, LACKS_PART)
 from lmm.phrasing import (is_a_clause, is_not_a_clause, ability_clause,
                           property_clause,
                           who_clause, ability_summary, property_summary,
@@ -42,6 +43,8 @@ class EpistemicGate:
         if intent.relation == CAN:
             return self._ability(intent.concept, intent.target, intent.object,
                                  intent.role)
+        if intent.relation in (HAS_PART, LACKS_PART):
+            return self._about(intent)
         if intent.relation == HAS_PROPERTY:
             return self._property(intent.concept, intent.target, intent.object,
                                   intent.role)
@@ -67,6 +70,15 @@ class EpistemicGate:
         if not self.memory.query(concept, IS_A):
             return self._dont_know(concept)
         return f"bildiğim kadarıyla {is_not_a_clause(concept, target)}."
+
+    def _about(self, intent):
+        """Any relation the registry knows — nothing here is per-relation code."""
+        known, chain = self.reasoning.about(intent.concept, intent.relation,
+                                            intent.target, intent.object,
+                                            intent.role)
+        if known is None:
+            return self._dont_know(intent.concept)
+        return f"{'evet' if known else 'hayır'}, çünkü {' ve '.join(chain)}."
 
     def _property(self, concept, prop, object=None, role=None):
         known, chain = self.reasoning.has_property(concept, prop, object, role)

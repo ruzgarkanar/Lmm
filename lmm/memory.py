@@ -16,6 +16,7 @@ from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,  # noqa: F401
 
 from lmm.lexicon import Lexicon, current
 from lmm.trust import INFERENCE, confidence_for, confidence_from, outranks
+from lmm.kinds import Kinds
 
 FORMAT_VERSION = 3
 
@@ -89,6 +90,7 @@ class Memory:
         self.patterns = []      # ways of saying things, learned beyond the core
         self.reputation = {}    # each source's record of agreeing and disagreeing
         self.health = {}        # per branch: how much is accepted, how much refused
+        self.kinds = Kinds()    # what each relation does — data, not code
         self._rebuild()
 
     def _rebuild(self):
@@ -229,7 +231,7 @@ class Memory:
                    "asked": sorted(self.asked),
                    "vocabulary": self.vocabulary,
                    "patterns": self.patterns, "reputation": self.reputation,
-                   "health": self.health}
+                   "health": self.health, "kinds": self.kinds.to_list()}
         opener, write_mode, _ = self._opener(path)
         temp = path + ".tmp"
         with opener(temp, write_mode, encoding="utf-8") as f:
@@ -253,6 +255,7 @@ class Memory:
                 memory.patterns = data.get("patterns", [])
                 memory.reputation = data.get("reputation", {})
                 memory.health = data.get("health", {})
+                memory.kinds.load(data.get("kinds", []))
                 for word in data.get("vocabulary", []):
                     memory.learn_word(**word)   # words come back with the facts
         except (OSError, ValueError, KeyError, TypeError):

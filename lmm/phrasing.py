@@ -6,7 +6,7 @@ labels never leak into what the system says, and a second language would mean
 swapping this file alone.
 """
 from lmm.relations import (IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY,
-                           PLACE, SOURCE)
+                           HAS_PART, LACKS_PART, PLACE, SOURCE)
 from lmm.lexicon import ACTIVE
 
 from lmm.trust import INFERENCE, DISTILLED_PREFIX
@@ -89,9 +89,37 @@ def property_clause(concept, prop, positive=True, object=None, role=None):
     return f"{concept} {middle}{prop} değildir"
 
 
+_SOFTENS = {"k": "ğ", "p": "b", "ç": "c", "t": "d"}
+
+
+def genitive(word):
+    """The possessor's ending: kuş -> kuşun, kedi -> kedinin, balık -> balığın.
+
+    Harmony picks the vowel, whether the word ends in one picks the -n-, and a
+    final voiceless consonant softens before it.
+    """
+    if not word:
+        return word
+    stem = word
+    if stem[-1] in _SOFTENS and len(stem) > 2:
+        stem = stem[:-1] + _SOFTENS[stem[-1]]
+    buffer = "n" if word[-1] in "aeıioöuü" else ""
+    return stem + buffer + _harmony_vowel(word) + "n"
+
+
+def part_clause(concept, part, positive=True, object=None, role=None):
+    """kuş, kanadı -> "kuşun kanadı var" / "kuşun kanadı yok"."""
+    return f"{genitive(concept)} {part} {'var' if positive else 'yok'}"
+
+
 def property_question(concept, prop):
     """kar, beyaz -> "kar beyaz mı?"."""
     return f"{concept} {prop} {question_particle(prop)}?"
+
+
+def part_question(concept, part):
+    """kuş, kanadı -> "kuşun kanadı var mı?"."""
+    return f"{genitive(concept)} {part} var mı?"
 
 
 def property_summary(concept, properties):
@@ -176,6 +204,12 @@ def not_understood(resembles=None):
         return (f"bunu anlamadım. '{example}' gibi bir şey mi demek istedin? "
                 f"kelimelerinden birini bilmiyor olabilirim.")
     return f"bunu anlamadım. şu kalıpları biliyorum: {KNOWN_SHAPES}."
+
+
+def which_reading(word, readings):
+    """Two ways to read a possessor, and no way to choose without being told."""
+    return (f"'{word}' iki türlü okunabilir: {listing(list(readings))}. "
+            f"Hangisini kastettiğini bilmiyorum — önce onu bana tanıtır mısın?")
 
 
 def teach_me_the_word(word):
@@ -322,6 +356,10 @@ def predicate(relation, target, object=None, role=None):
         return f"bir {target}{copula(target)}"
     if relation == NOT_A:
         return f"bir {target} değildir"
+    if relation == HAS_PART:
+        return f"{target} var"
+    if relation == LACKS_PART:
+        return f"{target} yok"
     middle = f"{case_form(object, role)} " if object else ""
     if relation == HAS_PROPERTY:
         return f"{middle}{target}{copula(target)}"
@@ -339,4 +377,6 @@ def describe(concept, relation, target, object=None, role=None):
     if relation in (HAS_PROPERTY, LACKS_PROPERTY):
         return property_clause(concept, target, relation == HAS_PROPERTY,
                                object, role)
+    if relation in (HAS_PART, LACKS_PART):
+        return part_clause(concept, target, relation == HAS_PART)
     return ability_clause(concept, target, relation == CAN, object, role)

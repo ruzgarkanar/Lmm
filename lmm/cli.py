@@ -6,7 +6,7 @@ from lmm import lexicon
 from lmm.reasoning import Reasoning
 from lmm.gate import EpistemicGate
 from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
-                           UNKNOWN_WORD, PRONOUNS, lower)
+                           UNKNOWN_WORD, AMBIGUOUS, PRONOUNS, lower)
 from lmm.distill import split_words
 from lmm.grammar import Pattern
 from lmm.discovered import words_of
@@ -19,14 +19,14 @@ from lmm.curiosity import Curiosity
 from lmm.pursuit import Pursuit
 from lmm.phrasing import (wondering, not_understood, now_i_can, generalising,
                           describe, teach_me_the_word, learned_word, computed,
-                          cannot_compute)
+                          cannot_compute, which_reading)
 
 # A custom LanguageOrgan may report graded confidence; ours parses or does not.
 CONFIDENCE_THRESHOLD = 0.35
 RESEMBLANCE = 0.5       # below this, guessing at what you meant is noise
 AFFIRMATIVE = ("evet", "e")
 EXIT_WORDS = ("çık", "cik", "exit")
-SUBJECTLESS = (ASK_WHO, UNKNOWN, UNKNOWN_WORD)   # kinds needing no subject
+SUBJECTLESS = (ASK_WHO, UNKNOWN, UNKNOWN_WORD, AMBIGUOUS)
 
 
 class Session:
@@ -43,7 +43,8 @@ class Session:
         # to the declared lists while it is still small.
         self.language = language or Intuition(network=MiniNetwork.default(),
                                               lexicon=self.memory.lexicon,
-                                              words=words_of(self.memory))
+                                              words=words_of(self.memory),
+                                              known=self.memory.concepts)
         for entry in self.memory.patterns:      # ways of speaking it was taught
             self.language.grammar.add(Pattern.from_dict(entry), first=True)
         self.learning = LearningLoop(self.memory, reasoning)
@@ -73,6 +74,8 @@ class Session:
             infinitive, positive, negative = words[-1]
             return learned_word(infinitive, positive, negative)
         intent = self._in_context(self.language.understand(line))
+        if intent.kind == AMBIGUOUS:
+            return which_reading(intent.concept, intent.readings)
         if intent.kind == UNKNOWN_WORD:
             return teach_me_the_word(intent.target)
         if intent.kind == UNKNOWN or intent.confidence < CONFIDENCE_THRESHOLD:
