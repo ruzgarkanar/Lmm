@@ -33,30 +33,13 @@ class Curiosity:
         return None
 
     def _gaps(self):
-        concepts = self._concepts()
+        concepts = self.memory.concepts()
         for concept in concepts:            # what is this thing, anyway?
             if not self.memory.query(concept, IS_A):
                 yield Question(f"type:{concept}",
                                phrasing.definition_question(concept))
         for concept in concepts:            # the world does this — can it?
-            for action in self._actions():
+            for action in self.memory.actions():
                 if self.reasoning.can_do(concept, action)[0] is None:
                     yield Question(f"can:{concept}:{action}",
                                    phrasing.ability_question(concept, action))
-
-    def _concepts(self):
-        """Everything that behaves like a thing, in the order it was learned."""
-        ordered = []
-        for edge in self.memory.edges:
-            for candidate in (edge.concept,
-                              edge.target if edge.relation == IS_A else None):
-                if candidate is not None and candidate not in ordered:
-                    ordered.append(candidate)
-        return ordered
-
-    def _actions(self):
-        ordered = []
-        for edge in self.memory.edges:
-            if edge.relation in (CAN, CANNOT) and edge.target not in ordered:
-                ordered.append(edge.target)
-        return ordered

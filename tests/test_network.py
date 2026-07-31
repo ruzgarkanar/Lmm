@@ -1,6 +1,6 @@
 import unittest
 
-from lmm.network import MiniNetwork, training_data
+from lmm.network import MiniNetwork, training_data, CLASSES
 from lmm.intuition import tokenize, Intuition, TEACH
 
 
@@ -9,10 +9,9 @@ class TestMiniNetwork(unittest.TestCase):
     def setUpClass(cls):
         cls.network = MiniNetwork.default()   # trained on the seed data
 
-    def test_training_data_covers_four_classes(self):
+    def test_training_data_covers_every_class(self):
         classes = {label for _, label in training_data()}
-        self.assertEqual(classes, {"TEACH_TYPE", "TEACH_ABILITY",
-                                   "ASK_ABILITY", "ASK_DEFINITION"})
+        self.assertEqual(classes, set(CLASSES))
 
     def test_recognises_learned_patterns(self):
         label, confidence = self.network.predict(tokenize("kedi bir hayvandır"))

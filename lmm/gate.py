@@ -4,7 +4,9 @@ There is no path from this class to a sentence that memory does not support, so
 hallucination is not filtered out — it is unreachable.
 """
 from lmm.memory import IS_A, CAN
-from lmm.phrasing import is_a_clause
+from lmm.phrasing import (is_a_clause, ability_clause, who_clause,
+                          ability_summary, verb_form)
+from lmm.intuition import ASK_WHO, ASK_ABILITIES, ASK_WHY
 
 HEDGE_THRESHOLD = 0.5
 
@@ -15,11 +17,40 @@ class EpistemicGate:
         self.reasoning = reasoning
 
     def answer(self, intent):
+        if intent.kind == ASK_WHO:
+            return self._who(intent.target, intent.relation == CAN)
+        if intent.kind == ASK_ABILITIES:
+            return self._abilities(intent.concept)
+        if intent.kind == ASK_WHY:
+            return self._why(intent.concept, intent.target, intent.relation == CAN)
         if intent.relation == IS_A:
             return self._definition(intent.concept)
         if intent.relation == CAN:
             return self._ability(intent.concept, intent.target)
         return self._dont_know(intent.concept)
+
+    def _who(self, action, positive):
+        if action not in self.memory.actions():
+            return f"{verb_form(action, True)} diye bir şeyi hiç duymadım."
+        found = self.reasoning.who_can(action, positive)
+        if not found:
+            return (f"bildiğim hiçbir şeyin {verb_form(action, positive)}ini "
+                    f"öğrenmedim.")
+        return who_clause(found, action, positive) + "."
+
+    def _abilities(self, concept):
+        found = self.reasoning.abilities(concept)
+        if not found:
+            return f"{concept} ne yapabilir, bunu hiç öğrenmedim."
+        return ability_summary(concept, found) + "."
+
+    def _why(self, concept, action, positive):
+        known, chain = self.reasoning.can_do(concept, action)
+        if known is None:
+            return self._dont_know(concept)
+        if known != positive:
+            return f"aslında {ability_clause(concept, action, known)}."
+        return "çünkü " + " ve ".join(chain) + "."
 
     def _definition(self, concept):
         edges = self.memory.query(concept, IS_A)

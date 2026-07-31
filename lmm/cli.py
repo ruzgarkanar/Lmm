@@ -4,7 +4,7 @@ import sys
 from lmm.memory import Memory
 from lmm.reasoning import Reasoning
 from lmm.gate import EpistemicGate
-from lmm.intuition import Intuition, ASK, UNKNOWN
+from lmm.intuition import Intuition, TEACH, UNKNOWN
 from lmm.learning import LearningLoop, CONFLICT, LEARNED
 from lmm.network import MiniNetwork
 from lmm.curiosity import Curiosity
@@ -18,12 +18,13 @@ EXIT_WORDS = ("çık", "cik", "exit")
 class Session:
     """One conversation: the five organs wired together over a memory file."""
 
-    def __init__(self, path):
+    def __init__(self, path, language=None):
         self.path = path
         self.memory = Memory.load(path)
         reasoning = Reasoning(self.memory)
         self.gate = EpistemicGate(self.memory, reasoning)
-        self.intuition = Intuition(network=MiniNetwork.default())
+        # any LanguageOrgan fits here; the other organs never see a sentence
+        self.language = language or Intuition(network=MiniNetwork.default())
         self.learning = LearningLoop(self.memory, reasoning)
         self.curiosity = Curiosity(self.memory, reasoning)
         self.pending = None   # an edge awaiting the teacher's confirmation
@@ -31,11 +32,12 @@ class Session:
     def respond(self, line):
         if self.pending is not None:
             return self._resolve_pending(line)
-        intent = self.intuition.understand(line)
+        intent = self.language.understand(line)
         if intent.kind == UNKNOWN or intent.confidence < CONFIDENCE_THRESHOLD:
-            return ("bunu anlamadım. 'x bir y', 'x uçar', 'x uçar mı', 'x nedir' "
-                    "kalıplarıyla konuşabiliyorum şimdilik.")
-        if intent.kind == ASK:
+            return ("bunu anlamadım. şu kalıpları biliyorum: 'x bir y', "
+                    "'x bir y değildir', 'x uçar', 'x uçar mı', 'x nedir', "
+                    "'kimler uçar', 'x ne yapabilir', 'x neden uçamaz'.")
+        if intent.kind != TEACH:
             return self.gate.answer(intent)
         status, message, edge = self.learning.teach(intent)
         if status == CONFLICT:

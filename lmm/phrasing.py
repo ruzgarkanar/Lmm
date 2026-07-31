@@ -5,7 +5,7 @@ this module is the only place that turns them into sentences — so the internal
 labels never leak into what the system says, and a second language would mean
 swapping this file alone.
 """
-from lmm.memory import IS_A, CAN, CANNOT
+from lmm.memory import IS_A, NOT_A, CAN, CANNOT
 
 # Verb lexicon of the controlled world: surface form -> (infinitive, is_positive)
 VERBS = {
@@ -37,7 +37,7 @@ def _harmony_vowel(word):
     return "ü"
 
 
-def _copula(word):
+def copula(word):
     """The -DIr suffix, obeying vowel harmony and consonant assimilation."""
     consonant = "t" if word and word[-1] in _VOICELESS else "d"
     return consonant + _harmony_vowel(word) + "r"
@@ -55,7 +55,33 @@ def verb_form(infinitive, positive):
 
 def is_a_clause(concept, target):
     """penguen, kuş -> "penguen bir kuştur"."""
-    return f"{concept} bir {target}{_copula(target)}"
+    return f"{concept} bir {target}{copula(target)}"
+
+
+def is_not_a_clause(concept, target):
+    """penguen, memeli -> "penguen bir memeli değildir"."""
+    return f"{concept} bir {target} değildir"
+
+
+def listing(items):
+    """["kuş", "serçe", "kartal"] -> "kuş, serçe ve kartal"."""
+    items = list(items)
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    return ", ".join(items[:-1]) + " ve " + items[-1]
+
+
+def who_clause(concepts, action, positive=True):
+    """["kuş", "serçe"], uçmak -> "kuş ve serçe uçar"."""
+    return f"{listing(concepts)} {verb_form(action, positive)}"
+
+
+def ability_summary(concept, abilities):
+    """penguen, [(yüzmek, True), (uçmak, False)] -> "penguen yüzer ve uçamaz"."""
+    clauses = [verb_form(action, positive) for action, positive in abilities]
+    return f"{concept} {listing(clauses)}"
 
 
 def ability_clause(concept, action, positive):
@@ -83,4 +109,6 @@ def describe(concept, relation, target):
     """A fact stated as a Turkish sentence, whatever its relation."""
     if relation == IS_A:
         return is_a_clause(concept, target)
+    if relation == NOT_A:
+        return is_not_a_clause(concept, target)
     return ability_clause(concept, target, relation == CAN)

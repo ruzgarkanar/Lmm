@@ -3,8 +3,8 @@
 Every answer it produces can name the chain it came from, so nothing the system
 says is unexplainable.
 """
-from lmm.memory import IS_A, CAN, CANNOT
-from lmm.phrasing import ability_clause
+from lmm.memory import IS_A, NOT_A, CAN, CANNOT, TYPE_RELATIONS
+from lmm.phrasing import ability_clause, is_a_clause, is_not_a_clause
 
 
 class Reasoning:
@@ -41,8 +41,24 @@ class Reasoning:
                                       ability_clause(ancestor, action, polarity)]
         return None, []
 
+    def abilities(self, concept):
+        """[(action, True|False)] for every action this memory knows about."""
+        found = []
+        for action in self.memory.actions():
+            known, _ = self.can_do(concept, action)
+            if known is not None:
+                found.append((action, known))
+        return found
+
+    def who_can(self, action, positive=True):
+        """Every concept known to do (or known not to do) an action."""
+        return [c for c in self.memory.concepts()
+                if self.can_do(c, action)[0] is positive]
+
     def find_conflict(self, candidate):
         """Explanation string if the candidate edge conflicts with what we know."""
+        if candidate.relation in TYPE_RELATIONS:
+            return self._type_conflict(candidate)
         if candidate.relation not in (CAN, CANNOT):
             return None
         known, chain = self.can_do(candidate.concept, candidate.target)
@@ -50,4 +66,18 @@ class Reasoning:
             return None
         if known != (candidate.relation == CAN):
             return "şu an bildiğim: " + " çünkü ".join(chain)
+        return None
+
+    def _type_conflict(self, candidate):
+        """"penguen bir kuş değildir" against a hierarchy that says it is."""
+        opposite = NOT_A if candidate.relation == IS_A else IS_A
+        edge = self.memory.direct(candidate.concept, opposite, candidate.target)
+        if edge is not None:
+            clause = (is_a_clause if opposite == IS_A else is_not_a_clause)
+            return (f"şu an bildiğim: {clause(candidate.concept, candidate.target)} "
+                    f"(kaynak: {edge.source})")
+        if (candidate.relation == NOT_A
+                and candidate.target in self.ancestors(candidate.concept)):
+            return ("şu an bildiğim: "
+                    + is_a_clause(candidate.concept, candidate.target))
         return None

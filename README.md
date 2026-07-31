@@ -32,6 +32,37 @@ hayır, çünkü penguen uçamaz (doğrudan bilgi, kaynak: sen).
 
 Programı kapatıp yeniden açın: hatırlar, bir daha sormaz.
 
+## Konuşabildikleri
+
+```
+> kimler uçar
+kuş ve serçe uçar.                          ← penguen hariç: istisnaya saygı
+> penguen neden uçamaz
+çünkü penguen uçamaz (doğrudan bilgi, kaynak: sen).
+> serçe neden uçar
+çünkü serçe bir kuş ve kuş uçar.            ← muhakeme zinciri görünür
+> penguen neden uçar
+aslında penguen uçamaz.                     ← yanlış varsayımı düzeltir
+> penguen ne yapabilir
+penguen uçamaz.
+> penguen bir kuş değildir
+bir çelişki fark ettim: şu an bildiğim: penguen bir kuştur (kaynak: sen)...
+> kimler konuşur
+konuşur diye bir şeyi hiç duymadım.         ← duymadığı eylemi uydurmaz
+```
+
+## Dil organı takılabilir
+
+`lmm/language.py` tek bir sözleşme tanımlar: cümleyi alıp niyet döndürmek.
+Bellek, muhakeme, kapı ve merak organları hiçbir zaman bir cümle görmez — kavram
+ve ilişkilerle çalışırlar. Kendi `Intuition`ımız bu sözleşmeyi uygular; isteyen
+yerine bir dil modeli takabilir ve o model **neyin doğru olduğu konusunda hiçbir
+yetkiye sahip olmaz**, çünkü doğruluk bellekte yaşar ve cevabı kapı kurar.
+
+```python
+session = Session("memory.json", language=BenimDilOrganım())
+```
+
 ## Merak — kimsenin kapatmadığı döngü
 
 Sorulunca "bilmiyorum" demek dürüstlüktür. Asıl fark, **kimse sormadan kendi
