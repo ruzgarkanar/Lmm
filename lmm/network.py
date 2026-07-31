@@ -9,12 +9,14 @@ import math
 
 from lmm.phrasing import copula
 
-CLASSES = ["TEACH_TYPE", "TEACH_ABILITY", "TEACH_NOT_TYPE", "ASK_ABILITY",
-           "ASK_DEFINITION", "ASK_WHO", "ASK_ABILITIES", "ASK_WHY"]
+CLASSES = ["TEACH_TYPE", "TEACH_NOT_TYPE", "TEACH_ABILITY", "TEACH_PROPERTY",
+           "TEACH_NOT_PROPERTY", "ASK_DEFINITION", "ASK_ABILITY", "ASK_PROPERTY",
+           "ASK_WHO", "ASK_ABILITIES", "ASK_PROPERTIES", "ASK_WHY"]
 
 _ENTITIES = ["kedi", "köpek", "kuş", "balık", "at", "penguen", "serçe", "çocuk"]
 _TYPES = ["hayvan", "kuş", "canlı", "varlık"]
 _VERBS = ["uçar", "yüzer", "koşar", "okur", "içer", "konuşur"]
+_ADJECTIVES = ["beyaz", "siyah", "büyük", "küçük", "hızlı", "gizli"]
 _INTERROGATIVES = ("kim", "kimler", "ne", "neler")
 _QUESTION_PARTICLES = ("mı", "mi", "mu", "mü")
 
@@ -34,6 +36,14 @@ def training_data():
             examples.append(([entity, verb, particle], "ASK_ABILITY"))
         examples.append(([entity, "nedir"], "ASK_DEFINITION"))
         examples.append(([entity, "ne", "yapabilir"], "ASK_ABILITIES"))
+        examples.append(([entity, "nasıldır"], "ASK_PROPERTIES"))
+        for index, adjective in enumerate(_ADJECTIVES):
+            examples.append(([entity, adjective + copula(adjective)],
+                             "TEACH_PROPERTY"))
+            examples.append(([entity, adjective, "değildir"],
+                             "TEACH_NOT_PROPERTY"))
+            particle = _QUESTION_PARTICLES[index % len(_QUESTION_PARTICLES)]
+            examples.append(([entity, adjective, particle], "ASK_PROPERTY"))
     for verb in _VERBS:
         for interrogative in _INTERROGATIVES:
             examples.append(([interrogative, verb], "ASK_WHO"))
@@ -83,6 +93,16 @@ class MiniNetwork:
 
     @staticmethod
     def default():
-        network = MiniNetwork(CLASSES)
-        network.train(training_data())
-        return network
+        """The trained seed network, built once per process.
+
+        Training is deterministic — same data, same weights every time — so
+        every session can share one network instead of paying for it again.
+        """
+        global _DEFAULT
+        if _DEFAULT is None:
+            _DEFAULT = MiniNetwork(CLASSES)
+            _DEFAULT.train(training_data())
+        return _DEFAULT
+
+
+_DEFAULT = None

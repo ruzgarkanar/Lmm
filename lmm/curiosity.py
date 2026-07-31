@@ -9,7 +9,7 @@ with no place in the hierarchy, or an action the world is known to contain that
 this concept has never been connected to. The system does not invent curiosity
 any more than it invents answers.
 """
-from lmm.memory import IS_A, CAN, CANNOT
+from lmm.relations import IS_A
 from lmm import phrasing
 
 
@@ -43,3 +43,8 @@ class Curiosity:
                 if self.reasoning.can_do(concept, action)[0] is None:
                     yield Question(f"can:{concept}:{action}",
                                    phrasing.ability_question(concept, action))
+        for concept in concepts:            # the world is like this — is it?
+            for prop in self.memory.properties():
+                if self.reasoning.has_property(concept, prop)[0] is None:
+                    yield Question(f"property:{concept}:{prop}",
+                                   phrasing.property_question(concept, prop))

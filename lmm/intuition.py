@@ -4,7 +4,8 @@ Carries no knowledge of the world. Its only job is turning Turkish sentences int
 structured intents; everything factual comes from memory. That split is why this
 organ can stay small.
 """
-from lmm.memory import IS_A, NOT_A, CAN, CANNOT
+from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
+                           LACKS_PROPERTY)
 from lmm.phrasing import VERBS
 from lmm.language import LanguageOrgan
 
@@ -20,12 +21,17 @@ ASK = "ASK"
 ASK_WHO = "ASK_WHO"
 ASK_ABILITIES = "ASK_ABILITIES"
 ASK_WHY = "ASK_WHY"
+ASK_PROPERTIES = "ASK_PROPERTIES"
 UNKNOWN = "UNKNOWN"
 
 
 def tokenize(sentence):
     cleaned = "".join(c for c in sentence if c not in PUNCTUATION)
     return cleaned.lower().split()
+
+
+def _has_suffix(word, suffixes):
+    return any(word.endswith(s) and len(word) > len(s) + 1 for s in suffixes)
 
 
 def _strip_suffix(word, suffixes):
@@ -72,13 +78,20 @@ class Intuition(LanguageOrgan):
             infinitive, positive = VERBS[tokens[2]]
             return Intent(ASK_WHY, concept=_strip_suffix(tokens[0], PLURAL_SUFFIXES),
                           relation=CAN if positive else CANNOT, target=infinitive)
-        # "X bir Y değildir" / "X Y değildir"
+        # "X nasıldır"
+        if len(tokens) == 2 and tokens[1] in ("nasıldır", "nasıl"):
+            return Intent(ASK_PROPERTIES, concept=tokens[0])
+        # "X bir Y değildir" (type) / "X Y değildir" (property)
+        # The word "bir" is what separates being something from being like
+        # something — Turkish already draws the line for us.
         if tokens and tokens[-1] == "değildir":
             body = tokens[:-1]
             if len(body) == 3 and body[1] == "bir":
                 return Intent(TEACH, concept=body[0], relation=NOT_A, target=body[2])
             if len(body) == 2:
-                return Intent(TEACH, concept=body[0], relation=NOT_A, target=body[1])
+                return Intent(TEACH,
+                              concept=_strip_suffix(body[0], PLURAL_SUFFIXES),
+                              relation=LACKS_PROPERTY, target=body[1])
         # "X nedir"
         if len(tokens) == 2 and tokens[1] == "nedir":
             return Intent(ASK, concept=tokens[0], relation=IS_A)
@@ -96,4 +109,13 @@ class Intuition(LanguageOrgan):
             infinitive, positive = VERBS[tokens[1]]
             return Intent(TEACH, concept=_strip_suffix(tokens[0], PLURAL_SUFFIXES),
                           relation=CAN if positive else CANNOT, target=infinitive)
+        # "X Y mı" — a property question, once the verb reading is ruled out
+        if len(tokens) == 3 and tokens[2] in QUESTION_PARTICLES:
+            return Intent(ASK, concept=_strip_suffix(tokens[0], PLURAL_SUFFIXES),
+                          relation=HAS_PROPERTY, target=tokens[1])
+        # "X(lar) Y(dır)" — a property, since no "bir" made it a type
+        if len(tokens) == 2 and _has_suffix(tokens[1], COPULA_SUFFIXES):
+            return Intent(TEACH, concept=_strip_suffix(tokens[0], PLURAL_SUFFIXES),
+                          relation=HAS_PROPERTY,
+                          target=_strip_suffix(tokens[1], COPULA_SUFFIXES))
         return Intent(UNKNOWN, confidence=0.0)

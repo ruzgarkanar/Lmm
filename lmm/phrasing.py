@@ -5,7 +5,7 @@ this module is the only place that turns them into sentences — so the internal
 labels never leak into what the system says, and a second language would mean
 swapping this file alone.
 """
-from lmm.memory import IS_A, NOT_A, CAN, CANNOT
+from lmm.relations import IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY
 
 # Verb lexicon of the controlled world: surface form -> (infinitive, is_positive)
 VERBS = {
@@ -63,6 +63,30 @@ def is_not_a_clause(concept, target):
     return f"{concept} bir {target} değildir"
 
 
+def property_clause(concept, prop, positive=True):
+    """kar, beyaz -> "kar beyazdır" / "kar beyaz değildir"."""
+    if positive:
+        return f"{concept} {prop}{copula(prop)}"
+    return f"{concept} {prop} değildir"
+
+
+def property_question(concept, prop):
+    """kar, beyaz -> "kar beyaz mı?"."""
+    return f"{concept} {prop} {question_particle(prop)}?"
+
+
+def property_summary(concept, properties):
+    """kar, [(beyaz, True), (sıcak, False)] -> "kar beyazdır ama sıcak değildir"."""
+    positives = [p for p, is_so in properties if is_so]
+    negatives = [p for p, is_so in properties if not is_so]
+    parts = []
+    if positives:
+        parts.append(f"{listing(positives)}{copula(positives[-1])}")
+    if negatives:
+        parts.append(f"{listing(negatives)} değildir")
+    return f"{concept} " + " ama ".join(parts)
+
+
 def listing(items):
     """["kuş", "serçe", "kartal"] -> "kuş, serçe ve kartal"."""
     items = list(items)
@@ -111,4 +135,6 @@ def describe(concept, relation, target):
         return is_a_clause(concept, target)
     if relation == NOT_A:
         return is_not_a_clause(concept, target)
+    if relation in (HAS_PROPERTY, LACKS_PROPERTY):
+        return property_clause(concept, target, relation == HAS_PROPERTY)
     return ability_clause(concept, target, relation == CAN)

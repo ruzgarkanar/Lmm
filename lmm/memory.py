@@ -7,16 +7,11 @@ import json
 import os
 import time
 
+from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,  # noqa: F401
+                           LACKS_PROPERTY, TYPE_RELATIONS, ABILITY_RELATIONS,
+                           PROPERTY_RELATIONS)
+
 FORMAT_VERSION = 2
-
-# Relation kinds stored on edges.
-IS_A = "type"
-NOT_A = "not_type"
-CAN = "can"
-CANNOT = "cannot"
-
-TYPE_RELATIONS = (IS_A, NOT_A)
-ABILITY_RELATIONS = (CAN, CANNOT)
 
 
 class CycleError(Exception):
@@ -95,9 +90,16 @@ class Memory:
 
     def actions(self):
         """Every action this memory has ever heard of, in learning order."""
+        return self._targets_of(ABILITY_RELATIONS)
+
+    def properties(self):
+        """Every property this memory has ever heard of, in learning order."""
+        return self._targets_of(PROPERTY_RELATIONS)
+
+    def _targets_of(self, relations):
         ordered = []
         for edge in self.edges:
-            if edge.relation in ABILITY_RELATIONS and edge.target not in ordered:
+            if edge.relation in relations and edge.target not in ordered:
                 ordered.append(edge.target)
         return ordered
 

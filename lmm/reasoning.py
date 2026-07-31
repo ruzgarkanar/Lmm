@@ -3,8 +3,10 @@
 Every answer it produces can name the chain it came from, so nothing the system
 says is unexplainable.
 """
-from lmm.memory import IS_A, NOT_A, CAN, CANNOT, TYPE_RELATIONS
-from lmm.phrasing import ability_clause, is_a_clause, is_not_a_clause
+from lmm.memory import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
+                        TYPE_RELATIONS, ABILITY_RELATIONS, PROPERTY_RELATIONS)
+from lmm.phrasing import (ability_clause, property_clause, is_a_clause,
+                          is_not_a_clause)
 
 
 class Reasoning:
@@ -28,26 +30,46 @@ class Reasoning:
 
         None means memory holds nothing on this — the caller must not guess.
         """
-        for polarity, relation in ((False, CANNOT), (True, CAN)):
-            edge = self.memory.direct(concept, relation, action)
+        return self._inherited(concept, action, CAN, CANNOT, ability_clause)
+
+    def has_property(self, concept, prop):
+        """Same shape as can_do, for "kar beyazdır" style knowledge."""
+        return self._inherited(concept, prop, HAS_PROPERTY, LACKS_PROPERTY,
+                               property_clause)
+
+    def _inherited(self, concept, target, affirms, denies, clause):
+        """Direct knowledge first, then the type hierarchy, nearest ancestor first.
+
+        A direct fact always beats an inherited one — that is exactly what makes
+        an exception an exception.
+        """
+        for polarity, relation in ((False, denies), (True, affirms)):
+            edge = self.memory.direct(concept, relation, target)
             if edge:
-                return polarity, [f"{ability_clause(concept, action, polarity)} "
+                return polarity, [f"{clause(concept, target, polarity)} "
                                   f"(doğrudan bilgi, kaynak: {edge.source})"]
-        for ancestor in self.ancestors(concept):  # nearer ancestor wins
-            for polarity, relation in ((False, CANNOT), (True, CAN)):
-                edge = self.memory.direct(ancestor, relation, action)
+        for ancestor in self.ancestors(concept):
+            for polarity, relation in ((False, denies), (True, affirms)):
+                edge = self.memory.direct(ancestor, relation, target)
                 if edge:
                     return polarity, [f"{concept} bir {ancestor}",
-                                      ability_clause(ancestor, action, polarity)]
+                                      clause(ancestor, target, polarity)]
         return None, []
 
     def abilities(self, concept):
         """[(action, True|False)] for every action this memory knows about."""
+        return self._known_of(self.memory.actions(), self.can_do, concept)
+
+    def properties(self, concept):
+        """[(property, True|False)] for every property this memory knows about."""
+        return self._known_of(self.memory.properties(), self.has_property, concept)
+
+    def _known_of(self, targets, lookup, concept):
         found = []
-        for action in self.memory.actions():
-            known, _ = self.can_do(concept, action)
+        for target in targets:
+            known, _ = lookup(concept, target)
             if known is not None:
-                found.append((action, known))
+                found.append((target, known))
         return found
 
     def who_can(self, action, positive=True):
@@ -59,12 +81,15 @@ class Reasoning:
         """Explanation string if the candidate edge conflicts with what we know."""
         if candidate.relation in TYPE_RELATIONS:
             return self._type_conflict(candidate)
-        if candidate.relation not in (CAN, CANNOT):
+        if candidate.relation in ABILITY_RELATIONS:
+            known, chain = self.can_do(candidate.concept, candidate.target)
+            claimed = candidate.relation == CAN
+        elif candidate.relation in PROPERTY_RELATIONS:
+            known, chain = self.has_property(candidate.concept, candidate.target)
+            claimed = candidate.relation == HAS_PROPERTY
+        else:
             return None
-        known, chain = self.can_do(candidate.concept, candidate.target)
-        if known is None:
-            return None
-        if known != (candidate.relation == CAN):
+        if known is not None and known != claimed:
             return "şu an bildiğim: " + " çünkü ".join(chain)
         return None
 
