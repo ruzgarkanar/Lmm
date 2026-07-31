@@ -39,12 +39,23 @@ class Induction:
 
     def propose(self):
         """The first generalisation memory supports but nobody has stated."""
-        for hypothesis in self._candidates():
+        for hypothesis in self.candidates():
             return hypothesis
         return None
 
+    def still_open(self, hypothesis):
+        """Whether a proposal is still unsettled — an earlier one may have closed it."""
+        lookup = (self.reasoning.has_property
+                  if hypothesis.relation in (HAS_PROPERTY, LACKS_PROPERTY)
+                  else self.reasoning.can_do)
+        return lookup(hypothesis.concept, hypothesis.target)[0] is None
+
     def learn(self, hypothesis):
         return self.memory.write(hypothesis.as_edge())
+
+    def candidates(self):
+        """Every generalisation the memory supports right now, in one pass."""
+        return list(self._candidates())
 
     def _candidates(self):
         for parent in self.memory.concepts():

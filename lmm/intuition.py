@@ -113,6 +113,11 @@ class Intuition(LanguageOrgan):
                 return Intent(TEACH,
                               concept=_strip_suffix(body[0], PLURAL_SUFFIXES),
                               relation=LACKS_PROPERTY, target=body[1])
+        # "X bir Y mı"
+        if (len(tokens) == 4 and tokens[1] == "bir"
+                and tokens[3] in QUESTION_PARTICLES):
+            return Intent(ASK, concept=tokens[0], relation=IS_A,
+                          target=_strip_suffix(tokens[2], COPULA_SUFFIXES))
         # "X nedir"
         if len(tokens) == 2 and tokens[1] == "nedir":
             return Intent(ASK, concept=tokens[0], relation=IS_A)
