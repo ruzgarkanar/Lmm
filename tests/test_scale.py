@@ -46,13 +46,15 @@ class TestDistilledCore(unittest.TestCase):
         self.assertIsNone(self.memory.direct("penguen", "cannot", "uçmak"))
 
     def test_it_formed_its_own_rules(self):
-        """Ten rules, not the twenty-four it once claimed.
+        """Seven rules, down from a claimed twenty-four.
 
-        Fourteen of those were built on facts the system had itself guessed. It
-        reads only from what it was given now, and the rules that survive are
-        the ones evidence actually supports.
+        Fourteen of those rested on facts the system had itself guessed, and
+        several of the rest on two members of a family of twenty. Inference
+        reads only from what it was given, and a third of a family has to agree
+        before a rule counts as being about it — so what survives is what the
+        evidence actually supports.
         """
-        self.assertGreaterEqual(len(self.formed), 8)
+        self.assertGreaterEqual(len(self.formed), 5)
         inferred = [e for e in self.memory.edges if e.source == INFERRED]
         self.assertEqual(len(inferred), len(self.formed))
 

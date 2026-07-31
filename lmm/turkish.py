@@ -21,6 +21,7 @@ ASK_WHY = "ASK_WHY"
 ASK_PROPERTIES = "ASK_PROPERTIES"
 ASK_DESCRIBE = "ASK_DESCRIBE"
 ASK_HOW_MANY = "ASK_HOW_MANY"
+ASK_WHERE = "ASK_WHERE"
 
 
 class TurkishMorphology:
@@ -164,6 +165,7 @@ PATTERNS = [
     Pattern([KAVRAM, "ne", "yapabilir"], ASK_ABILITIES, None, 0, None, "ne yapabilir"),
     Pattern([KAVRAM, "ne", "yapar"], ASK_ABILITIES, None, 0, None, "ne yapar"),
     Pattern([KAVRAM, "neler", "yapar"], ASK_ABILITIES, None, 0, None, "neler yapar"),
+    Pattern([KAVRAM, "nerede", FIIL], ASK_WHERE, FROM_VERB, 0, 2, "nerede yaşar"),
     Pattern([KAVRAM, "neden", FIIL], ASK_WHY, FROM_VERB, 0, 2, "neden uçar"),
     Pattern([KAVRAM, "neden", SOZ], ASK_WHY, HAS_PROPERTY, 0, 2, "neden beyaz"),
     Pattern([KAVRAM, "anlat"], ASK_DESCRIBE, None, 0, None, "anlat"),

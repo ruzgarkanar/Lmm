@@ -1,0 +1,349 @@
+kelime: akmak = akar / akmaz
+kelime: yağmak = yağar / yağmaz
+kelime: esmek = eser / esemez
+kelime: parlamak = parlar / parlamaz
+kelime: erimek = erir / erimez
+kelime: donmak = donar / donmaz
+kelime: yanmak = yanar / yanmaz
+kelime: dönmek = döner / dönemez
+kelime: batmak = batar / batmaz
+kelime: patlamak = patlar / patlamaz
+kelime: kurumak = kurur / kurumaz
+kelime: geçmek = geçer / geçmez
+kelime: ısıtmak = ısıtır / ısıtamaz
+nesne bir varlıktır
+kavram bir varlıktır
+madde bir nesnedir
+katı bir maddedir
+sıvı bir maddedir
+gaz bir maddedir
+su bir sıvıdır
+hava bir gazdır
+yer bir kavramdır
+zaman bir kavramdır
+olay bir kavramdır
+sıvılar akar
+katılar akmaz
+su ıslaktır
+su donar
+su bir canlı değildir
+hava hafiftir
+hava bir katı değildir
+gaz hafiftir
+buz bir katıdır
+buz soğuktur
+buz serttir
+buz kaygandır
+buz erir
+buz yanmaz
+buz bir sıvı değildir
+deniz bir sudur
+göl bir sudur
+nehir bir sudur
+okyanus bir sudur
+dere bir sudur
+şelale bir sudur
+pınar bir sudur
+nehirler akar
+dereler akar
+şelaleler akar
+pınarlar akar
+deniz tuzludur
+deniz büyüktür
+deniz derindir
+deniz mavidir
+okyanus büyüktür
+okyanus derindir
+okyanus tuzludur
+göl durgundur
+göl küçüktür
+göl bir deniz değildir
+nehir uzundur
+dere küçüktür
+şelale yüksektir
+bazı göller kurur
+bazı dereler kurur
+bazı nehirler kurumaz
+bazı denizler donar
+dağ bir yerdir
+tepe bir yerdir
+ova bir yerdir
+vadi bir yerdir
+çöl bir yerdir
+orman bir yerdir
+ada bir yerdir
+kıyı bir yerdir
+kumsal bir yerdir
+mağara bir yerdir
+uçurum bir yerdir
+kutup bir yerdir
+volkan bir dağdır
+buzul bir buzdur
+dağ büyüktür
+dağ yüksektir
+dağ akmaz
+dağ bir su değildir
+tepe küçüktür
+ova düzdür
+ova geniştir
+vadi derindir
+çöl sıcaktır
+çöl kurudur
+çöl kumludur
+çöl nemli değildir
+çöl bir su değildir
+orman yeşildir
+orman nemlidir
+kıyı kumludur
+mağara karanlıktır
+mağara serindir
+uçurum yüksektir
+uçurum tehlikelidir
+kutup soğuktur
+kutup buzludur
+volkan sıcaktır
+volkan tehlikelidir
+volkan patlar
+buzul soğuktur
+buzul büyüktür
+lav bir sıvıdır
+lav sıcaktır
+lav akar
+lav tehlikelidir
+bazı adalar büyüktür
+bazı çöller soğuktur
+bazı kumsallar sıcaktır
+yağış bir olaydır
+fırtına bir olaydır
+şimşek bir olaydır
+gökkuşağı bir olaydır
+sis bir havadır
+rüzgar bir havadır
+yağmur bir yağıştır
+kar bir yağıştır
+dolu bir yağıştır
+yağışlar yağar
+yağmur yağar
+kar yağar
+dolu yağar
+yağmur ıslaktır
+kar beyazdır
+kar soğuktur
+kar yumuşaktır
+kar erir
+kar bir sıvı değildir
+dolu serttir
+dolu soğuktur
+bulut beyazdır
+bulut hafiftir
+bulut yüksektir
+sis beyazdır
+sis yoğundur
+rüzgar eser
+fırtına güçlüdür
+fırtına tehlikelidir
+şimşek parlar
+şimşek hızlıdır
+gökkuşağı renklidir
+gökkuşağı güzeldir
+bazı bulutlar yağmaz
+bazı fırtınalar yağmaz
+gökcismi bir nesnedir
+gezegen bir gökcismidir
+yıldız bir gökcismidir
+uydu bir gökcismidir
+kuyrukluyıldız bir gökcismidir
+göktaşı bir gökcismidir
+galaksi bir gökcismidir
+güneş bir yıldızdır
+dünya bir gezegendir
+mars bir gezegendir
+venüs bir gezegendir
+jüpiter bir gezegendir
+satürn bir gezegendir
+merkür bir gezegendir
+ay bir uydudur
+uzay bir yerdir
+gökyüzü bir yerdir
+yıldızlar parlar
+güneş parlar
+ay parlar
+güneş ısıtır
+güneş sıcaktır
+güneş büyüktür
+güneş donmaz
+güneş bir gezegen değildir
+dünya döner
+ay döner
+gezegenler döner
+dünya yuvarlaktır
+dünya mavidir
+dünya bir yıldız değildir
+ay küçüktür
+ay soğuktur
+ay bir gezegen değildir
+mars kırmızıdır
+jüpiter büyüktür
+yıldız sıcaktır
+galaksi büyüktür
+uzay karanlıktır
+uzay soğuktur
+uzay boştur
+uzay büyüktür
+uzay parlamaz
+gökyüzü mavidir
+gökyüzü geniştir
+bazı gezegenler parlamaz
+mevsim bir zamandır
+gün bir zamandır
+hafta bir zamandır
+yıl bir zamandır
+saat bir zamandır
+dakika bir zamandır
+saniye bir zamandır
+gece bir zamandır
+gündüz bir zamandır
+sabah bir zamandır
+akşam bir zamandır
+yaz bir mevsimdir
+kış bir mevsimdir
+ilkbahar bir mevsimdir
+sonbahar bir mevsimdir
+zaman geçer
+yıllar geçer
+günler geçer
+mevsimler geçer
+yaz sıcaktır
+kış soğuktur
+ilkbahar ılıktır
+sonbahar serindir
+gece karanlıktır
+gündüz aydınlıktır
+yıl uzundur
+zaman bir nesne değildir
+mevsim bir yer değildir
+bazı mevsimler yağışlıdır
+bazı kışlar ılıktır
+ülke bir yerdir
+şehir bir yerdir
+kıta bir yerdir
+kent bir yerdir
+köy bir yerdir
+başkent bir şehirdir
+türkiye bir ülkedir
+almanya bir ülkedir
+japonya bir ülkedir
+fransa bir ülkedir
+italya bir ülkedir
+ispanya bir ülkedir
+yunanistan bir ülkedir
+mısır bir ülkedir
+çin bir ülkedir
+rusya bir ülkedir
+istanbul bir şehirdir
+ankara bir şehirdir
+izmir bir şehirdir
+paris bir şehirdir
+londra bir şehirdir
+roma bir şehirdir
+berlin bir şehirdir
+tokyo bir şehirdir
+atina bir şehirdir
+ankara bir başkenttir
+paris bir başkenttir
+londra bir başkenttir
+roma bir başkenttir
+berlin bir başkenttir
+tokyo bir başkenttir
+atina bir başkenttir
+istanbul bir başkent değildir
+izmir bir başkent değildir
+avrupa bir kıtadır
+asya bir kıtadır
+afrika bir kıtadır
+amerika bir kıtadır
+avustralya bir kıtadır
+antarktika bir kıtadır
+afrika sıcaktır
+asya büyüktür
+antarktika soğuktur
+antarktika buzludur
+antarktika bir ülke değildir
+türkiye bir kıta değildir
+istanbul kalabalıktır
+istanbul büyüktür
+tokyo kalabalıktır
+mısır sıcaktır
+rusya soğuktur
+rusya büyüktür
+köy küçüktür
+ülke bir canlı değildir
+bazı ülkeler küçüktür
+bazı şehirler büyüktür
+taş bir katıdır
+toprak bir katıdır
+kum bir katıdır
+tuz bir katıdır
+kömür bir katıdır
+maden bir katıdır
+kaya bir taştır
+mermer bir taştır
+elmas bir taştır
+kil bir topraktır
+çamur bir topraktır
+altın bir madendir
+gümüş bir madendir
+bakır bir madendir
+demir bir madendir
+petrol bir sıvıdır
+taş serttir
+taş batar
+taş yanmaz
+taş bir canlı değildir
+kaya serttir
+kaya ağırdır
+kaya büyüktür
+mermer serttir
+elmas serttir
+elmas değerlidir
+toprak yumuşaktır
+toprak kahverengidir
+kil yumuşaktır
+çamur ıslaktır
+çamur yumuşaktır
+kum sarıdır
+kum yumuşaktır
+kum yanmaz
+kum bir sıvı değildir
+tuz beyazdır
+tuz tuzludur
+kömür siyahtır
+kömür yanar
+altın değerlidir
+altın sarıdır
+gümüş değerlidir
+demir serttir
+demir batar
+petrol siyahtır
+petrol yanar
+petrol değerlidir
+bazı taşlar değerlidir
+denizin dalgası var
+denizin kıyısı var
+gölün kıyısı var
+okyanusun tabanı var
+çölün kumu var
+kumsalın kumu var
+uçurumun dibi var
+buzulun buzu var
+kentin sokağı var
+güneşin ışığı var
+ayın ışığı var
+yıldızın ışığı var
+uzayın yıldızı var
+yılın mevsimi var
+kışın karı var
+yazın güneşi var
+yağmurun damlası var
+karın tanesi var
+taşın yüzeyi var

@@ -14,7 +14,7 @@ from lmm.relations import ALL
 from lmm.language import LanguageOrgan
 from lmm.turkish import (turkish, TurkishMorphology, TEACH, ASK, ASK_WHO,  # noqa: F401
                          ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES, ASK_DESCRIBE,
-                         ASK_HOW_MANY)
+                         ASK_HOW_MANY, ASK_WHERE)
 
 PUNCTUATION = ".,!?;:\"'"
 
