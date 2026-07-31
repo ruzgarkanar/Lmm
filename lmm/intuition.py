@@ -25,9 +25,19 @@ ASK_PROPERTIES = "ASK_PROPERTIES"
 UNKNOWN = "UNKNOWN"
 
 
+def lower(text):
+    """Turkish lowercasing.
+
+    Python maps "İ" to "i" plus a combining dot, not to "i", so "İnsanlar"
+    silently becomes a different word from "insan". Every sentence starting
+    with İ was quietly learned under a concept nobody could ever ask about.
+    """
+    return text.replace("İ", "i").replace("I", "ı").lower()
+
+
 def tokenize(sentence):
     cleaned = "".join(c for c in sentence if c not in PUNCTUATION)
-    return cleaned.lower().split()
+    return lower(cleaned).split()
 
 
 def _has_suffix(word, suffixes):

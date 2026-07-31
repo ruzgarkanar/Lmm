@@ -8,7 +8,7 @@ swapping this file alone.
 from lmm.relations import IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY
 from lmm.lexicon import ACTIVE
 
-INFERRED = "çıkarım"    # kept in step with lmm.memory.INFERRED
+from lmm.trust import INFERENCE, DISTILLED_PREFIX
 
 _BACK_UNROUNDED = "aı"
 _FRONT_UNROUNDED = "ei"
@@ -153,9 +153,19 @@ def wondering(question):
 
 def attribution(source):
     """Where a fact came from, said plainly."""
-    if source == INFERRED:
+    if source == INFERENCE:
         return "kendi çıkarımım"
+    if source.startswith(DISTILLED_PREFIX):
+        return f"bir dil modelinden, {source[len(DISTILLED_PREFIX):]}"
     return f"doğrudan bilgi, kaynak: {source}"
+
+
+def _origin(source):
+    if source == INFERENCE:
+        return "çıkarımla varsaymıştım"
+    if source.startswith(DISTILLED_PREFIX):
+        return "bir dil modelinden almıştım"
+    return f"{source} kaynağından öğrenmiştim"
 
 
 def generalising(examples, statement):
@@ -163,9 +173,9 @@ def generalising(examples, statement):
     return f"şunu fark ettim: {listing(examples)} — sanırım {statement}."
 
 
-def corrected(statement):
-    """Yielding a guess of its own to something a teacher said."""
-    return f"bunu çıkarımla varsaymıştım, seninkini üstün tutuyorum: {statement}."
+def corrected(statement, source):
+    """Yielding a weaker source to a stronger one, naming what it gave up."""
+    return f"bunu {_origin(source)}, senin sözünü üstün tutuyorum: {statement}."
 
 
 def dont_know(concept):

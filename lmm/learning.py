@@ -3,8 +3,9 @@
 Nothing is written blindly. When a fact clashes with what is already known the
 system says so and asks, and only a confirmed clash becomes an exception.
 """
-from lmm.memory import Edge, CycleError, CAN, INFERRED
+from lmm.memory import Edge, CycleError, CAN
 from lmm.phrasing import describe, corrected
+from lmm.trust import TEACHER, confidence_for, outranks
 
 LEARNED = "learned"
 REINFORCED = "reinforced"
@@ -18,16 +19,19 @@ class LearningLoop:
         self.memory = memory
         self.reasoning = reasoning
 
-    def teach(self, intent, source="sen"):
+    def teach(self, intent, source=TEACHER):
         """Returns (status, message, edge). Status is one of the module constants."""
-        candidate = Edge(intent.concept, intent.relation, intent.target, source=source)
+        candidate = Edge(intent.concept, intent.relation, intent.target,
+                         source=source, confidence=confidence_for(source))
         conflict = self.reasoning.find_conflict(candidate)
-        if conflict is not None and self._only_my_own_guess(candidate):
-            # A teacher outranks a generalisation the system made up itself.
+        basis = self.reasoning.basis(candidate)
+        if conflict is not None and basis is not None and \
+                outranks(candidate.source, basis.source):
+            # A better source simply replaces a belief held on a weaker one.
             self.memory.write(candidate)
-            return CORRECTED, corrected(describe(candidate.concept,
-                                                 candidate.relation,
-                                                 candidate.target)), candidate
+            statement = describe(candidate.concept, candidate.relation,
+                                 candidate.target)
+            return CORRECTED, corrected(statement, basis.source), candidate
         if conflict is not None:
             statement = describe(candidate.concept, candidate.relation, candidate.target)
             question = (f"bir çelişki fark ettim: {conflict}. yine de "
@@ -44,10 +48,6 @@ class LearningLoop:
             return REJECTED, "bu tür ilişkisi döngü oluşturur, kabul edemem.", None
         statement = describe(candidate.concept, candidate.relation, candidate.target)
         return LEARNED, f"öğrendim: {statement}.", candidate
-
-    def _only_my_own_guess(self, candidate):
-        basis = self.reasoning.basis(candidate)
-        return basis is not None and basis.source == INFERRED
 
     def confirm_exception(self, edge):
         """A conflict the teacher stands behind becomes a permanent exception."""

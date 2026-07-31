@@ -12,12 +12,13 @@ from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,  # noqa: F401
                            PROPERTY_RELATIONS)
 
 from lmm.lexicon import ACTIVE
+from lmm.trust import INFERENCE, confidence_for
 
 FORMAT_VERSION = 3
 
 # The source on facts nobody stated — the system worked them out itself.
-INFERRED = "çıkarım"
-INFERRED_CONFIDENCE = 0.45   # below the hedging threshold, on purpose
+INFERRED = INFERENCE
+INFERRED_CONFIDENCE = confidence_for(INFERENCE)
 
 
 class CycleError(Exception):
