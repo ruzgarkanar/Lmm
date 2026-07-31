@@ -153,5 +153,65 @@ class TestTheModelFileCarriesHowToSpeak(unittest.TestCase):
         self.assertEqual(len(target.patterns), 1)
 
 
+class TestInducingPatternsWithNobodyLabelling(unittest.TestCase):
+    """Where the patterns come from once we stop writing them.
+
+    We already know what a plain sentence means, because our own parser reads
+    it. So a passage paired with its restatement is a labelled example that no
+    human labelled — and the shape of the prose can be read off it.
+    """
+
+    def setUp(self):
+        from lmm.grammar import induce
+        from lmm.lexicon import ACTIVE
+        self.induce = induce
+        self.lexicon = ACTIVE
+        self.morphology = TurkishMorphology()
+        self.parser = Intuition().understand
+
+    def _induce(self, pairs, **kwargs):
+        return self.induce(pairs, self.parser, self.morphology, self.lexicon,
+                           **kwargs)
+
+    def test_a_shape_seen_twice_becomes_a_pattern(self):
+        found = self._induce([
+            {"düzyazı": "Penguen aslında bir kuştur.",
+             "sade": "penguen bir kuştur"},
+            {"düzyazı": "Serçe aslında bir kuştur.",
+             "sade": "serçe bir kuştur"},
+        ])
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].tokens, [KAVRAM, "aslında", "bir", TUR])
+        self.assertEqual(found[0].kind, TEACH)
+        self.assertEqual(found[0].relation, IS_A)
+
+    def test_the_induced_pattern_reads_a_sentence_it_never_saw(self):
+        found = self._induce([
+            {"düzyazı": "Penguen aslında bir kuştur.",
+             "sade": "penguen bir kuştur"},
+            {"düzyazı": "Serçe aslında bir kuştur.",
+             "sade": "serçe bir kuştur"},
+        ])
+        grammar = turkish()
+        for pattern in found:
+            grammar.add(pattern, first=True)
+        intent = Intuition(grammar=grammar).understand("Devekuşu aslında bir kuştur")
+        self.assertEqual((intent.kind, intent.concept, intent.target),
+                         (TEACH, "devekuşu", "kuş"))
+
+    def test_one_sighting_is_a_coincidence_not_a_rule(self):
+        found = self._induce([{"düzyazı": "Penguen aslında bir kuştur.",
+                               "sade": "penguen bir kuştur"}])
+        self.assertEqual(found, [])
+
+    def test_long_sentences_teach_nothing(self):
+        """A pattern taken from a twenty-word sentence matches only itself."""
+        prose = ("Penguen bilindiği üzere kanatları olmasına rağmen uçamayan "
+                 "ama çok iyi yüzebilen bir kuştur")
+        found = self._induce([{"düzyazı": prose, "sade": "penguen bir kuştur"},
+                              {"düzyazı": prose, "sade": "penguen bir kuştur"}])
+        self.assertEqual(found, [])
+
+
 if __name__ == "__main__":
     unittest.main()
