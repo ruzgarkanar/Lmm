@@ -90,5 +90,43 @@ class TestLastVowel(unittest.TestCase):
         self.assertEqual(last_vowel(""), "")
 
 
+ENGLISH = """cat cats dog dogs bird birds book books car cars house houses
+hand hands friend friends light lights word words king kings
+walk walks walked walking talk talks talked talking
+play plays played playing work works worked working
+help helps helped helping look looks looked looking
+open opens opened opening""".split()
+
+
+class TestAnotherLanguageEntirely(unittest.TestCase):
+    """The machinery was never told which language it was looking at.
+
+    Turkish suffixes carry vowels and alternate their first consonant; English
+    ones do neither. Nothing in the discovery knows the difference.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.found = discover(ENGLISH, minimum=3)
+
+    def test_english_endings_are_found(self):
+        variants = {variant for family in self.found for variant in family.variants}
+        for ending in ("s", "ed", "ing"):
+            self.assertIn(ending, variants)
+
+    def test_it_inflects_a_word_it_never_saw(self):
+        self.assertEqual(family_with(self.found, "ing").attach("jump"), "jumping")
+        self.assertEqual(family_with(self.found, "ed").attach("jump"), "jumped")
+        self.assertEqual(family_with(self.found, "s").attach("jump"), "jumps")
+
+    def test_a_one_letter_suffix_has_no_head_to_alternate(self):
+        """Counting its single character as both head and tail gave "jumpss"."""
+        self.assertEqual(family_with(self.found, "s").attach("teach"), "teachs")
+
+    def test_english_gets_no_vowel_harmony_because_it_has_none(self):
+        family = family_with(self.found, "ing")
+        self.assertEqual(len(set(family.harmony.values())), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
