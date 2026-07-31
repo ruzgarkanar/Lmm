@@ -54,7 +54,7 @@ class Exposition:
             if edge.concept != concept or not self._contradicts_family(edge):
                 continue
             family = self._family_clause(edge)
-            own = phrasing.predicate(edge.relation, edge.target, edge.object)
+            own = phrasing.predicate(edge.relation, edge.target, edge.object, edge.role)
             said.append(f"{phrasing.capitalize(family)} ama {concept} {own}.")
         return " ".join(said)
 
@@ -64,10 +64,10 @@ class Exposition:
         if parent is None:
             return ""
         clauses = []
-        for target, relation, obj in self._traits_of(parent):
+        for target, relation, obj, role in self._traits_of(parent):
             if self._speaks_for_itself(concept, relation, target):
                 continue        # already told, either as its own or as an exception
-            clauses.append(phrasing.predicate(relation, target, obj))
+            clauses.append(phrasing.predicate(relation, target, obj, role))
         if not clauses:
             return ""
         return (f"{phrasing.capitalize(parent)} olduğu için "
@@ -81,7 +81,7 @@ class Exposition:
                 continue
             if self._contradicts_family(edge):
                 continue
-            clause = phrasing.predicate(edge.relation, edge.target, edge.object)
+            clause = phrasing.predicate(edge.relation, edge.target, edge.object, edge.role)
             if edge.source == INFERENCE:
                 clause += " (sanırım)"
             clauses.append(clause)
@@ -116,4 +116,4 @@ class Exposition:
     def _traits_of(self, parent):
         for edge in self.memory.edges:
             if edge.concept == parent and edge.relation != IS_A:
-                yield edge.target, edge.relation, edge.object
+                yield edge.target, edge.relation, edge.object, edge.role

@@ -1,20 +1,21 @@
 """What the system cannot learn, checked rather than assumed.
 
-Every sentence below is one a person would reasonably say and this design cannot
-hold. The point of the file is that each one fails *loudly* — the only outcome
+Every sentence in BEYOND_US is one a person would reasonably say and this design
+cannot hold. The point of the file is that each fails *loudly* — the only outcome
 worse than not learning something is learning it wrong in silence.
+
+The list gets shorter as the fact grows. It began with eight entries; objects
+took one, and case roles took two more.
 """
 import os
 import tempfile
 import unittest
 
+from lmm.relations import CAN, HAS_PROPERTY, OBJECT, PLACE, SOURCE
 from lmm.cli import Session
 
-# "kediler fare yakalar" used to be on this list. It is not any more.
 BEYOND_US = [
     ("sahiplik", "kuşun kanadı var"),
-    ("yer", "penguen kutupta yaşar"),
-    ("karşılaştırma", "kartal serçeden büyüktür"),
     ("belirsiz nicelik", "bazı kuşlar uçmaz"),
     ("sayı", "insanın iki gözü var"),
     ("koşul", "yağmur yağarsa ıslanırsın"),
@@ -27,11 +28,6 @@ class TestItFailsLoudlyRatherThanQuietly(unittest.TestCase):
         self.session = Session(os.path.join(tempfile.mkdtemp(), "memory.json"))
 
     def test_nothing_beyond_the_model_is_written_to_memory(self):
-        """A sentence it cannot represent must leave no trace.
-
-        "kartal serçeden büyüktür" once became the concept "kartal serçeden"
-        being "büyük" — learned, stored, and never questioned.
-        """
         for name, sentence in BEYOND_US:
             with self.subTest(name):
                 before = len(self.session.memory.edges)
@@ -46,56 +42,66 @@ class TestItFailsLoudlyRatherThanQuietly(unittest.TestCase):
                                 f"{sentence} -> {answer}")
 
 
-class TestCaseMarkingIsNotSwallowedByAPhrase(unittest.TestCase):
-    """A case-marked word does its own job; it is not half of a compound."""
+class TestASecondConceptAndWhatItIsDoing(unittest.TestCase):
+    """A case ending says what a second concept is doing, so the role is read
+    off the word rather than guessed from where it sits."""
 
     def setUp(self):
         self.session = Session(os.path.join(tempfile.mkdtemp(), "memory.json"))
+        self.session.respond("kelime: yaşamak = yaşar / yaşayamaz")
+        self.session.respond("kelime: yakalamak = yakalar / yakalayamaz")
+        for lesson in ("kediler fare yakalar", "penguen kutupta yaşar",
+                       "kartal serçeden büyüktür", "penguen bir kuştur"):
+            self.session.respond(lesson)
 
-    def test_a_comparison_is_refused(self):
-        self.session.respond("kartal serçeden büyüktür")
-        self.assertEqual(self.session.memory.edges, [])
+    def test_a_bare_second_concept_is_an_object(self):
+        self.assertIsNotNone(self.session.memory.direct(
+            "kedi", CAN, "yakalamak", "fare", OBJECT))
 
-    def test_real_compounds_still_work(self):
+    def test_a_locative_marks_a_place(self):
+        self.assertIsNotNone(self.session.memory.direct(
+            "penguen", CAN, "yaşamak", "kutup", PLACE))
+
+    def test_an_ablative_marks_a_comparison(self):
+        self.assertIsNotNone(self.session.memory.direct(
+            "kartal", HAS_PROPERTY, "büyük", "serçe", SOURCE))
+
+    def test_the_ending_comes_back_when_it_speaks(self):
+        self.assertIn("kutupta yaşar", self.session.respond("penguen anlat"))
+
+    def test_it_answers_about_the_place_it_was_told(self):
+        self.assertTrue(
+            self.session.respond("penguen kutupta yaşar mı").startswith("evet"))
+
+    def test_a_different_place_is_never_assumed(self):
+        self.assertNotIn("evet", self.session.respond("penguen ormanda yaşar mı"))
+
+    def test_it_answers_a_comparison(self):
+        self.assertTrue(
+            self.session.respond("kartal serçeden büyük mü").startswith("evet"))
+
+    def test_a_role_is_inherited_with_everything_else(self):
+        self.session.respond("imparator bir penguendir")
+        answer = self.session.respond("imparator kutupta yaşar mı")
+        self.assertTrue(answer.startswith("evet"))
+        self.assertIn("imparator bir penguen", answer)
+
+
+class TestPhrasesStillHoldTogether(unittest.TestCase):
+    def setUp(self):
+        self.session = Session(os.path.join(tempfile.mkdtemp(), "memory.json"))
+
+    def test_real_compounds_survive(self):
         self.session.respond("müşteri bakiyesi gizlidir")
         self.session.respond("tool broker bir güven kapısıdır")
         self.assertIsNotNone(self.session.memory.direct(
-            "müşteri bakiyesi", "property", "gizli"))
+            "müşteri bakiyesi", HAS_PROPERTY, "gizli"))
         self.assertIsNotNone(self.session.memory.direct(
             "tool broker", "type", "güven kapısı"))
 
     def test_single_word_sentences_are_untouched(self):
         self.session.respond("kuşlar uçar")
-        self.assertIsNotNone(self.session.memory.direct("kuş", "can", "uçmak"))
-
-
-class TestObjectsAreNoLongerBeyondUs(unittest.TestCase):
-    """The fact became four parts instead of three, and four sentences moved
-    off the list of things this cannot hold."""
-
-    def setUp(self):
-        self.session = Session(os.path.join(tempfile.mkdtemp(), "memory.json"))
-        self.session.respond("kelime: yakalamak = yakalar / yakalayamaz")
-        self.session.respond("kediler fare yakalar")
-        self.session.respond("tekir bir kedidir")
-
-    def test_the_object_is_part_of_the_fact(self):
-        edge = self.session.memory.direct("kedi", "can", "yakalamak", "fare")
-        self.assertIsNotNone(edge)
-
-    def test_it_says_the_object_back(self):
-        """Turkish drops the subject in a paragraph; the object stays."""
-        self.assertIn("fare yakalar", self.session.respond("kedi anlat"))
-        self.assertIn("fare yakalar", self.session.respond("tekir anlat"))
-
-    def test_an_object_is_inherited(self):
-        answer = self.session.respond("tekir fare yakalar mı")
-        self.assertTrue(answer.startswith("evet"))
-        self.assertIn("tekir bir kedi", answer)
-
-    def test_a_different_object_is_never_assumed(self):
-        answer = self.session.respond("kedi kuş yakalar mı")
-        self.assertNotIn("evet", answer)
+        self.assertIsNotNone(self.session.memory.direct("kuş", CAN, "uçmak"))
 
 
 if __name__ == "__main__":
