@@ -14,10 +14,11 @@ That is the part an LLM cannot do: it generalises too, but it cannot tell you
 that it did, cannot show you the examples that convinced it, and cannot be
 corrected on one point without retraining.
 """
-from lmm.memory import Edge, IS_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY, \
-    INFERRED, INFERRED_CONFIDENCE
+from lmm.memory import (Edge, IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
+                        LACKS_PROPERTY, INFERRED, INFERRED_CONFIDENCE)
 
 MINIMUM_EXAMPLES = 2
+MINIMUM_TRAITS = 2      # one shared habit is a coincidence
 
 
 class Hypothesis:
@@ -38,13 +39,74 @@ class Induction:
         self.reasoning = reasoning
 
     def propose(self):
-        """The first generalisation memory supports but nobody has stated."""
+        """The first generalisation memory supports but nobody has stated.
+
+        Placing a stranger comes before generalising over a family: knowing what
+        something *is* unlocks everything its kind already knows, so it is worth
+        more than one more rule about a type we have already placed.
+        """
+        for hypothesis in self.placements():
+            return hypothesis
         for hypothesis in self.candidates():
             return hypothesis
         return None
 
+    def placements(self):
+        """Concepts with no place, put where their behaviour says they belong.
+
+        A stranger that flies and has feathers is probably a bird. Nobody said
+        so, and it may be wrong — a bat behaves like that too — so the guess is
+        written as the system's own and yields to the first person who corrects
+        it. What it buys is everything else birds know.
+        """
+        placed = []
+        for concept in self.memory.concepts():
+            if self.memory.query(concept, IS_A):
+                continue                    # already knows what it is
+            traits = self._behaviour(concept)
+            if len(traits) < MINIMUM_TRAITS:
+                continue                    # too little behaviour to go on
+            for category in self._categories():
+                if category == concept:
+                    continue
+                shared = traits & self._behaviour(category)
+                if len(shared) >= MINIMUM_TRAITS and shared == traits:
+                    placed.append(Hypothesis(concept, IS_A, category,
+                                             sorted(t[1] for t in shared)))
+                    break
+        return placed
+
+    def _categories(self):
+        """Anything with enough behaviour to be a shelf, most specific first.
+
+        Restricting these to concepts something is already said to be was too
+        narrow: "kuş" is an obvious home for a stranger that flies and has
+        feathers even when nobody has yet said anything is a bird.
+        """
+        shelves = [(len(self._behaviour(concept)), concept)
+                   for concept in self.memory.concepts()
+                   if len(self._behaviour(concept)) >= MINIMUM_TRAITS]
+        shelves.sort()          # the tightest fit is the most informative one
+        return [concept for _, concept in shelves]
+
+    def _behaviour(self, concept):
+        """What a concept is known to do — evidence only, never guesses.
+
+        A guess must not become the ground for the next guess. If the system's
+        own inferences counted as evidence, one wrong placement would breed a
+        rule, the rule would breed another placement, and the chain would look
+        exactly as confident as anything it was actually told. Inference reads
+        from what it was given; it never reads from itself.
+        """
+        return {(edge.relation, edge.target, edge.object, edge.role)
+                for edge in self.memory.query(concept)
+                if edge.relation not in (IS_A, NOT_A)
+                and edge.source != INFERRED}
+
     def still_open(self, hypothesis):
         """Whether a proposal is still unsettled — an earlier one may have closed it."""
+        if hypothesis.relation == IS_A:
+            return not self.memory.query(hypothesis.concept, IS_A)
         lookup = (self.reasoning.has_property
                   if hypothesis.relation in (HAS_PROPERTY, LACKS_PROPERTY)
                   else self.reasoning.can_do)
@@ -65,12 +127,20 @@ class Induction:
             for target, affirms, denies, lookup in self._traits():
                 if lookup(parent, target)[0] is not None:
                     continue                    # the type is already settled
-                agree = [c for c in children if lookup(c, target)[0] is True]
-                disagree = [c for c in children if lookup(c, target)[0] is False]
+                # Only what the system was told counts as evidence, never what
+                # it worked out itself.
+                agree = [c for c in children
+                         if self._stated(c, target, affirms)]
+                disagree = [c for c in children
+                            if self._stated(c, target, denies)]
                 if len(agree) >= MINIMUM_EXAMPLES and not disagree:
                     yield Hypothesis(parent, affirms, target, agree)
                 elif len(disagree) >= MINIMUM_EXAMPLES and not agree:
                     yield Hypothesis(parent, denies, target, disagree)
+
+    def _stated(self, concept, target, relation):
+        edge = self.memory.direct(concept, relation, target)
+        return edge is not None and edge.source != INFERRED
 
     def _children(self, parent):
         return [edge.concept for edge in self.memory.edges

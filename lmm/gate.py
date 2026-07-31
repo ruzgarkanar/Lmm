@@ -7,7 +7,7 @@ from lmm.relations import IS_A, NOT_A, CAN, HAS_PROPERTY
 from lmm.phrasing import (is_a_clause, is_not_a_clause, ability_clause,
                           property_clause,
                           who_clause, ability_summary, property_summary,
-                          verb_form, dont_know)
+                          verb_form, dont_know, attribution)
 from lmm.similarity import nearest
 from lmm.intuition import (ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES,
                            ASK_DESCRIBE)
@@ -104,7 +104,7 @@ class EpistemicGate:
         if not edges:
             return self._dont_know(concept)
         best = max(edges, key=lambda e: e.confidence)
-        answer = f"{is_a_clause(concept, best.target)} (kaynak: {best.source})."
+        answer = f"{is_a_clause(concept, best.target)} ({attribution(best.source)})."
         if best.confidence < HEDGE_THRESHOLD:
             return "emin değilim ama " + answer
         return answer

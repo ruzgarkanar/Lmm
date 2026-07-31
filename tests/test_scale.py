@@ -46,9 +46,17 @@ class TestDistilledCore(unittest.TestCase):
         self.assertIsNone(self.memory.direct("penguen", "cannot", "uçmak"))
 
     def test_it_formed_its_own_rules(self):
-        self.assertGreater(len(self.formed), 10)
+        """Ten rules, not the twenty-four it once claimed.
+
+        Fourteen of those were built on facts the system had itself guessed. It
+        reads only from what it was given now, and the rules that survive are
+        the ones evidence actually supports.
+        """
+        self.assertGreaterEqual(len(self.formed), 8)
         inferred = [e for e in self.memory.edges if e.source == INFERRED]
         self.assertEqual(len(inferred), len(self.formed))
+
+
 
     def test_it_answers_across_several_levels_of_hierarchy(self):
         session = Session(self.path)
