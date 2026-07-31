@@ -1,0 +1,360 @@
+kelime: öğretmek = öğretir / öğretemez
+kelime: öğrenmek = öğrenir / öğrenemez
+kelime: yazmak = yazar / yazamaz
+kelime: çizmek = çizer / çizemez
+kelime: çalmak = çalar / çalamaz
+kelime: söylemek = söyler / söyleyemez
+kelime: dinlemek = dinler / dinleyemez
+kelime: oynamak = oynar / oynayamaz
+kelime: kazanmak = kazanır / kazanamaz
+kelime: satmak = satar / satamaz
+kelime: almak = alır / alamaz
+kelime: ödemek = öder / ödeyemez
+kelime: iyileşmek = iyileşir / iyileşemez
+kelime: iyileştirmek = iyileştirir / iyileştiremez
+kelime: dinlenmek = dinlenir / dinlenemez
+kelime: gülmek = güler / gülemez
+kelime: korumak = korur / koruyamaz
+kelime: çalışmak = çalışır / çalışamaz
+kelime: pişirmek = pişirir / pişiremez
+kelime: yemek = yer / yiyemez
+kelime: uyumak = uyur / uyuyamaz
+kelime: ısıtmak = ısıtır / ısıtamaz
+kelime: taşımak = taşır / taşıyamaz
+kelime: bilmek = bilir / bilemez
+kelime: yürümek = yürür / yürüyemez
+kelime: düşünmek = düşünür / düşünemez
+kelime: kesmek = keser / kesemez
+
+insan bir canlıdır
+kadın bir insandır
+erkek bir insandır
+kadın bir erkek değildir
+çocuk bir insandır
+bebek bir çocuktur
+insanlar konuşur
+insanlar düşünür
+insanlar öğrenir
+insanlar çalışır
+insanlar yürür
+insanlar yer
+insanlar içer
+insanlar uyur
+insanlar güler
+insanlar dinlenir
+insanlar okur
+çocuklar oynar
+çocuklar öğrenir
+çocuklar güler
+bebek konuşamaz
+bebek yürüyemez
+bebek okuyamaz
+bebek çalışamaz
+bebek küçüktür
+bazı insanlar yüzemez
+bazı çocuklar okuyamaz
+
+topluluk bir kavramdır
+aile bir topluluktur
+akraba bir insandır
+anne bir akrabadır
+baba bir akrabadır
+kardeş bir akrabadır
+abla bir kardeştir
+dede bir akrabadır
+nine bir akrabadır
+torun bir akrabadır
+amca bir akrabadır
+teyze bir akrabadır
+anne bir kadındır
+nine bir kadındır
+teyze bir kadındır
+baba bir erkektir
+dede bir erkektir
+amca bir erkektir
+anne bir erkek değildir
+baba bir kadın değildir
+anneler çalışır
+babalar çalışır
+dede yaşlıdır
+nine yaşlıdır
+torun küçüktür
+aile değerlidir
+ailenin annesi var
+ailenin çocuğu var
+
+meslek bir kavramdır
+doktor bir meslektir
+öğretmen bir meslektir
+aşçı bir meslektir
+hemşire bir meslektir
+polis bir meslektir
+terzi bir meslektir
+ressam bir meslektir
+müzisyen bir meslektir
+şarkıcı bir meslektir
+dansçı bir meslektir
+yazar bir meslektir
+satıcı bir meslektir
+berber bir meslektir
+pilot bir meslektir
+garson bir meslektir
+öğretmenler öğretir
+öğretmenler okur
+öğretmenler bilir
+doktorlar iyileştirir
+doktorlar bilir
+hemşireler çalışır
+aşçılar pişirir
+yazarlar yazar
+ressamlar çizer
+müzisyenler çalar
+şarkıcılar söyler
+dansçılar oynar
+polisler korur
+satıcılar satar
+garsonlar taşır
+pilotlar uçar
+terziler çalışır
+berberler keser
+meslek zordur
+bazı meslekler kolay değildir
+doktorun hastası var
+öğretmenin öğrencisi var
+
+mutfak bir yerdir
+aşçının mutfağı var
+fırın bir makinedir
+fırın ısıtır
+mutfağın fırını var
+tabak bir eşyadır
+çatal bir eşyadır
+kaşık bir eşyadır
+bardak bir eşyadır
+tencere bir eşyadır
+çatal bir kaşık değildir
+bardak bir camdır
+bardak kırılgandır
+tencere serttir
+
+yiyecek bir maddedir
+içecek bir sıvıdır
+ekmek bir yiyecektir
+meyve bir yiyecektir
+sebze bir yiyecektir
+çorba bir yiyecektir
+pilav bir yiyecektir
+makarna bir yiyecektir
+salata bir yiyecektir
+zeytin bir yiyecektir
+pasta bir yiyecektir
+dondurma bir yiyecektir
+ekmek bir içecek değildir
+çorba sıcaktır
+pilav sıcaktır
+dondurma soğuktur
+dondurma tatlıdır
+pasta tatlıdır
+zeytin tuzludur
+salata yeşildir
+bazı yiyecekler sıcak değildir
+
+meyve tatlıdır
+bazı meyveler tatlı değildir
+limon bir meyvedir
+limon tatlı değildir
+limon ekşidir
+portakal bir meyvedir
+portakal tatlıdır
+portakal turuncudur
+çilek bir meyvedir
+çilek kırmızıdır
+karpuz bir meyvedir
+karpuz büyüktür
+biber bir sebzedir
+biber acıdır
+salatalık bir sebzedir
+salatalık yeşildir
+marul bir sebzedir
+marul yeşildir
+bazı sebzeler tatlı değildir
+
+çay bir içecektir
+kahve bir içecektir
+ayran bir içecektir
+su bir içecektir
+süt bir içecektir
+çay sıcaktır
+kahve sıcaktır
+kahve acıdır
+ayran beyazdır
+su tatlı değildir
+bazı içecekler sıcak değildir
+
+öğün bir zamandır
+kahvaltı bir öğündür
+kahvaltı bir yiyecek değildir
+kahvaltının çayı var
+sofra bir eşyadır
+sofranın tabağı var
+
+spor bir kavramdır
+futbol bir spordur
+basketbol bir spordur
+voleybol bir spordur
+tenis bir spordur
+güreş bir spordur
+yüzme bir spordur
+koşu bir spordur
+boks bir spordur
+spor faydalıdır
+spor yorucudur
+boks tehlikelidir
+yüzme faydalıdır
+sporcu bir insandır
+sporcular koşar
+sporcular çalışır
+sporcular kazanır
+sporcu hızlıdır
+takım bir topluluktur
+takımın oyuncusu var
+oyuncu bir insandır
+oyuncular oynar
+oyuncular kazanır
+top bir eşyadır
+top yuvarlaktır
+kural bir kavramdır
+futbolun kuralı var
+
+oyun bir kavramdır
+satranç bir oyundur
+saklambaç bir oyundur
+oyun eğlencelidir
+satranç zordur
+saklambaç kolaydır
+satranç bir spor değildir
+oyunun kuralı var
+oyuncak bir eşyadır
+oyuncak konuşamaz
+bazı oyunlar kolay değildir
+
+sanat bir kavramdır
+müzik bir sanattır
+resim bir sanattır
+dans bir sanattır
+şiir bir sanattır
+tiyatro bir sanattır
+sinema bir sanattır
+sanat güzeldir
+müzik güzeldir
+tiyatro eğlencelidir
+sinema eğlencelidir
+şarkı bir müziktir
+türkü bir şarkıdır
+şarkı güzeldir
+söz bir kavramdır
+şarkının sözü var
+renk bir kavramdır
+resmin rengi var
+insanlar dinler
+
+yapı bir nesnedir
+yapı bir canlı değildir
+okul bir yapıdır
+okulun sınıfı var
+sınıf bir yerdir
+sınıfın öğrencisi var
+öğrenci bir insandır
+öğrenciler okur
+öğrenciler öğrenir
+öğrenciler yazar
+öğrenciler dinler
+öğrenciler oynar
+üniversite bir yapıdır
+üniversitenin öğrencisi var
+kütüphane bir yapıdır
+kütüphanenin kitabı var
+okul yürüyemez
+
+ders bir kavramdır
+matematik bir derstir
+tarih bir derstir
+coğrafya bir derstir
+ders faydalıdır
+matematik zordur
+matematik bir sanat değildir
+sınav bir kavramdır
+sınav zordur
+bilim bir kavramdır
+fizik bir bilimdir
+kimya bir bilimdir
+biyoloji bir bilimdir
+bilim faydalıdır
+bilgi bir kavramdır
+bilgi değerlidir
+kitap bir eşyadır
+kitaplar öğretir
+kitap konuşamaz
+sayfa bir parçadır
+kitabın sayfası var
+defter bir eşyadır
+kalem bir eşyadır
+kalem yazar
+kalem küçüktür
+
+para bir eşyadır
+para değerlidir
+para bir canlı değildir
+para konuşamaz
+değer bir kavramdır
+paranın değeri var
+maaş bir paradır
+ticaret bir kavramdır
+alışveriş bir ticarettir
+fiyat bir kavramdır
+market bir yapıdır
+marketin kapısı var
+kasa bir eşyadır
+marketin kasası var
+dükkan bir yapıdır
+dükkanın satıcısı var
+pazar bir yerdir
+pazarın satıcısı var
+banka bir yapıdır
+bankanın parası var
+müşteri bir insandır
+müşteriler alır
+müşteriler öder
+satıcılar kazanır
+altın pahalıdır
+ekmek ucuzdur
+
+sağlık bir kavramdır
+sağlık değerlidir
+hastalık bir kavramdır
+hastalık bir sağlık değildir
+hastalık bulaşıcıdır
+grip bir hastalıktır
+nezle bir hastalıktır
+kanser bir hastalıktır
+grip bulaşıcıdır
+kanser bulaşıcı değildir
+kanser tehlikelidir
+bazı hastalıklar bulaşıcı değildir
+hasta bir insandır
+hastalar dinlenir
+hastalar iyileşir
+bazı hastalar yürüyemez
+ilaç bir maddedir
+ilaçlar iyileştirir
+ilaç faydalıdır
+ilaç bir yiyecek değildir
+ilaç acıdır
+hastane bir yapıdır
+hastanenin doktoru var
+eczane bir yapıdır
+eczanenin ilacı var
+vücut bir nesnedir
+vücudun organı var
+uyku bir kavramdır
+uyku faydalıdır

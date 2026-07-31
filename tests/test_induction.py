@@ -170,7 +170,11 @@ class TestPlacingAStranger(unittest.TestCase):
         self.induction = Induction(self.memory, self.reasoning)
         for edge in (Edge("kuş", CAN, "uçmak", source="sen"),
                      Edge("kuş", HAS_PROPERTY, "tüylü", source="sen"),
-                     Edge("kuş", IS_A, "hayvan", source="sen")):
+                     Edge("kuş", IS_A, "hayvan", source="sen"),
+                     # Something has to be a bird for "bird" to be a shelf:
+                     # fire and the sun share two habits too, and a stranger
+                     # was once filed under the sun because of it.
+                     Edge("serçe", IS_A, "kuş", source="sen")):
             self.memory.write(edge)
 
     def _teach_pelican(self):
