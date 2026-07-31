@@ -22,6 +22,7 @@ ASK_WHO = "ASK_WHO"
 ASK_ABILITIES = "ASK_ABILITIES"
 ASK_WHY = "ASK_WHY"
 ASK_PROPERTIES = "ASK_PROPERTIES"
+ASK_DESCRIBE = "ASK_DESCRIBE"
 UNKNOWN = "UNKNOWN"
 
 
@@ -99,6 +100,9 @@ class Intuition(LanguageOrgan):
             infinitive, positive = self.lexicon.reading(tokens[2])
             return Intent(ASK_WHY, concept=_strip_suffix(tokens[0], PLURAL_SUFFIXES),
                           relation=CAN if positive else CANNOT, target=infinitive)
+        # "X anlat"
+        if len(tokens) == 2 and tokens[1] in ("anlat", "anlatsana"):
+            return Intent(ASK_DESCRIBE, concept=tokens[0])
         # "X nasıldır"
         if len(tokens) == 2 and tokens[1] in ("nasıldır", "nasıl"):
             return Intent(ASK_PROPERTIES, concept=tokens[0])

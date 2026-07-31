@@ -35,6 +35,13 @@ def copula(word):
     return consonant + _harmony_vowel(word) + "r"
 
 
+def clitic_da(word):
+    """The separate "da"/"de", which harmonises two ways, not four."""
+    vowels = [c for c in word if c in "aeıioöuü"]
+    last = vowels[-1] if vowels else "a"
+    return "da" if last in "aıou" else "de"
+
+
 def question_particle(word):
     """The mı/mi/mu/mü that follows this word."""
     return "m" + _harmony_vowel(word)
@@ -195,6 +202,31 @@ def climbing(concept, ancestor, question):
 def now_i_can(answer):
     """Returning to the question that was waiting."""
     return f"şimdi ilk soruna dönebilirim: {answer}"
+
+
+def capitalize(text):
+    """Turkish capitalisation: "içer" starts a sentence as "İçer", not "Icer"."""
+    if not text:
+        return text
+    first = "İ" if text[0] == "i" else text[0].upper()
+    return first + text[1:]
+
+
+def predicate(relation, target):
+    """A clause with the subject left out, the way Turkish drops it.
+
+    "uçar", "tüylüdür" — so a paragraph can say "kuş olduğu için uçar ve
+    tüylüdür" instead of repeating the name in every clause.
+    """
+    if relation == IS_A:
+        return f"bir {target}{copula(target)}"
+    if relation == NOT_A:
+        return f"bir {target} değildir"
+    if relation == HAS_PROPERTY:
+        return f"{target}{copula(target)}"
+    if relation == LACKS_PROPERTY:
+        return f"{target} değildir"
+    return verb_form(target, relation == CAN)
 
 
 def describe(concept, relation, target):

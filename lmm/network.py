@@ -21,10 +21,11 @@ from lmm.lexicon import ACTIVE
 
 CLASSES = ["TEACH_TYPE", "TEACH_NOT_TYPE", "TEACH_ABILITY", "TEACH_PROPERTY",
            "TEACH_NOT_PROPERTY", "ASK_DEFINITION", "ASK_ABILITY", "ASK_PROPERTY",
-           "ASK_WHO", "ASK_ABILITIES", "ASK_PROPERTIES", "ASK_WHY"]
+           "ASK_WHO", "ASK_ABILITIES", "ASK_PROPERTIES", "ASK_WHY",
+           "ASK_DESCRIBE"]
 
 FUNCTION_WORDS = ({"bir", "değildir", "nedir", "neden", "nasıldır", "nasıl",
-                   "yapabilir"} | set(QUESTION_PARTICLES) | set(INTERROGATIVES))
+                   "yapabilir", "anlat"} | set(QUESTION_PARTICLES) | set(INTERROGATIVES))
 
 CONCEPT = "<kavram>"
 CONCEPTS = "<kavram-çoğul>"
@@ -76,6 +77,7 @@ def _shapes():
         ([CONCEPT, "ne", "yapabilir"], "ASK_ABILITIES"),
         ([CONCEPT, "nasıldır"], "ASK_PROPERTIES"),
         ([CONCEPT, "nasıl"], "ASK_PROPERTIES"),
+        ([CONCEPT, "anlat"], "ASK_DESCRIBE"),
     ]
     for particle in QUESTION_PARTICLES:
         examples.append(([CONCEPT, VERB, particle], "ASK_ABILITY"))

@@ -8,7 +8,9 @@ from lmm.phrasing import (is_a_clause, is_not_a_clause, ability_clause,
                           property_clause,
                           who_clause, ability_summary, property_summary,
                           verb_form, dont_know)
-from lmm.intuition import ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES
+from lmm.intuition import (ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES,
+                           ASK_DESCRIBE)
+from lmm.exposition import Exposition
 
 HEDGE_THRESHOLD = 0.5
 
@@ -17,6 +19,7 @@ class EpistemicGate:
     def __init__(self, memory, reasoning):
         self.memory = memory
         self.reasoning = reasoning
+        self.exposition = Exposition(memory, reasoning)
 
     def answer(self, intent):
         if intent.kind == ASK_WHO:
@@ -25,6 +28,8 @@ class EpistemicGate:
             return self._abilities(intent.concept)
         if intent.kind == ASK_WHY:
             return self._why(intent.concept, intent.target, intent.relation == CAN)
+        if intent.kind == ASK_DESCRIBE:
+            return self.exposition.describe(intent.concept)
         if intent.kind == ASK_PROPERTIES:
             return self._all_properties(intent.concept)
         if intent.relation == IS_A:
