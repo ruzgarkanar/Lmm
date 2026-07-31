@@ -195,6 +195,15 @@ def corrected(statement, source):
     return f"bunu {_origin(source)}, senin sözünü üstün tutuyorum: {statement}."
 
 
+def computed(expression, value):
+    """A result the system produced, with the working as its justification."""
+    return f"{expression} = {value} (hesapladım)."
+
+
+def cannot_compute(reason):
+    return f"bunu hesaplayamadım: {reason}."
+
+
 def did_you_mean(suggestions):
     """The particle harmonises with the last word, like every other suffix."""
     words = list(suggestions)

@@ -8,13 +8,15 @@ from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
                            UNKNOWN_WORD, PRONOUNS, lower)
 from lmm.distill import split_words
 from lmm.grammar import Pattern
+from lmm import arithmetic
 from lmm.learning import LearningLoop, CONFLICT, LEARNED, CORRECTED
 from lmm.induction import Induction
 from lmm.network import MiniNetwork
 from lmm.curiosity import Curiosity
 from lmm.pursuit import Pursuit
 from lmm.phrasing import (wondering, not_understood, now_i_can, generalising,
-                          describe, teach_me_the_word, learned_word)
+                          describe, teach_me_the_word, learned_word, computed,
+                          cannot_compute)
 
 # A custom LanguageOrgan may report graded confidence; ours parses or does not.
 CONFIDENCE_THRESHOLD = 0.35
@@ -48,6 +50,14 @@ class Session:
     def respond(self, line):
         if self.pending is not None:
             return self._resolve_pending(line)
+        if arithmetic.looks_like_a_sum(line):
+            # Computed, not recalled: a sum has no place in memory and no
+            # business being guessed at.
+            try:
+                return computed(arithmetic.normalise(line),
+                                arithmetic.evaluate(line))
+            except arithmetic.Undecidable as reason:
+                return cannot_compute(reason)
         words, rest = split_words(line)
         if words:                       # "kelime: uçmak = uçar / uçamaz"
             for infinitive, positive, negative in words:
