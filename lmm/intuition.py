@@ -55,12 +55,13 @@ def _strip_suffix(word, suffixes):
 
 class Intent:
     def __init__(self, kind, concept=None, relation=None, target=None,
-                 object=None, confidence=1.0):
+                 object=None, role=None, confidence=1.0):
         self.kind = kind
         self.concept = concept
         self.relation = relation
         self.target = target
-        self.object = object        # what the action was done to, if anything
+        self.object = object        # a second concept, if the sentence had one
+        self.role = role            # what that concept is doing there
         self.confidence = confidence
         self.resembles = None       # shape the network saw, when nothing matched
         self.resemblance = 0.0
@@ -86,9 +87,9 @@ class Intuition(LanguageOrgan):
 
         pattern, captured = self.grammar.match(tokens, self.lexicon)
         if pattern is not None:
-            kind, relation, concept, target, obj = self.grammar.read(pattern,
-                                                                     captured)
-            return Intent(kind, concept, relation, target, obj)
+            kind, relation, concept, target, obj, role = self.grammar.read(
+                pattern, captured)
+            return Intent(kind, concept, relation, target, obj, role)
 
         # A subject followed by something that is neither a known verb nor a
         # property is almost certainly a verb nobody taught us. Saying so is

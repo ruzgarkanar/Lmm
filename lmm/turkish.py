@@ -8,8 +8,9 @@ against a pattern list.
 A second language means another module shaped like this one, not another parser.
 """
 from lmm.grammar import (Pattern, Grammar, KAVRAM, TUR, NITELIK, SOZ, FIIL,
-                         SORU, KIM, FROM_VERB)
-from lmm.relations import IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY
+                         SORU, KIM, ROL, FROM_VERB)
+from lmm.relations import (IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY,
+                           HAS_PART, PLACE, SOURCE)
 
 TEACH = "TEACH"
 ASK = "ASK"
@@ -31,11 +32,34 @@ class TurkishMorphology:
     # of a compound. Discovery finds these families; until it supplies them,
     # they are listed.
     oblique_suffixes = ("den", "dan", "ten", "tan", "yle", "yla", "ile")
+    # A case ending says what a second concept is doing in the sentence, so the
+    # role is read off the word instead of guessed from where it sits.
+    case_roles = (
+        (("den", "dan", "ten", "tan"), SOURCE),
+        (("de", "da", "te", "ta"), PLACE),
+    )
+    genitive_suffixes = ("nın", "nin", "nun", "nün", "ın", "in", "un", "ün")
+    possessive_suffixes = ("sı", "si", "su", "sü", "ı", "i", "u", "ü")
     pronouns = ("o", "onu", "onun", "bu", "bunu", "şu", "şunu")
 
+    def role_of(self, word):
+        """(stem, role) when the word carries a case ending, else (word, None)."""
+        for suffixes, role in self.case_roles:
+            for suffix in suffixes:
+                if word.endswith(suffix) and len(word) > len(suffix) + 1:
+                    return word[: -len(suffix)], role
+        return word, None
+
     def is_oblique(self, word):
-        """Does this word carry a case ending, so it stands on its own?"""
-        return self._has(word, self.oblique_suffixes)
+        """Does this word carry a case ending, so it stands on its own?
+
+        Every ending that marks a role counts, not just the ones listed for
+        instruments — a locative slipped into a noun phrase once and made
+        "penguen kutupta" a concept.
+        """
+        if self._has(word, self.oblique_suffixes):
+            return True
+        return any(self._has(word, suffixes) for suffixes, _ in self.case_roles)
 
     def has_copula(self, word):
         return self._has(word, self.copula_suffixes)
@@ -87,10 +111,18 @@ PATTERNS = [
     Pattern([KAVRAM, "ne"], ASK, IS_A, 0, None, "ne"),
     # Turkish puts the object before the verb. Which position it takes is a
     # fact about a language, so it sits in this list and nowhere else.
+    Pattern([KAVRAM, ROL, FIIL, SORU], ASK, CAN, 0, 2, "kutupta yaşar mı",
+            object=1),
+    Pattern([KAVRAM, ROL, SOZ, SORU], ASK, HAS_PROPERTY, 0, 2,
+            "serçeden büyük mü", object=1),
     Pattern([KAVRAM, KAVRAM, FIIL, SORU], ASK, CAN, 0, 2, "fare yakalar mı",
             object=1),
     Pattern([KAVRAM, FIIL, SORU], ASK, CAN, 0, 1, "uçar mı"),
     Pattern([KAVRAM, "bir", TUR], TEACH, IS_A, 0, 2, "bir kuştur"),
+    Pattern([KAVRAM, ROL, FIIL], TEACH, FROM_VERB, 0, 2, "kutupta yaşar",
+            object=1),
+    Pattern([KAVRAM, ROL, NITELIK], TEACH, HAS_PROPERTY, 0, 2,
+            "serçeden büyüktür", object=1),
     Pattern([KAVRAM, KAVRAM, FIIL], TEACH, FROM_VERB, 0, 2, "fare yakalar",
             object=1),
     Pattern([KAVRAM, FIIL], TEACH, FROM_VERB, 0, 1, "uçar"),

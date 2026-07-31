@@ -19,7 +19,8 @@ A slot is one of:
     KIM      an interrogative
 Anything else in a pattern is a literal that must appear exactly.
 """
-from lmm.relations import IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY
+from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
+                           LACKS_PROPERTY, OBJECT)
 
 KAVRAM = "{kavram}"
 TUR = "{tür}"
@@ -28,8 +29,9 @@ SOZ = "{söz}"
 FIIL = "{fiil}"
 SORU = "{soru}"
 KIM = "{kim}"
+ROL = "{rol}"        # a second concept wearing a case ending
 
-SLOTS = (KAVRAM, TUR, NITELIK, SOZ, FIIL, SORU, KIM)
+SLOTS = (KAVRAM, TUR, NITELIK, SOZ, FIIL, SORU, KIM, ROL)
 
 FROM_VERB = "fiilden"       # the relation follows the verb's own polarity
 
@@ -165,17 +167,29 @@ class Grammar:
             return token if token in morphology.question_particles else None
         if slot == KIM:
             return token if token in morphology.interrogatives else None
+        if slot == ROL:
+            stem, role = morphology.role_of(token)
+            return (stem, role) if role else None
         return None
 
     def read(self, pattern, captured):
         """Turn a match into (kind, relation, concept, target, object)."""
         concept = self._slot_value(pattern, captured, pattern.concept)
         target = self._slot_value(pattern, captured, pattern.target)
-        obj = self._slot_value(pattern, captured, pattern.object)
+        obj, role = self._object_and_role(pattern, captured)
         relation = pattern.relation
         if relation == FROM_VERB:
             relation = CAN if self._polarity(pattern, captured) else CANNOT
-        return pattern.kind, relation, concept, target, obj
+        return pattern.kind, relation, concept, target, obj, role
+
+    def _object_and_role(self, pattern, captured):
+        """The second concept and what it is doing, when a pattern captured one."""
+        if pattern.object is None:
+            return None, None
+        value = captured[pattern.object]
+        if isinstance(value, tuple):
+            return value[0], value[1]
+        return value, OBJECT
 
     def _slot_value(self, pattern, captured, index):
         if index is None:

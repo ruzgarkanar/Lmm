@@ -26,19 +26,20 @@ class Reasoning:
                     queue.append(edge.target)
         return result
 
-    def can_do(self, concept, action, object=None):
+    def can_do(self, concept, action, object=None, role=None):
         """Returns (True | False | None, explanation chain).
 
         None means memory holds nothing on this — the caller must not guess.
         """
         answer, chain, _ = self._resolve(concept, action, CAN, CANNOT,
-                                         ability_clause, object)
+                                         ability_clause, object, role)
         return answer, chain
 
-    def has_property(self, concept, prop):
+    def has_property(self, concept, prop, object=None, role=None):
         """Same shape as can_do, for "kar beyazdır" style knowledge."""
         answer, chain, _ = self._resolve(concept, prop, HAS_PROPERTY,
-                                         LACKS_PROPERTY, property_clause)
+                                         LACKS_PROPERTY, property_clause,
+                                         object, role)
         return answer, chain
 
     def basis(self, candidate):
@@ -49,31 +50,33 @@ class Reasoning:
         """
         if candidate.relation in ABILITY_RELATIONS:
             return self._resolve(candidate.concept, candidate.target, CAN,
-                                 CANNOT, ability_clause, candidate.object)[2]
+                                 CANNOT, ability_clause, candidate.object,
+                                 candidate.role)[2]
         if candidate.relation in PROPERTY_RELATIONS:
             return self._resolve(candidate.concept, candidate.target,
-                                 HAS_PROPERTY, LACKS_PROPERTY,
-                                 property_clause)[2]
+                                 HAS_PROPERTY, LACKS_PROPERTY, property_clause,
+                                 candidate.object, candidate.role)[2]
         return self.memory.direct(candidate.concept,
                                   IS_A if candidate.relation == NOT_A else NOT_A,
                                   candidate.target)
 
-    def _resolve(self, concept, target, affirms, denies, clause, object=None):
+    def _resolve(self, concept, target, affirms, denies, clause, object=None,
+                 role=None):
         """Direct knowledge first, then the type hierarchy, nearest ancestor first.
 
         A direct fact always beats an inherited one — that is exactly what makes
         an exception an exception.
         """
         for polarity, relation in ((False, denies), (True, affirms)):
-            edge = self.memory.direct(concept, relation, target, object)
+            edge = self.memory.direct(concept, relation, target, object, role)
             if edge:
-                return polarity, [f"{clause(concept, target, polarity, object)} "
-                                  f"({attribution(edge.source)})"], edge
+                said = clause(concept, target, polarity, object, role)
+                return polarity, [f"{said} ({attribution(edge.source)})"], edge
         for ancestor in self.ancestors(concept):
             for polarity, relation in ((False, denies), (True, affirms)):
-                edge = self.memory.direct(ancestor, relation, target, object)
+                edge = self.memory.direct(ancestor, relation, target, object, role)
                 if edge:
-                    inherited = clause(ancestor, target, polarity, object)
+                    inherited = clause(ancestor, target, polarity, object, role)
                     if edge.source == INFERENCE:
                         # An inherited guess is still a guess, and must say so.
                         inherited += " (kendi çıkarımım)"
@@ -107,10 +110,11 @@ class Reasoning:
             return self._type_conflict(candidate)
         if candidate.relation in ABILITY_RELATIONS:
             known, chain = self.can_do(candidate.concept, candidate.target,
-                                       candidate.object)
+                                       candidate.object, candidate.role)
             claimed = candidate.relation == CAN
         elif candidate.relation in PROPERTY_RELATIONS:
-            known, chain = self.has_property(candidate.concept, candidate.target)
+            known, chain = self.has_property(candidate.concept, candidate.target,
+                                             candidate.object, candidate.role)
             claimed = candidate.relation == HAS_PROPERTY
         else:
             return None

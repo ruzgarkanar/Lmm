@@ -5,7 +5,8 @@ this module is the only place that turns them into sentences — so the internal
 labels never leak into what the system says, and a second language would mean
 swapping this file alone.
 """
-from lmm.relations import IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY
+from lmm.relations import (IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY,
+                           PLACE, SOURCE)
 from lmm.lexicon import ACTIVE
 
 from lmm.trust import INFERENCE, DISTILLED_PREFIX
@@ -35,6 +36,23 @@ def copula(word):
     return consonant + _harmony_vowel(word) + "r"
 
 
+def case_form(word, role):
+    """Put the case ending back on when speaking: kutup + yer -> "kutupta".
+
+    Two-way harmony for the vowel, voicing for the consonant — the same rules
+    the copula follows, because they are the language's rules and not this
+    suffix's.
+    """
+    if role not in (PLACE, SOURCE):
+        return word
+    vowels = [c for c in word if c in "aeıioöuü"]
+    last = vowels[-1] if vowels else "a"
+    vowel = "a" if last in "aıou" else "e"
+    consonant = "t" if word and word[-1] in _VOICELESS else "d"
+    suffix = consonant + vowel + ("n" if role == SOURCE else "")
+    return word + suffix
+
+
 def clitic_da(word):
     """The separate "da"/"de", which harmonises two ways, not four."""
     vowels = [c for c in word if c in "aeıioöuü"]
@@ -62,11 +80,13 @@ def is_not_a_clause(concept, target):
     return f"{concept} bir {target} değildir"
 
 
-def property_clause(concept, prop, positive=True, object=None):
-    """kar, beyaz -> "kar beyazdır" / "kar beyaz değildir"."""
+def property_clause(concept, prop, positive=True, object=None, role=None):
+    """kar, beyaz -> "kar beyazdır"; with a second concept, "kartal serçeden
+    büyüktür"."""
+    middle = f"{case_form(object, role)} " if object else ""
     if positive:
-        return f"{concept} {prop}{copula(prop)}"
-    return f"{concept} {prop} değildir"
+        return f"{concept} {middle}{prop}{copula(prop)}"
+    return f"{concept} {middle}{prop} değildir"
 
 
 def property_question(concept, prop):
@@ -107,11 +127,11 @@ def ability_summary(concept, abilities):
     return f"{concept} {listing(clauses)}"
 
 
-def ability_clause(concept, action, positive, object=None):
-    """penguen, uçmak, False -> "penguen uçamaz"; with an object, "kedi fare
-    yakalar". Where the object goes is this module's business, being Turkish."""
+def ability_clause(concept, action, positive, object=None, role=None):
+    """penguen, uçmak, False -> "penguen uçamaz"; with a second concept,
+    "kedi fare yakalar" or "penguen kutupta yaşar" depending on its role."""
     if object:
-        return f"{concept} {object} {verb_form(action, positive)}"
+        return f"{concept} {case_form(object, role)} {verb_form(action, positive)}"
     return f"{concept} {verb_form(action, positive)}"
 
 
@@ -120,11 +140,11 @@ def definition_question(concept):
     return f"{concept} nedir?"
 
 
-def ability_question(concept, action, object=None):
-    """penguen, yüzmek -> "penguen yüzer mi?"; with an object, "kedi fare
-    yakalar mı?"."""
+def ability_question(concept, action, object=None, role=None):
+    """penguen, yüzmek -> "penguen yüzer mi?"; with a second concept,
+    "penguen kutupta yaşar mı?"."""
     verb = verb_form(action, True)
-    middle = f"{object} " if object else ""
+    middle = f"{case_form(object, role)} " if object else ""
     return f"{concept} {middle}{verb} {question_particle(verb)}?"
 
 
@@ -254,7 +274,7 @@ def capitalize(text):
     return first + text[1:]
 
 
-def predicate(relation, target, object=None):
+def predicate(relation, target, object=None, role=None):
     """A clause with the subject left out, the way Turkish drops it.
 
     "uçar", "tüylüdür" — so a paragraph can say "kuş olduğu için uçar ve
@@ -264,21 +284,21 @@ def predicate(relation, target, object=None):
         return f"bir {target}{copula(target)}"
     if relation == NOT_A:
         return f"bir {target} değildir"
+    middle = f"{case_form(object, role)} " if object else ""
     if relation == HAS_PROPERTY:
-        return f"{target}{copula(target)}"
+        return f"{middle}{target}{copula(target)}"
     if relation == LACKS_PROPERTY:
-        return f"{target} değildir"
-    if object:
-        return f"{object} {verb_form(target, relation == CAN)}"
-    return verb_form(target, relation == CAN)
+        return f"{middle}{target} değildir"
+    return f"{middle}{verb_form(target, relation == CAN)}"
 
 
-def describe(concept, relation, target, object=None):
+def describe(concept, relation, target, object=None, role=None):
     """A fact stated as a Turkish sentence, whatever its relation."""
     if relation == IS_A:
         return is_a_clause(concept, target)
     if relation == NOT_A:
         return is_not_a_clause(concept, target)
     if relation in (HAS_PROPERTY, LACKS_PROPERTY):
-        return property_clause(concept, target, relation == HAS_PROPERTY)
-    return ability_clause(concept, target, relation == CAN, object)
+        return property_clause(concept, target, relation == HAS_PROPERTY,
+                               object, role)
+    return ability_clause(concept, target, relation == CAN, object, role)

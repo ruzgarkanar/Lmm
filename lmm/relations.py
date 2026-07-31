@@ -15,7 +15,16 @@ CAN = "can"
 CANNOT = "cannot"
 HAS_PROPERTY = "property"
 LACKS_PROPERTY = "not_property"
+HAS_PART = "has"
+LACKS_PART = "has_not"
 
 TYPE_RELATIONS = (IS_A, NOT_A)
 ABILITY_RELATIONS = (CAN, CANNOT)
 PROPERTY_RELATIONS = (HAS_PROPERTY, LACKS_PROPERTY)
+PART_RELATIONS = (HAS_PART, LACKS_PART)
+
+# What a second concept is doing in the sentence. Turkish says it with a case
+# ending, so the role is read off the word rather than guessed from position.
+PLACE = "yer"        # -DA   penguen kutupta yaşar
+SOURCE = "çıkış"     # -DAn  kartal serçeden büyüktür
+OBJECT = "nesne"     # bare  kediler fare yakalar
