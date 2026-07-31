@@ -32,6 +32,32 @@ hayır, çünkü penguen uçamaz (doğrudan bilgi, kaynak: sen).
 
 Programı kapatıp yeniden açın: hatırlar, bir daha sormaz.
 
+## Bildiği bilgi türleri
+
+| Tür | Öğretme | Sorma |
+|---|---|---|
+| Tür | `penguen bir kuştur` / `penguen bir memeli değildir` | `penguen nedir` |
+| Yetenek | `kuşlar uçar` / `penguen uçamaz` | `penguen uçar mı`, `kimler uçar`, `penguen ne yapabilir`, `penguen neden uçamaz` |
+| Özellik | `kuşlar tüylüdür` / `penguen tüylü değildir` | `penguen tüylü mü`, `penguen nasıldır` |
+
+Türkçe, türü özellikten tek kelimeyle ayırıyor: **"bir"**. `penguen bir kuştur`
+onun *ne olduğunu*, `penguen siyahtır` *nasıl olduğunu* söyler. Sistem bu ayrımı
+dilin kendisinden alıyor. Her iki bilgi türü de kalıtımla iner ve istisna kabul
+eder — aynı muhakeme, farklı ilişki.
+
+```
+> kuşlar tüylüdür
+öğrendim: kuş tüylüdür. bu arada, bunu hiç öğrenmedim: kuş nedir?
+> penguen bir kuştur
+> penguen tüylü mü
+evet, çünkü penguen bir kuş ve kuş tüylüdür.   ← kalıtım
+> penguen siyahtır
+> penguen nasıldır
+penguen tüylü ve siyahtır.
+> penguen tüylü değildir
+bir çelişki fark ettim: şu an bildiğim: penguen bir kuş çünkü kuş tüylüdür...
+```
+
 ## Konuşabildikleri
 
 ```

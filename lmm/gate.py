@@ -3,10 +3,11 @@
 There is no path from this class to a sentence that memory does not support, so
 hallucination is not filtered out — it is unreachable.
 """
-from lmm.memory import IS_A, CAN
-from lmm.phrasing import (is_a_clause, ability_clause, who_clause,
-                          ability_summary, verb_form)
-from lmm.intuition import ASK_WHO, ASK_ABILITIES, ASK_WHY
+from lmm.relations import IS_A, CAN, HAS_PROPERTY
+from lmm.phrasing import (is_a_clause, ability_clause, property_clause,
+                          who_clause, ability_summary, property_summary,
+                          verb_form)
+from lmm.intuition import ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES
 
 HEDGE_THRESHOLD = 0.5
 
@@ -23,11 +24,28 @@ class EpistemicGate:
             return self._abilities(intent.concept)
         if intent.kind == ASK_WHY:
             return self._why(intent.concept, intent.target, intent.relation == CAN)
+        if intent.kind == ASK_PROPERTIES:
+            return self._all_properties(intent.concept)
         if intent.relation == IS_A:
             return self._definition(intent.concept)
         if intent.relation == CAN:
             return self._ability(intent.concept, intent.target)
+        if intent.relation == HAS_PROPERTY:
+            return self._property(intent.concept, intent.target)
         return self._dont_know(intent.concept)
+
+    def _property(self, concept, prop):
+        known, chain = self.reasoning.has_property(concept, prop)
+        if known is None:
+            return self._dont_know(concept)
+        prefix = "evet" if known else "hayır"
+        return f"{prefix}, çünkü {' ve '.join(chain)}."
+
+    def _all_properties(self, concept):
+        found = self.reasoning.properties(concept)
+        if not found:
+            return f"{concept} nasıldır, bunu hiç öğrenmedim."
+        return property_summary(concept, found) + "."
 
     def _who(self, action, positive):
         if action not in self.memory.actions():
