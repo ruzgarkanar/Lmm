@@ -4,6 +4,7 @@ Every answer it produces can name the chain it came from, so nothing the system
 says is unexplainable.
 """
 from lmm.memory import IS_A, CAN, CANNOT
+from lmm.phrasing import ability_clause
 
 
 class Reasoning:
@@ -27,21 +28,17 @@ class Reasoning:
 
         None means memory holds nothing on this — the caller must not guess.
         """
-        edge = self.memory.direct(concept, CANNOT, action)
-        if edge:
-            return False, [f"{concept} {action} yapamaz "
-                           f"(doğrudan bilgi, kaynak: {edge.source})"]
-        edge = self.memory.direct(concept, CAN, action)
-        if edge:
-            return True, [f"{concept} {action} yapabilir "
-                          f"(doğrudan bilgi, kaynak: {edge.source})"]
+        for polarity, relation in ((False, CANNOT), (True, CAN)):
+            edge = self.memory.direct(concept, relation, action)
+            if edge:
+                return polarity, [f"{ability_clause(concept, action, polarity)} "
+                                  f"(doğrudan bilgi, kaynak: {edge.source})"]
         for ancestor in self.ancestors(concept):  # nearer ancestor wins
-            edge = self.memory.direct(ancestor, CANNOT, action)
-            if edge:
-                return False, [f"{concept} bir {ancestor}", f"{ancestor} {action} yapamaz"]
-            edge = self.memory.direct(ancestor, CAN, action)
-            if edge:
-                return True, [f"{concept} bir {ancestor}", f"{ancestor} {action} yapabilir"]
+            for polarity, relation in ((False, CANNOT), (True, CAN)):
+                edge = self.memory.direct(ancestor, relation, action)
+                if edge:
+                    return polarity, [f"{concept} bir {ancestor}",
+                                      ability_clause(ancestor, action, polarity)]
         return None, []
 
     def find_conflict(self, candidate):

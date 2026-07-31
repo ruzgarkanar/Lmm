@@ -5,18 +5,10 @@ structured intents; everything factual comes from memory. That split is why this
 organ can stay small.
 """
 from lmm.memory import IS_A, CAN, CANNOT
+from lmm.phrasing import VERBS
 
 PUNCTUATION = ".,!?;:\"'"
 
-# Verb forms of the controlled world: surface form -> (infinitive, is_positive)
-VERBS = {
-    "uçar": ("uçmak", True), "uçamaz": ("uçmak", False),
-    "yüzer": ("yüzmek", True), "yüzemez": ("yüzmek", False),
-    "koşar": ("koşmak", True), "koşamaz": ("koşmak", False),
-    "okur": ("okumak", True), "okuyamaz": ("okumak", False),
-    "içer": ("içmek", True), "içemez": ("içmek", False),
-    "konuşur": ("konuşmak", True), "konuşamaz": ("konuşmak", False),
-}
 QUESTION_PARTICLES = ("mı", "mi", "mu", "mü")
 COPULA_SUFFIXES = ("tur", "tır", "dur", "dır", "tür", "tir", "dür", "dir")
 PLURAL_SUFFIXES = ("lar", "ler")
