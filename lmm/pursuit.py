@@ -11,6 +11,7 @@ dictates.
 """
 from lmm.relations import IS_A, CAN, HAS_PROPERTY
 from lmm import phrasing
+from lmm.similarity import nearest
 
 
 class Step:
@@ -50,7 +51,12 @@ class Pursuit:
         if step is None:
             return phrasing.dont_know(goal.concept)
         if step.key.startswith("type:"):
-            return phrasing.need_first(step.text)
+            # A concept with nothing at all behind it might be a word the person
+            # spelled differently from the one we know.
+            suggestions = ()
+            if not self.memory.query(goal.concept):
+                suggestions = nearest(goal.concept, self.memory.concepts())
+            return phrasing.need_first(step.text, suggestions)
         ancestors = self.reasoning.ancestors(goal.concept)
         return phrasing.climbing(goal.concept, ancestors[0], step.text)
 
