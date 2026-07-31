@@ -15,6 +15,10 @@ from lmm.lexicon import ACTIVE
 
 FORMAT_VERSION = 3
 
+# The source on facts nobody stated — the system worked them out itself.
+INFERRED = "çıkarım"
+INFERRED_CONFIDENCE = 0.45   # below the hedging threshold, on purpose
+
 
 class CycleError(Exception):
     """Raised when a write would create a cycle in the type hierarchy."""

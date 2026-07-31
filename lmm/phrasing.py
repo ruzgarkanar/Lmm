@@ -8,6 +8,8 @@ swapping this file alone.
 from lmm.relations import IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY
 from lmm.lexicon import ACTIVE
 
+INFERRED = "çıkarım"    # kept in step with lmm.memory.INFERRED
+
 _BACK_UNROUNDED = "aı"
 _FRONT_UNROUNDED = "ei"
 _BACK_ROUNDED = "ou"
@@ -147,6 +149,23 @@ def not_understood(resembles=None):
 def wondering(question):
     """How the system voices a gap it noticed in itself."""
     return f"bu arada, bunu hiç öğrenmedim: {question}"
+
+
+def attribution(source):
+    """Where a fact came from, said plainly."""
+    if source == INFERRED:
+        return "kendi çıkarımım"
+    return f"doğrudan bilgi, kaynak: {source}"
+
+
+def generalising(examples, statement):
+    """Announcing a pattern it spotted on its own."""
+    return f"şunu fark ettim: {listing(examples)} — sanırım {statement}."
+
+
+def corrected(statement):
+    """Yielding a guess of its own to something a teacher said."""
+    return f"bunu çıkarımla varsaymıştım, seninkini üstün tutuyorum: {statement}."
 
 
 def dont_know(concept):
