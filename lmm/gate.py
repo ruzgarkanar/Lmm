@@ -3,8 +3,9 @@
 There is no path from this class to a sentence that memory does not support, so
 hallucination is not filtered out — it is unreachable.
 """
-from lmm.relations import IS_A, CAN, HAS_PROPERTY
-from lmm.phrasing import (is_a_clause, ability_clause, property_clause,
+from lmm.relations import IS_A, NOT_A, CAN, HAS_PROPERTY
+from lmm.phrasing import (is_a_clause, is_not_a_clause, ability_clause,
+                          property_clause,
                           who_clause, ability_summary, property_summary,
                           verb_form, dont_know)
 from lmm.intuition import ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES
@@ -27,12 +28,27 @@ class EpistemicGate:
         if intent.kind == ASK_PROPERTIES:
             return self._all_properties(intent.concept)
         if intent.relation == IS_A:
+            if intent.target:
+                return self._is_a(intent.concept, intent.target)
             return self._definition(intent.concept)
         if intent.relation == CAN:
             return self._ability(intent.concept, intent.target)
         if intent.relation == HAS_PROPERTY:
             return self._property(intent.concept, intent.target)
         return self._dont_know(intent.concept)
+
+    def _is_a(self, concept, target):
+        """"kalp bir organ mı" — a yes/no about a place in the hierarchy."""
+        if self.memory.direct(concept, NOT_A, target) is not None:
+            return f"hayır, {is_not_a_clause(concept, target)}."
+        ancestors = self.reasoning.ancestors(concept)
+        if target in ancestors:
+            chain = [is_a_clause(concept, step) for step in ancestors
+                     if step == target or ancestors.index(step) == 0]
+            return f"evet, {chain[-1]}."
+        if not self.memory.query(concept, IS_A):
+            return self._dont_know(concept)
+        return f"bildiğim kadarıyla {is_not_a_clause(concept, target)}."
 
     def _property(self, concept, prop):
         known, chain = self.reasoning.has_property(concept, prop)

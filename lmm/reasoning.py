@@ -7,6 +7,7 @@ from lmm.memory import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
                         TYPE_RELATIONS, ABILITY_RELATIONS, PROPERTY_RELATIONS)
 from lmm.phrasing import (ability_clause, property_clause, is_a_clause,
                           is_not_a_clause, attribution)
+from lmm.trust import INFERENCE
 
 
 class Reasoning:
@@ -72,8 +73,11 @@ class Reasoning:
             for polarity, relation in ((False, denies), (True, affirms)):
                 edge = self.memory.direct(ancestor, relation, target)
                 if edge:
-                    return polarity, [f"{concept} bir {ancestor}",
-                                      clause(ancestor, target, polarity)], edge
+                    inherited = clause(ancestor, target, polarity)
+                    if edge.source == INFERENCE:
+                        # An inherited guess is still a guess, and must say so.
+                        inherited += " (kendi çıkarımım)"
+                    return polarity, [f"{concept} bir {ancestor}", inherited], edge
         return None, [], None
 
     def abilities(self, concept):

@@ -27,6 +27,8 @@ import sys
 from lmm.memory import Memory
 from lmm.reasoning import Reasoning
 from lmm.reading import read_text
+from lmm.induction import Induction
+from lmm.phrasing import describe, listing
 from lmm.trust import distilled_source
 from lmm.intuition import lower
 
@@ -61,6 +63,27 @@ def distill_text(text, memory, model_name, reasoning=None, language=None):
     return report
 
 
+def generalise(memory, reasoning=None, limit=1000):
+    """Let the system draw its own rules from what it just took in.
+
+    A bulk ingest is exactly when patterns become visible, and a rule the system
+    forms itself is marked as such — it is beaten by anything a person says.
+    """
+    induction = Induction(memory, reasoning or Reasoning(memory))
+    formed = []
+    while len(formed) < limit:
+        # One sweep collects every rule the memory currently supports; learning
+        # one can settle another, so each is re-checked before it is written.
+        batch = [h for h in induction.candidates() if induction.still_open(h)]
+        if not batch:
+            break
+        for hypothesis in batch:
+            if induction.still_open(hypothesis):
+                induction.learn(hypothesis)
+                formed.append(hypothesis)
+    return formed
+
+
 def distill_file(path, memory, model_name, reasoning=None, language=None):
     with open(path, encoding="utf-8") as f:
         return distill_text(f.read(), memory, model_name, reasoning, language)
@@ -74,6 +97,7 @@ def main(argv):
     model_name = argv[3] if len(argv) > 3 else os.path.basename(document_path)
     memory = Memory.load(memory_path)
     report = distill_file(document_path, memory, model_name)
+    formed = generalise(memory)
     memory.save(memory_path)
 
     print(f"{distilled_source(model_name)}: {report.total} cümle işlendi — "
@@ -83,6 +107,12 @@ def main(argv):
           f"{len(report.skipped)} atlandı.")
     for edge, explanation in report.conflicts:
         print(f"  modelin çelişkisi: {edge.concept} — {explanation}")
+    if formed:
+        print(f"  ardından {len(formed)} kuralı kendi çıkardı, ilk üçü:")
+        for hypothesis in formed[:3]:
+            statement = describe(hypothesis.concept, hypothesis.relation,
+                                 hypothesis.target)
+            print(f"    {statement}  ({listing(hypothesis.examples)})")
     return 0
 
 
