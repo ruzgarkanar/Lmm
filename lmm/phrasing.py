@@ -149,6 +149,25 @@ def wondering(question):
     return f"bu arada, bunu hiç öğrenmedim: {question}"
 
 
+def dont_know(concept):
+    return f"bilmiyorum. {concept} hakkında bunu bana öğretir misin?"
+
+
+def need_first(question):
+    """It has a goal but no ground to stand on yet."""
+    return f"bunu bilmiyorum. cevaplayabilmem için önce şunu öğrenmem lazım: {question}"
+
+
+def climbing(concept, ancestor, question):
+    """It has a goal and knows exactly which fact would unlock it."""
+    return f"bunu bilmiyorum ama {concept} bir {ancestor}. {question}"
+
+
+def now_i_can(answer):
+    """Returning to the question that was waiting."""
+    return f"şimdi ilk soruna dönebilirim: {answer}"
+
+
 def describe(concept, relation, target):
     """A fact stated as a Turkish sentence, whatever its relation."""
     if relation == IS_A:

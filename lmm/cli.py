@@ -4,11 +4,12 @@ import sys
 from lmm.memory import Memory
 from lmm.reasoning import Reasoning
 from lmm.gate import EpistemicGate
-from lmm.intuition import Intuition, TEACH, UNKNOWN
+from lmm.intuition import Intuition, TEACH, ASK, UNKNOWN
 from lmm.learning import LearningLoop, CONFLICT, LEARNED
 from lmm.network import MiniNetwork
 from lmm.curiosity import Curiosity
-from lmm.phrasing import wondering, not_understood
+from lmm.pursuit import Pursuit
+from lmm.phrasing import wondering, not_understood, now_i_can
 
 # A custom LanguageOrgan may report graded confidence; ours parses or does not.
 CONFIDENCE_THRESHOLD = 0.35
@@ -29,7 +30,10 @@ class Session:
         self.language = language or Intuition(network=MiniNetwork.default())
         self.learning = LearningLoop(self.memory, reasoning)
         self.curiosity = Curiosity(self.memory, reasoning)
+        self.pursuit = Pursuit(self.memory, reasoning)
         self.pending = None   # an edge awaiting the teacher's confirmation
+        self.goal = None      # a question it is still trying to earn the answer to
+        self.goal_steps = set()
 
     def respond(self, line):
         if self.pending is not None:
@@ -39,17 +43,41 @@ class Session:
             resembles = intent.resembles if intent.resemblance >= RESEMBLANCE else None
             return not_understood(resembles)
         if intent.kind != TEACH:
-            return self.gate.answer(intent)
+            return self._question(intent)
         status, message, edge = self.learning.teach(intent)
         if status == CONFLICT:
             self.pending = edge
             return message
         if status == LEARNED:
-            # new knowledge opens new gaps — that is the moment to wonder
-            question = self.curiosity.next_question()
-            if question is not None:
-                return f"{message} {wondering(question.text)}"
+            return f"{message} {self._after_learning()}".strip()
         return message
+
+    def _question(self, intent):
+        if intent.kind == ASK and not self.pursuit.resolved(intent):
+            self.goal = intent          # hold it; a plan beats a shrug
+            self.goal_steps = set()
+            opening = self.pursuit.opening(intent)
+            step = self.pursuit.next_step(intent)
+            if step is not None:
+                self.goal_steps.add(step.key)
+            return opening
+        self.goal = None
+        return self.gate.answer(intent)
+
+    def _after_learning(self):
+        """A goal in hand outranks idle wondering."""
+        if self.goal is not None:
+            if self.pursuit.resolved(self.goal):
+                answer = self.gate.answer(self.goal)
+                self.goal = None
+                return now_i_can(answer)
+            step = self.pursuit.next_step(self.goal)
+            if step is not None and step.key not in self.goal_steps:
+                self.goal_steps.add(step.key)
+                return step.text
+            return ""
+        question = self.curiosity.next_question()
+        return wondering(question.text) if question is not None else ""
 
     def _resolve_pending(self, line):
         edge, self.pending = self.pending, None
