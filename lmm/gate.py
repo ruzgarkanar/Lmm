@@ -6,7 +6,7 @@ hallucination is not filtered out — it is unreachable.
 from lmm.relations import IS_A, CAN, HAS_PROPERTY
 from lmm.phrasing import (is_a_clause, ability_clause, property_clause,
                           who_clause, ability_summary, property_summary,
-                          verb_form)
+                          verb_form, dont_know)
 from lmm.intuition import ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES
 
 HEDGE_THRESHOLD = 0.5
@@ -88,4 +88,4 @@ class EpistemicGate:
         return f"{prefix}, çünkü {' ve '.join(chain)}."
 
     def _dont_know(self, concept):
-        return f"bilmiyorum. {concept} hakkında bunu bana öğretir misin?"
+        return dont_know(concept)

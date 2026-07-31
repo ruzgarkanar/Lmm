@@ -89,6 +89,26 @@ yetkiye sahip olmaz**, çünkü doğruluk bellekte yaşar ve cevabı kapı kurar
 session = Session("memory.json", language=BenimDilOrganım())
 ```
 
+## Hedef takibi — ajanın başka türlüsü
+
+Cevabı bilmediği bir soru sorulduğunda LMM omuz silkmez. **Cevaplayabilmek için
+neyi bilmesi gerektiğini belleğinden çıkarır**, onu ister, ve öğrenir öğrenmez
+kendiliğinden ilk soruya döner:
+
+```
+> penguen uçar mı
+bunu bilmiyorum. cevaplayabilmem için önce şunu öğrenmem lazım: penguen nedir?
+> penguen bir kuştur
+öğrendim: penguen bir kuştur. kuş uçar mı?
+> kuşlar uçar
+öğrendim: kuş uçar. şimdi ilk soruna dönebilirim: evet, çünkü penguen bir kuş ve kuş uçar.
+```
+
+Bir LLM ajanı hangi aracı çağıracağını tahmin eder. Buradaki plan tahmin değil,
+hiyerarşiden okunur: "penguen bir kuş, öyleyse bana kuşları anlat" adımını
+belleğin kendisi dikte eder. Hedef varken merak susar — amaçlı soru, başıboş
+merakı bastırır.
+
 ## Merak — kimsenin kapatmadığı döngü
 
 Sorulunca "bilmiyorum" demek dürüstlüktür. Asıl fark, **kimse sormadan kendi
@@ -176,6 +196,8 @@ Ağırlık dosyalarının yapamadığı üç şey:
 | `lmm/network.py` | Elle yazılmış softmax ağı — güven sinyali |
 | `lmm/learning.py` | Çelişki kontrollü kalıcı öğrenme |
 | `lmm/curiosity.py` | Kendi boşluğunu fark etme ve soru sorma |
+| `lmm/pursuit.py` | Hedef takibi: eksik halkayı bulup isteme |
+| `lmm/lexicon.py` | Kelime dağarcığı — paketlerle büyür |
 | `lmm/pack.py` | Bellek paketi: dışa aktarma, kurma, çelişkili birleştirme |
 | `lmm/phrasing.py` | Türkçe yüzey dili (ünlü uyumu dahil) |
 | `lmm/cli.py` | Sohbet oturumu |
