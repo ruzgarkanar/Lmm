@@ -32,8 +32,10 @@ KIM = "{kim}"
 ROL = "{rol}"        # a second concept wearing a case ending
 NICEL = "{nicel}"    # how much of a kind: bütün / çoğu / bazı / hiçbir
 SAHIP = "{sahip}"    # a possessor, marked as one by the language
+NESNEL = "{nesnel}"  # a concept wearing an accusative ending: "pengueni"
 
-SLOTS = (KAVRAM, TUR, NITELIK, SOZ, FIIL, SORU, KIM, ROL, NICEL, SAHIP)
+SLOTS = (KAVRAM, TUR, NITELIK, SOZ, FIIL, SORU, KIM, ROL, NICEL, SAHIP,
+         NESNEL)
 
 FROM_VERB = "fiilden"       # the relation follows the verb's own polarity
 
@@ -181,6 +183,13 @@ class Grammar:
             return token if token in morphology.question_particles else None
         if slot == KIM:
             return token if token in morphology.interrogatives else None
+        if slot == NESNEL:
+            # Only strip an accusative when what is left is a concept we know:
+            # "kedi" ends in the same letter and is not "ked".
+            stem = morphology.strip_accusative(token)
+            if stem != token and stem in self.known():
+                return stem
+            return token if token in self.known() else None
         if slot == SAHIP:
             stem = morphology.strip_genitive(token, self.known())
             return stem if stem != token else None

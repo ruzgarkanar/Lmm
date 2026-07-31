@@ -8,7 +8,8 @@ from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
 from lmm.phrasing import (is_a_clause, is_not_a_clause, ability_clause,
                           property_clause,
                           who_clause, ability_summary, property_summary,
-                          verb_form, dont_know, attribution, how_many)
+                          verb_form, dont_know, attribution, how_many,
+                          listing, copula)
 from lmm.similarity import nearest
 from lmm.intuition import (ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES,
                            ASK_DESCRIBE, ASK_HOW_MANY)
@@ -25,7 +26,8 @@ class EpistemicGate:
 
     def answer(self, intent):
         if intent.kind == ASK_WHO:
-            return self._who(intent.target, intent.relation == CAN)
+            return self._who(intent.target, intent.relation == CAN,
+                             intent.relation)
         if intent.kind == ASK_ABILITIES:
             return self._abilities(intent.concept)
         if intent.kind == ASK_WHY:
@@ -93,7 +95,9 @@ class EpistemicGate:
             return f"{concept} nasıldır, bunu hiç öğrenmedim."
         return property_summary(concept, found) + "."
 
-    def _who(self, action, positive):
+    def _who(self, action, positive, relation=CAN):
+        if relation == HAS_PROPERTY:
+            return self._who_is(action)
         if action not in self.memory.actions():
             return f"{verb_form(action, True)} diye bir şeyi hiç duymadım."
         found = self.reasoning.who_can(action, positive)
@@ -101,6 +105,16 @@ class EpistemicGate:
             return (f"bildiğim hiçbir şeyin {verb_form(action, positive)}ini "
                     f"öğrenmedim.")
         return who_clause(found, action, positive) + "."
+
+    def _who_is(self, prop):
+        """"kimler beyaz" — everything known to carry a property."""
+        if prop not in self.memory.properties():
+            return f"'{prop}' diye bir niteliği hiç duymadım."
+        found = [c for c in self.memory.concepts()
+                 if self.reasoning.has_property(c, prop)[0] is True]
+        if not found:
+            return f"bildiğim hiçbir şeyin {prop} olduğunu öğrenmedim."
+        return f"{listing(found)} {prop}{copula(prop)}."
 
     def _abilities(self, concept):
         found = self.reasoning.abilities(concept)

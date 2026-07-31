@@ -44,56 +44,35 @@ araçlar taşır
 bazı araçlar yüzemez
 bazı araçlar uçamaz
 araba bir araçtır
-araba bir canlı değildir
-araba hızlıdır
 araba uçamaz
 arabanın tekerleği var
 arabanın motoru var
-arabanın kapısı var
 arabanın kanadı yok
 bisiklet bir araçtır
 bisiklet hafiftir
-bisiklet uçamaz
 bisikletin tekerleği var
 bisikletin motoru yok
 bisikletin kapısı yok
 otobüs bir araçtır
-otobüs büyüktür
-otobüs uçamaz
 otobüsün tekerleği var
 otobüsün motoru var
-otobüsün kapısı var
 kamyon bir araçtır
-kamyon ağırdır
-kamyon uçamaz
 kamyonun tekerleği var
-kamyonun motoru var
 motosiklet bir araçtır
-motosiklet hızlıdır
-motosiklet uçamaz
 motosikletin motoru var
-motosikletin kapısı yok
 tren bir araçtır
 tren uzundur
-tren uçamaz
 trenin tekerleği var
-trenin motoru var
 gemi bir araçtır
-gemi büyüktür
 gemi uçamaz
 gemiler yüzer
 geminin motoru var
 geminin çapası var
 geminin tekerleği yok
 vapur bir gemidir
-vapur ağırdır
 kayık bir araçtır
-kayık küçüktür
-kayık hafiftir
-kayık uçamaz
 kayıklar yüzer
 denizaltı bir araçtır
-denizaltı uçamaz
 denizaltılar yüzer
 uçak bir araçtır
 uçak hızlıdır
@@ -102,54 +81,36 @@ uçaklar uçar
 helikopter bir araçtır
 helikopterler uçar
 helikopterin pervanesi var
-helikopterin motoru var
 roket bir araçtır
-roket hızlıdır
-roket yüzemez
 roketler uçar
 traktör bir araçtır
 traktör yavaştır
-traktör uçamaz
 traktörün tekerleği var
-traktörün motoru var
 alet bir nesnedir
 alet faydalıdır
-alet bir canlı değildir
 bazı aletler kesemez
 bıçak bir alettir
 bıçak keskindir
-bıçak ağır değildir
 bıçaklar keser
 makas bir alettir
 makas keskindir
 makaslar keser
 makasın ağzı var
-makasın motoru yok
 testere bir alettir
-testere keskindir
-testereler keser
 testerenin sapı var
-testerenin motoru yok
 çekiç bir alettir
 çekiç ağırdır
 çekiç keskin değildir
 çekiç kesemez
 tornavida bir alettir
-tornavida incedir
-tornavida kesemez
 tornavidanın sapı var
 balta bir alettir
-balta keskindir
-balta ağırdır
-baltalar keser
 baltanın sapı var
 iğne bir alettir
 iğne incedir
-iğne keskindir
 iğneler diker
 kalem bir alettir
 kalem incedir
-kalem kesemez
 kalemler yazar
 kalemin ucu var
 mobilya bir nesnedir
@@ -157,35 +118,24 @@ mobilya faydalıdır
 mobilya sağlamdır
 bazı mobilyalar taşıyamaz
 masa bir mobilyadır
-masa serttir
 masanın ayağı var
-masanın tekerleği yok
 sandalye bir mobilyadır
-sandalye küçüktür
 sandalyenin ayağı var
 sandalyenin arkalığı var
 koltuk bir mobilyadır
 koltuk yumuşaktır
-koltuk ağırdır
 kanepe bir mobilyadır
 kanepe yumuşaktır
-kanepe büyüktür
 kanepenin yastığı var
 dolap bir mobilyadır
 dolap büyüktür
-dolap ağırdır
 yatak bir mobilyadır
 yatak yumuşaktır
-yatak büyüktür
 raf bir mobilyadır
-raf incedir
 rafın ayağı yok
 sehpa bir mobilyadır
-sehpa küçüktür
 sehpanın ayağı var
 tabure bir mobilyadır
-tabure küçüktür
-taburenin ayağı var
 taburenin arkalığı yok
 giysi bir nesnedir
 giysi hafiftir
@@ -193,102 +143,73 @@ giysi bir alet değildir
 giysiler korur
 gömlek bir giysidir
 gömlek incedir
-gömlek ağır değildir
 pantolon bir giysidir
-pantolon uzundur
 pantolonun cebi var
 pantolonun kolu yok
 ceket bir giysidir
 ceket sıcaktır
 ceketin düğmesi var
-ceketin cebi var
 ayakkabı bir giysidir
 ayakkabı serttir
-ayakkabı yumuşak değildir
 ayakkabının bağı var
 şapka bir giysidir
 şapka küçüktür
 çorap bir giysidir
 çorap yumuşaktır
-çorap küçüktür
 elbise bir giysidir
 elbise uzundur
-elbise incedir
 palto bir giysidir
 palto sıcaktır
 palto kalındır
 paltonun düğmesi var
-paltonun cebi var
 eldiven bir giysidir
 eldiven sıcaktır
-eldiven küçüktür
 kemer bir giysidir
-kemer incedir
 kemerin tokası var
 atkı bir giysidir
 atkı sıcaktır
-atkı yumuşaktır
 yapı bir nesnedir
 yapı büyüktür
 yapı sağlamdır
-yapı ağırdır
 bazı yapılar barındıramaz
 ev bir yapıdır
 evler barındırır
 evin kapısı var
 evin penceresi var
-evin çatısı var
 evin tekerleği yok
 okul bir yapıdır
-okullar barındırır
 okulun kapısı var
-okulun sınıfı var
 hastane bir yapıdır
-hastaneler barındırır
 hastanenin kapısı var
-hastanenin odası var
 köprü bir yapıdır
 köprü uzundur
 köprü barındıramaz
 köprünün ayağı var
 köprünün kapısı yok
 kule bir yapıdır
-kule uzundur
 kulenin merdiveni var
 cami bir yapıdır
 caminin kubbesi var
-caminin minaresi var
 fabrika bir yapıdır
-fabrika gürültülüdür
 fabrikanın bacası var
 otel bir yapıdır
 oteller barındırır
-otelin odası var
-otelin kapısı var
 duvar bir yapıdır
 duvar serttir
-duvar kalındır
-duvar barındıramaz
 makine bir nesnedir
 makine düşünemez
 makineler çalışır
 bazı makineler taşıyamaz
 motor bir makinedir
 motor gürültülüdür
-motor sıcaktır
-motor ağırdır
 pompa bir makinedir
-pompa küçüktür
 pompanın motoru var
 vinç bir makinedir
-vinç büyüktür
 vinçler taşır
 jeneratör bir makinedir
-jeneratör gürültülüdür
 jeneratörün motoru var
 robot bir makinedir
 robot bir canlı değildir
-robot pahalıdır
 robotun kolu var
 fırın bir makinedir
 fırın sıcaktır
@@ -298,50 +219,37 @@ buzdolabı bir makinedir
 buzdolabı soğuktur
 buzdolabı ısıtamaz
 klima bir makinedir
-klima gürültülüdür
 klimalar soğutur
-klimanın motoru var
 asansör bir makinedir
 asansörler taşır
-asansörün kapısı var
 aygıt bir nesnedir
 aygıt faydalıdır
 bazı aygıtlar hesaplayamaz
 bilgisayar bir aygıttır
-bilgisayar pahalıdır
 bilgisayar düşünemez
 bilgisayarlar hesaplar
 bilgisayarın ekranı var
 bilgisayarın klavyesi var
 telefon bir aygıttır
-telefon küçüktür
 telefonlar iletir
 telefonun ekranı var
 telefonun tekerleği yok
 televizyon bir aygıttır
-televizyon büyüktür
-televizyon hesaplayamaz
 televizyonun ekranı var
 radyo bir aygıttır
-radyo küçüktür
 radyonun ekranı yok
 kamera bir aygıttır
-kamera küçüktür
 kameralar kaydeder
 kameranın merceği var
 saat bir aygıttır
-saat küçüktür
 saatler ölçer
 saatin ibresi var
 lamba bir aygıttır
-lamba sıcaktır
 lambalar aydınlatır
 lambanın ampulü var
 yazıcı bir aygıttır
-yazıcı gürültülüdür
 yazıcılar yazar
 klavye bir aygıttır
-klavye incedir
 klavyenin tuşu var
 hoparlör bir aygıttır
 hoparlör gürültülüdür
@@ -350,64 +258,47 @@ hoparlörün ekranı yok
 çalgı bir alet değildir
 çalgılar çalınır
 gitar bir çalgıdır
-gitar hafiftir
 gitarın teli var
 gitarın tuşu yok
 keman bir çalgıdır
-keman küçüktür
-keman pahalıdır
 kemanın teli var
 piyano bir çalgıdır
 piyano bir mobilya değildir
 piyano ağırdır
-piyano büyüktür
 piyanonun tuşu var
 davul bir çalgıdır
 davul gürültülüdür
 davulun teli yok
 flüt bir çalgıdır
 flüt incedir
-flüt parlaktır
-flütün teli yok
 ney bir çalgıdır
-ney incedir
 neyin teli yok
 saz bir çalgıdır
-saz hafiftir
 sazın teli var
 trompet bir çalgıdır
-trompet parlaktır
 trompetin teli yok
 arp bir çalgıdır
-arp büyüktür
 arpın teli var
 malzeme bir nesnedir
 bazı malzemeler yanamaz
 bazı malzemeler eriyemez
 metal bir malzemedir
 metal ağırdır
-metal saydam değildir
 metal yanamaz
 metaller iletir
 demir bir metaldir
 demir serttir
-demir ağırdır
 demir esnek değildir
 demirler paslanır
 çelik bir metaldir
-çelik serttir
 çelik sağlamdır
-çelik esnek değildir
 bakır bir metaldir
-bakır parlaktır
 bakırlar paslanır
 altın bir metaldir
 altın parlaktır
 altın pahalıdır
-altın değerlidir
 altın paslanamaz
 gümüş bir metaldir
-gümüş parlaktır
 gümüş pahalıdır
 alüminyum bir metaldir
 alüminyum parlaktır
@@ -415,68 +306,45 @@ alüminyum paslanamaz
 tahta bir malzemedir
 tahta bir metal değildir
 tahta serttir
-tahta hafiftir
-tahta saydam değildir
 tahtalar yanar
 tahtalar çürür
 cam bir malzemedir
-cam bir metal değildir
 cam saydamdır
 cam kırılgandır
 cam serttir
 cam yumuşak değildir
-cam esnek değildir
 cam yanamaz
 camlar kırılır
 plastik bir malzemedir
 plastik hafiftir
 plastik esnektir
 plastik ucuzdur
-plastik sert değildir
 plastik paslanamaz
 plastikler erir
-plastikler yanar
 kumaş bir malzemedir
 kumaş yumuşaktır
-kumaş hafiftir
 kumaş sert değildir
-kumaş saydam değildir
 kumaşlar bükülür
-kumaşlar yanar
 ipek bir kumaştır
 ipek incedir
-ipek parlaktır
 ipek pahalıdır
 yün bir kumaştır
 yün sıcaktır
-yün kalındır
 pamuk bir kumaştır
 pamuk ucuzdur
-pamuk beyazdır
 deri bir malzemedir
 deri sağlamdır
 deri esnektir
-deri pahalıdır
 kâğıt bir malzemedir
 kâğıt incedir
-kâğıt hafiftir
-kâğıt sert değildir
-kâğıt saydam değildir
 kâğıtlar yanar
 taş bir malzemedir
 taş serttir
-taş ağırdır
-taş sağlamdır
 taş esnek değildir
 taş yanamaz
 beton bir malzemedir
 beton serttir
-beton ağırdır
-beton sağlamdır
 beton esnek değildir
-beton yanamaz
 lastik bir malzemedir
 lastik esnektir
-lastik yumuşaktır
-lastik saydam değildir
 lastikler yanar
