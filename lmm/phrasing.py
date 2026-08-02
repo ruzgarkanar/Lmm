@@ -6,7 +6,8 @@ labels never leak into what the system says, and a second language would mean
 swapping this file alone.
 """
 from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
-                           LACKS_PROPERTY, HAS_PART, LACKS_PART, PLACE, SOURCE)
+                           LACKS_PROPERTY, HAS_PART, LACKS_PART, PLACE, SOURCE,
+                           ALL, MOST, SOME, NO)
 from lmm.lexicon import ACTIVE
 
 from lmm.trust import INFERENCE, DISTILLED_PREFIX
@@ -78,6 +79,19 @@ def is_a_clause(concept, target):
 def is_not_a_clause(concept, target):
     """penguen, memeli -> "penguen bir memeli değildir"."""
     return f"{concept} bir {target} değildir"
+
+
+def denied(concept, target, reasons=()):
+    """Tür sorusuna "hayır", dayandığı kanıtı da göstererek.
+
+    Gerekçe süs değil sınır: bu cümle ancak kayıtlı bir ret varsa kurulabilsin
+    diye kapı gerekçeyi getirmek zorunda. Gerekçesiz "hayır" yalnız doğrudan
+    reddin kendisidir.
+    """
+    clause = is_not_a_clause(concept, target)
+    if not reasons:
+        return f"hayır, {clause}."
+    return f"hayır, {clause}, çünkü {listing(list(reasons))}."
 
 
 def property_clause(concept, prop, positive=True, object=None, role=None):
@@ -519,24 +533,94 @@ def disagreement(statement, others):
             f"'{statement}' iddiasını da tartışmalı olarak kaydettim.")
 
 
-def how_many(concept, target, positive, yes, no, rule):
-    """Answer a question about how much of a kind something covers."""
-    verb = verb_form(target, positive)
-    counted = yes if positive else no
-    others = no if positive else yes
-    contrast = verb_form(target, not positive)
-    if counted and others:
-        return f"evet, {listing(counted)} {verb} ama {listing(others)} {contrast}."
-    if counted:
-        return f"evet, hepsi — {listing(counted)} {verb}."
-    if others and rule is not None and rule == positive:
-        return (f"kural olarak {concept} {verb}, ama bildiğim "
-                f"{listing(others)} {contrast}.")
-    if rule is not None and rule == positive:
-        return f"bildiğim kadarıyla hepsi — {concept} {verb}."
+# Bir nicelik cevabında kaç üye sayılır. Üretim grafında "bazı kuşlar uçar mı"
+# sorusu 26 kuş sayıyordu: teknik olarak doğru ama cevap değil, döküm. Kesme
+# gizli değil — kalan sayıyla söyleniyor, yani hiçbir şey saklanmıyor.
+MOST_LISTED = 5
+
+
+def _some_of(items):
+    """Uzun üye listesini kısaltır ve kalanı sayarak söyler."""
+    items = list(items)
+    if len(items) <= MOST_LISTED:
+        return listing(items)
+    return listing(items[:MOST_LISTED]
+                   + [f"{len(items) - MOST_LISTED} tanesi daha"])
+
+
+def _members(counted, verb, others, contrast):
+    """Bilinen üyeler, varsa karşı örnekleriyle — nicelik cevabının gövdesi."""
+    if not counted:
+        return f"{_some_of(others)} {contrast}"
     if others:
-        return f"hayır, bildiğim {listing(others)} " \
-               f"{verb_form(target, not positive)}."
+        return f"{_some_of(counted)} {verb} ama {_some_of(others)} {contrast}"
+    return f"{_some_of(counted)} {verb}"
+
+
+def _unknown(concept, counted, verb, others, contrast):
+    """Bilmemek, ama bilineni de söyleyerek."""
+    if not counted and not others:
+        return f"{concept} hakkında bunu bilmiyorum."
+    return f"bunu bilmiyorum; bildiğim {_members(counted, verb, others, contrast)}."
+
+
+def how_many(concept, target, positive, yes, no, rule, quantifier=ALL):
+    """Sorulan niceliği bulunan kanıtla karşılaştırır.
+
+    Nicelik ayrıştırıcıdan buraya kadar geliyordu ama hiç okunmuyordu: "bazı
+    kuşlar uçar mı", "her kuş uçar mı" ve "hiçbir kuş uçar mı" üçü de aynı
+    cevabı alıyordu — sonuncusuna "evet" deniyordu. Oysa aynı kanıt üçüne
+    farklı cevap verir: tek bir örnek "bazı"yı KANITLAR, tek bir karşı örnek
+    "her"i ÇÜRÜTÜR, tek bir örnek de "hiçbiri"ni çürütür.
+
+    İkinci düzeltme kapalı dünya: "bildiğim üyelerin hepsi uçuyor" ile "hepsi
+    uçar" aynı şey değildir, çünkü üye kümesi kapalı değil — yarın bir üye
+    daha öğrenilebilir. Eskiden iki kartal ve bir serçe görüp "evet, hepsi"
+    deniyordu. Evrensel cevabı ancak türün KENDİ kaydı (kural) verebilir;
+    üyeler yalnız çürütmeye ve varlığa yeter.
+    """
+    verb = verb_form(target, positive)
+    contrast = verb_form(target, not positive)
+    counted = list(yes if positive else no)   # sorulan yöndeki bilinen üyeler
+    others = list(no if positive else yes)    # karşı örnekler
+    # Kural sorulan yönde mi, tersine mi, yok mu — üç ayrı durum.
+    ruled = None if rule is None else bool(rule) == positive
+    body = _members(counted, verb, others, contrast)
+    if quantifier == SOME:
+        if counted:
+            return f"evet, {body}."
+        if ruled is True:
+            return f"evet, kural olarak {concept} {verb}."
+        if ruled is False:
+            return f"hayır, kural olarak {concept} {contrast}."
+        return _unknown(concept, counted, verb, others, contrast)
+    if quantifier == NO:
+        if counted:
+            return f"hayır, {body}."
+        if ruled is True:
+            return f"hayır, kural olarak {concept} {verb}."
+        if ruled is False:
+            return f"evet, kural olarak {concept} {contrast}."
+        return _unknown(concept, counted, verb, others, contrast)
+    if quantifier == MOST:
+        if ruled is True:
+            return f"evet, kural olarak {concept} {verb}" + (
+                f", ama {listing(others)} {contrast}." if others else ".")
+        if ruled is False:
+            return f"hayır, kural olarak {concept} {contrast}" + (
+                f", ama {listing(counted)} {verb}." if counted else ".")
+        if counted and len(counted) > len(others):
+            return f"bildiğim kadarıyla evet, {body}."
+        return _unknown(concept, counted, verb, others, contrast)
+    if others:            # "her": tek karşı örnek yeter
+        return f"hayır, {_members(others, contrast, counted, verb)}."
+    if ruled is True:
+        return f"evet, kural olarak {concept} {verb}."
+    if ruled is False:
+        return f"hayır, kural olarak {concept} {contrast}."
+    if counted:
+        return (f"bildiğim {listing(counted)} {verb}, ama {concept} "
+                f"hakkında hepsini kapsayan bir kural bilmiyorum.")
     return f"{concept} hakkında bunu bilmiyorum."
 
 

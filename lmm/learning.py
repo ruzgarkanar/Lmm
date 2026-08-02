@@ -64,9 +64,16 @@ class LearningLoop:
             question = (f"bir çelişki fark ettim: {conflict}. yine de "
                         f"'{statement}' olarak öğreneyim mi? (evet/hayır)")
             return CONFLICT, question, candidate
+        # Nicelik de sorulmalı. Sorulmayınca `direct()` yuvadaki EN GENİŞ
+        # iddiayı döndürüyor ve yeni bir kayıt yazıldığı hâlde "zaten
+        # biliyordum" deniyordu: "bazı kuşlar uçmaz" üzerine "hiçbir kuş
+        # uçmaz" gelince bellek iki ayrı kayıt tutuyor ama cümle tek kayıt
+        # varmış gibi konuşuyordu. Söylenen ile yapılanın ayrışması, bu
+        # mimaride en pahalı hata türü.
         existing = self.memory.direct(candidate.concept, candidate.relation,
                                       candidate.target, candidate.object,
-                                      candidate.role)
+                                      candidate.role,
+                                      quantifier=candidate.quantifier)
         if existing is not None:
             self.memory.write(candidate)
             return REINFORCED, "bunu zaten biliyordum, güvenim arttı.", existing

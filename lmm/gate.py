@@ -4,8 +4,8 @@ There is no path from this class to a sentence that memory does not support, so
 hallucination is not filtered out — it is unreachable.
 """
 from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
-                           HAS_PART, LACKS_PART, PLACE, REQUIRES)
-from lmm.phrasing import (is_a_clause, is_not_a_clause, ability_clause,
+                           HAS_PART, LACKS_PART, PLACE, REQUIRES, ALL)
+from lmm.phrasing import (is_a_clause, is_not_a_clause, denied, ability_clause,
                           property_clause,
                           who_clause, ability_summary, property_summary,
                           verb_form, dont_know, attribution, how_many,
@@ -216,17 +216,25 @@ class EpistemicGate:
         return clause + "."
 
     def _how_many(self, intent):
-        """"bazı kuşlar uçar mı" — read off the members, not stored as a fact."""
+        """"bazı kuşlar uçar mı" — read off the members, not stored as a fact.
+
+        Sorunun niceliği buraya kadar geliyor ama kapı onu atıyordu: "bazı",
+        "her" ve "hiçbir" üçü de aynı cevabı alıyordu. Ölçülen hali: "hiçbir
+        kuş uçar mı" -> "evet, kartal ve serçe uçar". Kanıt aynı olsa da
+        sorulan nicelik değişince cevap değişir, o yüzden nicelik söyleyişe
+        veriliyor — karşılaştırmayı orası yapıyor, çünkü cevap dile bağlı.
+        """
         positive = intent.relation == CAN
         yes, no = self.reasoning.survey(intent.concept, intent.target,
                                         (CAN, CANNOT))
         rule, _ = self.reasoning.can_do(intent.concept, intent.target)
-        return how_many(intent.concept, intent.target, positive, yes, no, rule)
+        return how_many(intent.concept, intent.target, positive, yes, no, rule,
+                        getattr(intent, "quantifier", ALL) or ALL)
 
     def _is_a(self, concept, target):
         """"kalp bir organ mı" — a yes/no about a place in the hierarchy."""
         if self.memory.direct(concept, NOT_A, target) is not None:
-            return f"hayır, {is_not_a_clause(concept, target)}."
+            return denied(concept, target)
         ancestors = self.reasoning.ancestors(concept)
         # Ret de kalıtılır: "organ bir canlı değildir" + "kalp bir organdır"
         # ⇒ kalp bir canlı değildir. Hiyerarşi tam da bunun için var. Eskiden
@@ -235,30 +243,46 @@ class EpistemicGate:
         # yanlış sebeple veriliyordu.
         for step in ancestors:
             if self.memory.direct(step, NOT_A, target) is not None:
-                return (f"hayır, {is_not_a_clause(concept, target)}, "
-                        f"çünkü {is_a_clause(concept, step)}.")
+                return denied(concept, target, [is_a_clause(concept, step)])
         if target in ancestors:
             chain = [is_a_clause(concept, step) for step in ancestors
                      if step == target or ancestors.index(step) == 0]
             return f"evet, {chain[-1]}."
-        if not self.memory.query(concept, IS_A):
-            return self._dont_know(concept)
-        # Yolun yokluğu olumsuzun kanıtı DEĞİLDİR. Burada eskiden kavramın
-        # herhangi bir tür bağı olması yetiyordu ve sistem bilmediği şeyi
-        # olumsuzluyordu: ansiklopediden "vaşak bir hayvan türüdür" okuduktan
-        # hemen sonra "vaşak bir hayvan değildir" diyordu. Sürekli okuyarak
-        # büyüyen bir grafta hiyerarşiyi tamam saymak temelsiz.
-        #
-        # Olumsuz ancak kanıtla söylenir: iki kavram da AYNI hiyerarşiye
-        # yerleşmişse ve hiçbiri diğerinin üstünde değilse, ayrı dallardadırlar
-        # ve bu gerçek bir ayrılık kanıtıdır — "penguen bir memeli değildir",
-        # çünkü ikisi de hayvanın altında ve biri diğerinin atası değil.
-        # Ortak kök yoksa cevap bilmemektir.
-        mine = set(ancestors) | {concept}
-        theirs = set(self.reasoning.ancestors(target)) | {target}
-        if not mine & theirs:
-            return self._dont_know(concept)
-        return f"bildiğim kadarıyla {is_not_a_clause(concept, target)}."
+        return self._apart(concept, ancestors, target) or self._dont_know(concept)
+
+    def _apart(self, concept, ancestors, target):
+        """İki kavramın ayrı olduğunun KANITI, yoksa None.
+
+        Burada eskiden ortak kök yetiyordu: iki kavram aynı hiyerarşiye
+        yerleşmişse ve biri diğerinin atası değilse "ayrı dallardadır"
+        sayılıyordu. Bu, hiyerarşinin bir BÖLÜMLEME olduğunu varsayar; değil.
+        Ölçülen çürütme: "memeli bir hayvandır" + "omurgalı bir hayvandır" +
+        "insan bir memelidir" grafında sistem "insan bir omurgalı değildir"
+        diyordu — iki kategori örtüşür, kardeş olmaları ayrı olmalarını
+        göstermez. Üretim grafında aynı hata "penguen bir yırtıcı değildir"
+        oluyordu. Yolun yokluğu olumsuzun kanıtı değildir; bilmediğini
+        "değildir" diye söyleyen bir sistem uydurmuyor sayılmaz.
+
+        Kalan kanıt gerçek olan: kayıtlı bir ret. Ret simetriktir ve iki
+        taraftan da kalıtılır — "kuş bir memeli değildir" kaydı, kartal (bir
+        kuş) ile fare (bir memeli) arasındaki soruyu da cevaplar. Eskiden
+        yalnız kavramın kendi tarafına bakılıyordu.
+        """
+        mine = [concept] + ancestors
+        theirs = [target] + self.reasoning.ancestors(target)
+        for step in mine:
+            for other in theirs:
+                for first, second in ((step, other), (other, step)):
+                    if self.memory.direct(first, NOT_A, second) is None:
+                        continue
+                    reasons = []
+                    if step != concept:
+                        reasons.append(is_a_clause(concept, step))
+                    reasons.append(is_not_a_clause(first, second))
+                    if other != target:
+                        reasons.append(is_a_clause(target, other))
+                    return denied(concept, target, reasons)
+        return None
 
     def _about(self, intent):
         """Any relation the registry knows — nothing here is per-relation code."""

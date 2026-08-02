@@ -101,6 +101,14 @@ class TurkishMorphology:
         ("ne", "neler"),
     )
     denials = ("değil", "değildir", "yok", "yoktur")
+    # Bir SORUYA verilen onay ve ret. Cümle içindeki olumsuzluktan (`denials`)
+    # ayrı: "yok" ikisinde de geçiyor ama biri yüklemi olumsuzluyor, öteki
+    # sorulan şeyi reddediyor. Bunlar `lmm/cli.py`'de sabit duruyordu ve orası
+    # dilin yaşadığı yer değil — ikinci bir dil eklenince oraya dokunmak
+    # gerekirdi. Dil burada yaşar.
+    affirmations = ("evet", "e", "ee", "aynen", "tabii", "tabi", "olur",
+                    "öğren", "kaydet")
+    refusals = ("hayır", "hayir", "yok", "olmaz", "istemiyorum", "boşver")
     postpositions = ("ile", "ila", "karşı", "göre", "kadar", "gibi", "için",
                      "rağmen", "beri", "dolayı")
     intensifiers = ("çok", "daha", "en", "pek", "oldukça", "gayet", "epey",
