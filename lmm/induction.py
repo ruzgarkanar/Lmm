@@ -156,8 +156,20 @@ class Induction:
         return list(self._candidates())
 
     def _candidates(self):
-        for parent in self.memory.concepts():
-            children = self._children(parent)
+        # Aileler TEK geçişte kuruluyor. Önce her kavram için tüm kenarlar
+        # taranıyordu ve bu karesel: 16.774 kavram x 16.164 kenar = 271 milyon
+        # işlem. Ölçüldü: bir öğretme turu 5,90 saniye, bir soru turu 0,03 —
+        # 197 kat. Üstelik bu geçiş üretim grafında SIFIR öneri veriyor, yani
+        # bedel karşılıksız.
+        #
+        # Bu, ölçek iddiasının tam kalbinde duran cinsten bir hata: 16 milyon
+        # olguda aynı döngü dakikalarca sürer. Algoritma değişmiyor, yalnız
+        # aynı bilgi bir kez toplanıyor.
+        families = {}
+        for edge in self.memory.edges:
+            if edge.relation == IS_A and edge.target:
+                families.setdefault(edge.target, []).append(edge.concept)
+        for parent, children in families.items():
             if len(children) < MINIMUM_EXAMPLES:
                 continue
             for target, affirms, denies, lookup in self._traits():
