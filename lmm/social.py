@@ -74,10 +74,19 @@ def recognise(sentence):
             return kind
     # Hatır ve kimlik, selamlamadan önce bakılır: "selam nasılsın" cümlesinde
     # sorulan şey hatırdır, selamlama yalnızca girişi.
+    #
+    # Arama KELİME sınırında yapılır, düz alt-dizede değil. Alt-dize aranırken
+    # "alo" selamlaması "balon nedir" ve "salon nedir" sorularının içinde
+    # bulunuyordu: gerçek soru grafa hiç ulaşmadan "merhaba" deniyordu. Sosyal
+    # kapı ayrıştırmadan ÖNCE çalıştığı için bu, bilinen bir kavramı bilinmez
+    # kılan sessiz bir tıkaçtı — ve hangi kavramların tıkandığı sözcük
+    # listesine bakılarak kestirilemezdi.
     for kind in (WELLBEING, IDENTITY, ABILITY, THANKS, FAREWELL, GREETING):
         for form in EXCHANGES[kind]:
-            if form in text:
-                return kind
+            spoken = form.split()
+            for start in range(len(words) - len(spoken) + 1):
+                if words[start:start + len(spoken)] == spoken:
+                    return kind
     return None
 
 

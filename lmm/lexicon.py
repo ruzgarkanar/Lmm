@@ -144,8 +144,21 @@ class Lexicon:
         return None
 
     def surface(self, infinitive, positive):
-        """"uçmak", False -> "uçamaz"; falls back to the infinitive itself."""
-        return self._forms.get((infinitive, positive), infinitive)
+        """"uçmak", False -> "uçamaz". Bilmiyorsa derleme sorar.
+
+        Mastara düşmek cümleyi bozuyordu: "kartal uçar, BÜYÜMEK, ÖLMEK, YEMEK"
+        — biri çekimli, gerisi mastar. Sebebi oturumun sözlüğünün yalnız
+        öğretilmiş fiilleri bilmesi; derlem 807 fiili çekimleriyle biliyor ve
+        sorulması yeterliydi.
+        """
+        found = self._forms.get((infinitive, positive))
+        if found is not None:
+            return found
+        from lmm import frequency
+        for word, (name, is_positive) in frequency.verbs().items():
+            if name == infinitive and is_positive == positive:
+                return word
+        return infinitive
 
     def learn_verb(self, infinitive, positive, negative, plain_negative=None):
         """Teach one verb in both polarities. Idempotent.

@@ -443,6 +443,28 @@ class Session:
         if found:
             self.grounds = found
 
+    def _kept(self, intent, concept):
+        """Cevaplanan bir soruyu sohbet geçmişine işler.
+
+        Ana yol (`_answer`) bir soruya cevap verdikten sonra üç şey yapar:
+        konuyu iplikçiğe not eder, niyeti `self.last`a koyar, dayanakları
+        saklar. Eksiltili takipler ("neden", "emin misin", "nereden
+        biliyorsun") tam bu üçüne dayanıyor.
+
+        `_referred` ve `_coordinated` cevabı üretip bu üçünü ATLIYORDU.
+        Ölçüldü: "penguen ve kartal kuş mu" doğru cevaplanıyor, hemen ardından
+        "neden" -> "bunu anlamadım", "emin misin" -> "henüz bir şey söylemedim
+        ki". Sistem söylediğini unutuyordu — sohbetin en temel sözleşmesi.
+
+        Bu, doğru cevabın yanına doğru hatırayı da koyuyor.
+        """
+        if concept and self.memory.query(concept):
+            self.thread.note(concept)
+        if intent is not None:
+            self.last = intent
+            self.focus = concept or self.focus
+            self._remember_grounds(intent)
+
     def _referred(self, line):
         """"ikisi de kuş mu" — özneler sohbetten gelir, cümleden değil.
 
@@ -481,6 +503,7 @@ class Session:
             if said is None:
                 return None
             answers.append(said)
+            self._kept(found, topic)
         return coordination.combine(answers)
 
     def _coordinated(self, line):
@@ -516,6 +539,7 @@ class Session:
                 found = self.language.understand(" ".join(words))
                 if found.kind in (UNKNOWN, UNKNOWN_WORD, AMBIGUOUS):
                     continue
+                found = self._typed(found)
                 answer = self.gate.answer(found)
                 if not is_a_refusal(answer):
                     said = answer
@@ -523,7 +547,10 @@ class Session:
             if said is None:
                 return None
             answers.append(said)
-            self.thread.note(subject)
+            # `_typed()` burada da uygulanıyor. Önce yoktu ve iki kardeş yol
+            # aynı soruyu farklı ilişkiyle okuyordu: "ikisi de kuş mu" tür
+            # sorusu, "penguen ve kartal kuş mu" nitelik sorusu sayılıyordu.
+            self._kept(found, subject)
         return coordination.combine(answers)
 
     def _fluent(self, intent, line, said):

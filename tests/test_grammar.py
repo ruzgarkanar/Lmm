@@ -5,6 +5,7 @@ learn any fact but not one new way of saying one. These check that the data-driv
 grammar behaves exactly as the hand-written chain did, and that a pattern can now
 be worked out from a single example.
 """
+import os
 import unittest
 
 from lmm.grammar import (Grammar, Pattern, learn_pattern, KAVRAM, TUR, NITELIK,
@@ -51,9 +52,31 @@ class TestMatching(unittest.TestCase):
         self.assertEqual(kind, "ASK_WHO")
 
     def test_a_sentence_with_no_pattern_does_not_match(self):
-        pattern, _ = self.grammar.match("bu cümle hiçbir kalıba uymaz".split(),
+        """Hiçbir yüklem taşımayan bir dizi kalıba girmez.
+
+        Bu test önce "bu cümle hiçbir kalıba uymaz" kullanıyordu ve `uymaz`
+        derlemde tanıklanan bir fiil olduğu için artık KALIP EŞLEŞİYOR:
+        `bu --cannot--> uymak`. Kalıbın gevşemesi kusur değil — alttaki kavram
+        kapısı `bu`yu reddediyor ve grafa hiçbir şey yazılmıyor; katmanlı
+        savunmanın çalıştığı yer tam burası. Test onu ayrıca ölçüyor.
+
+        Buradaki asıl soru başka: yüklemsiz bir dizi kalıba girmemeli.
+        """
+        pattern, _ = self.grammar.match("masa sandalye pencere".split(),
                                         self.lexicon)
         self.assertIsNone(pattern)
+
+    def test_a_loose_match_still_writes_nothing(self):
+        """Kalıp eşleşse bile kavram olmayan bir kavram grafa geçemez."""
+        import shutil
+        import tempfile
+        from lmm.cli import Session
+        from lmm.memory import Memory
+        path = os.path.join(tempfile.mkdtemp(), "gevsek.lmm")
+        Memory().save(path)
+        session = Session(path)
+        session.respond("bu cümle hiçbir kalıba uymaz")
+        self.assertEqual(list(session.memory.edges), [])
 
 
 class TestSlots(unittest.TestCase):

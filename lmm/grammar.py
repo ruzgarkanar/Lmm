@@ -366,6 +366,19 @@ class Grammar:
             return morphology.strip_copula(token)
         if slot == FIIL:
             reading = lexicon.reading(token)
+            if reading is None:
+                # Sözlük yalnız ÖĞRETİLEN fiilleri bilir. Derlemde milyonlarca
+                # kez geçen `çalışır` orada yoksa bu yuva boş dönüyor, cümle
+                # nitelik kalıbına düşüyor ve `insan çalışır mı` sorusu
+                # `insan --property--> çalışır` diye okunuyordu. Graf `insan
+                # --can--> çalışmak` kaydını tutarken cevap "bilmiyorum"du:
+                # bilinen bir şeyi bilmiyor demek, kapının en pahalı hatası.
+                #
+                # Derlem üçüncü tanık ve yalnız TANIKLIK ediyor: kural
+                # üretmiyor, sayımla çıkarılmış bir eşlemeye bakıyor. Sözlükten
+                # sonra sorulur — öğretilmiş bilgi gözlemi ezer.
+                from lmm import frequency
+                reading = frequency.verbs().get(token)
             return reading if reading is not None else None
         if slot == SORU:
             from lmm import asking
