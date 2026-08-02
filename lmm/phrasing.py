@@ -121,6 +121,27 @@ def genitive(word):
     return stem + buffer + _harmony_vowel(word) + "n"
 
 
+def possessed(word):
+    """Sahip olunanın eki: kanat -> kanadı, kedi -> kedisi, göz -> gözü.
+
+    `genitive()`'in eşi ve bugüne kadar eksikti. Graf iyelikli biçimi tutuyor
+    ("kuşun KANADI var") ama çevrimdışı okuyucu çıplak adı veriyor ("kanat");
+    ikisi eşleşmeyince olgu geri okunamıyor ve reddediliyordu. Yani kusur
+    okuyucuda değil, sistemin kendi ağzında: söylediği biçimi ÜRETEMİYORDU,
+    yalnız kayıtta hazır bulunca söyleyebiliyordu.
+
+    Kurallar `genitive()` ile aynı ve zaten burada: ünlü uyumu vokali seçer,
+    ünlüyle biten kelime kaynaştırma alır, son sert ünsüz yumuşar.
+    """
+    if not word:
+        return word
+    stem = word
+    if stem[-1] in _SOFTENS and len(stem) > 2:
+        stem = stem[:-1] + _SOFTENS[stem[-1]]
+    buffer = "s" if word[-1] in "aeıioöuü" else ""
+    return stem + buffer + _harmony_vowel(word)
+
+
 def part_clause(concept, part, positive=True, object=None, role=None):
     """kuş, kanadı -> "kuşun kanadı var" / "kuşun kanadı yok"."""
     return f"{genitive(concept)} {part} {'var' if positive else 'yok'}"
