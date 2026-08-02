@@ -38,6 +38,57 @@ class Reasoning:
                     queue.append(edge.target)
         return result
 
+    def _equivalents(self):
+        """Aynı şeyi gösteren adların kümeleri — künyeden okunarak.
+
+        `SAME_AS` künyesi `transitive=True` ve `inverse_of='same_as'` diyor,
+        yani bir DENKLİK ilişkisi. İki bayrak da envanterde duruyordu ve motorda
+        hiçbir yerden okunmuyordu; ölçüldü:
+
+            otomobil --property--> hızlı
+            araba    --same_as---> otomobil
+            has_property('araba','hızlı') -> (None, [])
+
+        Yani sistem, kendi kaydettiği eşitliği kullanamıyordu. Bu, "ilişkiler
+        veri" iddiasının karşılıksız kaldığı yerdi: yeni bir denklik ilişkisi
+        veri olarak bildirilse de hiçbir şey olmuyordu.
+
+        Denklik BURADA da ada bakılarak değil künyeden tanınıyor: geçişli ve
+        kendi tersi olan her ilişki bir denkliktir. Yeni bir tane eklenirse bu
+        kod değişmeden çalışır.
+
+        Önbellek kenar sayısına bağlı: graf büyürken her sorguda tüm kenarları
+        taramak ölçekte kabul edilemez ve tümevarımda tam bu hata ölçülmüştü.
+        """
+        marker = len(self.memory.edges)
+        cached = getattr(self, "_alias_cache", None)
+        if cached is not None and cached[0] == marker:
+            return cached[1]
+        names = {name for name, kind in self.memory.kinds.by_name.items()
+                 if kind.transitive and kind.inverse_of == name}
+        groups = {}
+        if names:
+            for edge in self.memory.edges:
+                if edge.relation in names and edge.target:
+                    groups.setdefault(edge.concept, set()).add(edge.target)
+                    groups.setdefault(edge.target, set()).add(edge.concept)
+        self._alias_cache = (marker, groups)
+        return groups
+
+    def aliases(self, concept):
+        """Bu kavramla aynı şeyi gösteren diğer adlar, geçişli kapanışıyla."""
+        groups = self._equivalents()
+        if concept not in groups:
+            return []
+        found, queue, seen = [], [concept], {concept}
+        while queue:
+            for other in sorted(groups.get(queue.pop(0), ())):
+                if other not in seen:
+                    seen.add(other)
+                    found.append(other)
+                    queue.append(other)
+        return found
+
     def about(self, concept, relation, target, object=None, role=None):
         """Any relation at all, read from the registry rather than a branch.
 
@@ -107,6 +158,19 @@ class Reasoning:
             said = clause(concept, target, polarity, object, role)
             note = disputed_note() if edge.disputed else attribution(edge.source)
             return polarity, [f"{said} ({note})"], edge
+        # Denk adlar, ATALARDAN ÖNCE. "araba" ile "otomobil" aynı şeyse
+        # otomobil hakkında bilinen doğrudan bilgidir; atadan miras değil.
+        # Zincirdeki bağ `=` ile yazılıyor: bu dosyada Türkçe metin biriktirmek
+        # mimari ihlali ve `=` her dilde aynı şeyi söylüyor.
+        for other in self.aliases(concept):
+            for polarity, relation in ((False, denies), (True, affirms)):
+                edge = self.memory.direct(other, relation, target, object, role)
+                if edge:
+                    said = clause(other, target, polarity, object, role)
+                    note = (disputed_note() if edge.disputed
+                            else attribution(edge.source))
+                    return polarity, [f"{concept} = {other}",
+                                      f"{said} ({note})"], edge
         for ancestor in self.ancestors(concept):
             for polarity, relation in ((False, denies), (True, affirms)):
                 edge = self.memory.direct(ancestor, relation, target, object, role)
