@@ -31,6 +31,12 @@ class Reasoning:
     # korumasızdı ve asıl zarar oradan geliyordu.
     SENSE_MARGIN = 0.1
 
+    # İki kayıt ZIT şey söylüyorsa ve kanıt farkı bu kadarsa, biri ötekini
+    # yenmiş sayılır. Aynı büyüklükte olması tesadüf değil: `SENSE_MARGIN` bir
+    # kavramın iki ANLAMINI ayırıyor, bu ise aynı anlam içinde iki TANIĞI —
+    # ikisi de "bu fark bir şey söyler mi" sorusunun cevabı.
+    EVIDENCE_MARGIN = 0.1
+
     def ancestors(self, concept):
         """Type ancestors, nearest first, along whichever relation builds them.
 
@@ -57,21 +63,122 @@ class Reasoning:
         Bu bir anlam ayrımı ÇÖZÜMÜ değil, kirliliğin yayılmasını durduran bir
         kapı. Gerçek çözüm düğüm kimliğine anlam eklemek ve o daha büyük bir iş.
         """
+        return [name for step in self.lineage(concept) for name in step]
+
+    def _hierarchy_edges(self, concept):
+        """Bir kavramın doğrudan türleri, kanıt payı uygulandıktan sonra."""
+        edges = self.memory.query(concept, self.memory.kinds.hierarchical())
+        if len(edges) > 1:
+            strongest = max(edge.confidence for edge in edges)
+            edges = [edge for edge in edges
+                     if strongest - edge.confidence <= self.SENSE_MARGIN]
+        return edges
+
+    def _reach(self, concept):
+        """Bir kavramın üstündeki her şey, HİÇBİR süzgeç uygulanmadan.
+
+        Yalnız "şu iki tür birbiriyle ilgili mi" sorusuna bakar; cevap vermez.
+        Süzgeçsiz olması kasıtlı: anlam ayrımını kuran testin kendisi anlam
+        ayrımına dayanamaz, yoksa sonsuz özyineleme olur. Kenar sayısına bağlı
+        önbellek, çünkü bu test grafın büyük olduğu yerde çağrılıyor.
+        """
+        marker = len(self.memory.edges)
+        cache = getattr(self, "_reach_cache", None)
+        if cache is None or cache[0] != marker:
+            cache = (marker, {})
+            self._reach_cache = cache
+        known = cache[1]
+        if concept in known:
+            return known[concept]
         hierarchy = self.memory.kinds.hierarchical()
-        result, queue, seen = [], [concept], {concept}
+        above, queue = set(), [concept]
         while queue:
-            current = queue.pop(0)
-            edges = self.memory.query(current, hierarchy)
-            if len(edges) > 1:
-                strongest = max(edge.confidence for edge in edges)
-                edges = [edge for edge in edges
-                         if strongest - edge.confidence <= self.SENSE_MARGIN]
-            for edge in edges:
-                if edge.target not in seen:
-                    seen.add(edge.target)
-                    result.append(edge.target)
+            for edge in self.memory.query(queue.pop(0), hierarchy):
+                if edge.target not in above and edge.target != concept:
+                    above.add(edge.target)
                     queue.append(edge.target)
-        return result
+        known[concept] = above
+        return above
+
+    def _related(self, one, other):
+        """Bu iki tür aynı şey hakkında olabilir mi.
+
+        Üç yoldan biri yeterli: biri ötekinin atası, ortak bir ataları var, ya
+        da aralarında herhangi bir bağ duruyor. Üçü de "hayır" derse aralarında
+        grafın kurduğu hiçbir köprü yok demektir.
+        """
+        mine, theirs = self._reach(one), self._reach(other)
+        if other in mine or one in theirs or (mine & theirs):
+            return True
+        return (any(edge.target == other for edge in self.memory.query(one))
+                or any(edge.target == one for edge in self.memory.query(other)))
+
+    def _senses(self, targets):
+        """Türleri, birbirine bağlı olanlar bir arada olacak şekilde öbekle."""
+        groups = []
+        for target in targets:
+            joined = [g for g in groups
+                      if any(self._related(target, other) for other in g)]
+            merged = [target]
+            for group in joined:
+                merged.extend(group)
+                groups.remove(group)
+            groups.append(merged)
+        return groups
+
+    def lineage(self, concept):
+        """Ataları BASAMAK BASAMAK: [[en yakınlar], [bir üsttekiler], ...]
+
+        İKİ ŞEY İÇİN basamaklı: birincisi, aynı derinlikteki iki ata ZIT şey
+        söylediğinde hakem gerekiyor ve hakemin kimin aynı uzaklıkta olduğunu
+        bilmesi şart (`_resolve`). Düz liste bunu gizliyordu ve cevabı
+        `memory.edges` ekleme sırası belirliyordu — aynı bilgi, iki öğretme
+        sırası, zıt cevap. Ölçüldü:
+
+            yarasa->memeli, yarasa->uçucu   "yarasa uçar mı" -> hayır
+            yarasa->uçucu, yarasa->memeli   "yarasa uçar mı" -> evet
+
+        İkincisi ANLAM AYRIMI. Kanıt payı yalnız kanıt FARKI varken ayırıyor;
+        eşit güvenli iki anlam ayrılmıyordu. Ölçüldü: `varlık --type--> dergisi`
+        ile `varlık --type--> kaynak`, ikisi de 0,6 — biri edebiyat dergisi,
+        öteki felsefi kavram. Kalıtım ikisini birden yürüyordu, `penguen`
+        `varlık`a kadar tırmanıp "kuş da bir kaynaktır" diyordu.
+
+        Bir düğümün doğrudan türleri BİRBİRİNE HİÇ BAĞLI DEĞİLSE o düğüm tek
+        bir şey değil, aynı ada çökmüş iki şeydir. Kalıtımla oraya VARILDIYSA
+        hangi anlamdan girildiği bilinmiyor: ikisini birden yürümek iki şeyi
+        karıştırmak, birini seçmek atmak olur. Üçüncü şık dürüst olanı —
+        yürüme, orada dur. Sorulan kavramın KENDİSİNDE durmuyoruz; soru zaten
+        onun hakkında ve `gate` orada "hangi anlamda" diye soruyor.
+
+        Ölçüldü (16.774 kavram): 308'i çok türlü, 273'ünde türler kanıt payını
+        geçecek kadar yakın. Yani bu tek bir kavramın tuhaflığı değil.
+
+        SORULAN kavramda da durmayı denedim ve ölçüp geri aldım: `zürafa`nın
+        `taş` anlamı hâlâ yürünüyor, ama kökü de kapatmak sınavı 300 soruda
+        %95,7'den %91,3'e ve %96,3'ten %92,3'e düşürdü (isabet değişmedi —
+        kaybedilen doğru cevaplar, kazanılan bir dürüstlük değil). Kökte
+        seçmemek için bir sebep de yok: soru zaten o kavram hakkında ve
+        `gate._definition` orada "hangi anlamda" diye soruyor. Kalıtımla
+        VARILAN düğüm başka: oraya hangi anlamdan girildiğini kimse söylemedi.
+        """
+        steps, current, seen = [], [concept], {concept}
+        while current:
+            step = []
+            for node in current:
+                edges = self._hierarchy_edges(node)
+                if node != concept and len(edges) > 1:
+                    targets = [edge.target for edge in edges]
+                    if len(self._senses(targets)) > 1:
+                        continue        # iki anlam, hangisinden girildiği belirsiz
+                for edge in edges:
+                    if edge.target not in seen:
+                        seen.add(edge.target)
+                        step.append(edge.target)
+            if step:
+                steps.append(step)
+            current = step
+        return steps
 
     def _equivalents(self):
         """Aynı şeyi gösteren adların kümeleri — künyeden okunarak.
@@ -187,7 +294,12 @@ class Reasoning:
                                               role))
                 for polarity, relation in ((False, denies), (True, affirms))]
         held = [(polarity, edge) for polarity, edge in held if edge]
-        held.sort(key=lambda pair: (pair[1].disputed, -level(pair[1].source)))
+        # Sıradaki üçüncü anahtar GÜVEN. Yoksa aynı basamaktaki iki kayıt
+        # arasında hakem kalmıyor ve `memory.edges` sırası konuşuyor; ölçüldü:
+        # `grep -n confidence lmm/reasoning.py` yalnız `ancestors`ı gösteriyordu,
+        # yani kanıt gücü alanı çıkarım zincirinde hiç okunmuyordu.
+        held.sort(key=lambda pair: (pair[1].disputed, -level(pair[1].source),
+                                    -pair[1].confidence))
         if held:
             polarity, edge = held[0]
             said = clause(concept, target, polarity, object, role)
@@ -206,22 +318,61 @@ class Reasoning:
                             else attribution(edge.source))
                     return polarity, [f"{concept} = {other}",
                                       f"{said} ({note})"], edge
-        for ancestor in self.ancestors(concept):
-            for polarity, relation in ((False, denies), (True, affirms)):
-                edge = self.memory.direct(ancestor, relation, target, object, role)
-                if edge and not self.memory.kinds.inherits(relation):
-                    continue        # some relations simply do not carry down
-                if edge and edge.quantifier not in INHERITING:
-                    # "bazı kuşlar uçmaz" says nothing about this bird. Letting
-                    # it inherit would turn an existence claim into a universal.
-                    continue
-                if edge:
-                    inherited = clause(ancestor, target, polarity, object, role)
-                    if edge.source == INFERENCE:
-                        # An inherited guess is still a guess, and must say so.
-                        inherited += " (kendi çıkarımım)"
-                    return polarity, [f"{concept} bir {ancestor}", inherited], edge
+        for step in self.lineage(concept):
+            found = []
+            for ancestor in step:
+                for polarity, relation in ((False, denies), (True, affirms)):
+                    edge = self.memory.direct(ancestor, relation, target,
+                                              object, role)
+                    if edge and not self.memory.kinds.inherits(relation):
+                        continue    # some relations simply do not carry down
+                    if edge and edge.quantifier not in INHERITING:
+                        # "bazı kuşlar uçmaz" says nothing about this bird.
+                        # Letting it inherit would turn an existence claim into
+                        # a universal.
+                        continue
+                    if edge:
+                        found.append((polarity, ancestor, edge))
+            if not found:
+                continue
+            # AYNI UZAKLIKTAKİ atalar arasında hakem: önce tartışmasız olan,
+            # sonra kaynak sırası, sonra kanıt gücü, en sonda ad. Son anahtar
+            # süs değil: onsuz eşitlikte `memory.edges` sırası konuşur ve aynı
+            # bilgiden iki farklı cevap çıkar. Bir sistemin öğretme sırasına
+            # göre fikir değiştirmesi, uydurmaktan farksızdır.
+            found.sort(key=lambda item: (item[2].disputed,
+                                         -level(item[2].source),
+                                         -item[2].confidence, item[1]))
+            polarity, ancestor, edge = found[0]
+            rivals = [item for item in found if item[0] is not polarity]
+            if rivals and not self._outweighs(edge, rivals[0][2]):
+                # Elmas kalıtım: iki ata zıt şey söylüyor ve kanıt ikisini
+                # ayırmıyor. Birini seçmek sıraya bakmak olurdu; hangi sırayla
+                # öğretilirse öğretilsin cevap aynı: bilmiyorum.
+                said = clause(ancestor, target, polarity, object, role)
+                other = clause(rivals[0][1], target, rivals[0][0], object, role)
+                return None, [f"{concept} bir {ancestor}", said,
+                              f"{concept} bir {rivals[0][1]}", other,
+                              disputed_note()], None
+            inherited = clause(ancestor, target, polarity, object, role)
+            if edge.source == INFERENCE:
+                # An inherited guess is still a guess, and must say so.
+                inherited += " (kendi çıkarımım)"
+            return polarity, [f"{concept} bir {ancestor}", inherited], edge
         return None, [], None
+
+    def _outweighs(self, edge, rival):
+        """Bu kayıt ötekini gerçekten yeniyor mu — sırayla değil, kanıtla.
+
+        Tartışmalı olmamak, daha üst bir kaynaktan gelmek ya da aynı kaynak
+        basamağında ölçülebilir bir güven farkı taşımak. Hiçbiri yoksa kimse
+        kazanmamıştır ve bunu söylemek, birini seçmekten dürüsttür.
+        """
+        if edge.disputed != rival.disputed:
+            return not edge.disputed
+        if level(edge.source) != level(rival.source):
+            return level(edge.source) > level(rival.source)
+        return edge.confidence - rival.confidence > self.EVIDENCE_MARGIN
 
     def abilities(self, concept):
         """[(action, True|False)] for every action this memory knows about."""
