@@ -64,6 +64,15 @@ ASK_WHERE = "ASK_WHERE"
 
 class TurkishMorphology:
     question_particles = ("mı", "mi", "mu", "mü")
+    # Soru ekinin kişi çekimi: "görmüyor MUSUN", "olur MUYUM", "biliyor
+    # MUSUNUZ". Ek soru ekinin üstüne biniyor ve bildirilmediği için soru
+    # görünmez oluyordu — cümle BİLDİRME sanılıp grafa yazılıyordu.
+    particle_persons = ("sun", "sün", "sın", "sin", "yum", "yüm", "yım",
+                        "yim", "sunuz", "sünüz", "sınız", "siniz", "yuz",
+                        "yüz", "yız", "yiz")
+    # Soruyu işaretleyen noktalama. Dilin bildirdiği bir şey: İspanyolca "¿",
+    # Yunanca ";" kullanır. Kod hangi işaret olduğunu bilmemeli.
+    question_marks = ("?",)
     # Soru sözcükleri kapalı bir sınıf: bir dilde birkaç tanedir ve hiçbir
     # sayım "kaç"ın soru sorduğunu göstermez — bu, dil hakkında bildirilmesi
     # gereken bilgi. Liste eksikti ve bedeli ölçüldü: "kartal kaç yaşında

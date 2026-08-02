@@ -43,6 +43,21 @@ def inflected(path=TABLE):
     return _loaded
 
 
+def _without_person(word, morphology):
+    """Kişi eki soyulmuş soru eki: "musun" -> "mu".
+
+    Soru eki kişi çekimi alabiliyor ve bu çekim bildirilmediği için soru
+    görünmez oluyordu. Ölçüldü, 400 gerçek Türkçe cümlede grafa yazılan 10
+    kaydın 10'u SORUYDU — "görmüyor musun?" cümlesinden
+    `yerdeki --cannot--> görmek` çıkıyordu. Bir soruyu olgu diye yazmak, bu
+    mimaride yapılabilecek en pahalı hata.
+    """
+    for ending in getattr(morphology, "particle_persons", ()):
+        if word.endswith(ending) and len(word) - len(ending) >= 2:
+            return word[: -len(ending)]
+    return word
+
+
 def particle_of(token, morphology):
     """Bu kelime bir soru eki mi — öyleyse çıplak hâli, değilse None.
 
@@ -63,6 +78,18 @@ def particle_of(token, morphology):
         for seed in particles:
             if token.startswith(seed):
                 return seed
+    # Kişi çekimi: "görmüyor MUSUN", "olur MUYUM", "biliyor MUSUNUZ". Ek soru
+    # ekinin üstüne biniyor ve bildirilmediği için soru GÖRÜNMEZ oluyordu.
+    # Ölçüldü: 400 gerçek Türkçe cümlede grafa yazılan 10 kaydın 10'u SORUYDU
+    # — "yerdeki kitabı görmüyor musun?" cümlesinden `yerdeki --cannot-->
+    # görmek` çıkıyordu. Bir soruyu olgu diye yazmak, bu mimaride
+    # yapılabilecek en pahalı hata.
+    for ending in getattr(morphology, "particle_persons", ()):
+        if not token.endswith(ending) or len(token) - len(ending) < 2:
+            continue
+        stem = token[: -len(ending)]
+        if stem in particles:
+            return stem
     return None
 
 
