@@ -20,8 +20,16 @@ TEACHER = "sen"
 INFERENCE = "çıkarım"
 DISTILLED_PREFIX = "llm:"
 
-CONFIDENCE = {HUMAN: 0.6, DOCUMENT: 0.6, DISTILLED: 0.5, INFERRED: 0.45}
-CORROBORATION = 0.15    # what one more independent source is worth
+# Her basamağın kendi ŞERİDİ var ve şeritler örtüşmüyor: bir basamaktaki
+# kayıtlar ne kadar çoğalırsa çoğalsın bir üsttekinin tabanına ulaşamaz.
+# İnsan ile belge eskiden aynı sayıdaydı (0,60) ve sonuç ölçüldü: iki dil
+# modeli çıktısı 0,65 ile bir insanı geçiyordu. `arbitrate` sırayı mutlak
+# sayarken güven sayısı onu delip geçiyordu — aynı dosyada iki farklı doğru.
+CONFIDENCE = {HUMAN: 0.75, DOCUMENT: 0.6, DISTILLED: 0.5, INFERRED: 0.45}
+# Bir tanık daha, kalan kuşkunun ne kadarını kapatır. Toplamsal değil, çünkü
+# toplamsalken dördüncü belge tavanı dolduruyordu: 0,98 "ulaşılmaz" diye
+# yazılmıştı ve dört kaynakta ulaşılıyordu.
+CORROBORATION = 0.15
 CEILING = 0.98          # certainty is never reached, only approached
 
 
@@ -102,15 +110,37 @@ def arbitrate(incumbent, candidate, reputation=None):
     return DISPUTED
 
 
+def ceiling_above(rank):
+    """Bu basamağın ulaşamayacağı sınır: bir üstünün tabanı, en tepede tavan.
+
+    Şeritler bu yüzden örtüşmüyor. Sıralamanın "her ne demiş olursa olsun"
+    mutlak olması, ancak sayının da onu bozmamasıyla anlam taşıyor.
+    """
+    above = [CONFIDENCE[other] for other in CONFIDENCE if other > rank]
+    return min(above) if above else CEILING
+
+
 def confidence_from(sources):
     """How sure to be, given everyone who has said it.
 
     The best source sets the floor and each further *independent* one raises it.
     Hearing the same thing twice from the same place is not corroboration; that
     is how a single mistake becomes a consensus of one.
+
+    Tanıklar tabanı kendi şeridi içinde yukarı taşır ve her yenisi kalanın
+    payını alır — yani sınır yaklaşılır, geçilmez. Ölçülen eski hâl: 1 insan
+    0,60 / 2 dil modeli 0,65 / 4 belge 0,98. Yeni hâl: 0,75 / 0,52 / 0,66.
+
+    KENDİ ÇIKARIMI TANIK DEĞİL. Bir insanın söylediğinden sistemin kendi
+    ürettiği sonuç, o insanı doğrulamaz; ölçüldü, insan+çıkarım 0,60'tan
+    0,75'e çıkıyordu. Bir şeyin kendi türevi, kendisine kanıt olamaz.
     """
     if not sources:
         return CONFIDENCE[INFERRED]
     distinct = list(dict.fromkeys(sources))
-    best = max(confidence_for(source) for source in distinct)
-    return min(CEILING, best + CORROBORATION * (len(distinct) - 1))
+    witnesses = [s for s in distinct if level(s) != INFERRED] or distinct
+    rank = max(level(source) for source in witnesses)
+    base = CONFIDENCE[rank]
+    room = ceiling_above(rank) - base
+    closed = 1 - (1 - CORROBORATION) ** (len(witnesses) - 1)
+    return min(CEILING, base + room * closed)

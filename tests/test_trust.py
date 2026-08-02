@@ -9,6 +9,7 @@ import unittest
 
 from lmm.memory import Memory, Edge, IS_A, CAN, CANNOT
 from lmm.trust import (level, outranks, confidence_for, distilled_source,
+                       confidence_from, CEILING,
                        HUMAN, DOCUMENT, DISTILLED, INFERRED, TEACHER, INFERENCE)
 from lmm.distill import distill_text, split_words
 from lmm.cli import Session
@@ -34,6 +35,43 @@ class TestRanking(unittest.TestCase):
                            confidence_for(distilled_source("claude")))
         self.assertGreater(confidence_for(distilled_source("claude")),
                            confidence_for(INFERENCE))
+
+
+class TestCorroboration(unittest.TestCase):
+    """Kalabalık, sırayı bozmamalı.
+
+    Eskiden toplamsaldı ve ölçüldü: 1 insan 0,60 iken 2 dil modeli 0,65
+    ediyordu — `arbitrate` sırayı mutlak sayarken sayı onu deliyordu.
+    """
+
+    def test_no_crowd_of_models_reaches_a_single_document(self):
+        many = [distilled_source(str(i)) for i in range(50)]
+        self.assertLess(confidence_from(many), confidence_for("kitap.txt"))
+
+    def test_no_pile_of_documents_reaches_a_single_person(self):
+        many = ["belge%d.txt" % i for i in range(50)]
+        self.assertLess(confidence_from(many), confidence_for(TEACHER))
+
+    def test_the_ceiling_is_approached_and_never_reached(self):
+        # 0,98 "ulaşılmaz" diye yazılmıştı ve dört belgede doluyordu.
+        everyone = [TEACHER] + ["belge%d.txt" % i for i in range(200)]
+        self.assertLess(confidence_from(everyone), CEILING)
+
+    def test_another_voice_still_counts_for_something(self):
+        one = confidence_from(["a.txt"])
+        self.assertGreater(confidence_from(["a.txt", "b.txt"]), one)
+
+    def test_the_same_voice_twice_is_not_a_second_witness(self):
+        self.assertEqual(confidence_from(["a.txt", "a.txt"]),
+                         confidence_from(["a.txt"]))
+
+    def test_its_own_inference_does_not_corroborate_its_own_source(self):
+        # Bir şeyin kendi türevi, kendisine kanıt olamaz.
+        self.assertEqual(confidence_from([TEACHER, INFERENCE]),
+                         confidence_from([TEACHER]))
+
+    def test_an_inference_standing_alone_still_has_a_value(self):
+        self.assertEqual(confidence_from([INFERENCE]), confidence_for(INFERENCE))
 
 
 class TestCorrectionByRank(unittest.TestCase):
