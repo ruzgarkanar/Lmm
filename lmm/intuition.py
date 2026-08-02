@@ -74,6 +74,44 @@ class Intent:
         self.resemblance = 0.0
 
 
+def _peeled(word):
+    """Kelimenin çekim katmanları soyulmuş hâlleri, en azdan çoğa."""
+    found = [word]
+    for ending in ("sınız", "siniz", "sunuz", "sünüz", "sın", "sin", "sun",
+                   "sün", "ım", "im", "um", "üm", "ız", "iz", "uz", "üz",
+                   "lar", "ler", "dır", "dir", "dur", "dür"):
+        if word.endswith(ending) and len(word) - len(ending) >= 3:
+            found.append(word[: -len(ending)])
+    return found
+
+
+def _a_known_verb(word):
+    """Derlem bu kelimeyi bir fiil çekimi olarak tanıyor mu.
+
+    "Öğretilmemiş" ile "Türkçe'de olmayan" ayrı şeyler. Oturumun sözlüğü yalnız
+    öğretilmiş fiilleri bilir ve doğru olan budur — o, sistemin öğrendiği
+    dağarcık. Ama "bu kelime bir fiil mi" sorusu daha geniş ve cevabını derlem
+    veriyor: 807 fiil sayımla çıkarılmış.
+
+    Tablo yoksa False döner ve sistem eski davranışına düşer — kolaylık,
+    bağımlılık değil.
+    """
+    from lmm import frequency
+    known = frequency.verbs()
+    if not known:
+        return False
+    if word in known:
+        return True
+    # Çekim katmanları: kişi eki, çoğul, koşaç dışta durur.
+    for ending in ("sınız", "siniz", "sunuz", "sünüz", "sın", "sin", "sun",
+                   "sün", "ım", "im", "um", "üm", "ız", "iz", "uz", "üz",
+                   "lar", "ler", "dır", "dir", "dur", "dür"):
+        if word.endswith(ending) and len(word) - len(ending) >= 3:
+            if word[: -len(ending)] in known:
+                return True
+    return False
+
+
 class Intuition(LanguageOrgan):
     def __init__(self, network=None, lexicon=None, grammar=None, words=None,
                  known=(), memory=None, meanings=None):
@@ -129,10 +167,62 @@ class Intuition(LanguageOrgan):
             return None
         return tokens[:-1]
 
+    def _learn_from_corpus(self, word):
+        """Derlemin bildiği bir fiili oturumun sözlüğüne alır.
+
+        Derlem bir kaynak gibi davranıyor: fiil keşfi ölçülmüş bir yöntemle
+        (olumlu/olumsuz çift testi) çıkarılmış ve künyesi belli. Öğrenilen şey
+        fiilin ANLAMI değil, fiil OLDUĞU — cümlenin yapısını çözmek için
+        gereken tam olarak bu.
+        """
+        from lmm import frequency
+        known = frequency.verbs()
+        if not known:
+            return False
+        for candidate in _peeled(word):
+            found = known.get(candidate)
+            if found is None:
+                continue
+            infinitive = found[0]
+            positive = negative = None
+            for surface, (name, is_positive) in known.items():
+                if name != infinitive:
+                    continue
+                if is_positive and positive is None:
+                    positive = surface
+                elif not is_positive and negative is None:
+                    negative = surface
+            if positive and negative:
+                self.lexicon.learn_verb(infinitive, positive, negative)
+                return True
+        return False
+
     def _unknown_verb(self, word, morphology):
-        """Whether a final word is a verb we were never taught."""
+        """Whether a final word is a verb we were never taught.
+
+        "Öğretilmemiş" ile "Türkçe'de olmayan" ayrı şeyler. Oturumun sözlüğü
+        yalnız öğretilmiş fiilleri bilir (98 tane) ve doğru olan budur — o,
+        sistemin öğrendiği dağarcık. Ama "bu kelime bir fiil mi" sorusu daha
+        geniş ve cevabını derlem veriyor: 807 fiil sayımla çıkarılmış.
+
+        Ayrım olmadan sistem "penguen konusunda ne BİLİYORSUN" cümlesine
+        "'biliyorsun' kelimesini bilmiyorum" diyordu — oysa o kelime Türkçe'de
+        gayet var, yalnız bu grafta öğretilmemiş. Cümlenin yapısını anlamak
+        için fiilin ne olduğunu bilmek yetiyor; ne anlama geldiğini bilmek
+        gerekmiyor.
+        """
         if self.lexicon.knows(word) or morphology.has_copula(word):
             return False
+        # Derlem bu kelimeyi fiil olarak tanıyorsa SÖZLÜĞE ÖĞRET ve öyle
+        # devam et. "Bilmiyorum, öğret bana" demek doğruydu ama artık gereksiz:
+        # derlem 807 fiili sayımla çıkarmış ve öğrenmek bedava.
+        #
+        # Yalnızca "bu bir fiil" demek yetmiyordu — denendi ve daha kötü oldu:
+        # sistem "öğret bana" demeyi bıraktı ama cümleyi de anlayamadı, çünkü
+        # kalıplar sözlüğe bakıyor. Bilgiyi kullanmak, bilgiye sahip olmaktan
+        # ayrı bir iş.
+        if self._learn_from_corpus(word):
+            return False        # artık biliyoruz; çağıran cümleyi yeniden okur
         if word in morphology.question_particles or word in morphology.openers:
             return False
         if word in getattr(morphology, "interrogatives", ()):
@@ -226,8 +316,21 @@ class Intuition(LanguageOrgan):
         subject = morphology.strip_plural(tokens[0]) if tokens else ""
         long_enough = len(tokens) == 2 or (len(tokens) > 2
                                            and subject in self.grammar.known())
-        if long_enough and self._unknown_verb(tokens[-1], morphology):
-            return Intent(UNKNOWN_WORD, concept=subject, target=tokens[-1])
+        if long_enough and tokens:
+            before = len(self.lexicon.verbs)
+            unknown = self._unknown_verb(tokens[-1], morphology)
+            if len(self.lexicon.verbs) > before:
+                # Derlemden fiil öğrenildi: sözlük büyüdü, kalıplar artık
+                # uyabilir. Öğrenip denememek, öğrenmemekle aynı kapıya çıkar.
+                pattern, captured = self.grammar.match(tokens, self.lexicon)
+                if pattern is not None:
+                    (kind, relation, concept, target, obj, role,
+                     quantifier) = self.grammar.read(pattern, captured)
+                    return Intent(kind, concept, relation, target, obj, role,
+                                  quantifier)
+            if unknown:
+                return Intent(UNKNOWN_WORD, concept=subject,
+                              target=tokens[-1])
 
         # A possessor that splits two ways and matches nothing known is a real
         # ambiguity of the language, not a failure to parse. Saying which two

@@ -9,7 +9,7 @@ import unittest
 
 from lmm.lexicon import Lexicon, ACTIVE
 from lmm.memory import Memory, Edge, CAN, CANNOT
-from lmm.intuition import Intuition, TEACH, UNKNOWN_WORD
+from lmm.intuition import TEACH, Intuition, TEACH, UNKNOWN_WORD
 from lmm.pack import export_pack, read_pack, merge_pack
 from lmm.cli import Session
 
@@ -33,11 +33,28 @@ class TestLexicon(unittest.TestCase):
         lexicon.learn_verb("öğrenmek", "öğrenir", "öğrenemez")
         self.assertNotEqual(before, lexicon.signature())
 
-    def test_an_unknown_verb_is_named_rather_than_shrugged_at(self):
-        """The 'before' half of the story, on a lexicon of its own."""
-        intent = Intuition(lexicon=Lexicon()).understand("robotlar çalışır")
+    def test_a_verb_the_corpus_knows_is_learned_instead_of_asked_about(self):
+        """Derlem biliyorsa sormak gereksiz — öğrenmek bedava.
+
+        Eskiden "'çalışır' kelimesini bilmiyorum, öğret bana" deniyordu ve o
+        doğruydu: oturumun sözlüğü yalnız öğretilmiş fiilleri bilir. Ama
+        derlemden 807 fiil sayımla çıkarıldı ve orada duruyor. Bilmediğini
+        sormak, elinin altındakine bakmamak demek.
+
+        Öğrenilen şey fiilin ANLAMI değil, fiil OLDUĞU — cümlenin yapısını
+        çözmek için gereken tam olarak bu.
+        """
+        organ = Intuition(lexicon=Lexicon())
+        intent = organ.understand("robotlar çalışır")
+        self.assertEqual(intent.kind, TEACH)
+        self.assertEqual(intent.concept, "robot")
+        self.assertEqual(intent.target, "çalışmak")
+
+    def test_a_word_nobody_knows_is_still_asked_about(self):
+        """Derlem de bilmiyorsa eski davranış sürüyor: sor, uydurma."""
+        intent = Intuition(lexicon=Lexicon()).understand("robotlar zıpzıplar")
         self.assertEqual(intent.kind, UNKNOWN_WORD)
-        self.assertEqual(intent.target, "çalışır")   # it asks for this word
+        self.assertEqual(intent.target, "zıpzıplar")
 
     def test_a_learned_verb_can_be_parsed(self):
         lexicon = Lexicon()

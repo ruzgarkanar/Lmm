@@ -62,8 +62,12 @@ def _blocked(morphology):
     found = set()
     # Pekiştireç burada YOK: yeri yalnızca kavram yuvası. Her yuvada
     # yasaklamak "kartal çok hızlıdır" gibi geçerli cümleleri düşürüyor.
+    # Soru sözcüğü de kavram öbeğine giremez. "kartal ne tür bir hayvandır"
+    # cümlesinde kavram `kartal ne tür` diye okunuyordu — grafta öyle bir şey
+    # yok ve cümle bildirme sanılıp öğretme dalına düşüyordu. Bir soru
+    # sözcüğü, hakkında konuşulan şeyin parçası olamaz.
     for name in ("denials", "postpositions", "correlatives", "joiners",
-                 "clitics"):
+                 "clitics", "interrogatives", "question_particles"):
         found.update(getattr(morphology, name, ()))
     return found
 
