@@ -498,3 +498,122 @@ class TestCliticsAreNotContent(unittest.TestCase):
 
     def test_the_plain_question_still_works(self):
         self.assertTrue(self.session.respond("kartal uçar mı").startswith("evet"))
+
+
+class TestAModifierNeverSticksToTheSubject(unittest.TestCase):
+    """Niteleme özneye yapışıyordu ve gerçek özne graftan kopuyordu.
+
+    Kavram yuvası çok kelimeli yuvayı tek bir ada çeviriyordu, ama hiçbir yerde
+    "bu kelimeler BİRLİKTE bir ad mı" diye sorulmuyordu:
+
+        "penguen uçamayan bir kuştur"  ->  penguen uçamayan --tür--> kuş
+
+    Penguen hakkında hiçbir şey yazılmıyor. Üstelik uydurma düğüm gerçeğini
+    gölgeliyordu: "penguen uçar mı" sorusu "yoksa penguen uçamayan mı demek
+    istedin" diye dönüyordu. Sistem "öğrendim" diyor, öğrendiği şey çöp.
+
+    Ölçüldü: 6.000 cümlelik bir okumada öğretme okumalarının %77'sinin kavramı
+    çok kelimeliydi (648/845) ve gözle bakılınca neredeyse hepsi böyle
+    uydurmaydı. Denetimden sonra oran %64'e indi (450/707) ve tek kelimelik
+    gerçek özne 197'den 257'ye çıktı.
+    """
+
+    def setUp(self):
+        self.intuition = Intuition()
+
+    def _read(self, sentence):
+        intent = self.intuition.understand(sentence)
+        return intent.kind, intent.relation, intent.concept, intent.target
+
+    def test_the_subject_is_the_subject(self):
+        self.assertEqual(self._read("penguen uçamayan bir kuştur")[2], "penguen")
+
+    def test_the_qualifier_stays_on_the_predicate_side(self):
+        """Niteleme atılmıyor, ait olduğu yerde kalıyor — özneye yapışmıyor."""
+        kind, _, concept, target = self._read("kartal büyük bir kuştur")
+        self.assertEqual((kind, concept), (TEACH, "kartal"))
+        self.assertIn("kuş", target)
+
+    def test_a_chain_of_modifiers_teaches_nothing(self):
+        """Okuyamadığı yerde susuyor: yanlış öğrenmektense hiç öğrenmemek."""
+        self.assertIsNone(
+            self._read("devekuşu kırmızı olmayan büyük bir kuştur")[2])
+
+    def test_a_marked_compound_is_still_one_name(self):
+        """Türkçe tamlamanın başını ekle işaretliyor; orada tartışma yok."""
+        self.assertEqual(self._read("müşteri bakiyesi bir bilgi türüdür"),
+                         (TEACH, IS_A, "müşteri bakiyesi", "bilgi türü"))
+
+    def test_an_unmarked_compound_survives_when_nothing_else_reads(self):
+        """"kara delik" ekle işaretlenmez ve cümlenin başka okuması yok."""
+        self.assertEqual(self._read("kara delik bir gök cismidir"),
+                         (TEACH, IS_A, "kara delik", "gök cismi"))
+
+
+class TestThePhantomNodeIsNotWritten(unittest.TestCase):
+    """Aynı hatanın graftaki yüzü: uydurma düğüm gerçek kavramı gölgeliyordu."""
+
+    def setUp(self):
+        import tempfile
+        from lmm.cli import Session
+        self.session = Session(os.path.join(tempfile.mkdtemp(), "n.lmm"))
+
+    def written(self):
+        return [(e.concept, e.relation, e.target)
+                for e in self.session.memory.edges]
+
+    def test_the_graph_learns_about_the_real_concept(self):
+        self.session.respond("penguen uçamayan bir kuştur")
+        self.assertEqual([concept for concept, _, _ in self.written()],
+                         ["penguen"])
+
+    def test_the_question_reaches_the_concept_it_was_taught(self):
+        """Eskiden "yoksa penguen uçamayan mı demek istedin" diye dönüyordu."""
+        self.session.respond("penguen uçamayan bir kuştur")
+        self.assertNotIn("penguen uçamayan",
+                         self.session.respond("penguen uçar mı"))
+
+
+class TestTheCorpusSettlesAnUnmarkedCompound(unittest.TestCase):
+    """Ekle işaretlenmeyen bileşiğin kısa bir okuması da varsa sayım karar verir.
+
+    "kara delik büyüktür" iki türlü okunabilir: `kara` diye bir şeyin `delik
+    büyük` olması, ya da `kara delik` diye bir şeyin `büyük` olması. Yalnız
+    "kısa okuma yeğdir" kuralına bırakılırsa birincisi seçilir. Derlem
+    ikincisini söylüyor: `delik` durum ekleriyle geçen bir isim, `kara` ne
+    derecelenen bir sıfat ne de ilk üç yüz kelimeden biri.
+
+    Sayaç burada elle kuruluyor. 9 MB'lık tabloya bağlanan bir test, tablo
+    olmayan bir kurulumda kırılırdı ve neyi ölçtüğü de görünmezdi.
+    """
+
+    def setUp(self):
+        import collections
+        from lmm import frequency
+        self.saved = (frequency._loaded, frequency._graded, frequency._verbs)
+        # Sıklık ölçüsünün konuşabilmesi için derlem yeterince büyük olmalı ve
+        # ilgilendiğimiz kelimeler ilk üç yüzün DIŞINDA kalmalı.
+        seen = collections.Counter({"w%d" % index: 50 for index in range(400)})
+        seen.update({"kara": 30, "delik": 30, "delikler": 4, "karalar": 4})
+        frequency._loaded = seen
+        frequency._graded = collections.Counter()
+        frequency._verbs = {}
+        self.intuition = Intuition()
+
+    def tearDown(self):
+        from lmm import frequency
+        frequency._loaded, frequency._graded, frequency._verbs = self.saved
+
+    def test_the_count_holds_the_compound_together(self):
+        intent = self.intuition.understand("kara delik büyüktür")
+        self.assertEqual((intent.concept, intent.target),
+                         ("kara delik", "büyük"))
+
+    def test_a_graded_word_is_never_half_of_a_name(self):
+        """Aynı sayaçta `kara` derecelenirse sıfattır ve öbek dağılır."""
+        import collections
+        from lmm import frequency
+        frequency._graded = collections.Counter({("daha", "kara"): 10,
+                                                 ("çok", "kara"): 10})
+        intent = self.intuition.understand("kara delik büyüktür")
+        self.assertNotEqual(intent.concept, "kara delik")

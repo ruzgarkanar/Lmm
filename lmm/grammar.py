@@ -97,10 +97,14 @@ MAX_PHRASE = 3
 def _widths(slot):
     """How many tokens to try for a slot, in the order worth trying.
 
-    A subject absorbs its modifiers while a predicate stays compact: "müşteri
-    bakiyesi gizlidir" is one thing being called one word, not one thing being
-    called two. So a concept reaches for the longest span it can and everything
-    else takes the shortest that works.
+    A term is longer than a word — "müşteri bakiyesi gizlidir" is one thing
+    being called one word, not one thing being called two — so a concept
+    reaches for the longest span it can and everything else takes the shortest
+    that works.
+
+    Uzunluğu ARAMAK ile uzun olanı KABUL ETMEK ayrı işler: ikincisinin denetimi
+    `_names_one_thing`'de. Uzun süre denetim yoktu ve bedeli ölçüldü; bkz.
+    oradaki not.
     """
     if slot == KAVRAM:
         return range(MAX_PHRASE, 0, -1)
@@ -149,6 +153,8 @@ class Grammar:
         # eş anlamlılık bir olgudur ve künyesiyle durur. Verilmezse kalıplar
         # yalnız birebir sözcükle eşleşir — eskisi gibi.
         self._meanings = meanings
+        # İkinci geçişte açılır: bkz. `match`.
+        self._on_faith = False
 
     def known(self):
         return set(self._known() if callable(self._known) else self._known)
@@ -158,11 +164,26 @@ class Grammar:
         return pattern
 
     def match(self, tokens, lexicon):
-        """First pattern that fits, with the slots it captured."""
-        for pattern in self.patterns:
-            captured = self._fit(pattern, tokens, lexicon)
-            if captured is not None:
-                return pattern, captured
+        """First pattern that fits, with the slots it captured.
+
+        İki geçiş. Birincisinde çok kelimeli bir kavram ancak TANIKLI ise
+        kabul edilir (`_names_one_thing`); ikincisinde iki kelimelik bir ad
+        güvene alınır. Sıra bir ilkeyi kuruyor: **uzun okuma son çaredir.**
+        Cümle kavramı kısa tutarak okunabiliyorsa öyle okunur — çünkü
+        "penguen uçamayan bir kuştur" cümlesinin iki okuması var ve kısası
+        penguen hakkında konuşuyor, uzunu ise olmayan bir şey hakkında.
+        Cümle başka türlü hiç okunamıyorsa ("tool broker bir güven kapısıdır")
+        iki kelime bir ad sayılır: orada kısa okuma diye bir şey yok.
+        """
+        for on_faith in (False, True):
+            self._on_faith = on_faith
+            try:
+                for pattern in self.patterns:
+                    captured = self._fit(pattern, tokens, lexicon)
+                    if captured is not None:
+                        return pattern, captured
+            finally:
+                self._on_faith = False
         return None, None
 
     def _fit(self, pattern, tokens, lexicon):
@@ -236,7 +257,78 @@ class Grammar:
         tail = self._capture(slot, span[-1], lexicon)
         if tail is None:
             return None
+        # Buraya kadarki denetimlerin hepsi "bu kelime öbeğe giremez" diyor.
+        # Hiçbiri "bu kelimeler BİRLİKTE bir ad mı" diye sormuyordu ve yuva
+        # kalan her şeyi tek bir kavram adına çeviriyordu:
+        #     "penguen uçamayan bir kuştur" -> penguen uçamayan --tür--> kuş
+        # Penguen hakkında hiçbir şey yazılmıyor; üstelik uydurma düğüm gerçek
+        # kavramı gölgeliyor ve "penguen uçar mı" sorusu "yoksa penguen
+        # uçamayan mı demek istedin" diye dönüyordu. Sistem "öğrendim" diyor,
+        # öğrendiği şey çöp.
+        if slot in (KAVRAM, TUR) and not self._names_one_thing(span, tail):
+            return None
         return " ".join(list(span[:-1]) + [tail])
+
+    def _names_one_thing(self, span, tail):
+        """Bu kelimeler tek bir şeyin adı mı, yoksa ad + onu niteleyen mi?
+
+        Varsayılan HAYIR. Bileşik ad ("müşteri bakiyesi", "kara delik") ile
+        nitelenmiş ad ("penguen uçamayan") aynı dizilişte durur, o yüzden fark
+        tanıklıkla kapanır — tahminle değil. Yanlış bir şey öğrenmektense hiç
+        öğrenmemek yeğ: tanık yoksa öbek dağılır, kavram tek kelimeye iner ve
+        niteleme yüklem tarafında kalır.
+
+        Dört tanık, ucuzdan pahalıya — graf, biçimbilim, derlem, ve son çare.
+        """
+        words = list(span[:-1]) + [tail]
+        known = self.known()
+        joined = " ".join(words)
+        # 1. Graf. Bir kez öğrenilmiş terim ikinci cümlede tartışılmaz.
+        if joined in known or self.morphology.strip_plural(joined) in known:
+            return True
+        # 2. Biçimbilim. Dil bileşik adın başını EKLE işaretliyorsa mesele yok:
+        # Türkçe'de "bakiye-si", "tür-ü", "cism-i". `getattr` ile soruluyor
+        # çünkü her dilde böyle bir ek yok — olmayan dilde bu tanık susar,
+        # dilbilgisi motoru hangi dile baktığını bilmemeye devam eder.
+        if self._compound_head(tail) or self._compound_head(span[-1]):
+            return True
+        # 3. Derlem. Ekle işaretlenmeyen bileşikler ("kara delik") ancak
+        # sayımla ayrılır ve ölçüm de oradan geldi: nitelenmiş adın niteleyeni
+        # ya derecelenerek geçiyor (sıfat), ya sıfat-fiil, ya da ilk üç yüz
+        # kelimede (yapısal). Bileşiğin her parçası ise düpedüz isim.
+        if self._witnessed(words):
+            return True
+        # 4. Son çare, yalnız ikinci geçişte ve yalnız İKİ kelime için: cümle
+        # başka hiçbir türlü okunamıyorsa iki kelime bir ad sayılır. Üç kelime
+        # burada durmuyor çünkü ölçüldü — tanıksız üç kelimelik yuvalar bileşik
+        # ad değil, niteleyici zinciriydi: "devekuşu kırmızı olmayan".
+        return self._on_faith and len(words) == 2
+
+    def _compound_head(self, word):
+        """Dilin kendi işareti: bu kelime bir tamlamanın başı mı?"""
+        marks = getattr(self.morphology, "possessive_suffixes", ())
+        return any(word.endswith(mark) and len(word) > len(mark) + 1
+                   for mark in marks)
+
+    def _witnessed(self, words):
+        """Derlem bu kelimeleri bir arada tek ad olarak taşıyor mu?
+
+        Testler `lmm/verbs.py`'de ve sayımdan geliyor — burada dile ait tek bir
+        sözcük yok. Derlem yoksa tanık susar ve cevap HAYIR olur: körken uzun
+        öbek uydurmaktansa kısa kavramda kalmak.
+        """
+        from lmm import frequency
+        from lmm.verbs import (is_adjective, is_noun, is_participle,
+                               is_structural)
+        seen = frequency.counts()
+        if not seen:
+            return False
+        graded, verbs = frequency.grades(), frequency.verbs()
+        for word in words:
+            if is_participle(word, verbs) or is_structural(word, seen) \
+                    or is_adjective(word, graded, seen):
+                return False
+        return is_noun(words[-1], seen)
 
     def _bare(self, token):
         """Koşaç eki soyulmuş hâli — ek yoksa kelimenin kendisi.
