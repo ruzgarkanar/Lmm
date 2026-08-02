@@ -26,21 +26,60 @@ bozabiliyor. Bu yüzden yayılım, doğrudan aramanın YERİNE geçmiyor — yan
 konuyor. Bir soru doğrudan cevaplanabiliyorsa öyle cevaplanır.
 """
 import collections
+import weakref
 
 DAMPING = 0.5           # her adımda ilginin ne kadarı komşuya geçer
 ROUNDS = 3              # kaç adım uzağa bakılır — üçten sonrası dağılıyor
 SMALLEST = 0.01         # bunun altındaki ilgi gürültüdür
 
+# Kurulmuş komşuluklar, ait oldukları belleğe zayıf bağlı: bellek ölünce
+# önbellek de ölür, kimliği geri kullanılan bir nesneye başkasının grafı
+# verilmez.
+_BUILT = weakref.WeakKeyDictionary()
 
-def neighbours(memory):
-    """Kavramdan kavrama, iki yönlü. Bir kez kurulur, tekrar kullanılır."""
-    links = collections.defaultdict(set)
-    for edge in memory.edges:
+
+def _link(links, edges):
+    """Kenarları komşuluğa çevirir. Var olan komşuluğun üstüne de yazılabilir."""
+    for edge in edges:
         for other in (edge.target, edge.object):
             if not other or other == edge.concept:
                 continue
-            links[edge.concept].add(other)
-            links[other].add(edge.concept)
+            links[edge.concept][other] = None
+            links[other][edge.concept] = None
+    return links
+
+
+def neighbours(memory):
+    """Kavramdan kavrama, iki yönlü. Bir kez kurulur, tekrar kullanılır.
+
+    Eskiden "bir kez" demek "her çağrıda bir kez" demekti: her karşılaştırma
+    sıfırdan tam kenar taraması yapıyordu. Ölçüldü — 16 bin kenarda 5,10 ms,
+    323 binde 222,5 ms, ve bu sohbetteki her karşılaştırma sorusunda.
+
+    Şimdi belleğin sürümüne bağlı. Sadece yeni olgu eklendiyse komşuluk
+    SÖKÜLMÜYOR, üzerine ekleniyor — öğrenilen bir olgu bir sonraki cümlede
+    zaten görünür olur, çünkü eklemenin kendisi güncelleme. Unutma olduysa
+    (`purges` arttıysa) baştan kuruluyor: silmenin izini sürmek, silmenin
+    seyrekliğine değmez.
+
+    Komşuluklar küme değil sözlük: sözlük ekleme sırasını koruyor, küme
+    `PYTHONHASHSEED`e bağlı bir sıra veriyordu. Yayılımda ilgiler toplanıyor
+    ve kayan noktalı toplama sıraya duyarlı — yani sıra, cevabın kendisi.
+    """
+    version = getattr(memory, "revision", None)
+    if version is None:                     # sürüm bilmeyen bellek: her seferinde
+        return _link(collections.defaultdict(dict), memory.edges)
+    held = _BUILT.get(memory)
+    if held is not None:
+        seen, marked, purged, links = held
+        if purged == memory.purges and seen <= len(memory.edges) \
+                and marked + len(memory.edges) - seen == version:
+            if seen < len(memory.edges):    # yalnız eklenenler
+                _link(links, memory.edges[seen:])
+                _BUILT[memory] = (len(memory.edges), version, purged, links)
+            return links
+    links = _link(collections.defaultdict(dict), memory.edges)
+    _BUILT[memory] = (len(memory.edges), version, memory.purges, links)
     return links
 
 

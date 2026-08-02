@@ -385,7 +385,11 @@ class TurkishMorphology:
         # insan+ın — so only knowing the word decides. Where nothing decides,
         # nothing is returned: guessing here would write a concept that does
         # not exist and never say so.
-        known = set(known)
+        # Kopya YALNIZ gerekiyorsa. Çağıran artık küme geçiyor ve her çağrıda
+        # 16 bin kavramı kopyalamak profilde 122 bin çağrıda 11,4 saniye
+        # tutuyordu — üyelik sınaması için kopyaya gerek yok.
+        if not isinstance(known, (set, frozenset, dict)):
+            known = set(known)
         for candidate in candidates:
             if candidate in known:
                 return candidate

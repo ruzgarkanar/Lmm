@@ -65,8 +65,67 @@ def closeness(first, second):
     return len(shared) / len(left | right)
 
 
+SHORT = 2               # bu uzunluğa kadar olan adlar indekse güvenilemez
+
+
+def _postings(candidates):
+    """İkiliden adlara indeks. Kurulabildiği yere iliştirilir, bir kez kurulur.
+
+    Aday listesine yazılamıyorsa (düz liste, demet) indeks kurulmuyor:
+    tek bir çağrı için indeks kurmak, taramaktan pahalıdır. İndeks ancak
+    tekrar tekrar sorulan bir listede kazanç.
+    """
+    found = getattr(candidates, "near_index", None)
+    if found is not None:
+        return found
+    if not hasattr(candidates, "__dict__"):
+        return None         # düz liste, demet: indeksin asılacağı yer yok, ve
+        # ömrü tek çağrı olan bir indeks kurmak taramadan pahalı. Bu denetim
+        # KURMADAN ÖNCE: sonra bakılsaydı, indekslenemeyen çağrı hem indeksi
+        # kurup hem de taramak zorunda kalırdı.
+    postings, short = {}, []
+    for name in candidates:
+        if len(name) <= SHORT:
+            short.append(name)
+        for gram in _bigrams(name):
+            postings.setdefault(gram, []).append(name)
+    candidates.near_index = found = (postings, short)
+    return found
+
+
+def _worth_scoring(word, candidates):
+    """Puanı sıfırdan büyük OLABİLECEK adlar. Gerisini hesaplamaya gerek yok.
+
+    NEDEN eksiksiz: `closeness` üç yoldan puan verir ve üçü de ortak ikili
+    ister. Yazım yakınlığı (uzaklık <= 1) iki harften uzun iki sözcükte en az
+    bir ikiliyi hep sağ bırakır — tek bir düzeltme hem baştaki hem sondaki
+    ikiliyi birden bozamaz. Uzaklık 2 dalı yalnız altı harften uzun sözcükler
+    için açık ve iki düzeltme yedi ikilinin en fazla dördünü götürür. Geriye
+    ikili örtüşmesi kalıyor, o da tanımı gereği ortak ikili ister. Tek istisna
+    iki harfe kadar olan adlar ("a" ile "b" bir tuş uzaklıkta, ortak ikilileri
+    yok); onlar ayrı tutuluyor ve her zaman puanlanıyor.
+
+    Yani indeks dışında kalan her ad tam olarak 0,0 alır. Eşik sıfır ya da
+    altındaysa 0,0 da geçerli bir cevaptır — o durumda indeks kullanılmıyor.
+    """
+    found = _postings(candidates)
+    if found is None:
+        return candidates
+    postings, short = found
+    pool = dict.fromkeys(short)
+    # Sıralı gezinme: ikililer sıralı, gönderi listeleri aday sırasında.
+    # Küme üzerinde gezinmek `PYTHONHASHSEED`e bağlı bir sıra demek olurdu ve
+    # bu projede o bir kez aynı soruya iki farklı cevap ürettirdi.
+    for gram in sorted(_bigrams(word)):
+        for name in postings.get(gram, ()):
+            pool[name] = None
+    return pool
+
+
 def nearest(word, candidates, limit=SUGGESTIONS, threshold=THRESHOLD):
     """The known words a person might have meant, best first."""
+    if threshold > 0:
+        candidates = _worth_scoring(word, candidates)
     scored = []
     for candidate in candidates:
         if candidate == word:

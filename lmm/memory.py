@@ -29,6 +29,27 @@ class CycleError(Exception):
     """Raised when a write would create a cycle in the type hierarchy."""
 
 
+class Names(list):
+    """Adların sırası — düz liste değil, üzerine indeks iliştirilebilen bir liste.
+
+    NEDEN: `similarity.nearest` her "bilmiyorum" cevabında tüm kavramları
+    tarıyor ve maliyeti graf boyutuyla doğrusal — ölçüldü: 16 bin kavramda
+    40,9 ms, 335 binde 808,7 ms. İndekslenmesi gerekiyordu ve asıl soru
+    indeksin NEREDE yaşayacağıydı.
+
+    Modül düzeyinde `id(liste)` ile anahtarlanan bir önbellek denenebilirdi;
+    tehlikeli, çünkü çöp toplayıcı bir kimliği geri kullanınca aynı uzunluktaki
+    başka bir listeye BAŞKASININ indeksi verilir — bu projede bayat önbellek
+    demek, sessiz yanlış cevap demek. İndeksi listenin kendisine asmak bu soruyu
+    ortadan kaldırıyor: nesne yaşadığı sürece indeks geçerli, kavram eklenince
+    `concepts()` YENİ bir Names döndürüyor ve eski indeks nesnesiyle birlikte
+    düşüyor. Geçersizleştirme bir kural değil, bir sonuç.
+
+    Liste alt sınıfı olması davranışı değiştirmiyor: eşitlik, dilimleme,
+    `set(...)`, sıralama — hepsi listenin kendisi.
+    """
+
+
 def coverage(quantifier):
     """Bir iddianın türün ne kadarına ulaştığı. Evrensel > varsayılan > varoluşsal.
 
@@ -119,17 +140,33 @@ class Memory:
         whole memory, so the cost was quadratic where it hurt most.
         """
         self._by_concept = {}
+        self._by_target = {}
         self._exact = {}
         self._quantities = {}
         self._concepts = []
         self._concept_set = set()
         self._actions, self._action_set = [], set()
         self._properties, self._property_set = [], set()
+        # Ad listelerinin dondurulmuş hâli; ilk istendiğinde kurulur, graf
+        # değişince düşer. Grafın kaçıncı hâlinde olduğumuzu ise dışarıdaki
+        # önbellekler soruyor (`spreading.neighbours`).
+        self._names = {}
+        self.revision = getattr(self, "revision", 0) + 1
+        self.purges = getattr(self, "purges", 0)
         for edge in self.edges:
             self._index(edge)
 
     def _index(self, edge):
+        self.revision += 1
+        if self._names:
+            self._names = {}     # yeni ad gelmiş olabilir: dondurulmuş liste bayat
         self._by_concept.setdefault(edge.concept, []).append(edge)
+        # Ters yön de indeksli: "bu kavrama KİM işaret ediyor" sorusu eskiden
+        # tüm kenarları tarıyordu. Ölçüldü — eş anlamlı araması (`cli._meanings`)
+        # tek bir cümlede yüzlerce kez bu taramayı yapıyordu ve 10 kat büyümüş
+        # grafta 20 sorunun 34,5 saniyesinin 15,4'ü buradaydı.
+        if edge.target:
+            self._by_target.setdefault(edge.target, []).append(edge)
         # Nicelik kimliğin parçası. Değilken "bazı kuşlar uçmaz" ile "hiçbir kuş
         # uçmaz" aynı kenara düşüyordu ve ikincisi birincisini corroborate() ile
         # GÜÇLENDİRİYORDU: iki ayrı iddia tek kayda çöküyor, evrensel olan da
@@ -243,17 +280,48 @@ class Memory:
         self._index(edge)
         return edge
 
+    def _named(self, key, ordered):
+        """Sıralı adların dondurulmuş hâli — graf değişene kadar aynı nesne.
+
+        Eskiden her çağrı listeyi KOPYALIYORDU. Tek başına ucuz görünüyor
+        (16 bin kavramda 0,034 ms) ama çağıranı sayınca değişiyor:
+        `grammar.known()` ve `cli._meanings` bunu cümle başına yüzlerce kez
+        soruyor. Ölçüldü: 20 kat büyümüş grafta üçlü çağrı 1,72 ms, yani tek
+        bir cümlede saniyeler.
+
+        Dönen liste PAYLAŞILIYOR — çağıran onu değiştirmemeli. Kopya vermenin
+        bedeli buydu ve karşılığında hiçbir çağıran o kopyayı değiştirmiyordu.
+        Buna karşılık dönen şey bir enstantane: graf büyüyünce bu liste
+        büyümez, bir sonraki çağrı yenisini alır — yani üzerinde gezinirken
+        öğrenmek listeyi altından çekmiyor.
+        """
+        found = self._names.get(key)
+        if found is None:
+            found = self._names[key] = Names(ordered)
+        return found
+
     def concepts(self):
         """Everything that behaves like a thing, in the order it was learned."""
-        return list(self._concepts)
+        return self._named("concepts", self._concepts)
 
     def actions(self):
         """Every action this memory has ever heard of, in learning order."""
-        return list(self._actions)
+        return self._named("actions", self._actions)
 
     def properties(self):
         """Every property this memory has ever heard of, in learning order."""
-        return list(self._properties)
+        return self._named("properties", self._properties)
+
+    def incoming(self, target, relation=None):
+        """Bu ada HEDEF olarak işaret eden kenarlar — ters yön, indeksli.
+
+        `query()` bir kavramdan çıkanı verir; bu, ona geleni. İkisi olmadan
+        "buna kim eş anlamlı" gibi her soru tüm kenarları tarıyordu.
+        """
+        found = self._by_target.get(target, ())
+        if relation is None:
+            return list(found)
+        return [e for e in found if e.relation == relation]
 
     def forget(self, concept):
         """Erase everything known about a concept, in or out. Returns the count.
@@ -261,11 +329,21 @@ class Memory:
         Selective deletion from a trained model's weights is famously impractical;
         here it is a filter over a list, and afterwards the system genuinely does
         not know — it goes back to saying "bilmiyorum".
+
+        Bilinmeyen bir ad artık indeksten anlaşılıyor ve hiçbir şeye
+        dokunulmuyor. Ölçüldü: 20 kat büyümüş grafta olmayan bir kavramı
+        unutmak 349,2 ms sürüyordu — tamamı boşuna, çünkü silinecek bir şey
+        yoktu. Gerçekten silme yine tam yeniden kurulum: ad listeleri
+        adların KAÇ kenardan geldiğini saymıyor, sayarsak silme ucuzlar ama
+        her yazma pahalılaşır ve yazma yüz kat daha sık.
         """
+        if concept not in self._by_concept and concept not in self._by_target:
+            return 0
         remaining = [e for e in self.edges
                      if e.concept != concept and e.target != concept]
         removed = len(self.edges) - len(remaining)
         self.edges = remaining
+        self.purges += 1
         self._rebuild()
         return removed
 

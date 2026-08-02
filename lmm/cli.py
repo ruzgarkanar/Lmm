@@ -161,36 +161,10 @@ class Session:
         Dağılımsal kümeleme denendi ve ölçülüp çürütüldü: işlevsel kelimelerde
         aynı gruptaki çift, farklı gruptakinin altında kalıyordu.
         """
-        found = set(edge.target for edge in self.memory.query(word, SAME_AS))
-        found.update(self._same_as().get(word, ()))
+        found = {edge.target for edge in self.memory.query(word, SAME_AS)}
+        found.update(edge.concept
+                     for edge in self.memory.incoming(word, SAME_AS))
         return found
-
-    def _same_as(self):
-        """Ters eş anlamlılık dizini — kenar sayısına bağlı önbellekle.
-
-        Önce her çağrıda TÜM kenarlar taranıyordu ve bu işlev cümle başına
-        yüzlerce kez çağrılıyor: ayrıştırıcı tanımadığı her sözcük için
-        soruyor. Ölçüldü — 10 katlık bir grafta üç sorunun 7,40 saniyesinin
-        4,17'si (%56) buradaydı, çağrı başına 6,9 ms.
-
-        Graf bu gece 17 katına çıkıyor; o hızda çağrı başına ~12 ms ve cümle
-        başına dakikalar demek. Algoritma değişmiyor, aynı tarama bir kez
-        yapılıp saklanıyor.
-
-        Geçersizleştirme kenar SAYISINA bağlı: sohbette öğrenilen bir eş
-        anlamlılık bir sonraki cümlede görünmeli. Bayat önbellek bu projede
-        sessiz yanlış cevap demektir — "öğrendim" deyip bilmemek.
-        """
-        marker = len(self.memory.edges)
-        cached = getattr(self, "_same_as_cache", None)
-        if cached is not None and cached[0] == marker:
-            return cached[1]
-        backwards = {}
-        for edge in self.memory.edges:
-            if edge.relation == SAME_AS and edge.target:
-                backwards.setdefault(edge.target, set()).add(edge.concept)
-        self._same_as_cache = (marker, backwards)
-        return backwards
 
     def _concepts(self):
         """Grafın kavramları — kopyası kenar sayısına bağlı saklanıyor.
