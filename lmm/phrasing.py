@@ -142,6 +142,24 @@ def possessed(word):
     return stem + buffer + _harmony_vowel(word)
 
 
+def is_a_step(concept, ancestor):
+    """Kalıtım zincirinin bir basamağı: "penguen bir kuş".
+
+    `lmm/reasoning.py` bunu üç yerde kendi içinde kuruyordu ve Türkçe " bir "
+    bağlacı motorun ortasında duruyordu. Muhakeme hangi dile baktığını
+    bilmemeli — ikinci bir dil, zinciri de kendi bağlacıyla kurar.
+    """
+    return f"{concept} bir {ancestor}"
+
+
+def own_inference(said):
+    """Kalıtılan bir tahminin künyesi: "... (kendi çıkarımım)".
+
+    Çıkarım da bir tahmindir ve öyle söylenmeli — ama SÖYLENİŞİ dile ait.
+    """
+    return f"{said} (kendi çıkarımım)"
+
+
 def part_clause(concept, part, positive=True, object=None, role=None):
     """kuş, kanadı -> "kuşun kanadı var" / "kuşun kanadı yok"."""
     return f"{genitive(concept)} {part} {'var' if positive else 'yok'}"
