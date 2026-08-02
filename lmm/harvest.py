@@ -32,7 +32,15 @@ from lmm.lexicon import ACTIVE
 from lmm.distill import distill_text, generalise
 
 TIMEOUT = 60
-DEFAULT_BATCH = 8
+DEFAULT_BATCH = 8       # bir turda sorulan soru sayısı; ölçülmedi
+
+# Sıcaklık ile örnek sayısı BİRLİKTE bir anlam taşıyor ve bu yazılı değildi.
+# `agreed` iki örneğin aynı cümleyi söylemesini istiyor; sıcaklık düştükçe iki
+# örneğin aynı çıkması kolaylaşır, yani çapraz denetim zayıflar. 0,2 ile iki
+# örnek, "modelin ezberinde sağlam duranı al" demek — ama sıfıra yaklaştıkça
+# denetim bir törene döner. Ölçülmedi; ölçüsü "aynı sorularda kaç satır
+# eleniyor" olurdu.
+TEMPERATURE = 0.2
 
 BRIEF = """Sen bir bilgi kaynağısın. Sana sorulan sorulara SADECE aşağıdaki
 kalıplarla, düz Türkçe cümlelerle cevap ver. Her cümle tek satırda olsun.
@@ -84,7 +92,7 @@ def ask_model(questions, verbs, url=None, headers=None):
             {"role": "system", "content": BRIEF.format(verbs=", ".join(verbs))},
             {"role": "user", "content": "\n".join(questions)},
         ],
-        "temperature": 0.2,
+        "temperature": TEMPERATURE,
     }
     request = urllib.request.Request(
         url, data=json.dumps(body).encode("utf-8"),

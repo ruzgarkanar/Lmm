@@ -27,6 +27,11 @@ from lmm.harvest import agreed, ask_model, HarvestError
 from lmm.lexicon import ACTIVE
 import lmm.harvest as harvest
 
+# İkisi de ölçülmedi ve hangisinin ne yaptığı karışıyordu, o yüzden yazılsın:
+# `CHUNK_SENTENCES` modele bir seferde kaç cümle verildiği — bağlam ne kadar
+# genişse yeniden yazım o kadar isabetli ama uydurma alanı da o kadar geniş.
+# `DEFAULT_LIMIT` ise yalnızca komut satırının varsayılanı; bir belgenin kaç
+# parçasının okunacağını çağıran belirliyor, bu sayı sessizce kesmiyor.
 CHUNK_SENTENCES = 12
 DEFAULT_LIMIT = 8
 

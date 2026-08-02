@@ -29,6 +29,22 @@ HEAD = re.compile(r"\b(?:bir|birer)\b\s+(.{2,70}?)\s*\.?\s*$")
 OPENING = re.compile(r"^(.{2,40}?),\s+(.{10,240}?\b(?:bir|birer)\s+.{2,60}?"
                      r"(?:dir|dır|dur|dür|tir|tır|tur|tür))\b")
 
+# Kabul edilen ad/tür uzunlukları. İkisi de gerekçesiz duruyordu; ölçüldü
+# (`data/tr-tanimlar.txt`, ilk 40.000 tanım satırı, sınırlar kaldırılarak):
+#
+#     sınırsız çıkan olgu   21.799
+#     MINIMUM=3'ün eledigi      77   (%0,35)
+#     MAXIMUM=25'in elediği      0
+#
+# MINIMUM gerçekten çalışıyor ve iki yönü var: elediklerinin çoğu çöp
+# ("ß", "qq", "ww", "sé") ya da ek kırıntısı ("si"), ama içlerinde gerçek
+# kelimeler de var — "ip", "il", "ad", "su". Yani bedeli sıfır değil, bilinen
+# ve küçük bir bedel.
+#
+# MAXIMUM ise ölü bir kapı: 40.000 satırda bir kez bile kapanmadı. Sebebi
+# yukarıdaki düzenli ifadeler — `HEAD` zaten 70, `subject` zaten tek kelime
+# istiyor. Duruyor çünkü kaldırmak davranışı değiştirmiyor ama başka bir
+# derlemde koruma olabilir; olmadığının yazılı olması yeter.
 MINIMUM = 3
 MAXIMUM = 25
 
