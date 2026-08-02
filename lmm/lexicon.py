@@ -239,7 +239,12 @@ class Lexicon:
         for word, (name, is_positive) in frequency.verbs().items():
             if name == infinitive and is_positive == positive:
                 return word
-        return infinitive
+        # Son çare: mastardan TÜRET. Mastara düşmek cümleyi bozuyor
+        # ("karakter tırmanmak") ve bozuk cümle geri okunamıyor — sistemin
+        # kendi ağzı, kendi bilgisini eliyor. Yanlış bir çekim bile mastardan
+        # iyidir, çünkü mastar cümleyi hiç kurdurmuyor.
+        from lmm.phrasing import aorist
+        return aorist(infinitive, positive)
 
     def learn_verb(self, infinitive, positive, negative, plain_negative=None):
         """Teach one verb in both polarities. Idempotent.

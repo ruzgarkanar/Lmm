@@ -142,6 +142,43 @@ def possessed(word):
     return stem + buffer + _harmony_vowel(word)
 
 
+def aorist(infinitive, positive=True):
+    """Mastardan geniş zaman: "tırmanmak" -> "tırmanır" / "tırmanmaz".
+
+    SON ÇARE. Önce sözlüğe, sonra derleme bakılıyor; ikisi de bilmiyorsa
+    cümle mastarla kuruluyordu ve bozuk çıkıyordu: "karakter tırmanmak".
+    Bozuk cümle geri okunamıyor, dolayısıyla doğru bir olgu kapıda
+    reddediliyordu — sistemin kendi ağzı, kendi bilgisini eliyordu.
+
+    Türetme dilin bildirdiği eklerden: ünlüyle biten gövde yalnız -r alır,
+    ünsüzle biten uyuma göre geniş ünlü + r. Düzensiz fiiller (gitmek ->
+    gider) bu kuralla yanlış çıkar; o yüzden son çare, ilk yol değil. Yanlış
+    bir çekim yine de mastardan iyidir: mastar cümleyi hiç kurdurmuyor.
+    """
+    stem = infinitive
+    for ending in ("mak", "mek"):
+        if stem.endswith(ending) and len(stem) > len(ending) + 1:
+            stem = stem[: -len(ending)]
+            break
+    if not positive:
+        return stem + ("maz" if _harmony_vowel(stem) in "aıou" else "mez")
+    if stem and stem[-1] in "aeıioöuü":
+        return stem + "r"
+    # Tek heceli gövde GENİŞ ünlü alır, çok heceli DAR: "uç" -> uçar ama
+    # "tırman" -> tırmanır. İlk yazışta bu ayrım yoktu ve tek heceliler
+    # "uçur", "yüzür" diye çıkıyordu. Hece sayısı ünlü sayısıdır.
+    vowels = [letter for letter in stem if letter in "aeıioöuü"]
+    if len(vowels) <= 1 and stem not in _narrow_stems():
+        return stem + ("a" if _harmony_vowel(stem) in "aıou" else "e") + "r"
+    return stem + _harmony_vowel(stem) + "r"
+
+
+def _narrow_stems():
+    """Tek heceli olduğu hâlde dar ünlü alan gövdeler — dilden soruluyor."""
+    from lmm.turkish import TurkishMorphology
+    return getattr(TurkishMorphology, "narrow_aorist_stems", ())
+
+
 def is_a_step(concept, ancestor):
     """Kalıtım zincirinin bir basamağı: "penguen bir kuş".
 
