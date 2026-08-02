@@ -90,6 +90,29 @@ def seed_verbs():
     return found
 
 
+def _bare_ability():
+    """Yeterlilik ekinin ÇIPLAK hâli: "abilir" -> "abil".
+
+    Türetiliyor, bildirilmiyor. Dil zaten `ability_suffixes` ile ("ebilir",
+    "abilir") diyor ve geniş zaman ekini de ayrıca bildiriyor; ikisinin farkı
+    çıplak yeterliliktir. Yeni bir liste yazmak aynı bilgiyi iki yerde tutmak
+    olur ve iki kopya er geç ayrışır — bu projede bir kez ölçüldü, `openers`
+    iki yerde tutulunca üç eksiltili takip sessizce anlaşılmıyordu.
+    """
+    from lmm.frames import AORIST
+    aorist = ()
+    for suffixes, tense in _of("predicate_suffixes"):
+        if tense == AORIST:
+            aorist = suffixes
+    found = []
+    for suffix in _of("ability_suffixes"):
+        for ending in sorted(aorist, key=len, reverse=True):
+            if suffix.endswith(ending) and len(suffix) > len(ending) + 1:
+                found.append(suffix[: -len(ending)])
+                break
+    return tuple(found)
+
+
 class Lexicon:
     def __init__(self, verbs=None):
         self.verbs = dict(seed_verbs() if verbs is None else verbs)
@@ -149,7 +172,7 @@ class Lexicon:
                     return found, polarity and negative
         return None
 
-    def _stem_of(self, stem):
+    def _stem_of(self, stem, depth=2):
         """Bilinen bir fiilin gövdesi mi — ünlü kaymasına izin vererek."""
         marks = _of("infinitive_suffixes")
         vowels = getattr(_language(), "vowels", "")
@@ -159,6 +182,28 @@ class Lexicon:
             root = _without(infinitive, marks)
             if root and (stem == root or stem.rstrip(vowels) == root):
                 return infinitive
+        # Yeterlilik katmanı zaman ekinin ALTINDA da durabilir: "uçabiliyor" =
+        # uç + abil + iyor. Zaman soyulunca geriye `uçabil` kalıyor ve o hiçbir
+        # mastarın gövdesi değil. Ölçüldü, ikisi de tek başına çalışıyordu:
+        #
+        #   uçabilir   -> uçmak      (yeterlilik yalnız)
+        #   uçuyor     -> uçmak      (şimdiki zaman yalnız)
+        #   uçabiliyor -> uçabiliyo  (birleşimi çözülmüyordu)
+        #
+        # "kartal uçabiliyor mu" en doğal sorulardan biri ve cevapsız
+        # kalıyordu. Katman soyma özyinelemiyordu, eksik olan buydu.
+        #
+        # Ekin çıplak hâli BİLDİRİMDEN TÜRETİLİYOR, yeniden yazılmıyor:
+        # `ability_suffixes` zaten ("ebilir","abilir") diyor ve geniş zaman eki
+        # de bildirili; ikisinin farkı çıplak yeterliliktir. Yeni bir liste
+        # eklemek, aynı bilgiyi iki yerde tutmak olurdu.
+        if depth > 0:
+            for mark in _bare_ability():
+                if stem.endswith(mark) and len(stem) - len(mark) >= 2:
+                    under = self._stem_of(stem[: -len(mark)].rstrip("y"),
+                                          depth - 1)
+                    if under is not None:
+                        return under
         return None
 
     def _direct_or_ability(self, surface):
