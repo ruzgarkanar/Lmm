@@ -22,33 +22,45 @@ kuralı veridir. Başka bir dil için o iki şey değişir, buradaki kod değiş
 """
 import re
 
-# Cümlecikleri birbirine bağlayan kelimeler. Kapalı bir sınıf: sayıca sabit,
-# yeni üye almaz, ve bir dil için bir kez yazılır.
-JOINERS = ("ve", "veya", "ya da", "ancak", "fakat", "ama", "çünkü", "ayrıca",
-           "yani", "oysa", "hâlbuki", "halbuki", "lakin", "ne var ki")
+# Bağlaç listesi ve yan cümle ekleri `lmm/turkish.py`'ye taşındı: ikisi de
+# "bu dilde cümlecik nerede biter" sorusunun cevabı, yani dil. Burada kalan
+# şey işlemin kendisi — böl, özneyi geri koy, yüklemi kur — ve o hiçbir dile
+# bakmıyor. Bildirmeyen bir dil boş liste verir: o zaman hiç bölünmez ve
+# cümle olduğu gibi okunur, yani organ körleşir ama çökmez.
+_MORPHOLOGY = None
 
-# Ayracın türü korunuyor, çünkü ikisi farklı iş yapıyor: virgül bir özneyi de
-# ayırabilir ("Penguen, ... yaşar"), bağlaç ayıramaz. Bu ayrım olmadan
-# "kuşlar uçar ve balıklar yüzer" cümlesinde "kuşlar uçar" özne sanılıyordu.
-BOUNDARY = re.compile(
-    r"(,|;|\s+(?:" + "|".join(re.escape(word) for word in JOINERS) + r")\s+)")
 
-# Türkçe yan cümlesini bağlaçla değil EKLE kurar. Ölçüldü: cümlelerin %74,4'ü
-# bunlardan en az birini taşıyor, ve bağlaç bölmesi onlara hiç dokunmuyordu.
-# Bu, kalıplarımızın İngilizce şeklinde olmasının doğrudan sonucu — İngilizce
-# rolleri sözcük sırasıyla taşır, Türkçe eklerle.
-#
-# Her biri bir yan cümlenin SONUNU işaretler: "kaydı alıp raporlar" iki
-# yüklemdir. Ek, fiili çekimsiz bıraktığı için sözlük onu tanımaz; bölerken
-# çekimli hâline geri çevriliyor ve cümlecik okunabilir hâle geliyor.
-SUBORDINATORS = (
-    ("ip", "ıp", "up", "üp"),               # gelip, alıp
-    ("erek", "arak"),                       # koşarak
-    ("ince", "ınca", "unca", "ünce"),       # gelince
-    ("madan", "meden"),                     # görmeden
-    ("dıkça", "dikçe", "dukça", "dükçe"),   # gördükçe
-    ("ken",),                               # bakarken
-)
+def _language():
+    global _MORPHOLOGY
+    if _MORPHOLOGY is None:
+        from lmm.turkish import TurkishMorphology
+        _MORPHOLOGY = TurkishMorphology()
+    return _MORPHOLOGY
+
+
+def _of(name):
+    return tuple(getattr(_language(), name, ()))
+
+
+_BOUNDARY = None
+
+
+def _boundary():
+    """Ayracın türü korunuyor, çünkü ikisi farklı iş yapıyor: virgül bir
+    özneyi de ayırabilir ("Penguen, ... yaşar"), bağlaç ayıramaz. Bu ayrım
+    olmadan "kuşlar uçar ve balıklar yüzer" cümlesinde "kuşlar uçar" özne
+    sanılıyordu.
+
+    Bir kez derlenip saklanıyor: dil çalışma anında değişmiyor ve her cümlede
+    yeniden derlemek ölçülebilir bir masraf.
+    """
+    global _BOUNDARY
+    if _BOUNDARY is None:
+        joiners = "|".join(re.escape(word) for word in _of("joiners"))
+        _BOUNDARY = re.compile(r"(,|;" + (r"|\s+(?:" + joiners + r")\s+"
+                                          if joiners else "") + r")")
+    return _BOUNDARY
+
 
 SHORTEST_CLAUSE = 2     # tek kelime bir cümlecik değildir
 LONGEST_SUBJECT = 2     # "kredi başvurusu" özne olur, yarım cümle olmaz
@@ -68,13 +80,18 @@ def _finite(word, lexicon=None):
     uydurmaktansa cümleyi olduğu gibi bırakmak.
     """
     from lmm.verbs import infinitive_of
-    for family in SUBORDINATORS:
+    for family in _of("subordinator_suffixes"):
         for suffix in family:
             if not word.endswith(suffix) or len(word) - len(suffix) < 2:
                 continue
             stem = word[: -len(suffix)]
-            if suffix == "ken":
-                return stem if stem.endswith(("ar", "er", "ır", "ir")) else None
+            # Bazı ekler altlarındaki gövdeyi zaten çekimli bırakır; onlarda
+            # yüklem geri kurulmaz, yalnız doğrulanır. Hangileri olduğunu dil
+            # bildiriyor (`finite_subordinators`), burası soruyor.
+            already = getattr(_language(), "finite_subordinators", {})
+            kept = already.get(suffix)
+            if kept is not None:
+                return stem if stem.endswith(tuple(kept)) else None
             # "doğrulayarak" -> kök "doğrula", araya kaynaştırma "y" girmiş.
             if stem.endswith("y") and len(stem) > 2:
                 stem = stem[:-1]
@@ -120,9 +137,13 @@ def split(sentence):
     """
     # Sonda boşta kalan bağlaç ("kuşlar uçar ve") ayrıştırmayı bozar; onu
     # bırakmak, olmayan bir cümleciği varmış gibi göstermek olur.
-    sentence = re.sub(r"\s+(?:" + "|".join(JOINERS) + r")\s*$", "",
-                      sentence.strip())
-    pieces = [piece.strip() for piece in BOUNDARY.split(sentence)]
+    joiners = _of("joiners")
+    if joiners:
+        sentence = re.sub(r"\s+(?:" + "|".join(joiners) + r")\s*$", "",
+                          sentence.strip())
+    else:
+        sentence = sentence.strip()
+    pieces = [piece.strip() for piece in _boundary().split(sentence)]
     parts, separators = pieces[0::2], pieces[1::2]
     parts = [part for part in parts if part]
     if not parts:

@@ -60,21 +60,10 @@ NEURAL_THRESHOLD = 0.15
 # karşılık geldikleri.
 FOLLOW_UPS = {"neden": ASK_WHY, "niye": ASK_WHY, "niçin": ASK_WHY,
               "nasıl": ASK_PROPERTIES, "kim": ASK_WHO, "kimler": ASK_WHO}
-# Aşağıdaki üç liste ve `FOLLOW_UPS`'ın ANAHTARLARI çıktı değil GİRDİ: dilin
-# sözcük dağarcığından geliyorlar, sistemin söylediklerinden değil. Yerleri
-# `lmm/turkish.py` — cevap cümleleri gibi `lmm/phrasing.py` değil, çünkü
-# işlevleri söylemek değil tanımak. Burada tek satırda duruyorlar ki taşınmaları
-# bir taramaya değil bir taşımaya kalsın.
-AFFIRMATIVE = ("evet", "e")
-EXIT_WORDS = ("çık", "cik", "exit")
-HELP_WORDS = ("yardım", "yardim", "help", "?")
-STATUS_WORDS = ("durum", "istatistik")
-# Eksiltili sorunun açılışı: "peki ya kartal". Bilgi taşımıyorlar, yalnız
-# cümlenin eksiltili olduğunu işaretliyorlar.
-OPENERS = {"peki", "ya", "yaa", "e", "ee", "pekiya"}
-# Belirtisiz tanımlık. Kuyruk iki türlü kurulabiliyor — "penguen kuş mu" ve
-# "penguen BİR kuş mu" — ve hangisinin kalıbı olduğunu önceden bilmiyoruz.
-INDEFINITE = "bir"
+# Sözcük listeleri artık `lmm/turkish.py`'de: çıktı değil GİRDİ oldukları için
+# yerleri `phrasing.py` değil dilin tanımı. Buradaki kopyalar UYUŞMUYORDU da —
+# `openers` burada altı sözcüktü, dilde sekiz; "acaba kartal", "hem kartal" ve
+# "işte kartal" eksiltili takipleri sessizce anlaşılmıyordu.
 # Öznesi olmayan niyetler. Bunlar bağlamdan özne almazlar ve almadıkları için
 # "anlaşılmadı" sayılmamalılar — sohbetin kendisi hakkında bir sorunun öznesi
 # yoktur. ASK_THREAD burada olmadığı için cevap üretiliyor ama sessizce
@@ -595,7 +584,8 @@ class Session:
         answers = []
         for topic in reversed(topics):
             said = None
-            for words in ([topic] + tail, [topic, INDEFINITE] + tail):
+            indefinite = getattr(morphology, "indefinite", "")
+            for words in ([topic] + tail, [topic, indefinite] + tail):
                 found = self.language.understand(" ".join(words))
                 if found.kind in (UNKNOWN, UNKNOWN_WORD, AMBIGUOUS):
                     continue
@@ -638,7 +628,8 @@ class Session:
             # kalıyordu. Aynı disiplin sistemin her yerinde: bir okuma ancak
             # işe yarıyorsa kabul edilir.
             said = None
-            for words in ([subject] + tail, [subject, INDEFINITE] + tail):
+            for words in ([subject] + tail,
+                          [subject, getattr(morphology, "indefinite", "")] + tail):
                 found = self.language.understand(" ".join(words))
                 if found.kind in (UNKNOWN, UNKNOWN_WORD, AMBIGUOUS):
                     continue
@@ -750,7 +741,9 @@ class Session:
         words = tokenize(line)
         if not words or len(words) > 4:
             return None
-        rest = [w for w in words if w not in OPENERS]
+        rest = [w for w in words
+                if w not in getattr(self.language.grammar.morphology,
+                                    "openers", ())]
         if len(rest) != 1 or len(rest) == len(words):
             return None                 # eksiltme işareti yok
         # Biçimbilim grammar'da duruyor. Burada `self.memory.morphology`
@@ -890,7 +883,7 @@ class Session:
         """
         morphology = self.language.grammar.morphology
         spoken = lower(line).strip(" .,!?")
-        if spoken in getattr(morphology, "affirmations", AFFIRMATIVE):
+        if spoken in getattr(morphology, "affirmations", ()):
             edge, self.pending = self.pending, None
             self.learning.confirm_exception(edge)
             return exception_learned()
@@ -1026,12 +1019,13 @@ def main():
             break
         if not line:
             continue
-        if lower(line) in EXIT_WORDS:
+        morphology = self.language.grammar.morphology
+        if lower(line) in getattr(morphology, "exit_words", ()):
             break
-        if lower(line) in HELP_WORDS:
+        if lower(line) in getattr(morphology, "help_words", ()):
             print(help_text())
             continue
-        if lower(line) in STATUS_WORDS:
+        if lower(line) in getattr(morphology, "status_words", ()):
             print("  " + _status(session))
             continue
         print(session.respond(line))

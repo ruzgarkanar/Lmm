@@ -27,15 +27,36 @@ yalnızca ek listesi — buradaki kod değil.
 import collections
 import re
 
-# Türkçe geniş zaman: olumlu -r/-ar/-er/-ır/-ir/-ur/-ür, olumsuz -maz/-mez.
-# Bir dil eklemek bu iki listeyi yazmaktır, kodu değiştirmek değil.
-POSITIVE = ("ar", "er", "ır", "ir", "ur", "ür", "r")
-NEGATIVE = ("maz", "mez")
-BACK = "aıou"
-
-# Çoğul eki de -lar/-ler ile biter ve "r" ile bitiyor diye fiil sanılabilir.
-NOT_VERBS = ("lar", "ler")
 SHORTEST_STEM = 2
+
+_MORPHOLOGY = None
+
+
+def _language():
+    """Ekleri hangi dilden okuyacağı — `lmm/frames.py`'deki ile aynı desen.
+
+    Buradaki kod "bir kök hem olumlu hem olumsuz çekimiyle geçiyorsa fiildir"
+    testinden ibaret ve o test dile bakmaz. Bakan şey ek listeleriydi ve
+    onlar `lmm/turkish.py`'ye taşındı: bir dil eklemek artık orada birkaç
+    satır yazmak, burada hiçbir şey değiştirmemek demek.
+
+    Bildirmeyen bir dil boş küme verir; o zaman `stems_of` hiçbir kök
+    bulamaz ve keşif sessizce boş döner — yanlış fiil uydurmaktansa hiç
+    bulmamak, bu dosyanın zaten savunduğu duruş.
+    """
+    global _MORPHOLOGY
+    if _MORPHOLOGY is None:
+        from lmm.turkish import TurkishMorphology
+        _MORPHOLOGY = TurkishMorphology()
+    return _MORPHOLOGY
+
+
+def _of(name, fallback=()):
+    return tuple(getattr(_language(), name, fallback))
+
+
+def _vowels():
+    return getattr(_language(), "vowels", "")
 
 
 def stems_of(word):
@@ -44,29 +65,46 @@ def stems_of(word):
     Birden çok olasılık döner: "gelir" hem "gel"+ir hem "geli"+r okunabilir.
     Hangisinin doğru olduğuna olumsuz biçimin varlığı karar verir.
     """
-    if word.endswith(NOT_VERBS) or not word.isalpha():
+    # Çoğul eki de -lar/-ler ile biter ve "r" ile bitiyor diye fiil sanılabilir.
+    if word.endswith(_of("plural_suffixes")) or not word.isalpha():
         return []
     found = []
-    for suffix in POSITIVE:
+    for suffix in _of("aorist_suffixes"):
         if word.endswith(suffix) and len(word) - len(suffix) >= SHORTEST_STEM:
             found.append(word[: -len(suffix)])
     return found
 
 
+def _harmonised(stem, suffixes):
+    """Ekin, kökün son ünlüsüne göre kalın ya da ince hâli.
+
+    İkili ve sıralı bir liste bekliyor: önce kalın ("-maz", "-mak"), sonra
+    ince. Uyum kuralı dile değil bu koda ait olan tek şey, çünkü kural
+    "son ünlüye bak"tan ibaret; hangi ünlünün kalın olduğunu ve ekin iki
+    hâlini dil söylüyor.
+
+    Ünlü bulunamazsa ince hâl seçiliyor — kod buraya geldiğinde kök zaten
+    ünlüsüz demektir ve eski davranış da buydu.
+    """
+    if not suffixes:
+        return stem                 # ekini bildirmeyen dil: kök olduğu gibi
+    back, front = suffixes[0], suffixes[-1]
+    vowels = _vowels()
+    heavy = getattr(_language(), "back_vowels", "")
+    for character in reversed(stem):
+        if character in vowels:
+            return stem + (back if character in heavy else front)
+    return stem + front
+
+
 def negative_of(stem):
     """Kökün olumsuz geniş zaman biçimi, ünlü uyumuna göre."""
-    for character in reversed(stem):
-        if character in "aeıioöuü":
-            return stem + ("maz" if character in BACK else "mez")
-    return stem + "mez"
+    return _harmonised(stem, _of("aorist_negative_suffixes"))
 
 
 def infinitive_of(stem):
     """Mastar: aynı uyum kuralı."""
-    for character in reversed(stem):
-        if character in "aeıioöuü":
-            return stem + ("mak" if character in BACK else "mek")
-    return stem + "mek"
+    return _harmonised(stem, _of("infinitive_suffixes"))
 
 
 def discover(words, minimum=2):
@@ -94,26 +132,10 @@ def discover(words, minimum=2):
             for infinitive, (_, positive, negative) in sorted(found.items())]
 
 
-# İsim testi: bir kelime durum eki alıyorsa isimdir. "risk" isimdir çünkü
-# "riski", "riske", "riskten" de geçiyor; "henüz" değildir çünkü hiçbiri
-# geçmiyor. Fiil testinin aynı ilkesi — türü kural değil, ekler söyler.
-NOUN_MARKS = (("i", "ı", "u", "ü"), ("e", "a"), ("de", "da", "te", "ta"),
-              ("den", "dan", "ten", "tan"), ("in", "ın", "un", "ün"),
-              ("ler", "lar"))
-
-
-# Sıfat-fiil ekleri: fiilden sıfat yapar. "olan", "gereken", "olduğu" bir
-# kavram değil, bir yüklemin sıfatlaşmış hâli — ama durum eki aldıkları için
-# isim testinden geçiyorlardı ve grafın en zengin "kavramları" oldular.
-PARTICIPLES = ("an", "en", "dığı", "diği", "duğu", "düğü", "tığı", "tiği",
-               "acak", "ecek", "esi", "ası", "mış", "miş", "muş", "müş")
-
-# Yapı kelimeleri: dilbilgisi taşırlar, kavram değildirler. Kapalı ve kısa bir
-# liste — ama asıl eleme sıklıkla yapılıyor (bkz. is_structural).
-LIGHT = frozenset((
-    "şey", "zaman", "kendi", "taraf", "yer", "hâl", "hal", "durum", "konu",
-    "biri", "kimse", "yan", "yanı", "üzere", "kadar", "gibi", "göre",
-))
+# İsim testi (`case_families`), sıfat-fiil ekleri (`participle_suffixes`) ve
+# yapı kelimeleri (`light_words`) artık `lmm/turkish.py`'de duruyor. Testlerin
+# kendisi burada ve dile bakmıyor: "durum eki alıyorsa isimdir", "eki var ve
+# kökü fiilse sıfat-fiildir", "en sık üç yüzdeyse dilbilgisidir".
 
 
 def is_participle(word, verbs=None):
@@ -124,14 +146,19 @@ def is_participle(word, verbs=None):
     "penguen", "kaplan", "orman", "insan" gibi isimleri eliyordu — bu gece
     "banka"yı "bank'a" sanan hatanın aynısı, ve çözümü de aynı: derleme sor.
     """
-    for suffix in PARTICIPLES:
+    for suffix in _of("participle_suffixes"):
         if not word.endswith(suffix) or len(word) - len(suffix) < 2:
             continue
         stem = word[: -len(suffix)]
         if verbs is None:
             continue            # sözlük yoksa karar verilemez, isim sayılır
-        if infinitive_of(stem) in verbs or stem + "mak" in verbs \
-                or stem + "mek" in verbs:
+        # Uyum kuralıyla üretilen mastarın yanında ekin İKİ hâli de deneniyor:
+        # kökün son ünlüsü kurala uymayabiliyor ("gel" ince, "gelmek" doğru;
+        # ama alıntı köklerde uyum tutmuyor) ve tek hâle bakmak fiili
+        # kaçırıyordu.
+        if infinitive_of(stem) in verbs:
+            return True
+        if any(stem + mark in verbs for mark in _of("infinitive_suffixes")):
             return True
     return False
 
@@ -151,7 +178,7 @@ def is_structural(word, seen, rank=STRUCTURAL_RANK):
     Sıra ölçeklenmiyor: bir dilin en sık üç yüz kelimesi her derlemde aynı
     türden şeylerdir — bağlaç, zamir, yardımcı fiil, "olan", "şey".
     """
-    if word in LIGHT:
+    if word in _of("light_words"):
         return True
     return word in structural_set(seen, rank)
 
@@ -192,7 +219,7 @@ def is_noun(word, seen, least=1):
     if not word or len(word) < 3:
         return False
     families = 0
-    for family in NOUN_MARKS:
+    for family in _of("case_families"):
         for suffix in family:
             if seen.get(word + suffix, 0) >= 2:
                 families += 1
@@ -203,7 +230,6 @@ def is_noun(word, seen, least=1):
 # Sıfat testi: Türkçe'de yalnızca sıfat ve zarf derecelenir. "daha zor" olur,
 # "daha banka" olmaz. Ham sayı yanıltıyor ("çok risk" geçerlidir) ama ORAN
 # ayırıyor: ölçüldü, gerçek sıfatlar 194-339‰, isimler 0,4-7‰. Arada uçurum var.
-GRADERS = ("daha", "en", "çok", "pek", "oldukça")
 ADJECTIVE_RATE = 0.05       # binde 50; ölçülen iki küme arasındaki boşlukta
 
 
@@ -216,7 +242,7 @@ def is_adjective(word, graded, seen):
     total = seen.get(word, 0)
     if total < 20:
         return False        # az geçen kelimede oran güvenilmez
-    hits = sum(graded.get((grader, word), 0) for grader in GRADERS)
+    hits = sum(graded.get((grader, word), 0) for grader in _of("graders"))
     return hits / total >= ADJECTIVE_RATE
 
 
@@ -225,7 +251,7 @@ def graded_pairs(tokens):
     found = collections.Counter()
     previous = None
     for token in tokens:
-        if previous in GRADERS:
+        if previous in _of("graders"):
             found[(previous, token)] += 1
         previous = token
     return found
@@ -233,5 +259,9 @@ def graded_pairs(tokens):
 
 def from_text(text, minimum=2):
     """Düz metinden doğrudan. Büyük dosyalar için parça parça verilmeli."""
+    # Alfabe dile ait: İngiliz harfleriyle aramak "çalışır"ı "al" ve "r"
+    # diye ikiye bölerdi. Harflerini bildirmeyen bir dilde ASCII'ye
+    # düşülüyor — eksik, ama sessizce boş dönmekten iyi.
+    letters = getattr(_language(), "letters", "a-z")
     return discover(collections.Counter(
-        re.findall(r"[a-zçğıöşü]+", text.lower())), minimum)
+        re.findall(f"[{letters}]+", text.lower())), minimum)

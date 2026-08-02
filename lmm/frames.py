@@ -22,8 +22,21 @@ Buradaki yapı iki parçalı:
 İkisi de veri. Başka bir dil için ek listeleri değişir; buradaki kod değişmez.
 """
 
-# Durum ekleri: bir kelimenin cümledeki rolünü söyleyen şey.
-# Sıra önemli — uzun ek önce denenmeli, yoksa "evden" içinde "de" bulunur.
+# Durum ve zaman ETİKETLERİ. Türkçe okunuyorlar ama dil değiller; bu ölçüldü,
+# çünkü nötr bir tanımlayıcıya çevirmek gereksiz risk olabilirdi:
+#
+#     kullanıcıya görünüyor mu   20 turluk gerçek Session sohbeti: 0 kez
+#     grafa yazılıyor mu         16.164 olguluk birlesik.lmm: 0 kez
+#                                ("geniş" iki kez geçiyor ama sıfat olarak —
+#                                 "ova geniş", AORIST etiketi olarak değil)
+#     bu dosyanın dışında okuyan  yok; `.roles` ve `.tense`'e dokunan tek yer
+#                                 `to_fact`, o da bu dosyada
+#
+# Yani dizgi değil KİMLİK: bir rolün adı, o rolü tanımlayan organda durur ve
+# `lmm/turkish.py` ona kendi eklerini eşler. Ekler oraya taşındı; etiketler
+# burada kaldı. Tek dış bağ `lmm/discovered.py`'nin kendi `COPULA = "koşaç"`
+# satırı, ve o zaten burayla aynı değeri iki kez yazıyor — taşımak onu
+# çözmezdi, yalnız yerini değiştirirdi.
 NOMINATIVE = "yalın"
 ACCUSATIVE = "belirtme"
 DATIVE = "yönelme"
@@ -32,19 +45,6 @@ ABLATIVE = "ayrılma"
 GENITIVE = "tamlayan"
 INSTRUMENTAL = "vasıta"
 
-CASES = (
-    (("nden", "ndan", "den", "dan", "ten", "tan"), ABLATIVE),
-    (("nde", "nda", "de", "da", "te", "ta"), LOCATIVE),
-    (("nın", "nin", "nun", "nün", "ın", "in", "un", "ün"), GENITIVE),
-    (("yle", "yla", "ile"), INSTRUMENTAL),
-    (("ye", "ya", "e", "a"), DATIVE),
-    (("yı", "yi", "yu", "yü", "nı", "ni", "nu", "nü",
-      "ı", "i", "u", "ü"), ACCUSATIVE),
-)
-
-# Yüklem ekleri. Ölçüldü: ilk altısı yüklemlerin ~%75'ini kapsıyor, ve
-# ilk ikisi tek başına yarısını. Ansiklopedik nesir bu dağılımda cömert —
-# tanım ve niteleme cümleleri, yani grafı besleyen tür, yoğun kısımda.
 COPULA = "koşaç"            # -dır: "bir kuştur", "beyazdır"     %17
 AORIST = "geniş"            # -r:   "uçar"                        %14
 PAST = "geçmiş"             # -dı:  "kuruldu"                     %32
@@ -55,26 +55,41 @@ NEGATIVE = "olumsuz"        # -maz:  "uçamaz" — kutup, ayrı bir zaman değil
 OBLIGATION = "gereklilik"   # -malı: "şifrelenmeli" — yapılması gereken
 CONDITION = "koşul"         # -sa:   "yağarsa" — tek başına olgu değil
 
-PREDICATES = (
-    # Kip ekleri koşaçtan ÖNCE denenmeli: "yapılmalıdır" kelimesi koşaç kuralına
-    # takılıp "yapılmalı" + koşaç diye okunuyordu, oysa gereklilik kipidir.
-    (("malıdır", "melidir", "malı", "meli"), OBLIGATION),
-    (("sa", "se", "ysa", "yse"), CONDITION),
-    (("maktadır", "mektedir"), PROGRESSIVE),
-    (("mıştır", "miştir", "muştur", "müştür",
-      "mıştı", "mişti", "muştu", "müştü"), PERFECT),
-    (("abilir", "ebilir"), ABILITY),
-    (("tur", "tır", "dur", "dır", "tür", "tir", "dür", "dir"), COPULA),
-    (("dı", "di", "du", "dü", "tı", "ti", "tu", "tü"), PAST),
-    (("ar", "er", "ır", "ir", "ur", "ür", "r"), AORIST),
-)
-
 SHORTEST_STEM = 2
-# Koşaç, zaman ekinin üstüne de gelir: "uçacak-tır", "uçmakta-dır".
-COPULA_ON_TENSE = ("dır", "dir", "dur", "dür", "tır", "tir", "tur", "tür")
-# Çoğul eki de -r ile biter; geniş zaman sanılmasın.
-NOT_PREDICATES = ("lar", "ler")
-PLURAL = ("lar", "ler")
+
+_MORPHOLOGY = None
+
+
+def _language():
+    """Ekleri hangi dilden okuyacağı.
+
+    Bu dosya bir Türkçe listesi taşımamalı: taşıdığı sürece ikinci bir dil,
+    ikinci bir çerçeve okuyucusu demek. Ekler `lmm/turkish.py`'de duruyor ve
+    buradan `getattr` ile soruluyor — bildirmeyen bir dil boş küme verir ve
+    organ körleşir ama çökmez, `lmm/frequency.py`'nin sayaçsız çalıştığı gibi.
+
+    İthal tembel, çünkü `turkish` bu dosyadan etiketleri alıyor: sıra
+    tersine çevrilirse döngü olur. Modül düzeyinde bir bağ yok, ilk soruda
+    kuruluyor ve saklanıyor.
+    """
+    global _MORPHOLOGY
+    if _MORPHOLOGY is None:
+        from lmm.turkish import TurkishMorphology
+        _MORPHOLOGY = TurkishMorphology()
+    return _MORPHOLOGY
+
+
+def _suffixes(name):
+    return tuple(getattr(_language(), name, ()))
+
+
+def _plural():
+    """Çoğul eki. Burada iki iş görüyor ve ikisi de aynı ekten geliyor:
+    yüklem sanılmaması ("kuşlar" -r ile biter) ve kavramdan soyulması
+    ("kuşlar uçar" cümlesinin öznesi kuştur). İki ayrı liste yazılmıştı,
+    ikisi de aynı değerdi; dil zaten `plural_suffixes` diye bildiriyor.
+    """
+    return _suffixes("plural_suffixes")
 
 
 def case_of(word, seen=None):
@@ -91,7 +106,7 @@ def case_of(word, seen=None):
     olmayan yerlerde (testler, küçük bellekler) sistemin çalışmaya devam
     etmesini sağlıyor.
     """
-    for suffixes, case in CASES:
+    for suffixes, case in _suffixes("case_suffixes"):
         for suffix in suffixes:
             if not word.endswith(suffix) or len(word) - len(suffix) < SHORTEST_STEM:
                 continue
@@ -114,7 +129,7 @@ def _from_lexicon(word, lexicon, depth=3):
         return False
     if lexicon.reading(word) is not None:
         return True
-    for ending in NOT_PREDICATES + COPULA_ON_TENSE:
+    for ending in _plural() + _suffixes("copula_on_tense"):
         if word.endswith(ending) and len(word) > len(ending) + 1:
             if _from_lexicon(word[: -len(ending)], lexicon, depth - 1):
                 return True
@@ -149,7 +164,7 @@ def predicate_of(word, lexicon=None):
     "üret + ir" geniş zamandır. Aynı harfler, iki ayrı yapı; kural ayıramaz,
     sözlük ayırır.
     """
-    if word.endswith(NOT_PREDICATES):
+    if word.endswith(_plural()):
         # Çoğul eki de -r ile bitiyor ve geniş zaman sanılmasın diye bu kapı
         # kondu. Ama kapı fazla genişti: Türkçe'de yüklem de çoğul çekim alır
         # ("kuşlar UÇARLAR") ve o cümleler hiç okunamıyordu — derlemde
@@ -159,7 +174,7 @@ def predicate_of(word, lexicon=None):
         # onu tanıyor; "kuşlar" atılınca "kuş" oluyor ve sözlük tanımıyor.
         # Yani kural değil sözlük ayırıyor — bu dosyanın her yerinde olduğu gibi.
         if lexicon is not None:
-            for ending in NOT_PREDICATES:
+            for ending in _plural():
                 if not word.endswith(ending):
                     continue
                 stem = word[: -len(ending)]
@@ -178,7 +193,7 @@ def predicate_of(word, lexicon=None):
             # "penguen uçamaz" cümlesinden "penguen can uçmak" çıkıyordu. Bir
             # olgunun tersi, olgusuzluktan kötüdür.
             return reading[0], (AORIST if reading[1] else NEGATIVE)
-    for suffixes, tense in PREDICATES:
+    for suffixes, tense in _suffixes("predicate_suffixes"):
         for suffix in suffixes:
             if not word.endswith(suffix):
                 continue
@@ -198,16 +213,14 @@ def predicate_of(word, lexicon=None):
     return None, None
 
 
-NOT_A_NODE = frozenset((
-    "değil", "yok", "var", "bir", "birer", "bu", "şu", "o", "her", "tek",
-    "çok", "az", "daha", "en", "ve", "ile", "de", "da", "ki", "gibi", "göre",
-    "kadar", "için", "ise", "ne", "hem", "ya", "veya", "ancak", "ama",
-))
-
-
 def _node(word):
-    """Bu kelime bir kavram ya da hedef olabilir mi?"""
-    if not word or len(word) < 3 or word in NOT_A_NODE:
+    """Bu kelime bir kavram ya da hedef olabilir mi?
+
+    Kapalı sınıf sözcüklerin listesi dile ait ve `lmm/turkish.py`'de duruyor.
+    Bildirmeyen bir dilde eleme yalnız uzunluğa ve harflere kalır — gevşek,
+    ama bu organın kendi kararı değil.
+    """
+    if not word or len(word) < 3 or word in _suffixes("not_concepts"):
         return False
     return word.replace("'", "").isalpha()
 
@@ -272,7 +285,7 @@ def read(tokens, seen=None, lexicon=None, graded=None):
     parsed = []
     for word in tokens[:-1]:
         root, case = case_of(word, seen)
-        if case == NOMINATIVE and root.endswith(PLURAL) and len(root) > 5:
+        if case == NOMINATIVE and root.endswith(_plural()) and len(root) > 5:
             root = root[:-3]
         parsed.append((root, case))
     for root, case in parsed:

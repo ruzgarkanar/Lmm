@@ -156,6 +156,36 @@ class Grammar:
         # İkinci geçişte açılır: bkz. `match`.
         self._on_faith = False
 
+    def _conditional(self, token, lexicon):
+        """Bu kelime bir KOŞUL taşıyor mu — yani cümle bir iddia değil mi.
+
+        "yağmur yağarsa ıslanırsın" cümlesi yağmur hakkında hiçbir şey
+        söylemez; iki olay arasında bir bağ kurar. Ayrıştırıcı bunu bildirme
+        sanıyor ve grafa olmayan bir olgu yazıyordu:
+
+            kenar: yağmur --can--> ıslanmak (nesne: yağarsa)
+
+        Ek DİLDEN soruluyor (`conditional_suffixes`), burada yazılı değil;
+        dilini bildirmeyen bir organ boş küme alır ve bu kapı sessizce kapanır.
+
+        Yanlış pozitif tehlikesi gerçek: "masa", "kasa", "elbise" de aynı
+        harflerle biter. Ayrım sayıma bırakılıyor — koşul eki bir FİİLE
+        binebilir. `yağarsa` - `sa` = `yağar`, derlem onu fiil biliyor.
+        `masa` - `sa` = `ma`, bilmiyor. Bu, bu dosyanın her yerindeki disiplin:
+        kural değil tanık karar verir.
+        """
+        endings = getattr(self.morphology, "conditional_suffixes", ())
+        for ending in endings:
+            if not token.endswith(ending) or len(token) - len(ending) < 3:
+                continue
+            stem = token[: -len(ending)]
+            if lexicon is not None and lexicon.reading(stem) is not None:
+                return True
+            from lmm import frequency
+            if stem in frequency.verbs():
+                return True
+        return False
+
     def known(self):
         return set(self._known() if callable(self._known) else self._known)
 
@@ -417,6 +447,9 @@ class Grammar:
             # bir olgu ve yeri graf.
             if self._meanings and token in self._meanings(slot):
                 return slot
+            return None
+        if slot in (KAVRAM, TUR, NITELIK, NESNEL) and self._conditional(token,
+                                                                       lexicon):
             return None
         if slot == KAVRAM:
             # A closed-class word is never the thing being talked about.

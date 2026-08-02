@@ -9,6 +9,15 @@ A second language means another module shaped like this one, not another parser.
 """
 from lmm.grammar import (Pattern, Grammar, KAVRAM, TUR, NITELIK, SOZ, FIIL,
                          SORU, KIM, ROL, NICEL, SAHIP, NESNEL, FROM_VERB)
+# Durum ve zaman ETİKETLERİ. Türkçe sözcüklere benziyorlar ama dil değiller:
+# ölçüldü — kullanıcıya hiç görünmüyorlar, grafa hiç yazılmıyorlar, ve
+# `lmm/frames.py` dışında kimse okumuyor. Yani kimliktirler, ve kimliğin yeri
+# onları TANIMLAYAN organdır. Dil onlara yalnızca ek eşliyor; ikinci bir dil
+# aynı etiketlere kendi eklerini eşler. Bu yön, `frames`'in modül düzeyinde
+# hiçbir şey ithal etmemesi sayesinde döngü kurmuyor.
+from lmm.frames import (ABILITY, ABLATIVE, ACCUSATIVE, AORIST, CONDITION,
+                        COPULA, DATIVE, GENITIVE, INSTRUMENTAL, LOCATIVE,
+                        OBLIGATION, PAST, PERFECT, PROGRESSIVE)
 from lmm.relations import (REQUIRES, IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY,
                            HAS_PART, LACKS_PART, PLACE, SOURCE, ALL,
                            MOST, SOME, NO)
@@ -65,15 +74,89 @@ class TurkishMorphology:
                       "nereden", "niye", "niçin", "neden", "kaçıncı")
     copula_suffixes = ("tur", "tır", "dur", "dır", "tür", "tir", "dür", "dir")
     plural_suffixes = ("lar", "ler")
+    # Koşul kipi. Bir koşul cümlesi bir İDDİA değildir: "yağmur yağarsa
+    # ıslanırsın" yağmur hakkında hiçbir şey söylemez, iki olay arasında bir
+    # bağ kurar. Bildirilmediği için ayrıştırıcı onu bildirme sanıyor ve grafa
+    # olmayan bir olgu yazıyordu:
+    #
+    #   > yağmur yağarsa ıslanırsın
+    #   öğrendim: yağmur yağarsa ıslanır.
+    #   kenar: yağmur --can--> ıslanmak (nesne: yağarsa)
+    #
+    # Delik eskiydi ama görünmüyordu: 6 fiillik tohum dağarcık `ıslanırsın`ı
+    # tanımadığı için cümle KOŞUL olduğundan değil KELİME eksikliğinden
+    # reddediliyordu. Dağarcık derleme bağlanınca (18 -> 1559 yüzey) delik
+    # açığa çıktı — bir yeteneğin başka bir kusuru gizlemesi.
+    conditional_suffixes = ("sa", "se")
+    # Aşağıdakiler ÇIKTI değil GİRDİ: sistemin söyledikleri değil, tanıdıkları.
+    # `lmm/phrasing.py` "ne denir"i bilir, burası "ne duyulur"u. İkisi de dil ama
+    # yönleri ters, ve karıştırılınca ikinci bir dil eklemek iki dosya yerine
+    # sekiz dosyaya dokunmak oluyordu. Ölçüldü: bu listeler `cli.py` (7 yerde),
+    # `social.py` (40 kalıp) ve `coordination.py`'de duruyordu.
+    #
+    # Eksiltili sorunun açılışı: "PEKİ YA kartal". Bilgi taşımıyorlar, yalnız
+    # cümlenin eksiltili olduğunu işaretliyorlar. `cli.py`'de ikinci ve UYUŞMAYAN
+    # bir kopya vardı — "acaba", "hem", "işte" orada yoktu ve o üç eksiltili
+    # takip sessizce anlaşılmıyordu.
+    openers = ("peki", "ya", "yaa", "hem", "acaba", "bir", "de", "da", "işte",
+               "e", "ee", "pekiya")
+    # Belirtisiz tanımlık. Kuyruk iki türlü kurulabiliyor — "penguen kuş mu" ve
+    # "penguen BİR kuş mu" — ve hangisinin kalıbı olduğunu önceden bilmiyoruz.
+    indefinite = "bir"
+    # Sohbeti bitiren, yardım isteyen ve durum soran sözler. ASCII eşdeğerleri
+    # bilerek duruyor: Türkçe klavyesi olmayan da çıkabilmeli.
+    exit_words = ("çık", "cik", "exit")
+    help_words = ("yardım", "yardim", "help", "?")
+    status_words = ("durum", "istatistik")
+    # Çoğul göndermede kuyruğa karışan ama içerik taşımayan sözler:
+    # "İKİSİ DE kuş mu" -> kuyruk "kuş mu".
+    echoes = ("ikisi", "ikiside", "hepsi", "her", "ikisininde", "de", "da")
+    # Bilgi taşımayan alışverişler: karşılıkları `lmm/phrasing.py`'de.
+    # Anahtarlar `lmm/social.py`'deki kimliklerle eşleşiyor ve orası dil
+    # bilmiyor — bu tablo değişince ikinci bir dil ekleniyor, kod değişmeden.
+    exchanges = {
+        "greeting": ("selam", "merhaba", "günaydın", "iyi akşamlar",
+                     "iyi günler", "selamlar", "hey", "alo"),
+        "farewell": ("görüşürüz", "hoşça kal", "hoşçakal", "bay",
+                     "iyi geceler", "kendine iyi bak", "güle güle"),
+        "thanks": ("teşekkür", "teşekkürler", "sağ ol", "sağol", "eyvallah",
+                   "minnettarım"),
+        "wellbeing": ("nasılsın", "naber", "ne haber", "nasıl gidiyor",
+                      "iyi misin", "keyifler nasıl"),
+        "identity": ("kimsin", "sen kimsin", "adın ne", "nesin",
+                     "kendini tanıt", "kendini tanıtır mısın", "sen nesin"),
+        "ability": ("ne yapabilirsin", "neler yapabilirsin",
+                    "ne işe yarıyorsun", "nasıl kullanılır", "yardım"),
+    }
     # Açılış sözcükleri: cümlenin başında durup hiçbir şey eklemeyenler.
     # "acaba penguen uçabilir mi" ile "penguen uçabilir mi" aynı soru.
-    openers = ("peki", "ya", "hem", "acaba", "bir", "de", "da", "işte")
     # Bir kavram öbeğinin İÇİNE giremeyecek kelimeler. Hepsi kapalı sınıf ve
     # hepsi aynı işi görüyor: kavramı nitelemiyorlar, cümlenin yapısını
     # kuruyorlar. Bu bilgi DİLE aittir ve burada durur — `grammar.py` hangi
     # dile baktığını bilmemeli.
-    from lmm.clauses import JOINERS as _JOINERS
-    joiners = _JOINERS
+    #
+    # Liste `lmm/clauses.py`'den buraya taşındı ve yön tersine döndü: eskiden
+    # dil, bölme organından ithal ediyordu. Bağlaç bir dil olgusudur, bölme
+    # ise bir işlem; ikincisi birincisini tanımlayamaz.
+    joiners = ("ve", "veya", "ya da", "ancak", "fakat", "ama", "çünkü",
+               "ayrıca", "yani", "oysa", "hâlbuki", "halbuki", "lakin",
+               "ne var ki")
+    # Türkçe yan cümlesini bağlaçla değil EKLE kurar. Ölçüldü: cümlelerin
+    # %74,4'ü bunlardan en az birini taşıyor. Her biri bir yan cümlenin SONUNU
+    # işaretler: "kaydı alıp raporlar" iki yüklemdir.
+    subordinator_suffixes = (
+        ("ip", "ıp", "up", "üp"),               # gelip, alıp
+        ("erek", "arak"),                       # koşarak
+        ("ince", "ınca", "unca", "ünce"),       # gelince
+        ("madan", "meden"),                     # görmeden
+        ("dıkça", "dikçe", "dukça", "dükçe"),   # gördükçe
+        ("ken",),                               # bakarken
+    )
+    # Yan cümle ekleri fiili çekimsiz bırakır ve bölerken çekimi geri kurmak
+    # gerekir — "-ken" hariç: "bakarken" ekini yitirince zaten "bakar"dır.
+    # Hangi ekin böyle olduğunu ve altındaki gövdenin neye benzemesi
+    # gerektiğini dil söyler; bölme organı yalnızca uygular.
+    finite_subordinators = {"ken": ("ar", "er", "ır", "ir")}
     # Ayrı yazılan pekiştirme parçacıkları. Ek hâlleri bitişik yazıldığı için
     # karışmıyor: "kartalda" bulunma, "kartal da" pekiştirme.
     # Görüş isteyen açılışlar. Kapalı sınıf: bir dilde birkaç tanedir ve
@@ -137,6 +220,118 @@ class TurkishMorphology:
     # A consonant softens before the suffix: balık + ın is "balığın". Undoing
     # that is part of reading the possessor back out.
     softened = {"ğ": "k", "b": "p", "c": "ç", "d": "t"}
+
+    # --- Aşağısı `lmm/verbs.py` ile `lmm/frames.py`'den taşındı ---------------
+    #
+    # O iki organ hangi dile baktığını bilmemeli, yoksa ikinci bir dil ikinci
+    # bir organ demek. Ekler burada durur, orası `getattr` ile sorar ve dili
+    # olmayan bir organ sessizce boş küme alır — dosyanın geri kalanındaki
+    # desenin aynısı.
+
+    vowels = "aeıioöuü"
+    back_vowels = "aıou"        # kalın ünlü: ek "-mak/-maz", ince olan "-mek/-mez"
+    infinitive_suffixes = ("mak", "mek")
+
+    # Geniş zaman. Fiil keşfi bu iki listeye dayanıyor: bir kök hem olumlu hem
+    # olumsuz çekimiyle metinde geçiyorsa fiildir. Bir dil eklemek bu ikisini
+    # yazmaktır, `lmm/verbs.py`'deki kodu değiştirmek değil.
+    aorist_suffixes = ("ar", "er", "ır", "ir", "ur", "ür", "r")
+    aorist_negative_suffixes = ("maz", "mez")
+
+    # Sıfat-fiil ekleri: fiilden sıfat yapar. "olan", "gereken", "olduğu" bir
+    # kavram değil, bir yüklemin sıfatlaşmış hâli.
+    participle_suffixes = ("an", "en", "dığı", "diği", "duğu", "düğü", "tığı",
+                           "tiği", "acak", "ecek", "esi", "ası", "mış", "miş",
+                           "muş", "müş")
+
+    # İsim testi: bir kelime durum eki alıyorsa isimdir. Aile aile duruyor
+    # çünkü ölçüt "kaç ayrı AİLE görüldü" — bir tek çekim tesadüf olabilir.
+    case_families = (("i", "ı", "u", "ü"), ("e", "a"), ("de", "da", "te", "ta"),
+                     ("den", "dan", "ten", "tan"), ("in", "ın", "un", "ün"),
+                     ("ler", "lar"))
+
+    # Derecelendiriciler. Türkçe'de yalnızca sıfat ve zarf derecelenir: "daha
+    # zor" olur, "daha banka" olmaz.
+    graders = ("daha", "en", "çok", "pek", "oldukça")
+
+    # Yapı kelimeleri: dilbilgisi taşırlar, kavram değildirler. Asıl eleme
+    # sıklıkla yapılıyor; bu liste yalnız sayımın kaçırdıklarını kapatıyor.
+    light_words = ("şey", "zaman", "kendi", "taraf", "yer", "hâl", "hal",
+                   "durum", "konu", "biri", "kimse", "yan", "yanı", "üzere",
+                   "kadar", "gibi", "göre")
+
+    # Durum ekleri: bir kelimenin cümledeki rolünü söyleyen şey. Sıra önemli —
+    # uzun ek önce denenmeli, yoksa "evden" içinde "de" bulunur. Etiketler
+    # `lmm/frames.py`'nin kimlik dizgileri; dil onları yalnızca EŞLİYOR.
+    case_suffixes = (
+        (("nden", "ndan", "den", "dan", "ten", "tan"), ABLATIVE),
+        (("nde", "nda", "de", "da", "te", "ta"), LOCATIVE),
+        (("nın", "nin", "nun", "nün", "ın", "in", "un", "ün"), GENITIVE),
+        (("yle", "yla", "ile"), INSTRUMENTAL),
+        (("ye", "ya", "e", "a"), DATIVE),
+        (("yı", "yi", "yu", "yü", "nı", "ni", "nu", "nü",
+          "ı", "i", "u", "ü"), ACCUSATIVE),
+    )
+
+    # Yüklem ekleri. Ölçüldü: ilk altısı yüklemlerin ~%75'ini kapsıyor.
+    # Kip ekleri koşaçtan ÖNCE denenmeli: "yapılmalıdır" koşaç kuralına
+    # takılıp "yapılmalı" + koşaç diye okunuyordu, oysa gereklilik kipidir.
+    predicate_suffixes = (
+        (("malıdır", "melidir", "malı", "meli"), OBLIGATION),
+        (("sa", "se", "ysa", "yse"), CONDITION),
+        (("maktadır", "mektedir"), PROGRESSIVE),
+        (("mıştır", "miştir", "muştur", "müştür",
+          "mıştı", "mişti", "muştu", "müştü"), PERFECT),
+        (("abilir", "ebilir"), ABILITY),
+        (("tur", "tır", "dur", "dır", "tür", "tir", "dür", "dir"), COPULA),
+        (("dı", "di", "du", "dü", "tı", "ti", "tu", "tü"), PAST),
+        (("ar", "er", "ır", "ir", "ur", "ür", "r"), AORIST),
+    )
+    # Koşaç, zaman ekinin üstüne de gelir: "uçacak-tır", "uçmakta-dır".
+    copula_on_tense = ("dır", "dir", "dur", "dür", "tır", "tir", "tur", "tür")
+
+    # --- Aşağısı `lmm/lexicon.py`'den taşındı --------------------------------
+    #
+    # Sözlük bir kelimeyi tanırken çekim katmanlarını soyuyor. Soyma İŞLEMİ
+    # dilden bağımsız — en dıştan içe, katman katman — ama katmanların neye
+    # benzediği bu dile ait ve orada yazılıydı.
+
+    # Geniş zaman dışındaki çekimler. Olumsuzluk ayrı bir ek olarak okunuyor;
+    # ikinci sütun ekin KENDİSİNİN olumlu olup olmadığını söylüyor.
+    tense_suffixes = (
+        (("ıyor", "iyor", "uyor", "üyor", "yor"), True),     # şimdiki zaman
+        (("acak", "ecek", "acağı", "eceği"), True),          # gelecek
+        (("mış", "miş", "muş", "müş"), True),                # duyulan geçmiş
+        (("dı", "di", "du", "dü", "tı", "ti", "tu", "tü"), True),  # görülen geçmiş
+    )
+    # Olumsuzluk ve yetersizlik: "uçmuyor", "uçamıyor". Ünlü uyumu yüzünden
+    # ek ünlüsü değişiyor, o yüzden hepsi sayılıyor — kapalı bir sınıf.
+    negation_marks = ("amı", "emi", "amu", "emü", "mı", "mi", "mu", "mü",
+                      "ma", "me")
+    # Kişi ekleri. Fiil çekiminin en dış katmanı ve soyulmadan sözlük kelimeyi
+    # tanımıyordu: "söyleyebilirsin", "biliyorsun", "konuşuyoruz" hepsi
+    # "bilmiyorum" cevabı alıyordu. Kapalı sınıf: bir dilde altı kişi vardır
+    # ve ünlü uyumuyla çoğalırlar.
+    person_suffixes = ("sınız", "siniz", "sunuz", "sünüz",
+                       "ım", "im", "um", "üm", "yım", "yim", "yum", "yüm",
+                       "sın", "sin", "sun", "sün",
+                       "ız", "iz", "uz", "üz", "yız", "yiz", "yuz", "yüz",
+                       "lar", "ler")
+    # Türkçe yeteneği ayrı bir ekle işaretler: "penguen yüzebilir". Her fiil
+    # için üçüncü bir biçim saklamak yerine ek soyuluyor.
+    ability_suffixes = ("ebilir", "abilir")
+
+    # Bu dilin harfleri. Metinden kelime çıkarırken gerekiyor ve İngiliz
+    # alfabesi Türkçe'yi kesiyor: "çalışır" ile "calisir" ayrı kelimeler.
+    letters = "a-zçğıöşü"
+
+    # Kavram ya da hedef OLAMAYACAK kelimeler. Hepsi kapalı sınıf; grafta
+    # düğüm olsalar bir şeyin adı değil, cümlenin çimentosu olurlardı.
+    # `lmm/frames.py`'den taşındı — orası çerçeve kuruyor, kelime saymıyor.
+    not_concepts = ("değil", "yok", "var", "bir", "birer", "bu", "şu", "o",
+                    "her", "tek", "çok", "az", "daha", "en", "ve", "ile",
+                    "de", "da", "ki", "gibi", "göre", "kadar", "için", "ise",
+                    "ne", "hem", "ya", "veya", "ancak", "ama")
 
     def genitive_readings(self, word):
         """Every way this word could be a possessor, longest stem first."""

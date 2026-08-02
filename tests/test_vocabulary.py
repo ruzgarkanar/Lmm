@@ -21,11 +21,21 @@ class TestLexicon(unittest.TestCase):
         self.assertEqual(lexicon.surface("uçmak", True), "uçar")
 
     def test_learning_a_verb_works_both_ways(self):
+        """Öğretilen fiil iki yönde de okunur.
+
+        Test önce boş sözlüğün "öğrenir"i BİLMEMESİNİ şart koşuyordu. Tohum
+        dağarcık derleme bağlanınca (18 yüzey -> 1559) bu artık doğru değil ve
+        doğru olmaması bir kazanç: sistem başlarken 805 mastar tanıyor. Ölçülen
+        değişmez öğretmenin işlediği; boş bir sözlüğün dar olduğu değil.
+
+        Onun için uydurma bir fiil kullanılıyor: derlem onu bilemez, dolayısıyla
+        sınanan şey gerçekten ÖĞRENME.
+        """
         lexicon = Lexicon()
-        self.assertFalse(lexicon.knows("öğrenir"))
-        lexicon.learn_verb("öğrenmek", "öğrenir", "öğrenemez")
-        self.assertEqual(lexicon.reading("öğrenemez"), ("öğrenmek", False))
-        self.assertEqual(lexicon.surface("öğrenmek", True), "öğrenir")
+        self.assertFalse(lexicon.knows("zördeler"))
+        lexicon.learn_verb("zördemek", "zördeler", "zördeleyemez")
+        self.assertEqual(lexicon.reading("zördeleyemez"), ("zördemek", False))
+        self.assertEqual(lexicon.surface("zördemek", True), "zördeler")
 
     def test_signature_changes_when_words_are_learned(self):
         lexicon = Lexicon()

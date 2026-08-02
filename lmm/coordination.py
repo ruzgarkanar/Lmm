@@ -25,7 +25,8 @@ from lmm import phrasing
 
 # Cümlede iki özne olduğunu bağlaç zaten söylüyor; bu sözcükler onu tekrar
 # ediyor ve ayrıştırmayı bozuyorlar. Kapalı sınıf, birkaç tane.
-ECHOES = ("ikisi", "ikiside", "hepsi", "her", "ikisininde", "de", "da")
+# Liste `lmm/turkish.py`'ye taşındı: hangi sözcüklerin içerik taşımadığı DİLE
+# ait bir bilgi ve bu dosya bölme işini yapar, dili tanımlamaz.
 
 
 def split_subjects(tokens, joiners, known):
@@ -48,7 +49,9 @@ def split_subjects(tokens, joiners, known):
     if not rest or rest[0] not in known:
         return None, None
     second, tail = rest[0], rest[1:]
-    tail = [token for token in tail if token not in ECHOES]
+    from lmm.turkish import TurkishMorphology
+    echoes = getattr(TurkishMorphology, "echoes", ())
+    tail = [token for token in tail if token not in echoes]
     if not tail:
         return None, None
     return [first[0], second], tail
