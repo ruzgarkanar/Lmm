@@ -242,9 +242,33 @@ class Reasoning:
                                   candidate.target, candidate.object,
                                   candidate.role)
         claimed = candidate.relation == affirms
+        # İki VAROLUŞSAL iddia çelişmez: "bazı kuşlar uçar" ile "bazı kuşlar
+        # uçmaz" mantıkta birlikte doğrudur (I ile O tutarlıdır) ve Türkçede
+        # de öyle. Nicelik hesaba katılmadığı için bunlar çelişki sayılıyordu
+        # ve öğretmene gereksiz bir onay sorusu soruluyordu.
+        #
+        # Çelişki karşıtlık karesinde EVRENSEL uçta doğar: "kuşlar uçar" ile
+        # "bazı kuşlar uçmaz" gerçekten çelişir. Onun için en az birinin
+        # kalıtan (evrensel) bir iddia olması gerekiyor.
+        if (candidate.quantifier not in INHERITING
+                and self._only_partial(candidate, affirms, denies)):
+            return None
         if known is not None and known != claimed:
             return "şu an bildiğim: " + " çünkü ".join(chain)
         return None
+
+    def _only_partial(self, candidate, affirms, denies):
+        """Karşı taraftaki kayıtların hepsi varoluşsal mı — yani evrensel yok mu."""
+        for relation in (affirms, denies):
+            # `quantities()` KENAR döndürüyor, nicelik değil — adı yanıltıcı ve
+            # ilk yazışta dizgi sandım: karşılaştırma hiç tutmadı, her
+            # varoluşsal iddia çelişkisiz sayıldı ve gerçek çelişki kayboldu.
+            for edge in self.memory.quantities(
+                    candidate.concept, relation, candidate.target,
+                    candidate.object, candidate.role):
+                if edge.quantifier in INHERITING:
+                    return False
+        return True
 
     def _type_conflict(self, candidate):
         """"penguen bir kuş değildir" against a hierarchy that says it is."""

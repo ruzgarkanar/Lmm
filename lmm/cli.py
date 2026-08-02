@@ -317,7 +317,9 @@ class Session:
 
     def respond(self, line):
         if self.pending is not None:
-            return self._resolve_pending(line)
+            settled = self._resolve_pending(line)
+            if settled is not None:
+                return settled
         if arithmetic.looks_like_a_sum(line):
             # Computed, not recalled: a sum has no place in memory and no
             # business being guessed at.
@@ -813,11 +815,32 @@ class Session:
         return wondering(question.text) if question is not None else ""
 
     def _resolve_pending(self, line):
-        edge, self.pending = self.pending, None
-        if lower(line) in AFFIRMATIVE:
+        """Bekleyen onayın cevabı — ya da cevap değilse None.
+
+        Önce "evet değilse ret" sayılıyordu ve bekleyen onay varken gelen HER
+        satır yutuluyordu. Ölçüldü, iki şey birden kaybediliyordu:
+
+            > penguen uçamaz          -> "bir çelişki fark ettim ... öğreneyim mi?"
+            > bazı kuşlar uçar mı     -> "tamam, öğrenmedim."
+
+        Kullanıcının SORUSU cevapsız kaldı ve istisna da hiç öğrenilmedi. Bir
+        soru, bir evet/hayır sorusunun cevabı değildir.
+
+        Ölçüt sözcük listesi değil YAPI: satır onaysa onay, retse ret, ikisi de
+        değilse bu bir cevap değildir ve olağan yoldan işlenmeli. Bekleyen soru
+        duruyor — öğretmen açıklayıcı bir soru sorup sonra "evet" diyebilir ve
+        istisna hâlâ kaydedilir.
+        """
+        morphology = self.language.grammar.morphology
+        spoken = lower(line).strip(" .,!?")
+        if spoken in getattr(morphology, "affirmations", AFFIRMATIVE):
+            edge, self.pending = self.pending, None
             self.learning.confirm_exception(edge)
             return "öğrendim (istisna olarak işledim)."
-        return "tamam, öğrenmedim."
+        if spoken in getattr(morphology, "refusals", ()):
+            self.pending = None
+            return "tamam, öğrenmedim."
+        return None
 
     def save(self):
         self.memory.save(self.path)
