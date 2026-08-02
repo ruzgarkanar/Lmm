@@ -12,7 +12,17 @@ the duration of a request.
 """
 import contextvars
 
-# The starting vocabulary of the controlled world: surface -> (infinitive, is_positive)
+# Elle yazılmış çekirdek: surface -> (mastar, olumlu_mu).
+#
+# Bu liste artık başlangıç dağarcığının TAMAMI değil, DİBİ. Derlem varken
+# üstüne 1555 fiil biniyor (bkz. `seed_verbs`); yokken yalnız bu kalır ve
+# sistem çalışmaya devam eder.
+#
+# Yine de silinemez, ve nedeni ölçülebilir: derlem olumsuzu kuralla üretiyor
+# ("uçmaz"), oysa bu dilde yetersizlik ayrı bir ektir ("uçamaz") ve sistemin
+# KONUŞTUĞU biçim odur. Sıra bu yüzden önemli — `_forms` ilk gördüğü yüzeyi
+# saklıyor, o da buradan gelmeli. Yalnız derleme bırakılsa "penguen uçamaz"
+# yerine "penguen uçmaz" denirdi: anlam aynı değil, ve söyleyiş bozulurdu.
 CORE_VERBS = {
     "uçar": ("uçmak", True), "uçamaz": ("uçmak", False),
     "yüzer": ("yüzmek", True), "yüzemez": ("yüzmek", False),
@@ -28,36 +38,61 @@ CORE_VERBS = {
 }
 
 
-# Geniş zaman dışındaki çekimler. Olumsuzluk ayrı bir ek olarak okunuyor;
-# `negative` sütunu ekin KENDİSİNİN olumlu olup olmadığını söylüyor.
-TENSES = (
-    (("ıyor", "iyor", "uyor", "üyor", "yor"), True),     # şimdiki zaman
-    (("acak", "ecek", "acağı", "eceği"), True),          # gelecek
-    (("mış", "miş", "muş", "müş"), True),                # duyulan geçmiş
-    (("dı", "di", "du", "dü", "tı", "ti", "tu", "tü"), True),   # görülen geçmiş
-)
-# Olumsuzluk ve yetersizlik: "uçmuyor", "uçamıyor". Ünlü uyumu yüzünden
-# ek ünlüsü değişiyor, o yüzden hepsi sayılıyor — kapalı bir sınıf.
-NEGATIVE_MARKS = ("amı", "emi", "amu", "emü", "mı", "mi", "mu", "mü", "ma", "me")
+# Çekim ekleri — zaman, olumsuzluk, kişi, yeterlik — `lmm/turkish.py`'ye
+# taşındı. Burada kalan şey SOYMA işlemi ve o dile bakmıyor: en dıştan içe,
+# katman katman, her katmanda sözlüğe sor. Ek listelerini bildirmeyen bir dil
+# boş küme verir; o zaman yalnız doğrudan yazılmış biçimler tanınır — dar,
+# ama yanlış değil.
+_MORPHOLOGY = None
 
-# Kişi ekleri. Fiil çekiminin en dış katmanı ve soyulmadan sözlük kelimeyi
-# tanımıyordu: "söyleyebilirsin", "biliyorsun", "konuşuyoruz" hepsi
-# "bilmiyorum" cevabı alıyordu. Aynı ayrımı soru ekinde çözmüştük
-# (`misin` -> `mi`); fiilde çözmemişiz.
-#
-# Kapalı sınıf: bir dilde altı kişi vardır ve ünlü uyumuyla çoğalırlar.
-PERSON = ("sınız", "siniz", "sunuz", "sünüz",
-          "ım", "im", "um", "üm", "yım", "yim", "yum", "yüm",
-          "sın", "sin", "sun", "sün",
-          "ız", "iz", "uz", "üz", "yız", "yiz", "yuz", "yüz",
-          "lar", "ler")
 
-ABILITY_SUFFIXES = ("ebilir", "abilir")
+def _language():
+    """İthal tembel: `turkish` modülü `grammar`'ı, o da bu modülü çekiyor.
+    İlk soruda kuruluyor ve saklanıyor — `reading()` kelime başına çağrılıyor
+    ve her seferinde modül aramak ölçülebilir bir masraf."""
+    global _MORPHOLOGY
+    if _MORPHOLOGY is None:
+        from lmm.turkish import TurkishMorphology
+        _MORPHOLOGY = TurkishMorphology()
+    return _MORPHOLOGY
+
+
+def _of(name):
+    return tuple(getattr(_language(), name, ()))
+
+
+def _without(word, suffixes):
+    """Mastar ekini atar. Eki bildirmeyen dilde kelime olduğu gibi kalır."""
+    for suffix in suffixes:
+        if word.endswith(suffix) and len(word) > len(suffix):
+            return word[: -len(suffix)]
+    return word
+
+
+def seed_verbs():
+    """Bir belleğin doğduğu andaki fiil dağarcığı.
+
+    Elle yazılmış altı fiil, sistemin başlangıcını kendi kaynak kodunun
+    genişliğiyle sınırlıyordu: sözlükte olmayan bir yüklem hiçbir kalıba
+    uymuyor ve cümle tamamen kayboluyor (ölçümü `lmm/verbs.py` başında).
+    Oysa fiiller zaten çıkarılmış durumda — `data/tr-fiiller.txt`, derlemden
+    çift testiyle bulunmuş 807 mastar, 1614 çekim. Sözlüğün onları
+    bilmemesi için bir sebep yok; onları yazıya dökmek içinse hiç yok.
+
+    Derlem yoksa boş sözlük döner ve çekirdek tek başına kalır. Tablo bir
+    kolaylık, bir bağımlılık değil — `lmm/frequency.py`'nin her yerinde
+    olduğu gibi.
+    """
+    from lmm import frequency
+    found = dict(CORE_VERBS)
+    for surface, reading in frequency.verbs().items():
+        found.setdefault(surface, reading)
+    return found
 
 
 class Lexicon:
     def __init__(self, verbs=None):
-        self.verbs = dict(CORE_VERBS if verbs is None else verbs)
+        self.verbs = dict(seed_verbs() if verbs is None else verbs)
         # Several surfaces may mean the same thing — "uçmaz" and "uçamaz" both
         # deny flight — but only the first stays the one used for speaking.
         self._forms = {}
@@ -87,7 +122,7 @@ class Lexicon:
         """
         # Kişi eki en dışta durur; soyulup altındaki çekime bakılıyor.
         if depth > 0:
-            for ending in PERSON:
+            for ending in _of("person_suffixes"):
                 if not surface.endswith(ending):
                     continue
                 if len(surface) - len(ending) < 3:
@@ -97,7 +132,7 @@ class Lexicon:
                     self._inflected(inner, depth - 1)
                 if found is not None:
                     return found
-        for suffixes, negative in TENSES:
+        for suffixes, negative in _of("tense_suffixes"):
             for suffix in suffixes:
                 if not surface.endswith(suffix):
                     continue
@@ -105,7 +140,7 @@ class Lexicon:
                 if len(stem) < 2:
                     continue
                 polarity = True
-                for mark in NEGATIVE_MARKS:
+                for mark in _of("negation_marks"):
                     if stem.endswith(mark) and len(stem) > len(mark) + 1:
                         stem, polarity = stem[: -len(mark)], False
                         break
@@ -116,12 +151,13 @@ class Lexicon:
 
     def _stem_of(self, stem):
         """Bilinen bir fiilin gövdesi mi — ünlü kaymasına izin vererek."""
+        marks = _of("infinitive_suffixes")
+        vowels = getattr(_language(), "vowels", "")
         for infinitive, positive in self.verbs.values():
             if not positive:
                 continue
-            root = infinitive[:-3] if infinitive.endswith(("mak", "mek")) \
-                else infinitive
-            if root and (stem == root or stem.rstrip("aeıioöuü") == root):
+            root = _without(infinitive, marks)
+            if root and (stem == root or stem.rstrip(vowels) == root):
                 return infinitive
         return None
 
@@ -135,7 +171,7 @@ class Lexicon:
         direct = self.verbs.get(surface)
         if direct is not None:
             return direct
-        for suffix in ABILITY_SUFFIXES:
+        for suffix in _of("ability_suffixes"):
             if surface.endswith(suffix) and len(surface) > len(suffix) + 1:
                 stem = surface[: -len(suffix)].rstrip("y")
                 for infinitive, positive in self.verbs.values():

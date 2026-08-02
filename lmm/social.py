@@ -36,20 +36,14 @@ ABILITY = "ability"
 
 # Her biri, o niyeti taşıyan sözler. Kelime kelime değil, cümlenin tamamı ya da
 # içinde geçen anahtar aranıyor — "selam", "selam nasılsın", "merhaba dostum".
-EXCHANGES = {
-    GREETING: ("selam", "merhaba", "günaydın", "iyi akşamlar", "iyi günler",
-               "selamlar", "hey", "alo"),
-    FAREWELL: ("görüşürüz", "hoşça kal", "hoşçakal", "bay", "iyi geceler",
-               "kendine iyi bak", "güle güle"),
-    THANKS: ("teşekkür", "teşekkürler", "sağ ol", "sağol", "eyvallah",
-             "minnettarım"),
-    WELLBEING: ("nasılsın", "naber", "ne haber", "nasıl gidiyor",
-                "iyi misin", "keyifler nasıl"),
-    IDENTITY: ("kimsin", "sen kimsin", "adın ne", "nesin", "kendini tanıt",
-               "kendini tanıtır mısın", "sen nesin"),
-    ABILITY: ("ne yapabilirsin", "neler yapabilirsin", "ne işe yarıyorsun",
-              "nasıl kullanılır", "yardım"),
-}
+# Sözler `lmm/turkish.py`'de. Bu dosya "ne soruldu"yu bilir, hangi sözcüklerle
+# sorulduğunu değil — ikinci bir dil o tabloyu değiştirip buraya hiç dokunmuyor.
+def _exchanges():
+    from lmm.turkish import TurkishMorphology
+    return getattr(TurkishMorphology, "exchanges", {})
+
+
+EXCHANGES = _exchanges()
 
 # Hangi alışverişe hangi söyleyiş karşılık geliyor. Cümlelerin kendisi burada
 # DEĞİL: sistemin kendisi hakkında söyledikleri de Türkçe ve Türkçenin tamamı
