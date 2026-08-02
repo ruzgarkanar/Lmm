@@ -246,7 +246,7 @@ def request_words(kind, patterns):
     return found
 
 
-def accounted_for(kind, tokens, lexicon, patterns, meanings=None):
+def accounted_for(kind, tokens, lexicon, patterns, meanings=None, consumed=()):
     """Cümledeki her bilinen fiil bu okumayla açıklanıyor mu.
 
     Bu, kalıcı hafızayı koruyan kapı ve gerçek bir kusurdan doğdu: denetim
@@ -265,11 +265,27 @@ def accounted_for(kind, tokens, lexicon, patterns, meanings=None):
     Yani sistem, envanterinde karşılığı olmayan bir soruyu yaklaşık bir
     ilişkiye çevirmek yerine geri çekiliyor. Yanlış kural yazmak, kural
     yazamamaktan pahalıdır — hafıza bu mimarinin tek varlığı.
+
+    `consumed`: okumanın KENDİ kullandığı kelimelerin yerleri. Bunlar tanım
+    gereği açıklanmıştır ve sorulmamalıdır. Yokken kapı iki doğru okumayı
+    kesiyordu:
+
+        kar gerçekten beyaz mıdır   `kar` cümlenin KAVRAMI, ama derlem onu bir
+                                    fiil çekimi sanıyor ("karmak") ve kapı
+                                    "açıklanmayan fiil" diye reddediyordu
+        penguen uçar mı             `uçar` cümlenin HEDEFİ; istek sözcüğü
+                                    olmadığı için açıklanmamış sayılıyordu
+
+    Ayrım şu: kapı, okumanın DIŞINDA kalan fiilleri sorgulamak için var —
+    "ne gerekir"deki `gerekir` gibi. Okumanın içindekini sorgulamak, kendi
+    cevabını reddetmek demek.
     """
     from lmm import frequency
     asked = request_words(kind, patterns)
     wider = frequency.verbs()
-    for token in tokens:
+    for index, token in enumerate(tokens):
+        if index in consumed:
+            continue
         # Oturumun sözlüğü yalnızca öğretilmiş fiilleri bilir; burada sorulan
         # şey daha geniş: "bu kelime Türkçe'de bir fiil mi?" Cevabı derlem
         # veriyor. Bu ayrım olmadan denetim boşa çıkıyordu — "gerekir"
