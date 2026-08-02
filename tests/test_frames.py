@@ -49,12 +49,19 @@ class TestPredicates(unittest.TestCase):
     def test_the_lexicon_settles_a_verb_that_looks_like_a_copula(self):
         """"üretir" = "üret"+ir geniş zamandır, "üre"+tir koşaç değil.
 
-        Aynı harfler iki ayrı yapı; kural ayıramaz, sözlük ayırır.
+        Aynı harfler iki ayrı yapı; kural ayıramaz, TANIK ayırır.
+
+        Bu test önce "sözlüksüz yanılır" diye kuralın kusurunu belgeliyordu.
+        Artık derlem ikinci tanık: `üretir` orada da geçiyor ve sözlük
+        öğretilmemişken bile doğru okunuyor. Kusur kalktı, test onu takip
+        ediyor — kuralın tek başına yanıldığı, hiçbir tanığın olmadığı
+        uydurma bir kelimeyle gösteriliyor.
         """
         lexicon = Lexicon()
         lexicon.learn_verb("üretmek", "üretir", "üretmez")
         self.assertEqual(predicate_of("üretir", lexicon), ("üretmek", AORIST))
-        self.assertEqual(predicate_of("üretir")[1], COPULA)   # sözlüksüz yanılır
+        self.assertEqual(predicate_of("üretir")[0], "üretmek")  # derlem de bilir
+        self.assertEqual(predicate_of("zördetir")[1], COPULA)  # tanıksız yanılır
 
 
 class TestFrames(unittest.TestCase):

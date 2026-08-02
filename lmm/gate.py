@@ -17,7 +17,12 @@ from lmm.intuition import (ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES,
                            ASK_REQUIREMENT)
 from lmm.exposition import Exposition
 
+import collections
+
 HEDGE_THRESHOLD = 0.5
+# Bir listede en çok kaç şey söylenir. Fazlası cevap değil döküm oluyor ve
+# okuyan kaybediyor. Kalanı "başka ne biliyorsun" ile alınabilir.
+MOST_TOLD = 5
 # Karşılaştırmada kaç ortak ata söylenir. İkiden fazlası hiyerarşinin
 # tepesine tırmanıyor ("varlık", "şey") ve orada her şey ortaktır.
 CLOSEST_SHARED = 2
@@ -275,7 +280,31 @@ class EpistemicGate:
         found = self.reasoning.properties(concept)
         if not found:
             return f"{concept} nasıldır, bunu hiç öğrenmedim."
-        return property_summary(concept, found) + "."
+        return property_summary(concept, self._telling(concept, found)) + "."
+
+    def _telling(self, concept, found, most=MOST_TOLD):
+        """Bilgi taşıyanları öne al, kalabalığı kes.
+
+        "kartal ne yapabilir" sorusuna dokuz şey saymak teknik olarak doğru ama
+        cevap değil: `büyür`, `ölür`, `yer` her canlı için doğrudur ve kartal
+        hakkında hiçbir şey söylemez. Bilgi taşıyan `avlanır` ve `uçar`.
+
+        İlk ölçütüm yanlıştı: "kaç kavram paylaşıyor" saydım ve tam tersini
+        elde ettim — `uçmak` çok paylaşılıyor ama kuş için TANIMLAYICI olan o.
+        Doğru ölçüt paylaşım değil MESAFE: kavramın kendi kaydı, atasından
+        gelenden daha çok şey söyler. `avlanır` kartalın kendi kaydı,
+        `büyür` canlıdan miras.
+
+        Kesme sessiz değil: kalanı "başka ne biliyorsun" ile sorulabilir.
+        """
+        if len(found) <= most:
+            return found
+        steps = [concept] + self.reasoning.ancestors(concept)
+        rank = {}
+        for distance, step in enumerate(steps):
+            for edge in self.memory.query(step):
+                rank.setdefault(edge.target, distance)
+        return sorted(found, key=lambda item: rank.get(item[0], 99))[:most]
 
     def _who(self, action, positive, relation=CAN):
         if relation == HAS_PROPERTY:
@@ -302,7 +331,7 @@ class EpistemicGate:
         found = self.reasoning.abilities(concept)
         if not found:
             return f"{concept} ne yapabilir, bunu hiç öğrenmedim."
-        return ability_summary(concept, found) + "."
+        return ability_summary(concept, self._telling(concept, found)) + "."
 
     def _why(self, intent):
         """Why questions work the same for what a thing does and how it is."""

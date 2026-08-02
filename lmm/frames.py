@@ -121,6 +121,23 @@ def _from_lexicon(word, lexicon, depth=3):
     return False
 
 
+def _from_corpus(word):
+    """(mastar, olumlu_mu) — derlemde tanıklanmışsa.
+
+    Sözlük yalnız bu oturumda ÖĞRETİLEN fiilleri bilir. Derlemde milyonlarca
+    kez geçen `çalışır` sözlükte yoksa kural devreye giriyor ve gövdeyi
+    (`çalış`) veriyor; oysa graf mastarı (`çalışmak`) tutuyor. İkisi
+    eşleşmeyince "insan çalışır mı" sorusuna, kayıt orada dururken,
+    "bilmiyorum" deniyordu.
+
+    Derlem üçüncü tanık: `çalışır -> (çalışmak, olumlu)` eşlemesi zaten
+    çıkarılmış durumda. Sözlükten sonra, kuraldan önce sorulur — çünkü sözlük
+    öğretilmiş bilgidir, derlem gözlem, kural ise yalnız tahmindir.
+    """
+    from lmm import frequency
+    return frequency.verbs().get(word)
+
+
 def predicate_of(word, lexicon=None):
     """(kök, zaman). Yüklem eki yoksa None.
 
@@ -147,11 +164,15 @@ def predicate_of(word, lexicon=None):
                     continue
                 stem = word[: -len(ending)]
                 reading = lexicon.reading(stem)
+                if reading is None:
+                    reading = _from_corpus(stem)
                 if reading is not None:
                     return reading[0], (AORIST if reading[1] else NEGATIVE)
         return None, None
-    if lexicon is not None:
-        reading = lexicon.reading(word)
+    reading = lexicon.reading(word) if lexicon is not None else None
+    if reading is None:
+        reading = _from_corpus(word)
+    if True:
         if reading is not None:
             # Sözlük kutbu da söylüyor ve onu atmak olgunun tersini üretiyordu:
             # "penguen uçamaz" cümlesinden "penguen can uçmak" çıkıyordu. Bir
@@ -237,8 +258,8 @@ def read(tokens, seen=None, lexicon=None, graded=None):
     # `predicate_of` tam olarak bunu yapıyor. Ölçüt burada dar kaldığı için
     # "kuşlar uçarlar" çerçevesi doğru kuruluyor, sonra `to_fact` onu
     # "kuraldan geldi" sanıp atıyordu — cümlelerin %3,39'u böyle kayboluyordu.
-    frame.attested = (lexicon is not None
-                      and _from_lexicon(tokens[-1], lexicon))
+    frame.attested = ((lexicon is not None and _from_lexicon(tokens[-1], lexicon))
+                      or _from_corpus(tokens[-1]) is not None)
     # Koşaç bir eylem değil bir eşitlemedir: "bir kuştur" cümlesinde yüklemin
     # kökü zaten tümleçtir. Diğer zamanlarda tümleç ayrı bir kelimedir.
     if tense == COPULA:
