@@ -40,6 +40,18 @@ TENSES = (
 # ek ünlüsü değişiyor, o yüzden hepsi sayılıyor — kapalı bir sınıf.
 NEGATIVE_MARKS = ("amı", "emi", "amu", "emü", "mı", "mi", "mu", "mü", "ma", "me")
 
+# Kişi ekleri. Fiil çekiminin en dış katmanı ve soyulmadan sözlük kelimeyi
+# tanımıyordu: "söyleyebilirsin", "biliyorsun", "konuşuyoruz" hepsi
+# "bilmiyorum" cevabı alıyordu. Aynı ayrımı soru ekinde çözmüştük
+# (`misin` -> `mi`); fiilde çözmemişiz.
+#
+# Kapalı sınıf: bir dilde altı kişi vardır ve ünlü uyumuyla çoğalırlar.
+PERSON = ("sınız", "siniz", "sunuz", "sünüz",
+          "ım", "im", "um", "üm", "yım", "yim", "yum", "yüm",
+          "sın", "sin", "sun", "sün",
+          "ız", "iz", "uz", "üz", "yız", "yiz", "yuz", "yüz",
+          "lar", "ler")
+
 ABILITY_SUFFIXES = ("ebilir", "abilir")
 
 
@@ -61,7 +73,7 @@ class Lexicon:
             return found
         return self._inflected(surface)
 
-    def _inflected(self, surface):
+    def _inflected(self, surface, depth=2):
         """Geniş zaman dışındaki çekimler — gövdeyi bularak.
 
         Fiil keşfi geniş zaman çiftine dayanıyor ("uçar"/"uçamaz") ve bu
@@ -73,6 +85,18 @@ class Lexicon:
         `-ebilir` için zaten yaptığı şeyin aynısı, diğer zamanlara genişletilmiş.
         Olumsuzluk ekten okunuyor, tahmin edilmiyor.
         """
+        # Kişi eki en dışta durur; soyulup altındaki çekime bakılıyor.
+        if depth > 0:
+            for ending in PERSON:
+                if not surface.endswith(ending):
+                    continue
+                if len(surface) - len(ending) < 3:
+                    continue
+                inner = surface[: -len(ending)]
+                found = self._direct_or_ability(inner) or \
+                    self._inflected(inner, depth - 1)
+                if found is not None:
+                    return found
         for suffixes, negative in TENSES:
             for suffix in suffixes:
                 if not surface.endswith(suffix):

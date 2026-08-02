@@ -40,9 +40,16 @@ from lmm.phrasing import (wondering, not_understood, now_i_can, generalising,
 # A custom LanguageOrgan may report graded confidence; ours parses or does not.
 CONFIDENCE_THRESHOLD = 0.35
 RESEMBLANCE = 0.5       # below this, guessing at what you meant is noise
-# Ağın tahmini bu güvenin altındaysa hiç denenmiyor. Denetim zaten var ama
-# düşük güvenli tahminler denetimi boşuna meşgul ediyor.
-NEURAL_THRESHOLD = 0.4
+# Ağın tahmini bu güvenin altındaysa hiç denenmiyor.
+#
+# Eşik 0,4'tü ve gerekçesiz bir sabitti. Ölçüldü: "penguen konusunda ne
+# biliyorsun" cümlesinde ağ %37 güvenle DOĞRU okumayı veriyor ve eşikten
+# kılpayı düşüyordu. Oysa güven, doğruluğun ölçüsü değil — DENETİM o.
+#
+# Düşük güvenli tahmin zaten iki kapıdan geçiyor: okuma grafta cevaplanacak,
+# ve okuma cümleye uyacak. Geçemeyen atılıyor. Eşiği düşürmek yanlış cevabı
+# değil, yalnız deneme sayısını artırıyor.
+NEURAL_THRESHOLD = 0.15
 # Çıplak soru sözcüğü hangi soruyu sürdürüyor. Kapalı bir eşleme: sözcükler
 # zaten bildirilmiş kapalı sınıftan, buradaki yalnızca hangi niyete
 # karşılık geldikleri.
@@ -327,6 +334,17 @@ class Session:
                 again = self.language.understand(line)
                 if again.kind not in (UNKNOWN, UNKNOWN_WORD, AMBIGUOUS):
                     return self._question(self._in_context(again))
+            # Öğrenme yolları burada da denenmeli. Yalnız UNKNOWN dalında
+            # çağrılıyorlardı ve "kartal hakkında ne SÖYLEYEBİLİRSİN" cümlesi
+            # UNKNOWN_WORD veriyor — bilinmeyen bir kelime yüzünden cümlenin
+            # tamamı öğrenilemez sayılıyordu.
+            #
+            # Oysa bir kelimeyi bilmemek, cümlenin ne istediğini bilmemek
+            # değil: ağ o cümleye %98 güvenle ASK_DESCRIBE diyor.
+            for attempt in (self._neural_reading, self._learn_wording):
+                learned = attempt(line)
+                if learned is not None:
+                    return learned
             return teach_me_the_word(intent.target)
         if intent.kind == UNKNOWN or intent.confidence < CONFIDENCE_THRESHOLD:
             # Anlamadıysa öğrenmeyi dener: önce eğitilmiş ağ (bedava, yerel),
