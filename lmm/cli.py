@@ -14,6 +14,7 @@ from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
 from lmm import social
 from lmm import coordination
 from lmm.thread import Thread
+from lmm import frames
 from lmm import wording
 try:
     from core.intent import reading_of
@@ -158,6 +159,38 @@ class Session:
                 found.add(edge.concept)
         return found
 
+    def _aimed(self, tokens, relation):
+        """Cümlenin sorduğu HEDEF: yetenek sorusunda fiil, nitelikte nitelik.
+
+        Ağ niyet SINIFINI söylüyor ("bu bir yetenek sorusu") ama hangi yetenek
+        olduğunu söylemiyor — sınıflandırıcı odur, çıkarıcı değil. Hedef
+        bulunamayınca `reading_of(has_target=False)` tekil soruyu çoğula
+        düşürüyor: "penguen uçar mı" -> "penguen ne yapabilir".
+
+        Bu sabit `False`, ağın ürettiği iki sınıfı (ASK_ABILITY, ASK_PROPERTY)
+        sohbette ULAŞILMAZ kılıyordu. Ağ onları ayırt etmeyi öğrendi ve o
+        öğrenme hiç kullanılmıyordu.
+
+        Hedefi ağ değil graf ve derlem veriyor, yani uydurma yok: fiil
+        `predicate_of` ile okunuyor (sözlük, sonra derlem tanıklığı), nitelik
+        ise grafın DUYDUĞU nitelikler arasında aranıyor. Bulunamazsa eski
+        davranışa düşülüyor — genişletme, daraltma değil.
+        """
+        if relation == "can":
+            for token in reversed(tokens):
+                stem, tense = frames.predicate_of(token, self.memory.lexicon)
+                if stem:
+                    return stem
+            return None
+        if relation == "property":
+            morphology = self.language.grammar.morphology
+            heard = set(self.memory.properties())
+            for token in reversed(tokens):
+                for form in (token, morphology.strip_copula(token)):
+                    if form in heard:
+                        return form
+        return None
+
     def _neural_reading(self, line):
         """Kalıplar yetmediğinde eğitilmiş ağa sorar — ve denetler.
 
@@ -180,27 +213,37 @@ class Session:
         if not name or confidence < NEURAL_THRESHOLD:
             return None
         tokens = tokenize(line)
-        found = reading_of(name, has_target=False)
+        # Önce hedefli okumayı dene. Hedef yoksa çoğula düşer — eski davranış.
+        aimed = reading_of(name)
+        target = self._aimed(tokens, aimed[1]) if aimed else None
+        found = reading_of(name, has_target=target is not None)
         if found is None:
             return None
         kind, relation = found
+        if kind != aimed[0]:
+            target = None       # çoğula düşüldü: hedef artık anlamsız
         morphology = self.language.grammar.morphology
         at, concept = wording.concept_in(tokens, self.memory, morphology,
                                          self.focus)
         if concept is None:
             return None
-        said = self.gate.answer(Intent(kind, concept, relation))
+        said = self.gate.answer(Intent(kind, concept, relation, target))
         if is_a_refusal(said):
             return None
         # Cevap üretebilmek yetmiyor: okuma cümleye de uymalı. Bu kapı olmadan
         # "bir kuşun uçabilmesi için ne gerekir" cümlesi "kuş ne yapabilir"
         # diye okunuyor, graf cevaplıyor ve YANLIŞ kalıp kalıcı yazılıyordu.
+        # Okumanın kendi kullandığı kelimeler kapıya sorulmaz: kavram ve
+        # hedef tanım gereği açıklanmıştır.
+        used = {at} | ({tokens.index(target)} if target in tokens else set())
         if not wording.accounted_for(kind, tokens, self.memory.lexicon,
                                      self.language.grammar.patterns,
-                                     self._meanings):
+                                     self._meanings, consumed=used):
             return None
         self.asked_about.add(line)
-        reading = wording.Reading(kind, relation, at, None)
+        reading = wording.Reading(kind, relation, at,
+                                  tokens.index(target) if target in tokens
+                                  else None)
         pattern = wording.learn(line, reading, self.memory.lexicon, morphology)
         if pattern is None:
             return said
