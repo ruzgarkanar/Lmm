@@ -35,10 +35,26 @@ class Pursuit:
         """The one thing worth asking next, or None when nothing would help."""
         if self.resolved(goal):
             return None
+        if not goal.concept:
+            return None
         if goal.relation == IS_A or not self.memory.query(goal.concept, IS_A):
             # Without a place in the hierarchy there is nothing to reason from.
             return Step(f"type:{goal.concept}",
                         phrasing.definition_question(goal.concept))
+        # Hedefsiz bir amacın ARA SORUSU olamaz: "kartal nasıldır" belirli bir
+        # nitelik sormuyor, dolayısıyla "atası o niteliği taşıyor mu" diye
+        # sorulacak bir şey de yok. Denetim yoktu ve hedefsiz amaç
+        # `phrasing.property_question(None)` çağırıp sistemi ÇÖKERTİYORDU.
+        #
+        # Ortaya çıkışı öğreticiydi: yeni kalıplar bağlanınca hedefsiz okumalar
+        # ilk kez bu yola geldi — bir yeteneğin başka bir kusuru açığa
+        # çıkarması, bugün üçüncü kez.
+        #
+        # Denetim buraya kondu, işlevin başına DEĞİL: tanım sorusu da
+        # hedefsizdir ve o yukarıdaki dalla cevaplanıyor. Başa konunca yazım
+        # yanlışı önerisi ("kuş mu demek istedin") sessizce kayboldu.
+        if not goal.target:
+            return None
         for ancestor in self.reasoning.ancestors(goal.concept):
             if self._lookup(goal, ancestor) is None:
                 return Step(f"{goal.relation}:{ancestor}:{goal.target}",

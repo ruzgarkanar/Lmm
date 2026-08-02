@@ -115,7 +115,7 @@ def _widths(slot):
 
 class Pattern:
     def __init__(self, tokens, kind, relation=None, concept=None, target=None,
-                 name="", object=None, quantifier=None):
+                 name="", object=None, quantifier=None, fallback=False):
         self.tokens = tokens
         self.kind = kind
         self.relation = relation
@@ -123,13 +123,24 @@ class Pattern:
         self.target = target
         self.object = object        # where the object sits — a matter of language
         self.quantifier = quantifier    # slot holding "how much of the kind"
+        # Toplu çıkarımla, tek tek gözden geçirilmeden gelen kalıp SON ÇARE
+        # sayılır: yalnız hiçbir özenli kalıp tutmadığında denenir.
+        #
+        # Ölçüldü ve fark büyüktü. 84 çıkarılmış kalıp öne eklenince gerçek
+        # cümlelerde okuma %28,7 -> %79,3 çıktı ama sınav doğruluğu %95,7 ->
+        # %61,0 düştü, isabet %99,3 -> %92,4. Yani kapsam kazanılırken zaten
+        # DOĞRU okunan cümleler kaçırıldı — genel kalıp özel olanın önüne
+        # geçti. Kapsam ile doğruluk arasındaki takas gerçek, ama sırayı doğru
+        # kurunca takas ortadan kalkıyor: son çare hiçbir şeyi elinden almaz.
+        self.fallback = fallback
         self.name = name or " ".join(tokens)
 
     def to_dict(self):
         return {"tokens": self.tokens, "kind": self.kind,
                 "relation": self.relation, "concept": self.concept,
                 "target": self.target, "object": self.object,
-                "quantifier": self.quantifier, "name": self.name}
+                "quantifier": self.quantifier, "name": self.name,
+                "fallback": self.fallback}
 
     @staticmethod
     def from_dict(data):

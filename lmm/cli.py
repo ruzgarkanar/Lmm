@@ -104,7 +104,11 @@ class Session:
                                               known=self.memory.concepts,
                                               meanings=self._meanings)
         for entry in self.memory.patterns:      # ways of speaking it was taught
-            self.language.grammar.add(Pattern.from_dict(entry), first=True)
+            pattern = Pattern.from_dict(entry)
+            # Sohbette tek tek öğrenilen kalıp öne, toplu çıkarılan sona.
+            # İkisi ayrı şeyler: birincisi bir insanın onayladığı bir okuma,
+            # ikincisi sayımın önerdiği bir şekil.
+            self.language.grammar.add(pattern, first=not pattern.fallback)
         self.learning = LearningLoop(self.memory, reasoning)
         self.curiosity = Curiosity(self.memory, reasoning)
         self.pursuit = Pursuit(self.memory, reasoning)
