@@ -24,8 +24,28 @@ CLASSES = ["TEACH_TYPE", "TEACH_NOT_TYPE", "TEACH_ABILITY", "TEACH_PROPERTY",
            "ASK_WHO", "ASK_ABILITIES", "ASK_PROPERTIES", "ASK_WHY",
            "ASK_DESCRIBE"]
 
-FUNCTION_WORDS = ({"bir", "değildir", "nedir", "neden", "nasıldır", "nasıl",
-                   "yapabilir", "anlat", "nedir"} | set(QUESTION_PARTICLES) | set(INTERROGATIVES))
+# Şekil dilbilgisinin tanıdığı işlev sözcükleri. Bunlar Türkçedir ve bir
+# motorun içinde durmamalı; asıl yerleri `lmm/turkish.py`. Tek bir tabloya
+# indirildiler, çünkü aynı sözcükler dosyada iki kez yazılıydı — bir kez bu
+# kümede, bir kez `_shapes()` içinde — ve iki kopya sessizce ayrışmıştı:
+# kümede "nedir" iki kez geçiyor, "neden" ile "nasıl" ise zaten
+# `INTERROGATIVES`'ten geliyordu, yani üç madde ölü yazıydı.
+#
+# Sayıldı: kapalı sınıflar (soru eki, soru sözcüğü) çıkarıldığında geriye
+# dokuz sözcük kalıyor. Çok dilliliğe geçerken bu dosyada taşınacak yerin
+# tamamı bu dokuz satır — geri kalan her şey şekil, dil değil.
+ARTICLE = "bir"             # "penguen BİR kuştur"
+NEGATION = "değildir"       # "penguen bir memeli DEĞİLDİR"
+WHAT_IS = "nedir"           # "penguen NEDİR"
+WHAT_LIKE = "nasıldır"      # "penguen NASILDIR"
+HOW = "nasıl"               # "penguen NASIL"
+WHICH = "ne"                # "penguen NE yapabilir"
+CAN_DO = "yapabilir"        # "penguen ne YAPABİLİR"
+WHY = "neden"               # "penguen NEDEN uçamaz"
+TELL = "anlat"              # "penguen ANLAT"
+
+FUNCTION_WORDS = ({ARTICLE, NEGATION, WHAT_IS, WHAT_LIKE, HOW, CAN_DO, WHY,
+                   TELL} | set(QUESTION_PARTICLES) | set(INTERROGATIVES))
 
 CONCEPT = "<kavram>"
 CONCEPTS = "<kavram-çoğul>"
@@ -91,27 +111,27 @@ def features(tokens, lexicon=None):
 def _shapes():
     """One entry per sentence shape the language accepts."""
     examples = [
-        ([CONCEPT, "bir", PROPERTY], "TEACH_TYPE"),
-        ([CONCEPT, "bir", CONCEPT], "TEACH_TYPE"),
-        ([CONCEPT, "bir", CONCEPT, "değildir"], "TEACH_NOT_TYPE"),
-        ([CONCEPT, "bir", PROPERTY, "değildir"], "TEACH_NOT_TYPE"),
+        ([CONCEPT, ARTICLE, PROPERTY], "TEACH_TYPE"),
+        ([CONCEPT, ARTICLE, CONCEPT], "TEACH_TYPE"),
+        ([CONCEPT, ARTICLE, CONCEPT, NEGATION], "TEACH_NOT_TYPE"),
+        ([CONCEPT, ARTICLE, PROPERTY, NEGATION], "TEACH_NOT_TYPE"),
         ([CONCEPTS, VERB], "TEACH_ABILITY"),
         ([CONCEPT, VERB], "TEACH_ABILITY"),
         ([CONCEPTS, VERB_NEGATIVE], "TEACH_ABILITY"),
         ([CONCEPT, VERB_NEGATIVE], "TEACH_ABILITY"),
         ([CONCEPT, PROPERTY], "TEACH_PROPERTY"),
         ([CONCEPTS, PROPERTY], "TEACH_PROPERTY"),
-        ([CONCEPT, CONCEPT, "değildir"], "TEACH_NOT_PROPERTY"),
-        ([CONCEPTS, CONCEPT, "değildir"], "TEACH_NOT_PROPERTY"),
-        ([CONCEPT, "nedir"], "ASK_DEFINITION"),
-        ([CONCEPT, "ne", "yapabilir"], "ASK_ABILITIES"),
-        ([CONCEPT, "nasıldır"], "ASK_PROPERTIES"),
-        ([CONCEPT, "nasıl"], "ASK_PROPERTIES"),
-        ([CONCEPT, "anlat"], "ASK_DESCRIBE"),
-        (["anlat"], "ASK_DESCRIBE"),
-        (["nedir"], "ASK_DEFINITION"),
-        (["nasıldır"], "ASK_PROPERTIES"),
-        (["ne", "yapabilir"], "ASK_ABILITIES"),
+        ([CONCEPT, CONCEPT, NEGATION], "TEACH_NOT_PROPERTY"),
+        ([CONCEPTS, CONCEPT, NEGATION], "TEACH_NOT_PROPERTY"),
+        ([CONCEPT, WHAT_IS], "ASK_DEFINITION"),
+        ([CONCEPT, WHICH, CAN_DO], "ASK_ABILITIES"),
+        ([CONCEPT, WHAT_LIKE], "ASK_PROPERTIES"),
+        ([CONCEPT, HOW], "ASK_PROPERTIES"),
+        ([CONCEPT, TELL], "ASK_DESCRIBE"),
+        ([TELL], "ASK_DESCRIBE"),
+        ([WHAT_IS], "ASK_DEFINITION"),
+        ([WHAT_LIKE], "ASK_PROPERTIES"),
+        ([WHICH, CAN_DO], "ASK_ABILITIES"),
     ]
     for particle in QUESTION_PARTICLES:
         examples.append(([CONCEPT, VERB, particle], "ASK_ABILITY"))
@@ -122,8 +142,8 @@ def _shapes():
         examples.append(([interrogative, VERB], "ASK_WHO"))
         examples.append(([interrogative, VERB_NEGATIVE], "ASK_WHO"))
     for verb in (VERB, VERB_NEGATIVE):
-        examples.append(([CONCEPT, "neden", verb], "ASK_WHY"))
-        examples.append(([CONCEPTS, "neden", verb], "ASK_WHY"))
+        examples.append(([CONCEPT, WHY, verb], "ASK_WHY"))
+        examples.append(([CONCEPTS, WHY, verb], "ASK_WHY"))
     return examples
 
 
@@ -160,6 +180,23 @@ class MiniNetwork:
         best = max(probabilities, key=probabilities.get)
         return best, probabilities[best]
 
+    # 200 tur ve 0,5 adım gerekçesiz duruyordu; ölçüldü (73 şekil, 13 sınıf):
+    #
+    #     tur   şekillerin doğrusu   en düşük güven   TANIMADIĞI şekilde güven
+    #      10           73/73            0,647              ort. 0,658
+    #      20           73/73            0,850              ort. 0,722
+    #     200           73/73            0,985              ort. 0,855
+    #
+    # Yani doğruluk 10. turda oturuyor; kalan 190 tur yalnızca güven satın
+    # alıyor. Ve satın aldığı güven bedava değil: ağ, hiç görmediği şekillerde
+    # de kendine güveniyor — bu, sınıfın en başında "yanlılık terimi
+    # atıldı" diye anlatılan hatanın aynısının başka kapıdan girmesi.
+    #
+    # Sayı DEĞİŞTİRİLMEDİ, çünkü tahmin bir karar değil bir ipucu:
+    # `intuition` yalnızca hiçbir kalıp tutmadığında soruyor ve `cli`
+    # 0,5'in altını atıyor. Ama o eşik, bu tabloya göre tanınmayan şekillerin
+    # çoğunu da geçiriyor — eşik ile tur sayısı birlikte ayarlanmalı ve ikisi
+    # ayrı dosyada. Ölçüm burada dursun ki karar veren onu görsün.
     def train(self, examples, epochs=200, learning_rate=0.5):
         for _ in range(epochs):
             for encoded, correct in examples:

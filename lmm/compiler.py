@@ -30,6 +30,9 @@ import urllib.request
 
 from lmm.intuition import lower
 
+# Bu ikisi ÖLÇÜLMEDİ ve öyle olduğu yazsın. İkisi de yalnızca ağ ekonomisini
+# ayarlıyor — hangi olgunun kabul edildiğine etkileri yok, o iş aşağıdaki
+# denetimlerin. Bir gün ölçülürse ölçüsü "aynı belgede kaç olgu, kaç saniye".
 TIMEOUT = 90
 BATCH = 12              # tek istekte gönderilen cümle sayısı
 
@@ -95,6 +98,12 @@ RELATIONS = {"type", "can", "property", "has"}
 # ayrı sorulardır ve ikisi de sorulmalı.
 LONGEST_NODE = 3        # kelime
 SHORTEST_NODE = 3       # harf
+
+# Çapa bu kadar karakterden kısaysa bir cümle değildir. Sayı isimsiz duruyordu;
+# ölçüldü (`data/tr-metin.txt`, 3.594 cümle): 10 karakterin altındaki 99 parça
+# (%2,8) istisnasız sayı, kısaltma ya da kırıntı — "13", "XIII", "Dr", ") idi".
+# Yani eşik bir olgu kaybettirmiyor, yalnız cümle olmayanı eliyor.
+SHORTEST_ANCHOR = 10    # harf
 UNUSABLE = "düğüm olarak kullanılamaz"
 NOT_AN_ACTION = "yapılan bir eylem değil"
 WRONG_WAY = "tür iddiası cümlede bu yönde değil"
@@ -136,7 +145,7 @@ def verify(candidate, document):
     if candidate.relation not in RELATIONS:
         candidate.refusal = BAD_RELATION
         return False
-    if not candidate.anchor or len(candidate.anchor) < 10:
+    if not candidate.anchor or len(candidate.anchor) < SHORTEST_ANCHOR:
         candidate.refusal = NO_ANCHOR
         return False
     anchor = normalise(candidate.anchor)
@@ -166,6 +175,11 @@ def verify(candidate, document):
 # eylem, "rastlanma" bir addır. Ayrım kaçınca graf "ahtapot --can--> rastlanma"
 # gibi kayıtlar alıyor ve cevap "ahtapot rastlanma" diye çıkıyordu.
 INFINITIVE = ("mak", "mek")
+# Mastar bundan kısaysa mastar değil, ekin kendisidir. Ölçüldü
+# (`data/tr-fiiller.txt`, 807 mastar): dört harf ve altında olan SIFIR tane —
+# en kısası "acmak", beş harf. Yani eşik hiçbir gerçek fiili elemiyor, ama
+# "amak", "omek" gibi ayrıştırma kazalarını eliyor.
+SHORTEST_INFINITIVE = 4
 
 
 def _an_action(target):
@@ -173,7 +187,7 @@ def _an_action(target):
     if not target:
         return False
     last = target.split()[-1]
-    return last.endswith(INFINITIVE) and len(last) > 4
+    return last.endswith(INFINITIVE) and len(last) > SHORTEST_INFINITIVE
 
 
 def states_a_type(candidate, anchor):
@@ -265,7 +279,21 @@ NEGATIVE = ("maz", "mez", "amaz", "emez", "mıyor", "miyor", "muyor", "müyor",
             "madı", "medi", "mamış", "memiş", "mayan", "meyen",
             "mamak", "memek", "mama", "meme", "masın", "mesin")
 SHORTEST_ROOT = 2       # Türkçe kökleri kısadır: "uç", "ev", "el", "su"
-LONGEST_SUFFIX = 5      # iddia tarafında kaç harflik ek farkına izin verilir
+
+# İddia tarafında kaç harflik ek farkına izin verilir. Sayı gerekçesiz duruyordu
+# ve ölçülünce GEVŞEK çıktı (`data/tr-fiiller.txt`, 807 mastar; mastar ile
+# çekimli hâli eşleşmeli, farklı iki fiilin çekimi eşleşmemeli):
+#
+#     izin   doğru eşleşme        4000 rastgele çiftte YANLIŞ eşleşme
+#      3        806/807 (%99,9)                 5
+#      5        806/807 (%99,9)                26
+#      8        806/807 (%99,9)                53
+#
+# Yani 3'ten sonrası tek bir doğru eşleşme kazandırmıyor, yanlış eşleşmeyi
+# beşe katlıyor. Değer DEĞİŞTİRİLMEDİ — davranışı değiştirmek bu işin konusu
+# değildi ve gerçek belgede kaç olguya dokunduğu ayrıca ölçülmeli. Ama sayının
+# yanında artık ne aldığı ve ne ödettiği yazıyor.
+LONGEST_SUFFIX = 5
 
 
 def _appears(word, sentence):

@@ -13,13 +13,22 @@ compute, it declines, exactly as the gate declines what memory does not hold.
 Nothing here evaluates arbitrary text. Tokens are numbers and operators or the
 expression is refused.
 """
+# Simge -> öncelik. Burada işleçlerin Türkçe adları da duruyordu — "topla",
+# "çıkar", "çarp", "böl", "üs" — ve hiçbir yerden okunmuyorlardı: tabloya
+# yalnızca öncelik için bakılıyor, `OPERATORS[...][1]`. Okunmayan bir ad,
+# motorun içinde duran ölü bir dil parçasıdır; sözcüğün Türkçe karşılığını
+# aşağıdaki `WORDS` zaten tutuyor ve orası dilin durması gereken yer.
 OPERATORS = {
-    "+": ("topla", 1), "-": ("çıkar", 1),
-    "*": ("çarp", 2), "×": ("çarp", 2), "x": ("çarp", 2),
-    "/": ("böl", 2), "÷": ("böl", 2),
-    "^": ("üs", 3),
+    "+": 1, "-": 1,
+    "*": 2, "×": 2, "x": 2,
+    "/": 2, "÷": 2,
+    "^": 3,
 }
 
+# Bu ikisi TÜRKÇE VERİDİR, motor değil: sözcükle söylenmiş işleç ve soruyu
+# bitiren kalıp. Asıl yerleri `lmm/turkish.py`; burada duruyorlar çünkü o dosya
+# şu an başka bir elin altında. Taşındıklarında bu dosyada Türkçe kalmayacak —
+# geri kalan her şey sayı, simge ve öncelik.
 WORDS = {
     "artı": "+", "topla": "+", "eksi": "-", "çıkar": "-",
     "çarpı": "*", "kere": "*", "bölü": "/", "üzeri": "^",
@@ -92,7 +101,7 @@ def evaluate(text):
             raise Undecidable(text)
         if index + 1 >= len(tokens) or isinstance(tokens[index + 1], str):
             raise Undecidable(text)
-        while operators and OPERATORS[operators[-1]][1] >= OPERATORS[operator][1]:
+        while operators and OPERATORS[operators[-1]] >= OPERATORS[operator]:
             _reduce(values, operators)
         operators.append(operator)
         values.append(tokens[index + 1])

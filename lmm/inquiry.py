@@ -125,6 +125,9 @@ COMMON_NAME = re.compile(
     r"\b(?P<tur>[a-zçğıöşü]+)\s+(?:tür|cins|familya)\w*\s+"
     r"(?:ortak|genel|bilimsel)\s+adı", re.I | re.S)
 
+SHORTEST_NAME = 2       # harf — tek harf bir kavram değil, bir işarettir
+SHORTEST_KIND = 3       # harf — bkz. `definitions.MINIMUM`, aynı derlemde ölçüldü
+
 
 def definition_in(text, title=None):
     """Tanım kipinden (kavram, tür). Bulunamazsa None.
@@ -146,7 +149,12 @@ def definition_in(text, title=None):
             if kind.endswith(ending) and len(kind) > len(ending) + 2:
                 kind = kind[: -len(ending)]
                 break
-        if len(concept) < 2 or len(kind) < 3 or concept == kind:
+        # Aynı soru `lmm/definitions.py`'de ölçüldü (40.000 tanım satırı): üç
+        # harfin altındaki türlerin çoğu ek kırıntısı ya da çöp ("si", "ß"),
+        # bedeli %0,35. Buradaki sınır o ölçümün karşılığı; iki organ aynı
+        # derlemden aynı cevabı aldığı için ayrıca ölçülmedi.
+        if len(concept) < SHORTEST_NAME or len(kind) < SHORTEST_KIND \
+                or concept == kind:
             continue
         return concept, kind
     return None

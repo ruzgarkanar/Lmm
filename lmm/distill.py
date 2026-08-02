@@ -68,6 +68,13 @@ def generalise(memory, reasoning=None, limit=1000):
 
     A bulk ingest is exactly when patterns become visible, and a rule the system
     forms itself is marked as such — it is beaten by anything a person says.
+
+    `limit` sessiz bir kesme ve gerekçesi yazılı değildi; ölçüldü: sınır
+    kaldırılınca `graph/base.lmm` (1.354 olgu) ve `graph/birlesik.lmm` (16.164
+    olgu) üzerinde döngü sıfır yeni kuralla, kendiliğinden duruyor — ikisinde
+    de kuralları zaten oluşmuş durumda. Yani sınır bugüne kadar bir kez bile
+    kapanmadı; bir güvenlik kemeri, bir ayar değil. Kapandığı gün fark
+    edilmesi gerekir, çünkü sessizce eksik genelleme demek.
     """
     induction = Induction(memory, reasoning or Reasoning(memory))
     formed = []

@@ -12,6 +12,20 @@ Everything runs offline, from one fixed script, and is deterministic. A
 benchmark that needs a network or a random seed cannot be used to catch a
 regression.
 
+Fixed is the word to be careful with. This exam is twelve hand-written lesson
+sentences and thirteen hand-written questions, all about four animals, and it
+never changes. That makes it a good regression detector and a *bad* measure of
+ability: anything tuned while watching this number is studying the exam paper.
+The measure of ability is `scripts/olcut.py`, which builds its questions from
+the graph itself, so nobody picks what gets asked.
+
+So the exam lives in `packs/olcum/ders.txt` rather than here. Two reasons, and
+the second is the one that mattered. First, a fixed exam sitting in the engine's
+own source quietly becomes a target while you are editing next to it. Second,
+this file is otherwise language-free: an exam is written in a language, an
+engine is not, and the twenty-five Turkish sentences that used to be here were
+the only thing tying the scorecard to Turkish.
+
 Usage: python3 -m lmm.evaluate
 """
 import os
@@ -20,41 +34,57 @@ import tempfile
 
 from lmm.cli import Session
 
-LESSON = [
-    # The word has to be taught before the lesson that uses it. The first
-    # version of this script skipped that and the system said so — twice —
-    # while the benchmark counted it as a failure of inheritance.
-    "kelime: büyümek = büyür / büyümez",
-    "kuşlar uçar",
-    "kuşlar tüylüdür",
-    "kuş bir hayvandır",
-    "hayvanlar büyür",
-    "serçe bir kuştur",
-    "kartal bir kuştur",
-    "penguen bir kuştur",
-    "penguen uçamaz",
-    "evet",                     # the exception is confirmed
-    "balık bir hayvandır",
-    "balıklar yüzer",
-]
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+EXAM = os.path.join(HERE, "packs", "olcum", "ders.txt")
+ARROW = "->"        # soru ile beklenen cevabı ayıran işaret
 
-# What it was told outright, and must therefore be able to say back.
-COVERAGE = [("serçe nedir", "kuş"), ("balık yüzer mi", "evet"),
-            ("penguen uçar mı", "hayır"), ("kuş nedir", "hayvan")]
 
-# What nobody stated, and only the hierarchy can reach.
-DERIVED = [("serçe uçar mı", "evet"), ("kartal tüylü mü", "evet"),
-           ("serçe büyür mü", "evet"), ("balık büyür mü", "evet")]
+def _sections(path):
+    """`[başlık]` ile bölünmüş düz metin -> {başlık: [satır]}.
 
-# What memory is silent about, where declining is the only honest answer.
-UNKNOWN = ["zürafa nedir", "zürafa uçar mı", "ejderha nedir",
-           "kaplan yüzer mi", "bulut nedir"]
+    Yorum satırı `#` ile başlar. Ders satırlarının içinde `#` geçebiliyor
+    (`kelime: ...` bildirimleri geçmiyor ama bir gün geçebilir), o yüzden
+    yalnızca satırın BAŞINDAKİ `#` yorum sayılıyor.
+    """
+    found, current = {}, None
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                current = line[1:-1]
+                found[current] = []
+            elif current is not None:
+                found[current].append(line)
+    return found
+
+
+def _pairs(lines):
+    return [tuple(part.strip() for part in line.split(ARROW, 1))
+            for line in lines]
+
+
+_EXAM = _sections(EXAM)
+
+# The lesson every category is scored against, and the questions themselves.
+# `_pairs` gives (soru, beklenen); the plain lists are questions with no
+# expected answer, because declining has no single wording to match.
+LESSON = _EXAM["ders"]
+COVERAGE = _pairs(_EXAM["kapsam"])          # söylenen, geri söylenebilmeli
+DERIVED = _pairs(_EXAM["çıkarım"])          # söylenmeyen, kalıtımla ulaşılan
+UNKNOWN = _EXAM["bilinmeyen"]               # bellek sessiz, tek cevap çekimserlik
+CORRECTION = _EXAM["düzeltme-ders"]
+CORRECTED = _pairs(_EXAM["düzeltme-sınav"])
+DESCRIBE = _EXAM["sentez-soru"][0]          # "{kavram} anlat"
+DESCRIBED = _EXAM["sentez-kavram"]
+INVENTED = tuple(_EXAM["sentez-uydurma"])
+GROUNDED = tuple(_EXAM["temellendirme"])
 
 # Tek kaynak: aynı imza iki yerde kopyalanmıştı ve biri eksik kalmıştı.
 # Söyleyiş öğrenen organ bu imzaya güveniyor — eksik bir madde, yanlış bir
 # kalıbın kalıcı olarak yazılması demek.
 from lmm.phrasing import REFUSALS as DECLINED
-GROUNDED = ("kaynak:", "çıkarımım", "dil modelinden", "anlaşmıyor", "çünkü")
 
 
 class Result:
@@ -109,14 +139,16 @@ def grounding(session):
 def revision(path):
     """A correction must take effect, and survive a restart."""
     session = _taught(path)
-    checks = []
-    session.respond("serçe uçamaz")
-    session.respond("evet")
-    checks.append(session.respond("serçe uçar mı").startswith("hayır"))
-    checks.append(session.respond("kartal uçar mı").startswith("evet"))
+    for line in CORRECTION:
+        session.respond(line)
+    checks = [session.respond(question).startswith(expected)
+              for question, expected in CORRECTED]
     session.save()
     later = Session(path)
-    checks.append(later.respond("serçe uçar mı").startswith("hayır"))
+    # Yeniden açılışta ilk soru bir kez daha: düzeltmenin yaşayıp yaşamadığını
+    # ölçen tek şey bu. İkincisi zaten dokunulmamış olanı bekliyor.
+    question, expected = CORRECTED[0]
+    checks.append(later.respond(question).startswith(expected))
     return Result("revizyon", sum(checks), len(checks), "düzeltme kalıcı mı")
 
 
@@ -133,19 +165,26 @@ def temporal(directory):
 
 def synthesis(session):
     """A composed paragraph must contain nothing memory does not hold."""
-    invented = ("koşar", "yüzemez", "siyah", "büyüktür")
     checks = []
-    for concept in ("penguen", "serçe", "balık"):
-        paragraph = session.respond(f"{concept} anlat").lower()
-        checks.append(not any(word in paragraph for word in invented))
+    for concept in DESCRIBED:
+        paragraph = session.respond(DESCRIBE.format(kavram=concept)).lower()
+        checks.append(not any(word in paragraph for word in INVENTED))
     return Result("sentez", sum(checks), len(checks), "paragrafta uydurma yok")
+
+
+# Aynı soru kaç kez sorulacak. Cevap yolunda rastgelelik yok, dolayısıyla tek
+# tekrar farkı görmeye yeter; beş olmasının sebebi rastgelelik değil **çağrıyla
+# değişen durum**: bir önbellek, dönüşümlü bir söyleyiş ya da bir sayaç ilk iki
+# çağrıda aynı görünüp üçüncüde değişebilir. Ölçüldü: bugünkü sistemde 5'te de
+# 50'de de sonuç aynı — yani sayı bir güvenlik payı, bir bulgu değil.
+REPEATS = 5
 
 
 def measurement(session):
     """The same question must give the same answer, every time."""
     checks = []
     for question, _ in COVERAGE + DERIVED:
-        answers = {session.respond(question) for _ in range(5)}
+        answers = {session.respond(question) for _ in range(REPEATS)}
         checks.append(len(answers) == 1)
     return Result("ölçüm", sum(checks), len(checks), "aynı soru, aynı cevap")
 
