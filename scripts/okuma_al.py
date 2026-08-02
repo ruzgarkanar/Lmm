@@ -55,6 +55,42 @@ ALLOWED = (IS_A, HAS_PROPERTY, CAN, CANNOT, HAS_PART)
 SHORTEST = 3
 
 
+def _a_target(target, relation, memory, counts, grades, morphology):
+    """Hedef bu ilişkiye yakışıyor mu — ve temiz mi.
+
+    Kabul edilenlerden dört bin tanesi elle okundu ve üç sistematik kusur çıktı:
+
+        tophane --type--> semttir            koşaç soyulmamış
+        commodore --property--> 1953         yıl nitelik değil
+        johann --property--> yazar           ad nitelik değil
+
+    İlk ikisi biçim, üçüncüsü tür sorunu ve üçüncüsü zordu.
+
+    Önce `verbs.is_adjective` denendi ve ÖLÇÜLÜP çürütüldü: o test
+    DERECELENEBİLİRLİĞİ ölçüyor, sıfatlığı değil. Renkler derecelenmez ve
+    sayılar bunu açıkça söylüyor —
+
+        hızlı 0,279   güzel 0,319   sert 0,157      <- geçiyor
+        beyaz 0,0059  siyah 0,0031  yuvarlak 0,011  <- kalıyor
+        ülke  0,0061  yazar 0,0037  kuzey 0,0040    <- ad, ama beyaz'ın üstünde
+
+    `ülke` `beyaz`dan yüksek. Yani hiçbir eşik ikisini ayıramaz; test yanlış
+    testti. `is_noun` de ayırmıyor, çünkü Türkçede sıfat da durum eki alır.
+
+    Ayıran şey grafın KENDİ bilgisi: bir nitelik, hakkında konuşulan bir şey
+    değildir. `yazar`, `ülke`, `göl`, `cihaz` grafta kavram; `beyaz`, `siyah`,
+    `hızlı`, `sert` değil. Ölçüt graf büyüdükçe GÜÇLENİYOR — her yeni tür
+    olgusu bir sözcüğü daha kavram yapıyor ve nitelik yuvasından çıkarıyor.
+    """
+    target = morphology.strip_copula(target)
+    if not target or target.isdigit() or any(ch.isdigit() for ch in target):
+        return None
+    if relation == HAS_PROPERTY and target not in set(memory.properties()):
+        if target in set(memory.concepts()):
+            return None
+    return target
+
+
 def _a_concept(name, counts, verbs, morphology):
     """Bu ad kavram olabilir mi.
 
@@ -146,6 +182,7 @@ def _screen(chunk):
     memory = _SHARED["memory"]
     language = _SHARED["language"]
     counts = frequency.counts()
+    grades = frequency.grades()
     verbs = frequency.verbs()
     morphology = TurkishMorphology()
     passed, tally, rejected = [], collections.Counter(), []
@@ -163,6 +200,13 @@ def _screen(chunk):
             continue
         if not target or len(target) < SHORTEST:
             tally["hedef yok"] += 1
+            continue
+        target = _a_target(target, relation, memory, counts, grades, morphology)
+        if not target or len(target) < SHORTEST:
+            tally["hedef yakışmadı"] += 1
+            if len(rejected) < 4:
+                rejected.append(("hedef", f"{concept} {relation} "
+                                          f"{row.get('hedef')}"))
             continue
         if relation == HAS_PART and not _round_trip(concept, relation,
                                                     target, language):
@@ -251,6 +295,11 @@ def take(rows, memory, source, write=False, language=None):
             continue
         if not target or len(target) < SHORTEST:
             tally["hedef yok"] += 1
+            continue
+        target = _a_target(target, relation, memory, counts,
+                           frequency.grades(), morphology)
+        if not target or len(target) < SHORTEST:
+            tally["hedef yakışmadı"] += 1
             continue
         # Parça adı iyelik eki ister: graf "kanadı" tutuyor, okuyucu "kanat"
         # veriyor. Sistemin KONUŞTUĞU biçime çevrilip öyle sınanıyor.
