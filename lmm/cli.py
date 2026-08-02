@@ -35,8 +35,12 @@ from lmm.phrasing import (wondering, not_understood, now_i_can, generalising,
                           describe, teach_me_the_word, learned_word, computed,
                           cannot_compute, which_reading, went_and_read,
                           learned_wording, is_a_refusal, talked_about,
-                          nothing_more, capitalize, inventory,
-                          certainty, whence, no_opinion)
+                          nothing_more, sentences, inventory,
+                          certainty, whence, no_opinion,
+                          exception_learned, not_learned, help_text, status,
+                          opened, inquiry_open, intent_network, wording_open,
+                          dictionary_open, voice_state, help_hint,
+                          saved_and_gone)
 
 # A custom LanguageOrgan may report graded confidence; ours parses or does not.
 CONFIDENCE_THRESHOLD = 0.35
@@ -56,8 +60,21 @@ NEURAL_THRESHOLD = 0.15
 # karşılık geldikleri.
 FOLLOW_UPS = {"neden": ASK_WHY, "niye": ASK_WHY, "niçin": ASK_WHY,
               "nasıl": ASK_PROPERTIES, "kim": ASK_WHO, "kimler": ASK_WHO}
+# Aşağıdaki üç liste ve `FOLLOW_UPS`'ın ANAHTARLARI çıktı değil GİRDİ: dilin
+# sözcük dağarcığından geliyorlar, sistemin söylediklerinden değil. Yerleri
+# `lmm/turkish.py` — cevap cümleleri gibi `lmm/phrasing.py` değil, çünkü
+# işlevleri söylemek değil tanımak. Burada tek satırda duruyorlar ki taşınmaları
+# bir taramaya değil bir taşımaya kalsın.
 AFFIRMATIVE = ("evet", "e")
 EXIT_WORDS = ("çık", "cik", "exit")
+HELP_WORDS = ("yardım", "yardim", "help", "?")
+STATUS_WORDS = ("durum", "istatistik")
+# Eksiltili sorunun açılışı: "peki ya kartal". Bilgi taşımıyorlar, yalnız
+# cümlenin eksiltili olduğunu işaretliyorlar.
+OPENERS = {"peki", "ya", "yaa", "e", "ee", "pekiya"}
+# Belirtisiz tanımlık. Kuyruk iki türlü kurulabiliyor — "penguen kuş mu" ve
+# "penguen BİR kuş mu" — ve hangisinin kalıbı olduğunu önceden bilmiyoruz.
+INDEFINITE = "bir"
 # Öznesi olmayan niyetler. Bunlar bağlamdan özne almazlar ve almadıkları için
 # "anlaşılmadı" sayılmamalılar — sohbetin kendisi hakkında bir sorunun öznesi
 # yoktur. ASK_THREAD burada olmadığı için cevap üretiliyor ama sessizce
@@ -578,7 +595,7 @@ class Session:
         answers = []
         for topic in reversed(topics):
             said = None
-            for words in ([topic] + tail, [topic, "bir"] + tail):
+            for words in ([topic] + tail, [topic, INDEFINITE] + tail):
                 found = self.language.understand(" ".join(words))
                 if found.kind in (UNKNOWN, UNKNOWN_WORD, AMBIGUOUS):
                     continue
@@ -621,7 +638,7 @@ class Session:
             # kalıyordu. Aynı disiplin sistemin her yerinde: bir okuma ancak
             # işe yarıyorsa kabul edilir.
             said = None
-            for words in ([subject] + tail, [subject, "bir"] + tail):
+            for words in ([subject] + tail, [subject, INDEFINITE] + tail):
                 found = self.language.understand(" ".join(words))
                 if found.kind in (UNKNOWN, UNKNOWN_WORD, AMBIGUOUS):
                     continue
@@ -676,7 +693,7 @@ class Session:
                 break
         if not fresh:
             return nothing_more(self.focus)
-        return capitalize(". ".join(fresh) + ".")
+        return sentences(fresh)
 
     def _asks_something(self, line):
         """Cümlede soru sözcüğü var mı — varsa bildirme sayılamaz.
@@ -733,8 +750,7 @@ class Session:
         words = tokenize(line)
         if not words or len(words) > 4:
             return None
-        opener = {"peki", "ya", "yaa", "e", "ee", "pekiya"}
-        rest = [w for w in words if w not in opener]
+        rest = [w for w in words if w not in OPENERS]
         if len(rest) != 1 or len(rest) == len(words):
             return None                 # eksiltme işareti yok
         # Biçimbilim grammar'da duruyor. Burada `self.memory.morphology`
@@ -877,41 +893,21 @@ class Session:
         if spoken in getattr(morphology, "affirmations", AFFIRMATIVE):
             edge, self.pending = self.pending, None
             self.learning.confirm_exception(edge)
-            return "öğrendim (istisna olarak işledim)."
+            return exception_learned()
         if spoken in getattr(morphology, "refusals", ()):
             self.pending = None
-            return "tamam, öğrenmedim."
+            return not_learned()
         return None
 
     def save(self):
         self.memory.save(self.path)
 
 
-HELP = """
-ÖĞRETMEK                          SORMAK
-  penguen bir kuştur                penguen nedir
-  penguen bir memeli değildir       penguen bir kuş mu
-  kuşlar uçar                       penguen uçar mı
-  penguen uçamaz                    kimler uçar
-  kuşlar tüylüdür                   penguen tüylü mü
-  bazı kuşlar uçmaz                 bazı kuşlar uçar mı
-  kuşun kanadı var                  kuşun kanadı var mı
-  penguen kutupta yaşar             penguen neden uçamaz
-  kediler fare yakalar              penguen ne yapabilir
-  kartal serçeden büyüktür          penguen nasıldır
-  kelime: koşmak = koşar / koşamaz  penguen anlat
-                                    17 çarpı 43 kaç
-
-  Konuşmayı sürdürür: "peki yüzer mi", "anlat", "nasıldır"
-  Komutlar: yardım · durum · çık
-"""
-
-
 def _status(session):
+    """Sayıları oturumdan okur, söylemeyi söyleyişe bırakır."""
     memory = session.memory
-    return (f"{len(memory.edges)} bilgi · {len(memory.concepts())} kavram · "
-            f"{len(memory.vocabulary)} öğrenilmiş kelime · "
-            f"{len(memory.kinds.known())} ilişki türü")
+    return status(len(memory.edges), len(memory.concepts()),
+                  len(memory.vocabulary), len(memory.kinds.known()))
 
 
 def _inquirer():
@@ -1010,22 +1006,19 @@ def main():
                       intent=reader, voice=_voice() if fluent else None,
                       wording=_wording() if teaching else None,
                       dictionary=_dictionary() if looking_up else None)
-    print(f"LMM — yaşayan bellek: {path}")
+    print(opened(path))
     print(f"  {_status(session)}")
     if asking:
-        print("  soruşturma açık: bilmediğim bir şey sorulursa gidip okurum.")
+        print(inquiry_open())
     if understanding:
-        print(f"  niyet ağı: {'açık (' + backbone + ')' if reader else 'yok'}"
-              " — kalıp yetmediğinde devreye giriyor.")
+        print(intent_network(backbone, reader))
         if session.wording:
-            print("  söyleyiş öğrenme: açık"
-                  " — anlaşılmayan cümleden kalıcı kalıp çıkarır.")
+            print(wording_open())
     if looking_up:
-        print("  sözlük: açık — tanımadığı sözcüğün eş anlamlısını arar.")
+        print(dictionary_open())
     if fluent:
-        print(f"  akıcı ağız: {'açık' if session.voice else 'YÜKLENEMEDİ'}"
-              " — cevap çekirdeğe söyletilir, geri okunup denetlenir.")
-    print("  'yardım' yazarsan ne söyleyebileceğini gösteririm.")
+        print(voice_state(session.voice))
+    print(help_hint())
     while True:
         try:
             line = input("> ").strip()
@@ -1035,16 +1028,16 @@ def main():
             continue
         if lower(line) in EXIT_WORDS:
             break
-        if lower(line) in ("yardım", "yardim", "help", "?"):
-            print(HELP)
+        if lower(line) in HELP_WORDS:
+            print(help_text())
             continue
-        if lower(line) in ("durum", "istatistik"):
+        if lower(line) in STATUS_WORDS:
             print("  " + _status(session))
             continue
         print(session.respond(line))
         session.save()
     session.save()
-    print("bellek kaydedildi. hoşça kal.")
+    print(saved_and_gone())
 
 
 if __name__ == "__main__":

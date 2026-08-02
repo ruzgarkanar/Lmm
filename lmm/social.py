@@ -17,13 +17,22 @@ Bu gecenin ölçülmüş dersi — derleme ancak kapalı bir sınıf sorulabilir
 da geçerli.
 """
 from lmm.intuition import lower, tokenize
+from lmm import phrasing
 
-GREETING = "selamlama"
-FAREWELL = "vedalaşma"
-THANKS = "teşekkür"
-WELLBEING = "hatır"
-IDENTITY = "kimlik"
-ABILITY = "yetenek"
+# Alışverişin KİMLİĞİ, adı değil: bu dizgiler kullanıcıya hiç görünmüyor,
+# yalnızca `EXCHANGES` ile `REPLIES` arasında eşleşiyorlar. Türkçe yazılıydı ve
+# bu bir dil sızıntısı gibi duruyordu; değil — ama ilişki adları (`lmm/
+# relations.py`) ve niyet türleri (`lmm/intuition.py`) İngilizce, dolayısıyla
+# Türkçe olmaları tutarsızlıktı. Nötr hâle getirildi: ikinci bir dil eklendiğinde
+# bu satırların hiçbiri değişmeyecek, yalnızca aşağıdaki sözcük listesi ve
+# `lmm/phrasing.py`'deki cevaplar değişecek. Grafa yazılmıyorlar, kaydedilmiş
+# hiçbir dosyada geçmiyorlar, yani değiştirmek bir şeyi bozmuyor.
+GREETING = "greeting"
+FAREWELL = "farewell"
+THANKS = "thanks"
+WELLBEING = "wellbeing"
+IDENTITY = "identity"
+ABILITY = "ability"
 
 # Her biri, o niyeti taşıyan sözler. Kelime kelime değil, cümlenin tamamı ya da
 # içinde geçen anahtar aranıyor — "selam", "selam nasılsın", "merhaba dostum".
@@ -42,19 +51,17 @@ EXCHANGES = {
               "nasıl kullanılır", "yardım"),
 }
 
-# Cevaplar. Sistemin kendisi hakkında söylediği her şey doğrudur — bunlar
-# uydurma değil, kodun kendi gerçekleri.
+# Hangi alışverişe hangi söyleyiş karşılık geliyor. Cümlelerin kendisi burada
+# DEĞİL: sistemin kendisi hakkında söyledikleri de Türkçe ve Türkçenin tamamı
+# `lmm/phrasing.py`'de yaşıyor. Bu dosya "ne soruldu"yu bilir, "ne denir"i
+# değil — ikinci bir dil bu tabloyu değiştirmeden ekleniyor.
 REPLIES = {
-    GREETING: "merhaba. bildiğim şeyleri sorabilirsin.",
-    FAREWELL: "görüşmek üzere. öğrendiklerim kayıtlı kalıyor.",
-    THANKS: "rica ederim.",
-    WELLBEING: "iyiyim. {facts} bilgi ve {concepts} kavram tutuyorum.",
-    IDENTITY: ("ben LMM'im — yaşayan bellek modeli. bildiklerim ağırlıklarda "
-               "değil, okunabilir bir bellekte duruyor: şu an {facts} bilgi, "
-               "{concepts} kavram. bilmediğimi uyduramam."),
-    ABILITY: ("bildiğim şeyleri sorabilirsin, bana yeni bilgi öğretebilirsin, "
-              "yanlışımı tek cümleyle düzeltebilirsin. her cevabımda kaynağımı "
-              "söylerim, bilmediğimde de bilmediğimi."),
+    GREETING: phrasing.greeted,
+    FAREWELL: phrasing.farewelled,
+    THANKS: phrasing.thanked,
+    WELLBEING: phrasing.wellbeing,
+    IDENTITY: phrasing.introduced,
+    ABILITY: phrasing.what_i_can_do,
 }
 
 
@@ -92,10 +99,9 @@ def recognise(sentence):
 
 def reply(kind, memory=None):
     """Bu alışverişin cevabı. Sayılar bellekten okunur, uydurulmaz."""
-    template = REPLIES.get(kind)
-    if template is None:
+    said = REPLIES.get(kind)
+    if said is None:
         return None
     if memory is None:
-        return template.replace("{facts}", "birçok").replace("{concepts}", "birçok")
-    return template.format(facts=len(memory.edges),
-                           concepts=len(memory.concepts()))
+        return said()       # bellek yoksa sayı da yok; söyleyiş onu biliyor
+    return said(len(memory.edges), len(memory.concepts()))

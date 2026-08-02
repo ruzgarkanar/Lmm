@@ -21,6 +21,7 @@ yoldan, kapıdan geçerek cevaplanıyor — birleştirme yalnızca söyleyişte.
 "ikisi de", "her ikisi" gibi sözcükler atılabilir: bilgi taşımıyorlar, zaten
 iki özne olduğunu bağlaç söylüyor.
 """
+from lmm import phrasing
 
 # Cümlede iki özne olduğunu bağlaç zaten söylüyor; bu sözcükler onu tekrar
 # ediyor ve ayrıştırmayı bozuyorlar. Kapalı sınıf, birkaç tane.
@@ -56,16 +57,12 @@ def split_subjects(tokens, joiners, known):
 def combine(answers):
     """İki cevabı tek cümlede birleştirir — aynıysa kısaltarak.
 
-    "evet" + "evet" -> "evet, ikisi de" ; farklıysa ikisi de söylenir, çünkü
-    farkın kendisi cevabın parçası.
+    Kaç cevap olduğu bir yapı sorusu ve burada kalıyor; iki cevabın Türkçede
+    nasıl tek cümle olduğu bir dil sorusu ve `lmm/phrasing.py`'ye taşındı.
+    "evet, ikisi de" Türkçenin kısaltması, birleştirmenin kendisi değil.
     """
     if not answers:
         return None
     if len(answers) == 1:
         return answers[0]
-    first, second = answers[0], answers[1]
-    if first.startswith("evet") and second.startswith("evet"):
-        return f"evet, ikisi de. {first} {second}"
-    if first.startswith("hayır") and second.startswith("hayır"):
-        return f"hayır, ikisi de değil. {first} {second}"
-    return f"{first} Ama {second}"
+    return phrasing.combined(answers)
