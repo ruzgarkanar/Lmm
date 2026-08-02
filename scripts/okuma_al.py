@@ -144,7 +144,31 @@ def _round_trip(concept, relation, target, language):
 _SHARED = {}
 
 
-def _prepare(graph):
+def repeated_names(rows, least=2):
+    """Okuyucunun EN AZ İKİ kez kavram diye adlandırdığı çok kelimeli adlar.
+
+    "the beatles bir gruptur" cümlesinde ayrıştırıcı kavramı `the` diye
+    okuyup gerisini hedefe katıyordu: çok kelimeli bir ad ancak TANIKLI ise
+    kabul ediliyor (graf biliyor, biçimbilim işaretliyor ya da derlem
+    tanıklıyor) ve "the beatles" hiçbirinden geçmiyor. Doğru bir olgu, kapıda
+    bu yüzden ölüyordu — ölçüldü, geri okuma redlerinin büyük kısmı bu.
+
+    Okuyucunun kendi tekrarı dördüncü tanık: aynı adı iki ayrı olguda özne
+    yapmışsa o bir şeydir. Bir kez geçen ad rastlantı olabilir; aynı ölçüt
+    kalıp çıkarımında ve `grammar.induce`'da da kullanılıyor.
+
+    Tanıklık YALNIZ bu denetim için geçerli — grafa yazılan şey yine tek tek
+    kapıdan geçen olgular.
+    """
+    counted = collections.Counter()
+    for row in rows:
+        name = (row.get("kavram") or "").strip().lower()
+        if " " in name and 2 <= len(name.split()) <= 3:
+            counted[name] += 1
+    return {name for name, times in counted.items() if times >= least}
+
+
+def _prepare(graph, extra=()):
     """Her işçi sürecin kendi belleği ve dil organı — bir kez kuruluyor."""
     from lmm.discovered import words_of
     from lmm.grammar import Pattern
@@ -155,7 +179,13 @@ def _prepare(graph):
     def concepts():
         marker = len(memory.edges)
         if held.get("at") != marker:
-            held["at"], held["names"] = marker, memory.concepts()
+            names = memory.concepts()
+            if extra:
+                # Aynı LİSTE nesnesi korunuyor: dilbilgisi kümesini o nesneye
+                # asıyor ve yenisini kurmak önbelleği her cümlede düşürürdü.
+                names.extend(name for name in sorted(extra)
+                             if name not in set(names))
+            held["at"], held["names"] = marker, names
         return held["names"]
 
     language = Intuition(lexicon=memory.lexicon, words=words_of(memory),
@@ -229,7 +259,8 @@ def take_parallel(rows, graph, memory, source, write=False, workers=None):
     tally = collections.Counter()
     rejected = collections.defaultdict(list)
     survivors = []
-    with multiprocessing.Pool(workers, _prepare, (graph,)) as pool:
+    names = repeated_names(rows)
+    with multiprocessing.Pool(workers, _prepare, (graph, names)) as pool:
         for passed, counted, notes in pool.imap_unordered(_screen, chunks):
             survivors.extend(passed)
             tally.update(counted)
