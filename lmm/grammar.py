@@ -426,7 +426,8 @@ class Grammar:
             if self._asks(token):
                 return None
             plain = morphology.strip_plural(token)
-            if plain in self.known():
+            known = self.known()
+            if plain in known:
                 return plain
             # Durum eki taşıyan bir kavram da kavramdır: "bana PENGUENLERDEN
             # bahseder misin" cümlesinin konusu penguendir. Ek soyulmadığında
@@ -437,6 +438,22 @@ class Grammar:
             peeled = self._peel(token)
             if peeled is not None:
                 return peeled
+            # Çoğul EKİ ile çoğul ADI ayrı şeyler. "kuşlar" bir ekten ibaret,
+            # ama "maldivler", "bahamalar", "etçiller", "çift çenekliler"
+            # kendileri çoğuldur ve tekilleri yoktur. Ek koşulsuz soyulunca
+            # grafta duran olgu ulaşılmaz oluyordu:
+            #
+            #   grafta: alkinler --type--> bileşik
+            #   > alkinler nedir   -> "bunu bilmiyorum ... alkin nedir?"
+            #
+            # Ölçüldü: 16.774 kavramın 316'sı (%1,9) böyle çoğul adlı ve
+            # hepsi sessizce erişilemezdi. Sohbet sınavı bunu takip turunda
+            # yakaladı — tek soruluk ölçüt göremiyordu.
+            #
+            # Karar kurala değil GRAFA bırakılıyor: soyulmuş hâli bilinmiyor
+            # ama kelimenin kendisi biliniyorsa, ek kelimenin parçasıdır.
+            if token in known:
+                return token
             return plain
         if slot == SOZ:
             return token
