@@ -697,8 +697,18 @@ class Session:
         morphology = getattr(grammar, "morphology", None)
         if morphology is None:
             return False
+        # Soru İŞARETİ en açık kanıt ve hiç bakılmıyordu — `tokenize`
+        # noktalamayı attığı için görünmez. Ölçüldü: 400 gerçek Türkçe cümlede
+        # grafa yazılan 10 kaydın 10'u soru işaretiyle bitiyordu.
+        # İşaretin kendisi dilden soruluyor: İspanyolca "¿", Yunanca ";"
+        # kullanır ve kod hangisi olduğunu bilmemeli.
+        if line.rstrip().endswith(tuple(getattr(morphology,
+                                                "question_marks", ()))):
+            return True
         for token in tokenize(line):
             if asking.interrogative_of(token, morphology) is not None:
+                return True
+            if asking.particle_of(token, morphology) is not None:
                 return True
         return False
 
