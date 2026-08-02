@@ -34,6 +34,7 @@ Girdi biçimi — satır başına bir JSON nesnesi:
 """
 import collections
 import json
+import multiprocessing
 import os
 import sys
 
@@ -104,13 +105,128 @@ def _round_trip(concept, relation, target, language):
             and str(intent.target or "").startswith(str(target)[:4]))
 
 
+_SHARED = {}
+
+
+def _prepare(graph):
+    """Her işçi sürecin kendi belleği ve dil organı — bir kez kuruluyor."""
+    from lmm.discovered import words_of
+    from lmm.grammar import Pattern
+    from lmm.intuition import Intuition
+    memory = Memory.load(graph)
+    held = {}
+
+    def concepts():
+        marker = len(memory.edges)
+        if held.get("at") != marker:
+            held["at"], held["names"] = marker, memory.concepts()
+        return held["names"]
+
+    language = Intuition(lexicon=memory.lexicon, words=words_of(memory),
+                         known=concepts)
+    for entry in memory.patterns:
+        pattern = Pattern.from_dict(entry)
+        language.grammar.add(pattern, first=not pattern.fallback)
+    _SHARED["memory"] = memory
+    _SHARED["language"] = language
+
+
+def _screen(chunk):
+    """Bir öbeği KAVRAM ve GERİ OKUMA kapılarından geçirir.
+
+    Bu iki kapı grafın o anki durumundan bağımsız — kavram sınaması derleme,
+    geri okuma dilbilgisine bakıyor. Bağımsız oldukları için paralelleşebilir,
+    ve pahalı olan da bunlar: profillendi, sürenin neredeyse tamamı geri
+    okumadaki dilbilgisi eşleşmesinde geçiyor.
+
+    Çelişki denetimi paralelleşemez: kabul edilen her olgu grafı değiştiriyor
+    ve sonraki denetimi etkiliyor. O yüzden o aşama sıralı kalıyor — ama ucuz,
+    çünkü sözlük araması.
+    """
+    memory = _SHARED["memory"]
+    language = _SHARED["language"]
+    counts = frequency.counts()
+    verbs = frequency.verbs()
+    morphology = TurkishMorphology()
+    passed, tally, rejected = [], collections.Counter(), []
+    for row in chunk:
+        concept = (row.get("kavram") or "").strip().lower()
+        relation = (row.get("ilişki") or row.get("iliski") or "").strip()
+        target = (row.get("hedef") or "").strip().lower()
+        if relation not in ALLOWED:
+            tally["ilişki tanınmadı"] += 1
+            continue
+        if not _a_concept(concept, counts, verbs, morphology):
+            tally["kavram değil"] += 1
+            if len(rejected) < 4:
+                rejected.append(("kavram", concept))
+            continue
+        if not target or len(target) < SHORTEST:
+            tally["hedef yok"] += 1
+            continue
+        if relation == HAS_PART and not _round_trip(concept, relation,
+                                                    target, language):
+            target = phrasing.possessed(target)
+        if not _round_trip(concept, relation, target, language):
+            tally["geri okunamadı"] += 1
+            if len(rejected) < 4:
+                rejected.append(("geri okuma",
+                                 f"{concept} {relation} {target}"))
+            continue
+        passed.append((concept, relation, target))
+    return passed, tally, rejected
+
+
+def take_parallel(rows, graph, memory, source, write=False, workers=None):
+    """İki aşama: paralel eleme, sonra sıralı çelişki denetimi ve yazma."""
+    workers = workers or max(1, (os.cpu_count() or 2) - 1)
+    size = max(200, len(rows) // (workers * 8) + 1)
+    chunks = [rows[at:at + size] for at in range(0, len(rows), size)]
+    tally = collections.Counter()
+    rejected = collections.defaultdict(list)
+    survivors = []
+    with multiprocessing.Pool(workers, _prepare, (graph,)) as pool:
+        for passed, counted, notes in pool.imap_unordered(_screen, chunks):
+            survivors.extend(passed)
+            tally.update(counted)
+            for kind, example in notes:
+                if len(rejected[kind]) < 4:
+                    rejected[kind].append(example)
+    reasoning = Reasoning(memory)
+    for concept, relation, target in survivors:
+        known, _ = reasoning.about(concept, relation, target)
+        if known is not None and known != (relation not in (CANNOT,)):
+            tally["grafla çelişti"] += 1
+            if len(rejected["çelişki"]) < 4:
+                rejected["çelişki"].append(f"{concept} {relation} {target}")
+            continue
+        tally["GEÇTİ"] += 1
+        if write:
+            memory.write(Edge(concept, relation, target, source=source))
+    return tally, rejected
+
+
 def take(rows, memory, source, write=False, language=None):
     """Okumaları denetleyip sayar; `write` ise geçenleri grafa yazar."""
     if language is None:
         from lmm.discovered import words_of
         from lmm.intuition import Intuition
+        # Kavram listesi ÖNBELLEKLİ geçiliyor. `memory.concepts` doğrudan
+        # verilince `grammar.known()` her çağrıda yeni bir liste alıp kümeye
+        # çeviriyor ve kimlik karşılaştırması hiç tutmuyor — `lmm/cli.py`
+        # aynı düzeltmeyi taşıyor ama bu betik onu atlıyordu. Profillendi:
+        # 600 okumanın 90 saniyesinin 37'si (%41) buradaydı, ve 375 bin
+        # okumada bu üç saat demek.
+        held = {}
+
+        def concepts():
+            marker = len(memory.edges)
+            if held.get("at") != marker:
+                held["at"], held["names"] = marker, memory.concepts()
+            return held["names"]
+
         language = Intuition(lexicon=memory.lexicon, words=words_of(memory),
-                             known=memory.concepts)
+                             known=concepts)
         from lmm.grammar import Pattern
         for entry in memory.patterns:
             pattern = Pattern.from_dict(entry)
@@ -183,7 +299,11 @@ def main(argv):
 
     memory = Memory.load(graph)
     before = len(memory.edges)
-    tally, rejected = take(rows, memory, source, write="--yaz" in argv)
+    if "--tek" in argv:
+        tally, rejected = take(rows, memory, source, write="--yaz" in argv)
+    else:
+        tally, rejected = take_parallel(rows, graph, memory, source,
+                                        write="--yaz" in argv)
 
     print(f"{path} — {len(rows):,} okuma")
     print(f"{os.path.basename(graph)} — {before:,} olgu\n")
