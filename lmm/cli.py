@@ -101,7 +101,7 @@ class Session:
         self.language = language or Intuition(network=MiniNetwork.default(),
                                               lexicon=self.memory.lexicon,
                                               words=words_of(self.memory),
-                                              known=self.memory.concepts,
+                                              known=self._concepts,
                                               meanings=self._meanings)
         for entry in self.memory.patterns:      # ways of speaking it was taught
             pattern = Pattern.from_dict(entry)
@@ -161,12 +161,50 @@ class Session:
         Dağılımsal kümeleme denendi ve ölçülüp çürütüldü: işlevsel kelimelerde
         aynı gruptaki çift, farklı gruptakinin altında kalıyordu.
         """
-        found = set()
-        for edge in self.memory.query(word, SAME_AS):
-            found.add(edge.target)
+        found = set(edge.target for edge in self.memory.query(word, SAME_AS))
+        found.update(self._same_as().get(word, ()))
+        return found
+
+    def _same_as(self):
+        """Ters eş anlamlılık dizini — kenar sayısına bağlı önbellekle.
+
+        Önce her çağrıda TÜM kenarlar taranıyordu ve bu işlev cümle başına
+        yüzlerce kez çağrılıyor: ayrıştırıcı tanımadığı her sözcük için
+        soruyor. Ölçüldü — 10 katlık bir grafta üç sorunun 7,40 saniyesinin
+        4,17'si (%56) buradaydı, çağrı başına 6,9 ms.
+
+        Graf bu gece 17 katına çıkıyor; o hızda çağrı başına ~12 ms ve cümle
+        başına dakikalar demek. Algoritma değişmiyor, aynı tarama bir kez
+        yapılıp saklanıyor.
+
+        Geçersizleştirme kenar SAYISINA bağlı: sohbette öğrenilen bir eş
+        anlamlılık bir sonraki cümlede görünmeli. Bayat önbellek bu projede
+        sessiz yanlış cevap demektir — "öğrendim" deyip bilmemek.
+        """
+        marker = len(self.memory.edges)
+        cached = getattr(self, "_same_as_cache", None)
+        if cached is not None and cached[0] == marker:
+            return cached[1]
+        backwards = {}
         for edge in self.memory.edges:
-            if edge.relation == SAME_AS and edge.target == word:
-                found.add(edge.concept)
+            if edge.relation == SAME_AS and edge.target:
+                backwards.setdefault(edge.target, set()).add(edge.concept)
+        self._same_as_cache = (marker, backwards)
+        return backwards
+
+    def _concepts(self):
+        """Grafın kavramları — kopyası kenar sayısına bağlı saklanıyor.
+
+        `grammar.known()` bunu cümle başına ~110 kez çağırıyor ve her çağrıda
+        yeni bir liste kopyalanıp kümeye çevriliyordu. Ölçüldü: 10 katlık
+        grafta ayrıştırma süresinin %30'u. 17 katta kabul edilemez.
+        """
+        marker = len(self.memory.edges)
+        cached = getattr(self, "_concepts_cache", None)
+        if cached is not None and cached[0] == marker:
+            return cached[1]
+        found = self.memory.concepts()
+        self._concepts_cache = (marker, found)
         return found
 
     def _aimed(self, tokens, relation):
