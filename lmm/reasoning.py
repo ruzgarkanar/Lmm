@@ -8,7 +8,7 @@ from lmm.memory import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
                         PROPERTY_RELATIONS, PART_RELATIONS, INHERITING)
 from lmm.phrasing import (ability_clause, property_clause, part_clause,
                           is_a_clause, is_not_a_clause, attribution,
-                          disputed_note)
+                          disputed_note, is_a_step, own_inference)
 from lmm.trust import INFERENCE, level
 
 
@@ -351,14 +351,14 @@ class Reasoning:
                 # öğretilirse öğretilsin cevap aynı: bilmiyorum.
                 said = clause(ancestor, target, polarity, object, role)
                 other = clause(rivals[0][1], target, rivals[0][0], object, role)
-                return None, [f"{concept} bir {ancestor}", said,
-                              f"{concept} bir {rivals[0][1]}", other,
+                return None, [is_a_step(concept, ancestor), said,
+                              is_a_step(concept, rivals[0][1]), other,
                               disputed_note()], None
             inherited = clause(ancestor, target, polarity, object, role)
             if edge.source == INFERENCE:
                 # An inherited guess is still a guess, and must say so.
-                inherited += " (kendi çıkarımım)"
-            return polarity, [f"{concept} bir {ancestor}", inherited], edge
+                inherited = own_inference(inherited)
+            return polarity, [is_a_step(concept, ancestor), inherited], edge
         return None, [], None
 
     def _outweighs(self, edge, rival):
