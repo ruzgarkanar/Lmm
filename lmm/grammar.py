@@ -39,6 +39,51 @@ SLOTS = (KAVRAM, TUR, NITELIK, SOZ, FIIL, SORU, KIM, ROL, NICEL, SAHIP,
 
 FROM_VERB = "fiilden"       # the relation follows the verb's own polarity
 
+# Bir kavram öbeğinin içine hangi kelimelerin giremeyeceği DİLE aittir ve
+# biçimbilimden sorulur. Bu gece ilk yazışta listeler buraya konmuştu ve bu
+# bir mimari ihlaldi: `grammar.py` hangi dile baktığını bilmemeli, yoksa
+# ikinci bir dil ikinci bir dilbilgisi motoru demek olur.
+# Ünsüz yumuşaması: gövde sonundaki sert ünsüz, ünlüyle başlayan ek alınca
+# yumuşar. "bahset" + "er" -> "bahsed"er. Düz önek karşılaştırması bunu
+# kaçırıyor ve doğru eşleşmeyi reddediyordu.
+SOFTENS = {"t": "d", "k": "ğ", "p": "b", "ç": "c"}
+
+
+def _starts_with(token, stem):
+    """Kelime bu gövdeyle başlıyor mu — ünsüz yumuşaması sayılarak."""
+    if not stem or token.startswith(stem):
+        return bool(stem)
+    soft = SOFTENS.get(stem[-1])
+    return bool(soft) and token.startswith(stem[:-1] + soft)
+
+
+def _blocked(morphology):
+    """Öbeğe giremeyecek kelimeler — dilin kendi bildirdikleri."""
+    found = set()
+    # Pekiştireç burada YOK: yeri yalnızca kavram yuvası. Her yuvada
+    # yasaklamak "kartal çok hızlıdır" gibi geçerli cümleleri düşürüyor.
+    for name in ("denials", "postpositions", "correlatives", "joiners",
+                 "clitics"):
+        found.update(getattr(morphology, name, ()))
+    return found
+
+
+def _blocked_in_concepts(morphology):
+    """Yalnızca KAVRAM ve TÜR yuvasında yasak olanlar.
+
+    Kural kelimenin kendisinde değil YERİNDE: "çok hızlı" geçerli bir
+    niteliktir ama "kartal çok çok" bir kavram değildir.
+    """
+    found = set()
+    for name in ("intensifiers",):
+        found.update(getattr(morphology, name, ()))
+    return found
+
+# Bağlaçlar da bir öbeğin içine giremez: "penguen ile kartal aynı mı"
+# cümlesinde kavram `penguen ile kartal` diye okunuyordu — iki kavram tek
+# kavram sanılıyor ve soru cevapsız kalıyordu. `değil` ile aynı hata, farklı
+# kelime sınıfı. Bağlaç kapalı bir sınıf ve zaten cümlecik bölmede sayılı.
+
 # Concepts, types and properties are routinely more than one word — "müşteri
 # bakiyesi", "bilgi türü", "çok hızlı". Verbs and particles never are.
 PHRASE_SLOTS = (KAVRAM, TUR, NITELIK, SOZ)
@@ -90,12 +135,16 @@ class Grammar:
     the question has to be tried before the lesson.
     """
 
-    def __init__(self, patterns, morphology, known=()):
+    def __init__(self, patterns, morphology, known=(), meanings=None):
         self.patterns = list(patterns)
         self.morphology = morphology    # supplies the language's suffix rules
         # Live, not a snapshot: a concept taught mid-conversation must be
         # recognisable in the very next sentence.
         self._known = known
+        # Bir kelimenin başka nasıl söylendiği. Graftan geliyor, listeden değil:
+        # eş anlamlılık bir olgudur ve künyesiyle durur. Verilmezse kalıplar
+        # yalnız birebir sözcükle eşleşir — eskisi gibi.
+        self._meanings = meanings
 
     def known(self):
         return set(self._known() if callable(self._known) else self._known)
@@ -152,37 +201,174 @@ class Grammar:
         # "kartal serçeden" being "büyük", written to memory without a murmur.
         if any(self.morphology.is_oblique(token) for token in span):
             return None
+        # Olumsuzluk kelimesi bir öbeğin İÇİNE giremez: "penguen bir kuş değil
+        # mi" cümlesinin hedefi "kuş değil" değil, "kuş"tur ve olumsuzluk
+        # cümlenin kutbunu çevirir. Yutulduğunda graf "kuş değil" diye bir
+        # kavram arıyor ve bulamıyordu — soru sessizce cevapsız kalıyordu.
+        blocked = _blocked(self.morphology)
+        if any(token in blocked for token in span):
+            return None
+        # Zamir tek başına özne yerine geçebilir ("o uçar mı") ama bir kavram
+        # öbeğinin İÇİNE giremez: "bunu bana anlatır mısın" cümlesinde kavram
+        # `bunu bana` diye okunuyordu ve grafta öyle bir şey yok.
+        if any(token in getattr(self.morphology, "pronouns", ())
+               for token in span):
+            return None
+        # Pekiştireç yalnızca KAVRAM ve TÜR yuvasında yasak: "çok hızlı"
+        # geçerli bir niteliktir ama "kartal çok çok" bir kavram değildir.
+        # İlk yazışta her yuvada yasaklamıştım ve geçerli cümleleri
+        # düşürüyordu — kural kelimenin kendisinde değil, YERİNDE.
+        if slot in (KAVRAM, TUR):
+            only_here = _blocked_in_concepts(self.morphology)
+            if any(token in only_here for token in span):
+                return None
+        # Bir kavram öbeğinin içinde FİİL olamaz. "penguen uçar ve uçamaz"
+        # cümlesinde kavram `penguen uçar` diye okunup grafa yazılıyordu —
+        # cümlenin yüklemi kavramın parçası sanılıyordu. Yazılan saçmalıkların
+        # en tehlikelisi: hem kavramı hem olguyu bozuyor.
+        if slot in (KAVRAM, TUR) and any(lexicon.knows(token)
+                                         for token in span):
+            return None
         tail = self._capture(slot, span[-1], lexicon)
         if tail is None:
             return None
         return " ".join(list(span[:-1]) + [tail])
 
+    def _bare(self, token):
+        """Koşaç eki soyulmuş hâli — ek yoksa kelimenin kendisi.
+
+        "mu" ile "mudur", "neler" ile "nelerdir" aynı şeyi sorar. Liste
+        uzatmak yerine ek soyuluyor: koşaç ekleri zaten türetilmiş ve soru
+        sözcükleri kapalı sınıf olarak duruyor.
+        """
+        morphology = self.morphology
+        return (morphology.strip_copula(token) if morphology.has_copula(token)
+                else token)
+
+    def _peel(self, token):
+        """Ek soyulunca bilinen bir kavram çıkıyorsa o kavram, yoksa None."""
+        from lmm.frames import case_of
+        known = self.known()
+        morphology = self.morphology
+        seen, edge = {token}, [token]
+        for _ in range(4):
+            following = []
+            for form in edge:
+                # İyelik eki de soyuluyor: "penguenin özellikleri neler"
+                # sorusunda kavram `penguenin` diye kalıyordu ve grafta
+                # bulunamıyordu. Biçimbilim onu zaten çözebiliyordu; yuva
+                # sormuyordu.
+                # Biçimbilim dile göre değişir ve her dilde iyelik eki
+                # olmayabilir: makine dile özgü yöntem VARSAYMAMALI. İlk
+                # yazışta varsaymıştım ve İngilizce dilbilgisi testleri
+                # düştü — bu projenin dilden bağımsızlık iddiası tam da
+                # orada sınanıyor.
+                genitive = getattr(morphology, "strip_genitive", None)
+                for candidate in (morphology.strip_plural(form),
+                                  genitive(form, known) if genitive else None,
+                                  case_of(form)[0]):
+                    if not candidate or candidate in seen:
+                        continue
+                    if candidate in known:
+                        return candidate
+                    seen.add(candidate)
+                    following.append(candidate)
+            if not following:
+                return None
+            edge = following
+        return None
+
+    def _asks(self, token):
+        """Bu kelime, hangi çekimde olursa olsun, soru soruyor mu?
+
+        Çıplak ek, koşaçlı hâl ve çekimli hâl — üçü de. Çekimli hâller
+        derlemden keşfedildi; bkz. `lmm/asking.py`.
+        """
+        from lmm import asking
+        return asking.asks(token, self.morphology)
+
     def _capture(self, slot, token, lexicon):
         """What this token means in this slot, or None if it does not fit."""
         morphology = self.morphology
+        # Tek kelimelik yapısal sözcük de bir kavram olamaz. Öbek denetimi
+        # yalnızca ÇOK kelimeli yuvalarda çalışıyordu ve "kartal da uçar mı"
+        # cümlesinde "da" tek başına kavram yerine geçiyordu.
+        if slot in PHRASE_SLOTS and slot != SOZ:
+            if token in _blocked(morphology):
+                return None
+
         if slot not in SLOTS:
-            return token if token == slot else None
+            if token == slot:
+                return slot
+            # Dilin kendi bildirdiği eşdeğerler: "neden" kalıbı "niçin"i de
+            # eşleştirir. Aynı soru için ikinci bir kalıp yazmak, kalıp
+            # sayısını şişirmekten başka bir şey yapmıyordu.
+            for group in getattr(morphology, "groups", ()):
+                if slot in group and token in group:
+                    return slot
+            # "bahseder misin" ile "anlat" aynı şeyi istiyor. Bunu bilmek için
+            # kalıp eklemek gerekmiyor; grafta "anlat = bahset" yazması yeterli.
+            #
+            # Bakılan yön önemli: KALIPTAKİ sözcüğün eş anlamlılarına bakılıyor,
+            # gelen kelimeninkine değil. Tersi yazılmıştı ve çalışmıyordu —
+            # gelen kelimenin çekimli hâli grafta hiç durmuyor, gövdesi duruyor.
+            # Çekim gövdeye önek olarak uyuyor: "bahseder" -> "bahset".
+            for other in (self._meanings(slot) if self._meanings else ()):
+                if _starts_with(token, other):
+                    return slot
+            # Soru sözcüğü eş anlamlıları: "niçin" ile "neden" aynı şeyi
+            # sorar. Kalıp çoğaltmak yerine graftan okunuyor — eş anlamlılık
+            # bir olgu ve yeri graf.
+            if self._meanings and token in self._meanings(slot):
+                return slot
+            return None
         if slot == KAVRAM:
             # A closed-class word is never the thing being talked about.
             # "bazı kuşlar uçmaz" was read as the concept "bazı" doing something.
             if token in getattr(morphology, "quantifiers", ()):
                 return None
-            return morphology.strip_plural(token)
+            if self._asks(token):
+                return None
+            plain = morphology.strip_plural(token)
+            if plain in self.known():
+                return plain
+            # Durum eki taşıyan bir kavram da kavramdır: "bana PENGUENLERDEN
+            # bahseder misin" cümlesinin konusu penguendir. Ek soyulmadığında
+            # öğrenilen kalıp eşleşiyor ama grafta karşılığı bulunamıyordu —
+            # kalıp çalışıyor sanılıyordu, oysa cevap başka yerden geliyordu.
+            # Yalnızca soyulmuş hâli GERÇEKTEN bilinen bir kavramsa yapılıyor;
+            # yoksa ek, kelimenin parçası olabilir ("banka" / "bank'a").
+            peeled = self._peel(token)
+            if peeled is not None:
+                return peeled
+            return plain
         if slot == SOZ:
             return token
         if slot == TUR:
+            if self._asks(token):
+                return None
             return morphology.strip_copula(token)
         if slot == NITELIK:
             if not morphology.has_copula(token):
+                return None
+            # Soru eki koşaç alınca nitelik olmaz. "mudur" koşaç taşıdığı için
+            # bu yuvaya giriyordu ve "penguen mutlu mudur" cümlesi
+            # [KAVRAM=penguen mutlu, NITELIK=mu] diye okunup TEACH sayılıyordu:
+            # soru, grafa `sence penguenler mutlu —property→ mu` diye
+            # yazılıyordu. Cevap uydurulmuyordu ama hafıza kirleniyordu — ki
+            # hafıza bu projenin tek varlığı.
+            if self._asks(token):
                 return None
             return morphology.strip_copula(token)
         if slot == FIIL:
             reading = lexicon.reading(token)
             return reading if reading is not None else None
         if slot == SORU:
-            return token if token in morphology.question_particles else None
+            from lmm import asking
+            return asking.particle_of(token, morphology)
         if slot == KIM:
-            return token if token in morphology.interrogatives else None
+            from lmm import asking
+            return asking.interrogative_of(token, morphology)
         if slot == NESNEL:
             # Only strip an accusative when what is left is a concept we know:
             # "kedi" ends in the same letter and is not "ked".

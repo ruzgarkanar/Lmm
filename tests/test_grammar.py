@@ -256,3 +256,222 @@ class TestConceptsMadeOfSeveralWords(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAQuestionIsNeverAFact(unittest.TestCase):
+    """Soru eki koşaç alınca soru olmaktan çıkmaz.
+
+    "mudur" koşaç taşıdığı için NITELIK yuvasına giriyordu ve "penguen mutlu
+    mudur" cümlesi [KAVRAM=penguen mutlu, NITELIK=mu] diye okunup TEACH
+    sayılıyordu. Sonuç grafa yazılan bir saçmalıktı:
+
+        sence penguenler mutlu —property→ mu   [sen]
+
+    Cevap uydurulmuyordu ama hafıza kirleniyordu — ki hafıza bu projenin tek
+    varlığı. Ayrıştırıcı soru ile bildirmeyi ayıramadığında varsayılanı "bu bir
+    bilgidir" olamaz.
+    """
+
+    def setUp(self):
+        from lmm.intuition import Intuition
+        from lmm.network import MiniNetwork
+        self.language = Intuition(network=MiniNetwork.default())
+
+    def kind(self, sentence):
+        return self.language.understand(sentence).kind
+
+    def test_a_question_with_a_fused_copula_is_not_teaching(self):
+        for sentence in ("penguen mutlu mudur", "penguen bir kuş mudur",
+                         "sence penguenler mutlu mudur"):
+            self.assertNotEqual(self.kind(sentence), TEACH, sentence)
+
+    def test_the_bare_particle_still_asks(self):
+        self.assertEqual(self.kind("penguen mutlu mu"), ASK)
+
+    def test_a_statement_is_still_teaching(self):
+        for sentence in ("penguen mutludur", "kartal bir kuştur"):
+            self.assertEqual(self.kind(sentence), TEACH, sentence)
+
+    def test_not_understanding_beats_writing_nonsense(self):
+        """Anlaşılmayan bir soru, bilgi diye yazılmaktansa anlaşılmasın."""
+        self.assertNotEqual(self.kind("kuşların özellikleri nelerdir"), TEACH)
+
+
+class TestDenialIsNotSwallowed(unittest.TestCase):
+    """Olumsuzluk kelimesi bir öbeğin içine giremez.
+
+    "penguen bir kuş değil mi" cümlesinin hedefi `kuş değil` diye okunuyordu;
+    graf öyle bir kavram arıyor, bulamıyor ve soru sessizce cevapsız kalıyordu.
+    Oysa Türkçe'de bu kalıp olumsuzluk sormaz, TEYİT ister — cevabı "evet, bir
+    kuştur" olmalı.
+    """
+
+    def setUp(self):
+        import os
+        import tempfile
+        from lmm.memory import Memory, Edge, IS_A, HAS_PROPERTY
+        from lmm.cli import Session
+        path = os.path.join(tempfile.mkdtemp(), "d.lmm")
+        memory = Memory()
+        memory.write(Edge("penguen", IS_A, "kuş", source="sen"))
+        memory.write(Edge("kartal", HAS_PROPERTY, "hızlı", source="sen"))
+        memory.save(path)
+        self.session = Session(path)
+
+    def test_a_negative_confirmation_question_is_answered_yes(self):
+        said = self.session.respond("penguen bir kuş değil mi")
+        self.assertTrue(said.startswith("evet"), said)
+
+    def test_it_works_for_properties_too(self):
+        said = self.session.respond("kartal hızlı değil mi")
+        self.assertTrue(said.startswith("evet"), said)
+
+    def test_a_trailing_filler_does_not_break_it(self):
+        """"yani" hiçbir şey eklemiyor; cümleyi düşürmemeli."""
+        said = self.session.respond("penguen bir kuş değil mi yani")
+        self.assertTrue(said.startswith("evet"), said)
+
+    def test_a_real_denial_is_still_a_denial(self):
+        said = self.session.respond("penguen bir balık değildir")
+        self.assertNotIn("evet, penguen bir balık", said)
+
+
+class TestAnInterrogativeIsNeverATeaching(unittest.TestCase):
+    """Soru sözcüğü taşıyan cümle bildirme olamaz.
+
+    Ayrıştırıcı yanılabilir; yanıldığında bedeli ağır ve kalıcı. Ölçüldü:
+
+        "kartal kaç yaşında yaşar"
+          -> TEACH sayıldı
+          -> grafa `kartal kaç --can--> yaşamak [rol=yer, nesne=yaşın]` yazıldı
+
+    Hafızayı kirletmek bu mimaride yapılabilecek en pahalı hata: cevap
+    uydurulmuyor ama yanlış bilgi kalıcı oluyor ve bir daha çıkmıyor. Kapı,
+    yanılmayı cevapsızlığa çeviriyor — kirletmektense anlamamak.
+    """
+
+    def setUp(self):
+        import os
+        import tempfile
+        from lmm.memory import Memory, Edge, IS_A
+        from lmm.cli import Session
+        path = os.path.join(tempfile.mkdtemp(), "s.lmm")
+        memory = Memory()
+        memory.learn_word("yaşamak", "yaşar", "yaşamaz")
+        memory.learn_word("uçmak", "uçar", "uçamaz")
+        memory.write(Edge("kartal", IS_A, "kuş", source="sen"))
+        memory.save(path)
+        self.session = Session(path)
+        self.before = len(self.session.memory.edges)
+
+    def test_a_question_word_stops_the_lesson(self):
+        for line in ("kartal kaç yaşında yaşar", "kuş nasıl uçar",
+                     "kartal niye uçar", "penguen ne kadar yaşar"):
+            self.session.respond(line)
+        self.assertEqual(len(self.session.memory.edges), self.before)
+
+    def test_a_real_statement_still_gets_through(self):
+        self.session.respond("kartal güçlüdür")
+        self.assertGreater(len(self.session.memory.edges), self.before)
+
+    def test_the_closed_class_covers_the_common_ones(self):
+        from lmm.intuition import _MORPHOLOGY
+        for word in ("kaç", "nasıl", "neden", "nerede", "hangi", "kim"):
+            self.assertIn(word, _MORPHOLOGY.interrogatives, word)
+
+
+class TestNothingWrongEntersAConcept(unittest.TestCase):
+    """Bir kavram öbeğine neyin giremeyeceği — hepsi aynı sınıftan hata.
+
+    Gece boyunca aynı kusur beş kelime sınıfında ayrı ayrı yakalandı ve her
+    biri grafa saçma bir kayıt yazıyordu:
+
+        değil       "penguen bir kuş değil mi"      -> hedef `kuş değil`
+        ile         "penguen ile kartal aynı mı"    -> kavram `penguen ile kartal`
+        çok         "kartal çok çok çok hızlıdır"   -> kavram `kartal çok çok`
+        hem         "kartal hem hızlı hem güçlüdür" -> kavram `kartal hem hızlı`
+        FİİL        "penguen uçar ve uçamaz"        -> kavram `penguen uçar`
+
+    Sonuncusu en tehlikelisi: cümlenin yüklemi kavramın parçası sanılıyor, hem
+    kavram hem olgu bozuluyor.
+
+    Ve bir ders: kural kelimenin kendisinde değil YERİNDE. Pekiştireci her
+    yuvada yasaklamak "çok hızlı" gibi geçerli nitelikleri düşürüyordu.
+    """
+
+    def setUp(self):
+        import os
+        import tempfile
+        from lmm.memory import Memory, Edge, IS_A
+        from lmm.cli import Session
+        path = os.path.join(tempfile.mkdtemp(), "n.lmm")
+        memory = Memory()
+        memory.learn_word("uçmak", "uçar", "uçamaz")
+        memory.write(Edge("kartal", IS_A, "kuş", source="sen"))
+        memory.save(path)
+        self.session = Session(path)
+        self.before = len(self.session.memory.edges)
+
+    def written(self, line):
+        self.session.respond(line)
+        return [(e.concept, e.relation, e.target)
+                for e in self.session.memory.edges[self.before:]]
+
+    def test_an_intensifier_is_not_part_of_a_concept(self):
+        self.assertEqual(self.written("kartal çok çok çok hızlıdır"), [])
+
+    def test_a_correlative_is_not_part_of_a_concept(self):
+        self.assertEqual(self.written("kartal hem hızlı hem güçlüdür"), [])
+
+    def test_a_verb_is_never_inside_a_concept(self):
+        self.assertEqual(self.written("penguen uçar ve uçamaz"), [])
+
+    def test_an_intensifier_is_still_fine_in_a_property(self):
+        """Kural yerinde: "çok hızlı" geçerli bir niteliktir."""
+        found = self.written("kartal çok hızlıdır")
+        self.assertEqual(found, [("kartal", "property", "çok hızlı")])
+
+    def test_a_real_compound_concept_survives(self):
+        found = self.written("müşteri bakiyesi gizlidir")
+        self.assertEqual(found, [("müşteri bakiyesi", "property", "gizli")])
+
+
+class TestCliticsAreNotContent(unittest.TestCase):
+    """Ayrı yazılan "da"/"de" her zaman pekiştirmedir, hiçbir zaman kavram.
+
+    Türkçe'nin yazımı ayrımı zaten yapıyor: ek olduğunda bitişik yazılır
+    ("kartalda" bulunma), pekiştirme olduğunda ayrı ("kartal da"). Biz yalnızca
+    okuyoruz — liste değil, imla kuralı.
+
+    Üç ayrı yerde sızıyordu: çok kelimeli öbeğe, tek kelimelik kavram yuvasına,
+    ve soru dizilişine.
+    """
+
+    def setUp(self):
+        import os
+        import tempfile
+        from lmm.memory import Memory, Edge, IS_A, CAN
+        from lmm.cli import Session
+        path = os.path.join(tempfile.mkdtemp(), "c.lmm")
+        memory = Memory()
+        memory.learn_word("uçmak", "uçar", "uçamaz")
+        memory.write(Edge("kuş", CAN, "uçmak", source="sen"))
+        memory.write(Edge("kartal", IS_A, "kuş", source="sen"))
+        memory.save(path)
+        self.session = Session(path)
+
+    def test_a_clitic_before_the_verb_is_ignored(self):
+        self.assertTrue(self.session.respond("kartal da uçar mı").startswith("evet"))
+
+    def test_a_clitic_before_the_particle_is_ignored(self):
+        self.assertTrue(self.session.respond("kartal da mı uçuyor").startswith("evet"))
+
+    def test_other_clitics_work_the_same(self):
+        self.assertTrue(self.session.respond("kartal bile uçar mı").startswith("evet"))
+
+    def test_the_focus_order_is_read(self):
+        """"kartal mı uçuyor" — ek fiilden önce; Türkçe'nin gerçek dizilişi."""
+        self.assertTrue(self.session.respond("kartal mı uçuyor").startswith("evet"))
+
+    def test_the_plain_question_still_works(self):
+        self.assertTrue(self.session.respond("kartal uçar mı").startswith("evet"))

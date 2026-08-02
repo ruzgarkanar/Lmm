@@ -96,3 +96,39 @@ class TestVocabularyInPacks(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestInflectionsBeyondTheAorist(unittest.TestCase):
+    """Fiil keşfi geniş zaman çiftine dayanıyor ama insanlar öyle konuşmuyor.
+
+    "penguen neden UÇAMIYOR" sorusu sözlükte karşılığı olmadığı için nitelik
+    sorusu sanılıyor ve cevapsız kalıyordu. Her fiil için sekiz biçim saklamak
+    yerine ek soyuluyor — sözlüğün `-ebilir` için zaten yaptığı şeyin aynısı.
+    """
+
+    def setUp(self):
+        self.lexicon = Lexicon()
+        self.lexicon.learn_verb("uçmak", "uçar", "uçamaz")
+        self.lexicon.learn_verb("yüzmek", "yüzer", "yüzemez")
+
+    def test_the_aorist_still_reads(self):
+        self.assertEqual(self.lexicon.reading("uçar"), ("uçmak", True))
+        self.assertEqual(self.lexicon.reading("uçamaz"), ("uçmak", False))
+
+    def test_the_present_continuous_reads_in_both_polarities(self):
+        self.assertEqual(self.lexicon.reading("uçuyor"), ("uçmak", True))
+        self.assertEqual(self.lexicon.reading("uçmuyor"), ("uçmak", False))
+        self.assertEqual(self.lexicon.reading("uçamıyor"), ("uçmak", False))
+
+    def test_the_past_and_the_future_read(self):
+        self.assertEqual(self.lexicon.reading("uçtu"), ("uçmak", True))
+        self.assertEqual(self.lexicon.reading("uçmadı"), ("uçmak", False))
+        self.assertEqual(self.lexicon.reading("uçacak"), ("uçmak", True))
+
+    def test_a_word_that_is_not_a_verb_is_still_refused(self):
+        """Ek soymak her kelimeyi fiil yapmamalı."""
+        for word in ("masa", "penguen", "kırmızı"):
+            self.assertIsNone(self.lexicon.reading(word), word)
+
+    def test_it_reaches_the_right_verb_among_several(self):
+        self.assertEqual(self.lexicon.reading("yüzemiyor"), ("yüzmek", False))

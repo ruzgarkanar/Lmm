@@ -24,7 +24,9 @@ parent of" is not "the child of" — and folding them together is the modelling
 mistake that produces confident nonsense later.
 """
 from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
-                           LACKS_PROPERTY, HAS_PART, LACKS_PART)
+                           LACKS_PROPERTY, HAS_PART, LACKS_PART, MUST,
+                           MUST_NOT, SAME_AS, REQUIRES,
+                           LACKS_REQUIREMENT)
 
 
 class Kind:
@@ -60,7 +62,22 @@ CORE = [
     Kind(HAS_PROPERTY, negation_of=LACKS_PROPERTY, label="niteliği"),
     Kind(LACKS_PROPERTY, negation_of=HAS_PROPERTY, label="niteliği değil"),
     Kind(HAS_PART, negation_of=LACKS_PART, label="sahip"),
+    # Gereklilik, bir belgenin en çok söylediği şey: "şifrelenmeli",
+    # "kaydedilmelidir". İlişkiler veri olduğu için eklemek motoru
+    # değiştirmiyor — bir satır.
+    Kind(MUST, negation_of=MUST_NOT, label="yapılmalı"),
+    Kind(MUST_NOT, negation_of=MUST, label="yapılmamalı"),
     Kind(LACKS_PART, negation_of=HAS_PART, label="sahip değil"),
+    # Eş anlamlılık geçişli ve kendi tersidir: "a=b" ise "b=a", ve "a=b, b=c"
+    # ise "a=c". Kalıtmaz — bir kelimenin eşi olmak, o kelimenin türlerinin de
+    # eşi olmak demek değil.
+    Kind(SAME_AS, inherits=False, transitive=True, inverse_of=SAME_AS,
+         label="aynı anlama gelir"),
+    # Önkoşul kalıtılır: "kuş uçmak için kanat gerektirir" ise kartal için de
+    # geçerlidir. Geçişli DEĞİL — A, B'yi; B, C'yi gerektiriyorsa A'nın C'yi
+    # gerektirdiği söylenemez; aradaki koşul kopabilir.
+    Kind(REQUIRES, negation_of=LACKS_REQUIREMENT, label="gerektirir"),
+    Kind(LACKS_REQUIREMENT, negation_of=REQUIRES, label="gerektirmez"),
 ]
 
 

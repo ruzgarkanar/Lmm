@@ -28,6 +28,18 @@ CORE_VERBS = {
 }
 
 
+# Geniş zaman dışındaki çekimler. Olumsuzluk ayrı bir ek olarak okunuyor;
+# `negative` sütunu ekin KENDİSİNİN olumlu olup olmadığını söylüyor.
+TENSES = (
+    (("ıyor", "iyor", "uyor", "üyor", "yor"), True),     # şimdiki zaman
+    (("acak", "ecek", "acağı", "eceği"), True),          # gelecek
+    (("mış", "miş", "muş", "müş"), True),                # duyulan geçmiş
+    (("dı", "di", "du", "dü", "tı", "ti", "tu", "tü"), True),   # görülen geçmiş
+)
+# Olumsuzluk ve yetersizlik: "uçmuyor", "uçamıyor". Ünlü uyumu yüzünden
+# ek ünlüsü değişiyor, o yüzden hepsi sayılıyor — kapalı bir sınıf.
+NEGATIVE_MARKS = ("amı", "emi", "amu", "emü", "mı", "mi", "mu", "mü", "ma", "me")
+
 ABILITY_SUFFIXES = ("ebilir", "abilir")
 
 
@@ -44,6 +56,52 @@ class Lexicon:
         return self.reading(surface) is not None
 
     def reading(self, surface):
+        found = self._direct_or_ability(surface)
+        if found is not None:
+            return found
+        return self._inflected(surface)
+
+    def _inflected(self, surface):
+        """Geniş zaman dışındaki çekimler — gövdeyi bularak.
+
+        Fiil keşfi geniş zaman çiftine dayanıyor ("uçar"/"uçamaz") ve bu
+        ölçülmüş, iyi çalışan bir test. Ama insanlar öyle konuşmuyor: "penguen
+        neden UÇAMIYOR" diye soruyor ve o biçim sözlükte yok. Sonucu ölçüldü —
+        cümle nitelik sorusu sanılıp cevapsız kalıyordu.
+
+        Her fiil için sekiz biçim saklamak yerine ek soyuluyor: sözlüğün
+        `-ebilir` için zaten yaptığı şeyin aynısı, diğer zamanlara genişletilmiş.
+        Olumsuzluk ekten okunuyor, tahmin edilmiyor.
+        """
+        for suffixes, negative in TENSES:
+            for suffix in suffixes:
+                if not surface.endswith(suffix):
+                    continue
+                stem = surface[: -len(suffix)]
+                if len(stem) < 2:
+                    continue
+                polarity = True
+                for mark in NEGATIVE_MARKS:
+                    if stem.endswith(mark) and len(stem) > len(mark) + 1:
+                        stem, polarity = stem[: -len(mark)], False
+                        break
+                found = self._stem_of(stem)
+                if found is not None:
+                    return found, polarity and negative
+        return None
+
+    def _stem_of(self, stem):
+        """Bilinen bir fiilin gövdesi mi — ünlü kaymasına izin vererek."""
+        for infinitive, positive in self.verbs.values():
+            if not positive:
+                continue
+            root = infinitive[:-3] if infinitive.endswith(("mak", "mek")) \
+                else infinitive
+            if root and (stem == root or stem.rstrip("aeıioöuü") == root):
+                return infinitive
+        return None
+
+    def _direct_or_ability(self, surface):
         """"uçamaz" -> ("uçmak", False); None when the word is unknown.
 
         Turkish also marks ability with -ebilir/-abilir, and "penguen yüzebilir"

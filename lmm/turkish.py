@@ -9,7 +9,7 @@ A second language means another module shaped like this one, not another parser.
 """
 from lmm.grammar import (Pattern, Grammar, KAVRAM, TUR, NITELIK, SOZ, FIIL,
                          SORU, KIM, ROL, NICEL, SAHIP, NESNEL, FROM_VERB)
-from lmm.relations import (IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY,
+from lmm.relations import (REQUIRES, IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY,
                            HAS_PART, LACKS_PART, PLACE, SOURCE, ALL,
                            MOST, SOME, NO)
 
@@ -20,16 +20,92 @@ ASK_ABILITIES = "ASK_ABILITIES"
 ASK_WHY = "ASK_WHY"
 ASK_PROPERTIES = "ASK_PROPERTIES"
 ASK_DESCRIBE = "ASK_DESCRIBE"
+# İki kavramı karşılaştırma. Yayılım organı (`lmm/spreading.py`) kurulmuş ve
+# test edilmişti ama hiçbir yerden çağrılmıyordu; cevaplayabildiği soru ise
+# ölçümde başarısız olanlardan biriydi: "kartal ile penguen arasındaki fark ne".
+ASK_COMPARE = "ASK_COMPARE"
+# Sohbetin kendisi hakkında soru. Dünya hakkında bir soru değil, o yüzden
+# cevabı graftan değil sohbet geçmişinden geliyor (`lmm/thread.py`).
+ASK_THREAD = "ASK_THREAD"
+# "hangisi daha hızlı, kartal mı penguen mi" — iki kavramı bir nitelikte
+# sıralama. İlişki grafta zaten var (`kartal --hızlı--> [çıkış: serçe]`);
+# eksik olan yalnızca soru biçimi ve sıralama işlemiydi.
+ASK_WHICH_MORE = "ASK_WHICH_MORE"
+# "bir kuşun uçabilmesi için ne gerekir" — önkoşul sorusu.
+ASK_REQUIREMENT = "ASK_REQUIREMENT"
+# "başka ne biliyorsun", "daha fazlasını söyle" — sohbetin kendisi hakkında,
+# dünya hakkında değil. Cevabı graftan değil, o an konuşulan kavramın henüz
+# söylenmemiş kısmından geliyor.
+ASK_MORE = "ASK_MORE"
+# "ne biliyorsun", "hafızanda ne var" — sistemin KENDİSİ hakkında soru.
+# Yaşayan bir hafızanın ilk cevaplaması gereken soru bu ve cevaplayamıyordu:
+# 486 kavram bilirken "bunu anlamadım" diyordu.
+ASK_INVENTORY = "ASK_INVENTORY"
+# Cevabın KENDİSİ hakkında sorular. Yeni bilgi gerektirmiyorlar: graf zaten
+# güveni ve künyeyi tutuyor, yalnızca sorulmuyordu. Bir LLM bu soruları
+# cevaplayamaz — kaynağı yoktur.
+ASK_CERTAINTY = "ASK_CERTAINTY"      # "emin misin"
+ASK_SOURCE = "ASK_SOURCE"            # "nereden biliyorsun"
+# Görüş sorusu. Cevaplanmıyor ama ANLAŞILIYOR: "anlamadım" demekle "benim
+# görüşüm yok" demek aynı şey değil.
+ASK_OPINION = "ASK_OPINION"
 ASK_HOW_MANY = "ASK_HOW_MANY"
 ASK_WHERE = "ASK_WHERE"
 
 
 class TurkishMorphology:
     question_particles = ("mı", "mi", "mu", "mü")
-    interrogatives = ("kim", "kimler", "ne", "neler")
+    # Soru sözcükleri kapalı bir sınıf: bir dilde birkaç tanedir ve hiçbir
+    # sayım "kaç"ın soru sorduğunu göstermez — bu, dil hakkında bildirilmesi
+    # gereken bilgi. Liste eksikti ve bedeli ölçüldü: "kartal kaç yaşında
+    # yaşar" sorusu BİLDİRME sanılıp grafa `kartal kaç --can--> yaşamak`
+    # diye yazılıyordu. Hafızayı kirletmek, bu mimarideki en pahalı hata.
+    interrogatives = ("kim", "kimler", "ne", "neler", "kaç", "nasıl",
+                      "hangi", "hangisi", "nere", "nerede", "nereye",
+                      "nereden", "niye", "niçin", "neden", "kaçıncı")
     copula_suffixes = ("tur", "tır", "dur", "dır", "tür", "tir", "dür", "dir")
     plural_suffixes = ("lar", "ler")
-    openers = ("peki", "ya", "hem")
+    # Açılış sözcükleri: cümlenin başında durup hiçbir şey eklemeyenler.
+    # "acaba penguen uçabilir mi" ile "penguen uçabilir mi" aynı soru.
+    openers = ("peki", "ya", "hem", "acaba", "bir", "de", "da", "işte")
+    # Bir kavram öbeğinin İÇİNE giremeyecek kelimeler. Hepsi kapalı sınıf ve
+    # hepsi aynı işi görüyor: kavramı nitelemiyorlar, cümlenin yapısını
+    # kuruyorlar. Bu bilgi DİLE aittir ve burada durur — `grammar.py` hangi
+    # dile baktığını bilmemeli.
+    from lmm.clauses import JOINERS as _JOINERS
+    joiners = _JOINERS
+    # Ayrı yazılan pekiştirme parçacıkları. Ek hâlleri bitişik yazıldığı için
+    # karışmıyor: "kartalda" bulunma, "kartal da" pekiştirme.
+    # Görüş isteyen açılışlar. Kapalı sınıf: bir dilde birkaç tanedir ve
+    # hepsi aynı şeyi yapar — cümleyi bilgi sorusundan kanaat sorusuna çevirir.
+    opinion_marks = ("sence", "bence", "sizce", "bizce", "kanaatince")
+    clitics = ("da", "de", "dahi", "bile")
+    # Çoğul gönderme: "ikisi de", "onlar", "bu ikisi" — sohbette az önce
+    # geçen kavramlara işaret eder. Tekil zamirler (`o`, `bu`) zaten
+    # `pronouns` içinde; bunlar İKİ şeye birden gönderdikleri için ayrı.
+    plural_pronouns = ("ikisi", "ikiside", "onlar", "bunlar", "şunlar",
+                       "hepsi", "her", "üçü")
+    # Muhatap zamirleri. Bir soruda "bana"/"bize" cümlenin KONUSU değil,
+    # kime söylendiğidir — ve LMM her zaman muhataptır. "bunu bana anlatır
+    # mısın" ile "bunu anlatır mısın" aynı şeyi soruyor.
+    addressees = ("bana", "bize", "sen", "siz", "sana", "size", "senin",
+                  "sizin", "benim", "bizim", "ben", "biz")
+    # Aynı şeyi soran kapalı sınıf sözcükler. Kalıpta biri yazılıyor, üçü de
+    # eşleşiyor — "neden" için kalıp yazıp "niçin" için yazmamak, aynı soruyu
+    # iki kez yazmak demekti. Hangi sözcüğün hangisiyle aynı şeyi sorduğu
+    # DİLE ait bilgidir ve sayımla bulunamaz.
+    groups = (
+        ("neden", "niçin", "niye", "niden"),
+        ("nasıl", "ne şekilde"),
+        ("kim", "kimler"),
+        ("ne", "neler"),
+    )
+    denials = ("değil", "değildir", "yok", "yoktur")
+    postpositions = ("ile", "ila", "karşı", "göre", "kadar", "gibi", "için",
+                     "rağmen", "beri", "dolayı")
+    intensifiers = ("çok", "daha", "en", "pek", "oldukça", "gayet", "epey",
+                    "hayli", "az", "biraz")
+    correlatives = ("hem", "ya", "gerek", "kah", "kâh", "ister")
     # Endings that mark a word as playing its own part in the sentence rather
     # than belonging to the noun beside it: "serçeden" is a comparison, not half
     # of a compound. Discovery finds these families; until it supplies them,
@@ -155,8 +231,56 @@ PATTERNS = [
             "bazı kuşlar tüylüdür", quantifier=0),
     # A sentence that leaves its subject out, carrying on from the last one.
     Pattern([FIIL, SORU], ASK, CAN, None, 0, "çıplak yetenek sorusu"),
+    # Odak sorusu: ek fiilden ÖNCE gelir. "kartal MI uçuyor" — Türkçe'de bu
+    # diziliş özneyi öne çıkarır ama sorulan şey aynıdır. "kartal da mı
+    # uçuyor" cümlesi parçacık atıldıktan sonra buraya düşüyor.
+    Pattern([KAVRAM, SORU, FIIL], ASK, FROM_VERB, 0, 2, "kartal mı uçuyor"),
     Pattern(["nedir"], ASK, IS_A, None, None, "çıplak tanım sorusu"),
     Pattern(["anlat"], ASK_DESCRIBE, None, None, None, "çıplak anlat"),
+    Pattern(["başka", "ne", "biliyorsun"], ASK_MORE, None, None, None, "başka ne"),
+    Pattern(["daha", "fazlasını", "söyle"], ASK_MORE, None, None, None, "daha fazla"),
+    Pattern(["devam", "et"], ASK_MORE, None, None, None, "devam et"),
+    Pattern(["hepsi", "bu", "kadar", SORU], ASK_MORE, None, None, None, "hepsi bu mu"),
+    Pattern(["başka"], ASK_MORE, None, None, None, "çıplak başka"),
+    Pattern(["emin", "misin"], ASK_CERTAINTY, None, None, None, "emin misin"),
+    Pattern(["ne", "düşünüyorsun"], ASK_OPINION, None, None, None, "ne düşünüyorsun"),
+    Pattern(["sen", "ne", "düşünüyorsun"], ASK_OPINION, None, None, None, "sen ne düşünüyorsun"),
+    Pattern(["fikrin", "ne"], ASK_OPINION, None, None, None, "fikrin ne"),
+    Pattern(["görüşün", "ne"], ASK_OPINION, None, None, None, "görüşün ne"),
+    Pattern(["hangisi", "daha", SOZ], ASK_OPINION, None, None, None, "hangisi daha X"),
+    Pattern(["emin", "misiniz"], ASK_CERTAINTY, None, None, None, "emin misiniz"),
+    Pattern(["gerçekten", SORU], ASK_CERTAINTY, None, None, None, "gerçekten mi"),
+    Pattern(["nereden", "biliyorsun"], ASK_SOURCE, None, None, None, "nereden biliyorsun"),
+    Pattern(["kaynağın", "ne"], ASK_SOURCE, None, None, None, "kaynağın ne"),
+    Pattern(["bunu", "nereden", "biliyorsun"], ASK_SOURCE, None, None, None, "bunu nereden"),
+    Pattern(["nereden", "bildin"], ASK_SOURCE, None, None, None, "nereden bildin"),
+    Pattern(["ne", "biliyorsun"], ASK_INVENTORY, None, None, None, "ne biliyorsun"),
+    Pattern(["neler", "biliyorsun"], ASK_INVENTORY, None, None, None, "neler biliyorsun"),
+    Pattern(["nelerden", "haberin", "var"], ASK_INVENTORY, None, None, None, "nelerden haberin"),
+    Pattern(["hafızanda", "ne", "var"], ASK_INVENTORY, None, None, None, "hafızanda ne var"),
+    Pattern(["hafızanda", "neler", "var"], ASK_INVENTORY, None, None, None, "hafızanda neler var"),
+    Pattern(["neleri", "biliyorsun"], ASK_INVENTORY, None, None, None, "neleri biliyorsun"),
+    # Önkoşul soruları. Kavram başta, fiil ortada.
+    Pattern(["bir", KAVRAM, SOZ, "için", "ne", "gerekir"], ASK_REQUIREMENT,
+            None, 1, 2, "bir X Y için ne gerekir"),
+    Pattern([KAVRAM, SOZ, "için", "ne", "gerekir"], ASK_REQUIREMENT,
+            None, 0, 1, "X Y için ne gerekir"),
+    Pattern([KAVRAM, "için", "ne", "gerekir"], ASK_REQUIREMENT,
+            None, 0, None, "X için ne gerekir"),
+    # Öğretme: "uçmak kanat gerektirir"
+    Pattern([KAVRAM, TUR, "gerektirir"], TEACH, REQUIRES, 0, 1,
+            "X Y gerektirir"),
+    Pattern([KAVRAM, "için", TUR, "gerekir"], TEACH, REQUIRES, 0, 2,
+            "X için Y gerekir"),
+    # "az önce ne konuşuyorduk" — sohbetin kendisi soruluyor.
+    Pattern(["az", "önce", "ne", "konuşuyorduk"], ASK_THREAD, None, None, None,
+            "az önce ne konuşuyorduk"),
+    Pattern(["ne", "konuşuyorduk"], ASK_THREAD, None, None, None,
+            "ne konuşuyorduk"),
+    Pattern(["neden", "bahsediyorduk"], ASK_THREAD, None, None, None,
+            "neden bahsediyorduk"),
+    Pattern(["nelerden", "konuştuk"], ASK_THREAD, None, None, None,
+            "nelerden konuştuk"),
     Pattern(["nasıldır"], ASK_PROPERTIES, None, None, None, "çıplak nasıl"),
     Pattern(["nasıl"], ASK_PROPERTIES, None, None, None, "çıplak nasıl 2"),
     Pattern(["ne", "yapabilir"], ASK_ABILITIES, None, None, None, "çıplak neler"),
@@ -169,6 +293,33 @@ PATTERNS = [
     Pattern([KAVRAM, "neden", FIIL], ASK_WHY, FROM_VERB, 0, 2, "neden uçar"),
     Pattern([KAVRAM, "neden", SOZ], ASK_WHY, HAS_PROPERTY, 0, 2, "neden beyaz"),
     Pattern([KAVRAM, "anlat"], ASK_DESCRIBE, None, 0, None, "anlat"),
+    # Kibar biçim: "kartaldan bahseder misin", "penguenleri anlatır mısın".
+    # Kalıptaki "anlat" grafta eş sayılan her sözcüğü eşleştiriyor.
+    Pattern([KAVRAM, "anlat", SORU], ASK_DESCRIBE, None, 0, None, "anlat mı"),
+    Pattern([ROL, "anlat", SORU], ASK_DESCRIBE, None, 0, None, "rolden anlat mı"),
+    # "kartal ile penguen arasındaki fark ne" — iki kavram, aradaki bağ ya da
+    # ayrım soruluyor. Hedef ikinci kavram; karşılaştırma kapıda yapılıyor.
+    Pattern([KAVRAM, "ile", KAVRAM, "arasındaki", "fark", "ne"], ASK_COMPARE,
+            None, 0, 2, "ile arasındaki fark"),
+    # "penguen ile kartal aynı mı" — aynılık sorusu da bir karşılaştırmadır;
+    # cevabı ortak yanları ve ayrıldıkları yeri göstermek.
+    Pattern([KAVRAM, "ile", KAVRAM, "aynı", SORU], ASK_COMPARE, None, 0, 2,
+            "ile aynı mı"),
+    Pattern([KAVRAM, "ile", KAVRAM, "benzer", SORU], ASK_COMPARE, None, 0, 2,
+            "ile benzer mi"),
+    # Üstünlük soruları. Nitelik ortada, iki kavram sonda ya da başta.
+    Pattern(["hangisi", "daha", SOZ, KAVRAM, SORU, KAVRAM, SORU],
+            ASK_WHICH_MORE, None, 3, 2, "hangisi daha X A mı B mi", object=5),
+    Pattern([KAVRAM, SORU, KAVRAM, SORU, "daha", SOZ], ASK_WHICH_MORE,
+            None, 0, 5, "A mı B mi daha X", object=2),
+    Pattern([KAVRAM, "ile", KAVRAM, "arasındaki", "fark", "nedir"], ASK_COMPARE,
+            None, 0, 2, "ile arasındaki fark nedir"),
+    Pattern([KAVRAM, "ile", KAVRAM, "farkı", "ne"], ASK_COMPARE, None, 0, 2,
+            "farkı ne"),
+    Pattern([KAVRAM, "ile", KAVRAM, "arasında", "ne", "fark", "var"],
+            ASK_COMPARE, None, 0, 2, "arasında ne fark var"),
+    Pattern([KAVRAM, "ile", KAVRAM, "arasındaki", "bağ", "ne"], ASK_COMPARE,
+            None, 0, 2, "arasındaki bağ"),
     # More ways to ask for the same thing, gathered from what people wrote.
     Pattern([KAVRAM, "açıkla"], ASK_DESCRIBE, None, 0, None, "açıkla"),
     Pattern([NESNEL, "açıkla"], ASK_DESCRIBE, None, 0, None, "açıkla nesnel"),
@@ -186,6 +337,13 @@ PATTERNS = [
     Pattern([KAVRAM, "nasıl"], ASK_PROPERTIES, None, 0, None, "nasıl"),
 
     Pattern([KAVRAM, "bir", SOZ, "değildir"], TEACH, NOT_A, 0, 2, "bir X değildir"),
+    # "penguen bir kuş değil mi" — olumsuz kurulmuş bir DOĞRULAMA sorusu.
+    # Türkçe'de bu kalıp olumsuzluk sormaz, teyit ister: cevabı "evet, bir
+    # kuştur" olmalı. O yüzden ilişki IS_A, NOT_A değil.
+    Pattern([KAVRAM, "bir", TUR, "değil", SORU], ASK, IS_A, 0, 2,
+            "bir X değil mi"),
+    Pattern([KAVRAM, TUR, "değil", SORU], ASK, HAS_PROPERTY, 0, 1,
+            "X değil mi"),
     Pattern([KAVRAM, SOZ, "değildir"], TEACH, LACKS_PROPERTY, 0, 1, "X değildir"),
     Pattern([KAVRAM, "bir", TUR, SORU], ASK, IS_A, 0, 2, "bir X mı"),
     Pattern([KAVRAM, "nedir"], ASK, IS_A, 0, None, "nedir"),
@@ -221,7 +379,7 @@ PATTERNS = [
 ANCHORS = {"çoğul": ("kuş", "kuşlar"), "koşaç": ("kuş", "kuştur")}
 
 
-def turkish(words=None, known=()):
+def turkish(words=None, known=(), meanings=None):
     """The grammar. Given words, its suffix rules are discovered rather than read.
 
     Discovery needs enough words to see a pattern; below that it falls through
@@ -231,4 +389,4 @@ def turkish(words=None, known=()):
     if words:
         from lmm.discovered import DiscoveredMorphology
         morphology = DiscoveredMorphology(morphology, words, ANCHORS)
-    return Grammar(PATTERNS, morphology, known)
+    return Grammar(PATTERNS, morphology, known, meanings)

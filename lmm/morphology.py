@@ -83,8 +83,18 @@ def discover(words, minimum=3, max_length=4):
     have seen — that is what separates a suffix from a coincidence of spelling.
     """
     known = set(words)
+    # SIRALI dolaşılıyor ve bu bir üslup tercihi değil, doğruluk şartı.
+    # Küme sırası `PYTHONHASHSEED`'e bağlı; sıralamadan dolaşınca keşfedilen
+    # ek aileleri her çalıştırmada başka türlü kuruluyordu ve sonuç şuydu:
+    # aynı cümle, aynı kod, aynı graf — çalıştırmadan çalıştırmaya BAŞKA cevap.
+    #
+    # Ölçüldü: 16 bin olguluk grafta "penguen kuş mudur" sorusu sekiz tohumun
+    # dördünde anlaşılıyor, dördünde anlaşılmıyordu. Küçük grafta (3 bin
+    # kelime) belirsizlik ortaya çıkmıyor, çünkü aday aile az; büyüdükçe
+    # patlıyor. "Graf büyüyünce anlama bozuluyor" diye ölçtüğümüz şeyin kökü
+    # buydu — büyüme değil, belirsizlik.
     sightings = {}
-    for word in known:
+    for word in sorted(known):
         for length in range(1, max_length + 1):
             if len(word) <= length + 1:
                 continue
@@ -123,10 +133,13 @@ def discover(words, minimum=3, max_length=4):
                 examples.append(stem + suffix)
         harmony = {vowel: max(counts, key=counts.get)
                    for vowel, counts in vowel_votes.items()}
-        endings = {letter: max(counts, key=counts.get)
+        endings = {letter: max(sorted(counts), key=counts.get)
                    for letter, counts in ending_votes.items()}
         found.append(SuffixFamily(skeleton, harmony, examples[:5], endings))
-    found.sort(key=lambda family: -len(family.examples))
+    # İkincil ölçüt iskelet: örnek sayıları eşit olduğunda (sık oluyor, çünkü
+    # örnekler 5'te kırpılıyor) sıralama ekleme sırasına düşüyordu — yani yine
+    # hash sırasına.
+    found.sort(key=lambda family: (-len(family.examples), family.skeleton))
     return found
 
 
@@ -139,7 +152,7 @@ def _merge_allomorphs(families, overlap=0.15):
     complementary distribution are variants; forms that share stems are
     different suffixes. Nobody has to say which is which.
     """
-    keys = list(families)
+    keys = sorted(families)
     merged, taken = {}, set()
     for key in keys:
         if key in taken:

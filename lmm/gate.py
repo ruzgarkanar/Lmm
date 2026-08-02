@@ -4,18 +4,25 @@ There is no path from this class to a sentence that memory does not support, so
 hallucination is not filtered out — it is unreachable.
 """
 from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
-                           HAS_PART, LACKS_PART, PLACE)
+                           HAS_PART, LACKS_PART, PLACE, REQUIRES)
 from lmm.phrasing import (is_a_clause, is_not_a_clause, ability_clause,
                           property_clause,
                           who_clause, ability_summary, property_summary,
                           verb_form, dont_know, attribution, how_many,
-                          listing, copula)
+                          listing, copula, which_meaning, compared)
 from lmm.similarity import nearest
 from lmm.intuition import (ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES,
-                           ASK_DESCRIBE, ASK_HOW_MANY, ASK_WHERE)
+                           ASK_DESCRIBE, ASK_HOW_MANY, ASK_WHERE,
+                           ASK_COMPARE, ASK_WHICH_MORE,
+                           ASK_REQUIREMENT)
 from lmm.exposition import Exposition
 
 HEDGE_THRESHOLD = 0.5
+# Karşılaştırmada kaç ortak ata söylenir. İkiden fazlası hiyerarşinin
+# tepesine tırmanıyor ("varlık", "şey") ve orada her şey ortaktır.
+CLOSEST_SHARED = 2
+# Bu kadar yakın iki karşılık arasında seçim yapmak, bilmediğini uydurmaktır.
+AMBIGUITY_MARGIN = 0.1
 
 
 class EpistemicGate:
@@ -34,6 +41,13 @@ class EpistemicGate:
             return self._why(intent)
         if intent.kind == ASK_DESCRIBE:
             return self.exposition.describe(intent.concept)
+        if intent.kind == ASK_COMPARE:
+            return self._compare(intent.concept, intent.target)
+        if intent.kind == ASK_REQUIREMENT:
+            return self._requirement(intent.concept, intent.target)
+        if intent.kind == ASK_WHICH_MORE:
+            return self._which_more(intent.concept, intent.object,
+                                    intent.target)
         if intent.kind == ASK_WHERE:
             return self._where(intent)
         if intent.kind == ASK_HOW_MANY:
@@ -53,6 +67,133 @@ class EpistemicGate:
             return self._property(intent.concept, intent.target, intent.object,
                                   intent.role)
         return self._dont_know(intent.concept)
+
+    def _compare(self, first, second):
+        """İki kavramı karşılaştırır: ortak yanları ve ayrıldıkları yer.
+
+        Yayılım organı (`lmm/spreading.py`) bunun için kurulmuştu — bir
+        kavramdan komşularına dağılan ilgi, iki kavramın ortak atalarını
+        düz aramanın bulamayacağı yerde buluyor. Ama hiçbir yerden
+        çağrılmıyordu; kurulmuş, test edilmiş ve bağlanmamış duruyordu.
+
+        Ayrım, ortak atadan gelmeyen kayıtlar: "kuş uçar ama penguen uçamaz"
+        cümlesindeki asıl bilgi budur. Hiçbiri bulunamazsa uydurulmuyor.
+        """
+        from lmm import spreading
+        if not first or not second:
+            return self._dont_know(first or second)
+        for concept in (first, second):
+            if not self.memory.query(concept):
+                return self._dont_know(concept)
+        # Ortak ATA önce gelir. Yayılım köprüsü doğru çalışıyor ama "ortak yan"
+        # için fazla gevşek: kartal ve penguen ikisi de uçmakla ilişkili, uçak
+        # da öyle — köprü `uçak` diyordu. Oysa iki kuşun ortak yanı uçak değil,
+        # KUŞ olmaları. Hiyerarşi, komşuluktan güçlü kanıttır.
+        #
+        # Yayılım yalnız ortak ata YOKSA devreye giriyor: o zaman elde başka
+        # bir bağ yok demektir ve zayıf bir bağ, hiç bağ olmamasından iyidir.
+        # Ortak atalar YAKINDAN uzağa sıralı geliyor ve ilk olanlar en
+        # özgül olanlar. "kuş" ile "hayvan" anlamlı; listenin dibindeki
+        # "komedi" ise başka bir anlamdan sızıyor — *Penguen* aynı zamanda bir
+        # mizah dergisi ve graf iki anlamı ayırmıyor.
+        #
+        # Çok anlamlılık burada çözülmüyor (grafın kendi eksiği) ama en yakın
+        # ataları almak, uzaktaki yanlış anlamı büyük ölçüde eliyor.
+        mine = self.reasoning.ancestors(first)
+        theirs = set(self.reasoning.ancestors(second))
+        shared = [step for step in mine if step in theirs][:CLOSEST_SHARED]
+        if not shared:
+            links = spreading.neighbours(self.memory)
+            shared = spreading.bridge(self.memory, first, second, links)
+        mine = self._traits(first)
+        theirs = self._traits(second)
+        only_mine = [t for t in mine if t not in theirs]
+        only_theirs = [t for t in theirs if t not in mine]
+        return compared(first, second, shared, only_mine[:4],
+                        only_theirs[:4], self.memory.kinds)
+
+    def _requirement(self, concept, action):
+        """"bir kuşun uçabilmesi için ne gerekir" — kayıtlı önkoşullar.
+
+        Önkoşul kalıtılıyor: kuş için geçerli olan kartal için de geçerli.
+        Hiçbiri kayıtlı değilse uydurulmuyor — bir önkoşulu tahmin etmek,
+        cevabı uydurmakla aynı şey.
+        """
+        if not concept:
+            return self._dont_know(concept)
+        if not self.memory.query(concept):
+            return self._dont_know(concept)
+        found = []
+        for step in [concept] + self.reasoning.ancestors(concept):
+            for edge in self.memory.query(step, REQUIRES):
+                if action and edge.object and edge.object != action:
+                    continue
+                if edge.target not in found:
+                    found.append(edge.target)
+        if not found:
+            return (f"{concept} için ne gerektiğini bilmiyorum. "
+                    f"bana öğretir misin?")
+        return f"{concept} için {listing(found)} gerekir."
+
+    def _which_more(self, first, second, trait):
+        """"hangisi daha hızlı, kartal mı penguen mi" — sıralama, tahmin değil.
+
+        İlişki grafta zaten duruyordu: "kartal serçeden hızlıdır" cümlesi
+        `kartal --hızlı--> [çıkış: serçe]` diye yazılıyor. Eksik olan yalnızca
+        soru biçimi ve karşılaştırma işlemiydi.
+
+        Kayıtlı bir üstünlük yoksa uydurulmuyor. İkisinde de nitelik varsa
+        "ikisi de" denir; hiçbirinde yoksa bilinmediği söylenir. Sıralamayı
+        tahmin etmek, cevabı uydurmakla aynı şey.
+        """
+        if not (first and second and trait):
+            return self._dont_know(first or second)
+        for concept in (first, second):
+            if not self.memory.query(concept):
+                return self._dont_know(concept)
+        ahead = self._beats(first, second, trait)
+        behind = self._beats(second, first, trait)
+        if ahead and not behind:
+            return f"{first}, çünkü {first} {second}den {trait}dır."
+        if behind and not ahead:
+            return f"{second}, çünkü {second} {first}den {trait}dır."
+        mine = self._has_trait(first, trait)
+        theirs = self._has_trait(second, trait)
+        if mine and theirs:
+            return (f"ikisi de {trait}, ama hangisinin daha {trait} olduğunu "
+                    f"bilmiyorum.")
+        if mine:
+            return f"{first} {trait}, {second} için bunu bilmiyorum."
+        if theirs:
+            return f"{second} {trait}, {first} için bunu bilmiyorum."
+        return f"{first} ile {second} arasında {trait} karşılaştırması bilmiyorum."
+
+    def _beats(self, concept, other, trait):
+        """Kayıtlı bir üstünlük var mı: "X, Y'den TRAIT'tir"."""
+        for step in [concept] + self.reasoning.ancestors(concept):
+            for edge in self.memory.query(step, HAS_PROPERTY):
+                if edge.target == trait and edge.object == other:
+                    return True
+        return False
+
+    def _has_trait(self, concept, trait):
+        for step in [concept] + self.reasoning.ancestors(concept):
+            for edge in self.memory.query(step, HAS_PROPERTY):
+                if edge.target == trait:
+                    return True
+        return False
+
+    def _traits(self, concept):
+        """Bu kavram için geçerli olan şeyler — kendi kayıtları ve kalıtımı."""
+        found = []
+        for step in [concept] + self.reasoning.ancestors(concept):
+            for edge in self.memory.query(step):
+                if edge.relation in (IS_A, NOT_A):
+                    continue
+                mark = (edge.relation, edge.target)
+                if mark not in found:
+                    found.append(mark)
+        return found
 
     def _where(self, intent):
         """"penguen nerede yaşar" — the places recorded for this action."""
@@ -82,11 +223,35 @@ class EpistemicGate:
         if self.memory.direct(concept, NOT_A, target) is not None:
             return f"hayır, {is_not_a_clause(concept, target)}."
         ancestors = self.reasoning.ancestors(concept)
+        # Ret de kalıtılır: "organ bir canlı değildir" + "kalp bir organdır"
+        # ⇒ kalp bir canlı değildir. Hiyerarşi tam da bunun için var. Eskiden
+        # yalnızca kavramın kendi kaydına bakılıyordu ve bu olumsuz, kapalı
+        # dünya varsayımının yan ürünü olarak geliyordu — yani doğru cevap
+        # yanlış sebeple veriliyordu.
+        for step in ancestors:
+            if self.memory.direct(step, NOT_A, target) is not None:
+                return (f"hayır, {is_not_a_clause(concept, target)}, "
+                        f"çünkü {is_a_clause(concept, step)}.")
         if target in ancestors:
             chain = [is_a_clause(concept, step) for step in ancestors
                      if step == target or ancestors.index(step) == 0]
             return f"evet, {chain[-1]}."
         if not self.memory.query(concept, IS_A):
+            return self._dont_know(concept)
+        # Yolun yokluğu olumsuzun kanıtı DEĞİLDİR. Burada eskiden kavramın
+        # herhangi bir tür bağı olması yetiyordu ve sistem bilmediği şeyi
+        # olumsuzluyordu: ansiklopediden "vaşak bir hayvan türüdür" okuduktan
+        # hemen sonra "vaşak bir hayvan değildir" diyordu. Sürekli okuyarak
+        # büyüyen bir grafta hiyerarşiyi tamam saymak temelsiz.
+        #
+        # Olumsuz ancak kanıtla söylenir: iki kavram da AYNI hiyerarşiye
+        # yerleşmişse ve hiçbiri diğerinin üstünde değilse, ayrı dallardadırlar
+        # ve bu gerçek bir ayrılık kanıtıdır — "penguen bir memeli değildir",
+        # çünkü ikisi de hayvanın altında ve biri diğerinin atası değil.
+        # Ortak kök yoksa cevap bilmemektir.
+        mine = set(ancestors) | {concept}
+        theirs = set(self.reasoning.ancestors(target)) | {target}
+        if not mine & theirs:
             return self._dont_know(concept)
         return f"bildiğim kadarıyla {is_not_a_clause(concept, target)}."
 
@@ -153,10 +318,24 @@ class EpistemicGate:
         return "çünkü " + " ve ".join(chain) + "."
 
     def _definition(self, concept):
+        """Bir adın birden çok karşılığı varsa, seçmek uydurmaktır.
+
+        Wikipedia'dan derlenen 47.736 kavramın %9,6'sında birden fazla tür
+        vardı: "tavla" hem bir mahalle hem bir oyun. Sistem en yüksek güvenli
+        olanı sessizce seçiyordu ve emin görünüyordu — bir dil modelinin
+        yapacağı şeyin aynısı. Oysa burada bilinmeyen bir şey yok; iki cevap da
+        biliniyor ve doğru davranış ikisini de söyleyip sormak.
+        """
         edges = self.memory.query(concept, IS_A)
         if not edges:
             return self._dont_know(concept)
         best = max(edges, key=lambda e: e.confidence)
+        rivals = [edge for edge in edges
+                  if edge.target != best.target
+                  and best.confidence - edge.confidence <= AMBIGUITY_MARGIN]
+        if rivals:
+            readings = [best.target] + [edge.target for edge in rivals]
+            return which_meaning(concept, readings)
         answer = f"{is_a_clause(concept, best.target)} ({attribution(best.source)})."
         if best.confidence < HEDGE_THRESHOLD:
             return "emin değilim ama " + answer

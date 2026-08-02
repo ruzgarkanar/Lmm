@@ -16,6 +16,14 @@ CANNOT = "cannot"
 HAS_PROPERTY = "property"
 LACKS_PROPERTY = "not_property"
 HAS_PART = "has"
+# Eş anlamlılık: aynı şeyin başka söylenişi. Bir olgu değil bir DİL bilgisi,
+# ama yeri yine graf — künyesiyle, denetlenebilir, düzeltilebilir.
+SAME_AS = "same_as"
+# Önkoşul: "uçmak kanat gerektirir". Bir belgenin ve bir sorunun en sık
+# söylediği şeylerden ve envanterde karşılığı yoktu — o yüzden "bir kuşun
+# uçabilmesi için ne gerekir" sorusu yaklaşık bir ilişkiye çevriliyordu.
+REQUIRES = "requires"
+LACKS_REQUIREMENT = "not_requires"
 LACKS_PART = "has_not"
 
 TYPE_RELATIONS = (IS_A, NOT_A)
@@ -39,3 +47,8 @@ INHERITING = (ALL, NO)      # only these carry down to every member
 PLACE = "yer"        # -DA   penguen kutupta yaşar
 SOURCE = "çıkış"     # -DAn  kartal serçeden büyüktür
 OBJECT = "nesne"     # bare  kediler fare yakalar
+
+# Gereklilik: "şifrelenmeli". Kalıtımla iner — bir türün yapması
+# gereken şey, o türün üyeleri için de gereklidir.
+MUST = "must"
+MUST_NOT = "must_not"
