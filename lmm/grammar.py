@@ -198,7 +198,24 @@ class Grammar:
         return False
 
     def known(self):
-        return set(self._known() if callable(self._known) else self._known)
+        """Grafın kavramları, küme olarak.
+
+        Küme her çağrıda yeniden kuruluyordu ve bu işlev cümle başına ~110 kez
+        çağrılıyor. Kaynak listenin kimliği değişmediyse küme de değişmemiştir
+        — `Session._concepts` aynı listeyi kenar sayısı değişene dek geri
+        veriyor, yani `is` karşılaştırması hem doğru hem bedava.
+
+        Kimliğe bakmak eşitliğe bakmaktan ucuz ve burada YETERLİ: liste
+        değişmişse yeni bir nesnedir. Bayat kalma riski yok; öğrenilen bir
+        kavram bir sonraki cümlede görünüyor.
+        """
+        source = self._known() if callable(self._known) else self._known
+        cached = getattr(self, "_known_cache", None)
+        if cached is not None and cached[0] is source:
+            return cached[1]
+        found = set(source)
+        self._known_cache = (source, found)
+        return found
 
     def add(self, pattern, first=False):
         self.patterns.insert(0, pattern) if first else self.patterns.append(pattern)
