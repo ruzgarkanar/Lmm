@@ -191,6 +191,29 @@ class Session:
                         return form
         return None
 
+    def _unplaced(self, tokens, at):
+        """Cümlede yeri doldurulamayan bir içerik sözcüğü var mı.
+
+        Yapısal sözcük (sıklık sıralamasının tepesi), fiil, sözlükte olan ya da
+        grafın tanıdığı her kelimenin bir yeri var. Kalanı içeriktir ve okuma
+        onu açıklayamıyorsa cümle anlaşılmamıştır.
+        """
+        from lmm import frequency
+        from lmm.verbs import is_structural
+        counts = frequency.counts()
+        verbs = frequency.verbs()
+        for index, token in enumerate(tokens):
+            if index == at or len(token) < 3:
+                continue
+            if token in verbs or self.memory.query(token):
+                continue
+            if self.memory.lexicon.reading(token) is not None:
+                continue
+            if counts and is_structural(token, counts):
+                continue
+            return True
+        return False
+
     def _neural_reading(self, line):
         """Kalıplar yetmediğinde eğitilmiş ağa sorar — ve denetler.
 
@@ -220,12 +243,30 @@ class Session:
         if found is None:
             return None
         kind, relation = found
-        if kind != aimed[0]:
+        collapsed = kind != aimed[0]
+        if collapsed:
             target = None       # çoğula düşüldü: hedef artık anlamsız
         morphology = self.language.grammar.morphology
         at, concept = wording.concept_in(tokens, self.memory, morphology,
                                          self.focus)
         if concept is None:
+            return None
+        # Çoğula düşmek, SORULANDAN BAŞKA bir soruyu cevaplamaktır ve bu ancak
+        # cümlede yeri doldurulamamış bir içerik sözcüğü YOKSA kabul edilebilir.
+        # Ölçüldü:
+        #
+        #   insan bir omurgalı mı -> "insan tüylü, hareketli ve sıcakkanlıdır"
+        #                            ve o okuma kalıcı kalıp olarak yazıldı
+        #
+        # `omurgalı` grafın hiç duymadığı bir kelime; sistem onu sessizce atıp
+        # başka bir soruyu cevapladı. Kapının aynı gün düzelttiği dürüst
+        # "bilmiyorum", ağ yolundan kendinden emin bir hatayla değiştiriliyordu
+        # — bu mimaride yapılabilecek en kötü takas.
+        #
+        # "kartal nasıl bir hayvan" bundan etkilenmiyor: oradaki her kelimenin
+        # yeri var (`hayvan` grafta duruyor), yani çoğula düşmek sorunun makul
+        # okuması.
+        if collapsed and self._unplaced(tokens, at):
             return None
         said = self.gate.answer(Intent(kind, concept, relation, target))
         if is_a_refusal(said):
