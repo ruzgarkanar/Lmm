@@ -68,6 +68,55 @@ class TestInConversation(unittest.TestCase):
         self.assertEqual(self.session.memory.query("kus"), [])
         self.assertIn("bilmiyorum", self.session.respond("kus uçar mı"))
 
+    def test_a_word_learned_a_moment_ago_can_be_suggested(self):
+        """İndeksin bayat kalması, burada, sessiz yanlış cevap demek.
+
+        Öneri indeksten geliyor; graf büyüyünce indeks düşmezse sistem bir
+        cümle önce öğrettiğiniz kavramı önermez ve sebebini de söylemez.
+        """
+        self.session.respond("zurnabalık bir kuştur")
+        self.assertIn("zurnabalık mı demek istedin",
+                      self.session.respond("zurnabalik nedir"))
+
+
+class TestIndexAgreesWithTheScan(unittest.TestCase):
+    """İndeks, taramanın verdiği cevabı vermeli — hızlanma ancak öyle hızlanma.
+
+    Ölçüldü: tüm kavramlar üzerinde `nearest` 16 bin kavramda 40,9 ms,
+    335 binde 808,7 ms; her "bilmiyorum" cevabında bir kez. İndeks puanı
+    sıfırdan büyük OLAMAYACAK adları eliyor — eleme eksiksiz, çünkü
+    `closeness` üç yolunda da ortak ikili istiyor. Tek istisna iki harfe
+    kadar olan adlar ve onlar hep puanlanıyor.
+    """
+
+    WORDS = ["kuş", "kus", "kuşs", "penguen", "pengueen", "kar", "karr",
+             "a", "b", "ab", "ba", "x", "zürafa", "otomobil", "araba",
+             "kartal", "kartaal", "krtal", "uçmak", "uçmk", "", "qwerty"]
+
+    def setUp(self):
+        session = Session(os.path.join(tempfile.mkdtemp(), "memory.json"))
+        for said in ("kuşlar uçar", "penguen bir kuştur", "kar beyazdır",
+                     "kartal bir kuştur", "araba hızlıdır", "a bir harftir",
+                     "b bir harftir", "ab bir kelimedir"):
+            session.respond(said)
+        self.names = session.memory.concepts()
+
+    def test_every_word_gets_the_same_answer_either_way(self):
+        for word in self.WORDS:
+            with self.subTest(word=word):
+                self.assertEqual(nearest(word, list(self.names)),
+                                 nearest(word, self.names))
+
+    def test_a_two_letter_name_is_still_reachable(self):
+        """İndeks dışında tutulan tek küme: ortak ikilisi olmadan yakın olanlar."""
+        self.assertEqual(nearest("aa", self.names), nearest("aa", list(self.names)))
+
+    def test_asking_twice_gives_the_same_answer(self):
+        """İkinci çağrı indeksten geliyor; sıra kurulmuş listelerden okunuyor."""
+        first = nearest("kartaal", self.names)
+        self.assertEqual(first, nearest("kartaal", self.names))
+        self.assertEqual(first, ["kartal"])
+
 
 if __name__ == "__main__":
     unittest.main()

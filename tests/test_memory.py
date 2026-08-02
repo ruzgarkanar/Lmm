@@ -188,5 +188,81 @@ class TestPersistence(unittest.TestCase):
         self.assertEqual(m.edges, [])
 
 
+class TestIndexes(unittest.TestCase):
+    """Sıcak yolun indeksleri: cevabı değiştirmeden ucuzlatmak.
+
+    Ölçüldü — 20 kat büyümüş grafta (323.280 olgu) soru başına 2.588 ms.
+    Suçlular tam kenar taramalarıydı; burada sınanan, taramanın yerine gelen
+    indeksin AYNI cevabı vermesi ve bir cümle sonra bayat olmaması.
+    """
+
+    def setUp(self):
+        self.memory = Memory()
+        self.memory.write(Edge("penguen", IS_A, "kuş", source="sen"))
+        self.memory.write(Edge("kuş", CAN, "uçmak", source="sen"))
+        self.memory.write(Edge("kartal", IS_A, "kuş", source="sen"))
+
+    def test_incoming_finds_what_points_here(self):
+        """`query` bir kavramdan çıkanı verir; `incoming` ona geleni."""
+        found = [e.concept for e in self.memory.incoming("kuş", IS_A)]
+        self.assertEqual(found, ["penguen", "kartal"])
+
+    def test_incoming_without_a_relation_gives_all(self):
+        self.assertEqual(len(self.memory.incoming("kuş")), 2)
+
+    def test_incoming_matches_a_full_scan(self):
+        for name in self.memory.concepts():
+            scanned = [e for e in self.memory.edges if e.target == name]
+            self.assertEqual(self.memory.incoming(name), scanned)
+
+    def test_incoming_sees_a_fact_learned_a_moment_ago(self):
+        self.memory.write(Edge("serçe", IS_A, "kuş", source="sen"))
+        self.assertIn("serçe", [e.concept for e in self.memory.incoming("kuş")])
+
+    def test_names_are_the_same_list_until_the_graph_changes(self):
+        """Kopya vermek pahalıydı; aynı nesneyi vermek ancak graf sabitken doğru."""
+        self.assertIs(self.memory.concepts(), self.memory.concepts())
+        before = self.memory.concepts()
+        self.memory.write(Edge("serçe", IS_A, "kuş", source="sen"))
+        self.assertIsNot(before, self.memory.concepts())
+
+    def test_a_held_list_does_not_grow_underneath_its_reader(self):
+        """Dönen şey bir enstantane: üzerinde gezinirken öğrenmek onu bozmamalı."""
+        held = self.memory.concepts()
+        self.memory.write(Edge("serçe", IS_A, "kuş", source="sen"))
+        self.assertNotIn("serçe", held)
+        self.assertIn("serçe", self.memory.concepts())
+
+    def test_names_still_read_as_plain_lists(self):
+        self.assertEqual(self.memory.concepts(),
+                         ["penguen", "kuş", "kartal"])
+        self.assertEqual(self.memory.actions(), ["uçmak"])
+
+    def test_actions_and_properties_refresh_too(self):
+        self.memory.write(Edge("kuş", CAN, "ötmek", source="sen"))
+        self.assertEqual(self.memory.actions(), ["uçmak", "ötmek"])
+        self.memory.write(Edge("kuş", "property", "tüylü", source="sen"))
+        self.assertEqual(self.memory.properties(), ["tüylü"])
+
+    def test_forgetting_an_unknown_name_touches_nothing(self):
+        """20 kat grafta 349 ms sürüyordu ve silinecek bir şey yoktu."""
+        before = self.memory.revision
+        self.assertEqual(self.memory.forget("ejderha"), 0)
+        self.assertEqual(self.memory.revision, before)
+
+    def test_forgetting_still_erases_both_directions(self):
+        self.assertEqual(self.memory.forget("kuş"), 3)
+        self.assertEqual(self.memory.concepts(), [])
+        self.assertEqual(self.memory.incoming("kuş"), [])
+
+    def test_a_write_moves_the_revision_and_a_corroboration_does_not(self):
+        """Yayılım önbelleği buna bakıyor: sürüm oynamadıysa graf da oynamadı."""
+        before = self.memory.revision
+        self.memory.write(Edge("kuş", CAN, "uçmak", source="kitap"))
+        self.assertEqual(self.memory.revision, before)
+        self.memory.write(Edge("serçe", IS_A, "kuş", source="sen"))
+        self.assertGreater(self.memory.revision, before)
+
+
 if __name__ == "__main__":
     unittest.main()

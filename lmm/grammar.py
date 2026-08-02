@@ -201,20 +201,24 @@ class Grammar:
         """Grafın kavramları, küme olarak.
 
         Küme her çağrıda yeniden kuruluyordu ve bu işlev cümle başına ~110 kez
-        çağrılıyor. Kaynak listenin kimliği değişmediyse küme de değişmemiştir
-        — `Session._concepts` aynı listeyi kenar sayısı değişene dek geri
-        veriyor, yani `is` karşılaştırması hem doğru hem bedava.
+        çağrılıyor; 10 katlık bir grafta ayrıştırma süresinin %30'u buradaydı.
 
-        Kimliğe bakmak eşitliğe bakmaktan ucuz ve burada YETERLİ: liste
-        değişmişse yeni bir nesnedir. Bayat kalma riski yok; öğrenilen bir
-        kavram bir sonraki cümlede görünüyor.
+        Küme artık AD LİSTESİNİN kendisine asılıyor. Bellek `concepts()` için
+        bir enstantane döndürüyor ve graf değiştiğinde o enstantane düşüyor —
+        yani geçersizleştirme ayrı bir kural değil, yazma işleminin doğal
+        sonucu. Bayat kalma yolu yok.
+
+        Dönen küme PAYLAŞILIYOR. Bütün kullanımların salt okuma olduğu
+        denetlendi; `turkish.strip_genitive` kendi kopyasını alıyor.
         """
-        source = self._known() if callable(self._known) else self._known
-        cached = getattr(self, "_known_cache", None)
-        if cached is not None and cached[0] is source:
-            return cached[1]
-        found = set(source)
-        self._known_cache = (source, found)
+        names = self._known() if callable(self._known) else self._known
+        found = getattr(names, "as_set", None)
+        if found is None:
+            found = set(names)
+            try:
+                names.as_set = found
+            except AttributeError:
+                pass                    # düz liste: her çağrıda yeniden kurulur
         return found
 
     def add(self, pattern, first=False):

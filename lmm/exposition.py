@@ -27,7 +27,14 @@ class Exposition:
         self.reasoning = reasoning
 
     def describe(self, concept):
-        """Everything worth saying about a concept, as connected prose."""
+        """Everything worth saying about a concept, as connected prose.
+
+        Bir kavramı anlatmak eskiden grafın tamamını ÜÇ kez tarıyordu — bir
+        kez istisnalar, bir kez kendi olguları, bir kez atasının özellikleri
+        için. Oysa üçü de tek bir kavramın kenarlarını istiyor ve bellek onu
+        zaten indeksliyor. Ölçüldü: 16 bin olguda 0,51 ms, 323 binde 22,05 ms
+        — anlatılan kavram büyümediği hâlde.
+        """
         parts = [self._identity(concept), self._exceptions(concept),
                  self._inherited(concept), self._own(concept)]
         said = [part for part in parts if part]
@@ -50,8 +57,8 @@ class Exposition:
     def _exceptions(self, concept):
         """Where the concept breaks its own family's rule — the interesting part."""
         said = []
-        for edge in self.memory.edges:
-            if edge.concept != concept or not self._contradicts_family(edge):
+        for edge in self.memory.query(concept):
+            if not self._contradicts_family(edge):
                 continue
             family = self._family_clause(edge)
             own = phrasing.predicate(edge.relation, edge.target, edge.object, edge.role)
@@ -76,8 +83,8 @@ class Exposition:
     def _own(self, concept):
         """Facts stated about it directly, minus the exceptions already told."""
         clauses = []
-        for edge in self.memory.edges:
-            if edge.concept != concept or edge.relation == IS_A:
+        for edge in self.memory.query(concept):
+            if edge.relation == IS_A:
                 continue
             if self._contradicts_family(edge):
                 continue
@@ -114,6 +121,6 @@ class Exposition:
         return ancestors[0] if ancestors else None
 
     def _traits_of(self, parent):
-        for edge in self.memory.edges:
-            if edge.concept == parent and edge.relation != IS_A:
+        for edge in self.memory.query(parent):
+            if edge.relation != IS_A:
                 yield edge.target, edge.relation, edge.object, edge.role
