@@ -133,6 +133,19 @@ def facts(path, counts, graded, lexicon, limit, verbs=()):
             # Kirlilik sessiz: graf büyürken kimse fark etmiyor, ayrıştırıcı
             # aylar sonra bozuluyor.
             head = concept.split()[-1] if " " in concept else concept
+            # Durum eki taşıyan bir baş, cümlenin ÖZNESİ değil ÇERÇEVESİDİR:
+            # "Matematikte, bir grup ... yapıdır" cümlesinde konu `grup`,
+            # `matematikte` yalnız hangi alandan söz edildiğini söylüyor.
+            # Kalıp cümle başındaki büyük harfli kelimeyi başlık sandığı için
+            # zarf özne yazılıyordu. Ölçüldü: üretim grafında 28 böyle düğüm,
+            # 48 olgu — ve her birinde GERÇEK özne kayıp. Oran küçük (%0.3)
+            # ama ölçekle çarpılıyor: 16 milyon olguda 48 bin çöp düğüm.
+            #
+            # Sınama sözcük listesiyle değil morfolojiyle: `is_oblique` bu
+            # dosyada değil dilin kendi organında yaşıyor ve yorumu zaten bu
+            # kusuru anlatıyor ("bir bulunma eki ad öbeğine sızdı").
+            if _MORPHOLOGY.is_oblique(head):
+                continue
             if is_structural(head, counts) or is_structural(concept, counts):
                 continue
             # Fiil mastarı da kavram olamaz. "demek" yapısal sözcük sayılmıyor
