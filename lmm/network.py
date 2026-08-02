@@ -16,7 +16,7 @@ change how a token is recognised, not what the shapes are.
 import math
 
 from lmm.intuition import (QUESTION_PARTICLES, COPULA_SUFFIXES, PLURAL_SUFFIXES,
-                           INTERROGATIVES, _has_suffix)
+                           INTERROGATIVES, _MORPHOLOGY, _has_suffix)
 from lmm.lexicon import ACTIVE
 
 CLASSES = ["TEACH_TYPE", "TEACH_NOT_TYPE", "TEACH_ABILITY", "TEACH_PROPERTY",
@@ -34,6 +34,25 @@ VERB = "<fiil>"
 VERB_NEGATIVE = "<fiil-olumsuz>"
 
 
+def _bare(token):
+    """Soru ekiyse çıplak hâli, değilse koşaçsız hâli.
+
+    Soru üç biçimde gelir ve üçü de aynı şeyi sorar: "uçar mı", "mutlu mudur",
+    "bahseder misin". Sonuncusu hiç tanınmıyordu ve insanlar soruyu asıl öyle
+    soruyor — ölçüldüğünde "bana penguenlerden bahseder misin" dört kavram
+    olarak etiketleniyordu.
+    """
+    from lmm import asking
+    found = asking.particle_of(token, _MORPHOLOGY)
+    if found is not None:
+        return found
+    found = asking.interrogative_of(token, _MORPHOLOGY)
+    if found is not None:
+        return found
+    return (_MORPHOLOGY.strip_copula(token) if _MORPHOLOGY.has_copula(token)
+            else token)
+
+
 def features(tokens, lexicon=None):
     """What each token *does*, tagged with where it sits and how long the whole is.
 
@@ -45,6 +64,17 @@ def features(tokens, lexicon=None):
     for token in tokens:
         if token in FUNCTION_WORDS:
             tagged.append(token)
+        # Soru eki koşaç alınca soru olmaktan çıkmaz: "mu" ile "mudur",
+        # "neler" ile "nelerdir" aynı şeyi sorar. Bu ayrım kaçınca cümlenin
+        # şekli bildirmeye benziyordu ve sonucu ağırdı: "sence penguenler
+        # mutlu mudur" sorusu TEACH sayılıp grafa `sence penguenler mutlu
+        # —property→ mu` diye yazılıyordu. Cevap uydurulmuyordu ama hafıza
+        # kirleniyordu — ki hafıza bu projenin tek varlığı.
+        #
+        # Liste uzatılmıyor, ek soyuluyor: koşaç ekleri zaten türetilmiş ve
+        # kapalı sınıf olduğu gibi duruyor.
+        elif _bare(token) in FUNCTION_WORDS:
+            tagged.append(_bare(token))
         elif lexicon.knows(token):
             _, positive = lexicon.reading(token)
             tagged.append(VERB if positive else VERB_NEGATIVE)

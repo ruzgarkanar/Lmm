@@ -36,7 +36,8 @@ class LearningLoop:
         conflict = self.reasoning.find_conflict(candidate)
         basis = self.reasoning.basis(candidate)
         statement = describe(candidate.concept, candidate.relation,
-                             candidate.target, candidate.object, candidate.role)
+                             candidate.target, candidate.object, candidate.role,
+                             self.memory.kinds)
         if conflict is not None and basis is not None:
             verdict = arbitrate(basis, candidate, self.memory.reputation)
             if verdict == CANDIDATE:

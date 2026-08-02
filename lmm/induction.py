@@ -15,22 +15,54 @@ that it did, cannot show you the examples that convinced it, and cannot be
 corrected on one point without retraining.
 """
 from lmm.memory import (Edge, IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
-                        LACKS_PROPERTY, INFERRED, INFERRED_CONFIDENCE)
+                        LACKS_PROPERTY, INFERRED, INFERRED_CONFIDENCE,
+                        INHERITING)
 
 MINIMUM_EXAMPLES = 2
 MINIMUM_TRAITS = 2      # one shared habit is a coincidence
 
 
+def succession(agreeing, consulted):
+    """Laplace's rule of succession: the odds the rest of the family agrees too.
+
+    After k members are seen to share a trait and none seen to lack it, the
+    chance that a further member shares it is (k+1)/(k+2), and the chance that
+    *all* of the remaining n-k do is (k+1)/(n+1). Laplace derived it in 1774 for
+    exactly this question — how far a run of agreeing observations licenses a
+    claim about the ones you have not looked at.
+
+    This replaces a threshold we tuned by hand, and it earns its place because
+    it separates the cases we spent a night arguing with: three cold-blooded
+    animals out of eight scores 0.44, three running mammals out of three scores
+    1.00, and two black birds out of twenty — the very first over-generalisation
+    this system ever made — scores 0.14. One formula, no dial.
+    """
+    return (agreeing + 1) / (consulted + 1)
+
+
+# A rule has to be likelier than not to hold of the members nobody described,
+# with room to spare. Below this the honest move is to keep the examples and
+# decline the generalisation.
+SUPPORT = 0.75
+
+
 class Hypothesis:
-    def __init__(self, concept, relation, target, examples):
+    def __init__(self, concept, relation, target, examples, support=None):
         self.concept = concept
         self.relation = relation
         self.target = target
         self.examples = examples    # the children that suggested it
+        self.support = support      # how far the evidence reaches, 0..1
 
     def as_edge(self):
+        # A guess whose evidence reaches further is held more firmly, but never
+        # as firmly as something it was actually told.
+        confidence = INFERRED_CONFIDENCE
+        if self.support is not None:
+            confidence = min(INFERRED_CONFIDENCE * self.support * 2,
+                             INFERRED_CONFIDENCE)
         return Edge(self.concept, self.relation, self.target,
-                    source=INFERRED, confidence=INFERRED_CONFIDENCE)
+                    source=INFERRED, confidence=confidence)
 
 
 class Induction:
@@ -137,19 +169,43 @@ class Induction:
                          if self._stated(c, target, affirms)]
                 disagree = [c for c in children
                             if self._stated(c, target, denies)]
-                # Two out of twenty is not a rule about the twenty, and two out
-                # of eight is not either: "kuş siyahtır" came from a penguin and
-                # a crow, "hayvan küçüktür" from a cat and a beetle. A third of
-                # the family has to agree before it counts as a rule about it.
-                enough = max(MINIMUM_EXAMPLES, -(-len(children) // 3))
-                if len(agree) >= enough and not disagree:
-                    yield Hypothesis(parent, affirms, target, agree)
-                elif len(disagree) >= enough and not agree:
-                    yield Hypothesis(parent, denies, target, disagree)
+                # "Most of the family" has to mean most of the family that
+                # has an opinion. Counting silent children as dissent kills good
+                # rules — three mammals run and the other twelve were never
+                # described. The opinionated ones are the ones that were
+                # actually consulted, so they are the denominator, and how far
+                # their agreement reaches is arithmetic rather than a dial.
+                #
+                # Note this cannot be done by spotting opposites instead:
+                # measured over 1288 facts, only 5% of trait pairs ever co-occur
+                # and "sıcak" and "soğuk" are among the pairs that do.
+                # Complementary distribution finds suffix families; it does not
+                # find antonyms.
+                consulted = [c for c in children if self._opinionated(c, affirms)]
+                for holds, relation in ((agree, affirms), (disagree, denies)):
+                    other = disagree if holds is agree else agree
+                    if other or len(holds) < MINIMUM_EXAMPLES:
+                        continue
+                    support = succession(len(holds), len(consulted))
+                    if support >= SUPPORT:
+                        yield Hypothesis(parent, relation, target, holds, support)
+
+    def _opinionated(self, concept, relation):
+        """Whether this child was ever described in this respect at all."""
+        return any(edge.source != INFERRED and edge.quantifier in INHERITING
+                   for edge in self.memory.query(concept)
+                   if edge.relation in self.memory.kinds.pair(relation))
 
     def _stated(self, concept, target, relation):
+        """Evidence for a rule about everyone must itself be about everyone.
+
+        "bazı kuşlar yüzer" was being counted towards "hayvan yüzer", which is
+        the existence claim leaking into a universal by the back door — the very
+        thing the quantifier was added to stop.
+        """
         edge = self.memory.direct(concept, relation, target)
-        return edge is not None and edge.source != INFERRED
+        return (edge is not None and edge.source != INFERRED
+                and edge.quantifier in INHERITING)
 
     def _children(self, parent):
         return [edge.concept for edge in self.memory.edges

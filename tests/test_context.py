@@ -79,3 +79,44 @@ class TestNoContextWindow(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBareFollowUps(unittest.TestCase):
+    """Tek kelimelik eksiltili soru: insan sohbette en çok onu kullanıyor.
+
+    "penguen uçar mı" -> "hayır" -> "neden" dendiğinde sorulan şey "penguen
+    neden uçamaz"dır. Bağlam mekanizması "peki ya kartal" için vardı ama çıplak
+    soru sözcüğünü kapsamıyordu.
+    """
+
+    def setUp(self):
+        import os
+        import tempfile
+        from lmm.cli import Session
+        from lmm.memory import Memory, Edge, IS_A, CAN, CANNOT, HAS_PROPERTY
+        path = os.path.join(tempfile.mkdtemp(), "f.lmm")
+        memory = Memory()
+        memory.learn_word("uçmak", "uçar", "uçamaz")
+        memory.write(Edge("kuş", CAN, "uçmak", source="sen"))
+        memory.write(Edge("penguen", IS_A, "kuş", source="sen"))
+        memory.write(Edge("penguen", CANNOT, "uçmak", source="sen"))
+        memory.write(Edge("penguen", HAS_PROPERTY, "siyah", source="sen"))
+        memory.save(path)
+        self.path = path
+        self.session = Session(path)
+
+    def test_neden_continues_the_last_question(self):
+        self.session.respond("penguen uçar mı")
+        said = self.session.respond("neden")
+        self.assertNotIn("anlamadım", said)
+        self.assertIn("uçamaz", said)
+
+    def test_nasil_asks_about_the_same_thing(self):
+        self.session.respond("penguen nedir")
+        said = self.session.respond("nasıl")
+        self.assertIn("siyah", said)
+
+    def test_without_a_previous_question_nothing_is_invented(self):
+        from lmm.cli import Session
+        fresh = Session(self.path)
+        self.assertIn("anlamadım", fresh.respond("neden"))

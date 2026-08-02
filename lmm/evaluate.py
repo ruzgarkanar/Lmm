@@ -50,7 +50,10 @@ DERIVED = [("serçe uçar mı", "evet"), ("kartal tüylü mü", "evet"),
 UNKNOWN = ["zürafa nedir", "zürafa uçar mı", "ejderha nedir",
            "kaplan yüzer mi", "bulut nedir"]
 
-DECLINED = ("bilmiyorum", "anlamadım", "öğrenmedim", "duymadım")
+# Tek kaynak: aynı imza iki yerde kopyalanmıştı ve biri eksik kalmıştı.
+# Söyleyiş öğrenen organ bu imzaya güveniyor — eksik bir madde, yanlış bir
+# kalıbın kalıcı olarak yazılması demek.
+from lmm.phrasing import REFUSALS as DECLINED
 GROUNDED = ("kaynak:", "çıkarımım", "dil modelinden", "anlaşmıyor", "çünkü")
 
 

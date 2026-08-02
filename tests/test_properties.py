@@ -116,3 +116,38 @@ class TestPropertiesInConversation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAnAmbiguousName(unittest.TestCase):
+    """Bir ad iki şeye işaret ediyorsa, seçmek uydurmaktır.
+
+    Wikipedia'dan derlenen kavramların %9,6'sı böyleydi: "tavla" hem bir mahalle
+    hem bir oyun. Sistem en güvenilir olanı sessizce seçip emin görünüyordu —
+    bir dil modelinin yapacağı şeyin aynısı.
+    """
+
+    def setUp(self):
+        from lmm.memory import Memory, Edge, IS_A
+        from lmm.reasoning import Reasoning
+        from lmm.gate import EpistemicGate
+        from lmm.intuition import Intent, ASK
+        self.memory = Memory()
+        for kind in ("oyun", "mahalle"):
+            self.memory.write(Edge("tavla", IS_A, kind, source="vikipedi"))
+        self.memory.write(Edge("futbol", IS_A, "spor", source="vikipedi"))
+        self.gate = EpistemicGate(self.memory, Reasoning(self.memory))
+        self.Intent, self.ASK, self.IS_A = Intent, ASK, IS_A
+
+    def ask(self, concept):
+        return self.gate.answer(self.Intent(self.ASK, concept, self.IS_A))
+
+    def test_both_readings_are_named_instead_of_one_being_chosen(self):
+        answer = self.ask("tavla")
+        self.assertIn("oyun", answer)
+        self.assertIn("mahalle", answer)
+        self.assertIn("hangisini", answer)
+
+    def test_a_name_with_one_meaning_is_answered_plainly(self):
+        answer = self.ask("futbol")
+        self.assertIn("spor", answer)
+        self.assertNotIn("hangisini", answer)

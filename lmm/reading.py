@@ -16,7 +16,10 @@ import sys
 
 from lmm.memory import Memory
 from lmm import lexicon
+from lmm.clauses import readable
+from lmm.compiler import usable
 from lmm.discovered import words_of
+from lmm.trust import level, DOCUMENT
 from lmm.reasoning import Reasoning
 from lmm.learning import LearningLoop, LEARNED, REINFORCED, CONFLICT, REJECTED
 from lmm.intuition import Intuition, TEACH, UNKNOWN
@@ -36,6 +39,7 @@ class ReadingReport:
         self.reinforced = []
         self.conflicts = []      # (edge, explanation) — never written
         self.skipped = []        # (sentence, reason)
+        self.words = []          # verbs the document declared
 
     @property
     def total(self):
@@ -68,10 +72,27 @@ def read_text(text, memory, source, reasoning=None, language=None):
     language = language or Intuition(network=MiniNetwork.default(),
                                      lexicon=memory.lexicon,
                                      words=words_of(memory),
-                                     known=memory.concepts)
+                                     known=memory.concepts,
+                                     memory=memory)
     learning = LearningLoop(memory, reasoning)
     report = ReadingReport(source)
-    for sentence in sentences(text):
+    # A document may declare the words it is about to use. This only worked for
+    # text written by a model, so a person could not hand the system a verb it
+    # had just asked for — the one thing it says when it does not understand.
+    from lmm.distill import split_words   # the two read each other
+    declared, text = split_words(text)
+    for infinitive, positive, negative in declared:
+        memory.learn_word(infinitive, positive, negative)
+        report.words.append(infinitive)
+    if declared:
+        language = Intuition(network=MiniNetwork.default(),
+                             lexicon=memory.lexicon,
+                             words=words_of(memory), known=memory.concepts)
+    # Uzun cümle olduğu gibi okunamıyor: en uzun kalıbımız dört kelime, gerçek
+    # cümlelerin %78'i beş ve üzeri. Bölünce ölçülen kazanç, bankacılık
+    # dokümanında 3,1 -> 8,8 olgu/100 cümle. Kısa cümleye dokunulmuyor.
+    for sentence in [piece for whole in sentences(text)
+                     for piece in readable(whole, lexicon=memory.lexicon)]:
         intent = language.understand(sentence)
         if intent.kind == UNKNOWN:
             report.skipped.append((sentence, NOT_UNDERSTOOD))
@@ -79,13 +100,38 @@ def read_text(text, memory, source, reasoning=None, language=None):
         if intent.kind != TEACH:
             report.skipped.append((sentence, A_QUESTION))
             continue
+        # Cümlecik bölme okunabilir parça sayısını artırdı ama ayrıştırıcı
+        # bazılarını yanlış okuyor: "tool broker /" bir kavram değil, bir
+        # ayrıştırma kazası. Derleyicide aynı sorun için yazılan hijyen denetimi
+        # burada da geçerli — bir düğüm, başka olgularda da geçebilecek bir ad
+        # olmalı.
+        if not (usable(intent.concept) and usable(intent.target or "x")):
+            report.skipped.append((sentence, NOT_UNDERSTOOD))
+            continue
         status, _, edge = learning.teach(intent, source=source)
         if status == LEARNED:
             report.learned.append(edge)
         elif status == REINFORCED:
             report.reinforced.append(edge)
         elif status == CONFLICT:
-            report.conflicts.append((edge, _explain(reasoning, edge)))
+            # A document cannot be asked "are you sure?", so an exception it
+            # states was being thrown away: every pack said "penguen uçamaz" and
+            # the trained model still answered that penguins fly. But a clash
+            # with an *inherited* fact is not a contradiction — it is the
+            # exception the inheritance was always allowed to have, and a direct
+            # statement about a concept beats what its type says. Only a clash
+            # with something stated about this very concept is a real dispute,
+            # and that still goes to the report rather than being decided here.
+            # Only a source we would trust to state a rule may state an
+            # exception to one. A language model's answer that fights what is
+            # known is exactly the thing the gate exists to stop, and it stays
+            # refused; a document written by a person is deliberate.
+            basis = reasoning.basis(edge)
+            if (level(source) >= DOCUMENT and basis is not None
+                    and basis.concept != edge.concept):
+                report.learned.append(learning.confirm_exception(edge))
+            else:
+                report.conflicts.append((edge, _explain(reasoning, edge)))
         elif status == REJECTED:
             report.skipped.append((sentence, REFUSED))
     return report

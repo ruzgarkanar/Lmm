@@ -66,8 +66,10 @@ class TestComprehending(unittest.TestCase):
         being unknown is at the mercy of whatever another test taught the shared
         lexicon.
         """
+        # Stated about the model itself, so the restatement is a head-on
+        # contradiction rather than an exception to what software can do.
         self.memory.write(Edge("model", IS_A, "yazılım", source=TEACHER))
-        self.memory.write(Edge("yazılım", CAN, "okumak", source=TEACHER))
+        self.memory.write(Edge("model", CAN, "okumak", source=TEACHER))
         _, learned, refused, _ = comprehend(
             self.memory, PROSE, "belge.txt", asker=steady("model okuyamaz."))
         self.assertEqual(refused, 1)

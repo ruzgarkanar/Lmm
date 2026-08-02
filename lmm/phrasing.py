@@ -5,8 +5,8 @@ this module is the only place that turns them into sentences — so the internal
 labels never leak into what the system says, and a second language would mean
 swapping this file alone.
 """
-from lmm.relations import (IS_A, NOT_A, CAN, HAS_PROPERTY, LACKS_PROPERTY,
-                           HAS_PART, LACKS_PART, PLACE, SOURCE)
+from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
+                           LACKS_PROPERTY, HAS_PART, LACKS_PART, PLACE, SOURCE)
 from lmm.lexicon import ACTIVE
 
 from lmm.trust import INFERENCE, DISTILLED_PREFIX
@@ -193,18 +193,93 @@ SHAPE_EXAMPLES = {
     "ASK_WHY": "penguen neden uçamaz",
 }
 
-KNOWN_SHAPES = ("'penguen bir kuştur', 'kuşlar uçar', 'kuşlar tüylüdür', "
-                "'penguen nedir', 'penguen uçar mı', 'kimler uçar', "
-                "'penguen ne yapabilir', 'penguen neden uçamaz'")
+# Örnek cümleler GRAFTAN kuruluyor, elle yazılmıyor. Eskiden sabit sekiz
+# penguen cümlesi vardı ve sistem 486 kavram bilirken hep onları gösteriyordu —
+# kendini olduğundan aptal gösteren bir hata mesajı. Şimdi gerçekten bildiği
+# bir kavramla örnek veriyor.
+SHAPE_MOULDS = {
+    "ASK_DEFINITION": "{} nedir",
+    "ASK_ABILITY": "{} {} mı",
+    "ASK_PROPERTY": "{} {} mı",
+    "ASK_ABILITIES": "{} ne yapabilir",
+    "ASK_PROPERTIES": "{} nasıldır",
+    "ASK_DESCRIBE": "{} anlat",
+    "ASK_WHY": "{} neden {}",
+    "TEACH_TYPE": "{} bir {}dır",
+}
 
 
-def not_understood(resembles=None):
+def _example(kind, memory):
+    """Grafın gerçekten bildiği bir kavramla örnek cümle. Yoksa None."""
+    mould = SHAPE_MOULDS.get(kind)
+    if not mould or memory is None:
+        return None
+    from lmm.relations import CAN, HAS_PROPERTY, IS_A
+    wanted = {"ASK_ABILITY": CAN, "ASK_WHY": CAN,
+              "ASK_PROPERTY": HAS_PROPERTY, "TEACH_TYPE": IS_A}.get(kind)
+    for edge in memory.edges:
+        if wanted and edge.relation != wanted:
+            continue
+        if mould.count("{}") == 2:
+            if not edge.target:
+                continue
+            # Fiilin MASTARI değil çekimi yazılır: "kuş uçmak mı" değil
+            # "kuş uçar mı". Sözlük zaten yüzey biçimini biliyor.
+            target = edge.target
+            if wanted == CAN and getattr(memory, "lexicon", None):
+                target = memory.lexicon.surface(edge.target, True)
+            made = mould.format(edge.concept, target)
+            return _harmonised(made)
+        return mould.format(edge.concept)
+    return None
+
+
+# Soru ekinin ünlüsü son heceye uyar. Örnek cümle üretirken "tüylü mı"
+# yazmak, sistemin kendi dilini bilmediğini gösterir.
+BACK, FRONT = "aıou", "eiöü"
+
+
+def _harmonised(sentence):
+    """Sondaki soru ekini son ünlüye uydurur."""
+    words = sentence.split()
+    if len(words) < 2 or words[-1] not in ("mı", "mi", "mu", "mü"):
+        return sentence
+    vowels = [c for c in words[-2] if c in BACK + FRONT]
+    if not vowels:
+        return sentence
+    last = vowels[-1]
+    if last in "aı":
+        words[-1] = "mı"
+    elif last in "ei":
+        words[-1] = "mi"
+    elif last in "ou":
+        words[-1] = "mu"
+    else:
+        words[-1] = "mü"
+    return " ".join(words)
+
+
+def known_shapes(memory=None, count=6):
+    """Sistemin gerçekten cevaplayabildiği örnek cümleler."""
+    found = []
+    for kind in SHAPE_MOULDS:
+        made = _example(kind, memory)
+        if made:
+            found.append(f"'{made}'")
+        if len(found) >= count:
+            break
+    if found:
+        return ", ".join(found)
+    return "'<kavram> nedir', '<kavram> ne yapabilir', '<kavram> nasıldır'"
+
+
+def not_understood(resembles=None, memory=None):
     """What to say when nothing parsed — with a guess, if there is one."""
-    example = SHAPE_EXAMPLES.get(resembles)
+    example = _example(resembles, memory) or SHAPE_EXAMPLES.get(resembles)
     if example:
         return (f"bunu anlamadım. '{example}' gibi bir şey mi demek istedin? "
                 f"kelimelerinden birini bilmiyor olabilirim.")
-    return f"bunu anlamadım. şu kalıpları biliyorum: {KNOWN_SHAPES}."
+    return f"bunu anlamadım. şunları sorabilirsin: {known_shapes(memory)}."
 
 
 def which_reading(word, readings):
@@ -226,6 +301,174 @@ def learned_word(infinitive, positive, negative):
 def wondering(question):
     """How the system voices a gap it noticed in itself."""
     return f"bu arada, bunu hiç öğrenmedim: {question}"
+
+
+# Sistemin "cevap veremedim" dediği hâllerin ortak işareti. Tek bir yerde
+# duruyor çünkü iki yer bunu bilmek zorunda: söyleyişi öğrenen organ, bir
+# okumanın gerçekten işe yarayıp yaramadığını buradan anlıyor. Bunlar kullanıcı
+# metnine bakan anahtar kelimeler değil — KENDİ çıktımızın imzası.
+REFUSALS = ("bilmiyorum", "anlamadım", "öğrenmedim", "duymadım",
+            "öğrenmem lazım", "öğretir misin")
+
+
+def is_a_refusal(said):
+    """Bu cevap aslında bir cevap mı, yoksa cevap verememe mi?"""
+    lowered = (said or "").lower()
+    return not said or any(mark in lowered for mark in REFUSALS)
+
+
+def compared(first, second, shared, only_first, only_second, kinds=None):
+    """İki kavramın karşılaştırması: ortak yan, sonra ayrım.
+
+    İlişki adları ham hâlleriyle yazılmıyor — "uçmak (cannot)" bir cevap değil
+    bir döküm. İlişki kaydı zaten her ilişkinin okunabilir etiketini taşıyor
+    (`lmm/kinds.py`), o kullanılıyor.
+
+    Hiçbir şey bulunamazsa uydurulmuyor: karşılaştırma da bir iddiadır.
+    """
+    parts = []
+    if shared:
+        parts.append(f"ikisi de {' ve '.join(shared)} ile ilgili")
+    for concept, traits in ((first, only_first), (second, only_second)):
+        if traits:
+            parts.append(f"{concept}: " + ", ".join(
+                _trait(relation, target, kinds) for relation, target in traits))
+    if not parts:
+        return f"{first} ile {second} arasında kayıtlı bir fark bulamadım."
+    return capitalize("; ".join(parts) + ".")
+
+
+def _trait(relation, target, kinds=None):
+    """Bir kaydı okunur hâle getirir: "uçamaz", "hızlı", "tüye sahip"."""
+    if relation == "property":
+        return target
+    label = None
+    if kinds is not None:
+        kind = kinds.by_name.get(relation)
+        label = kind.label if kind else None
+    return f"{target} {label}" if label else f"{target} ({relation})"
+
+
+def certainty(edges, kinds=None):
+    """"emin misin" — güven ve kanıtın kendisi.
+
+    Yeni bilgi gerektirmiyor: güven, kaynak ve kaç tanığın söylediği zaten her
+    kenarda duruyor. Yalnızca sorulmuyordu.
+
+    Bir LLM bu soruyu cevaplayamaz — ne güveni sayılabilir ne kaynağı vardır.
+    Bizim için bedava, çünkü kayıt zaten künyeli.
+    """
+    if not edges:
+        return "henüz bir şey söylemedim ki."
+    edge = edges[0]
+    witnesses = len(getattr(edge, "sources", None) or [edge.source])
+    parts = [f"güvenim %{edge.confidence * 100:.0f}"]
+    if witnesses > 1:
+        parts.append(f"{witnesses} ayrı kaynak söylüyor")
+    else:
+        parts.append(f"tek kaynak: {edge.source}")
+    if edge.is_exception:
+        parts.append("bu bir istisna, kalıtımı bozuyor")
+    if getattr(edge, "disputed", False):
+        parts.append("tartışmalı — kaynaklar çelişiyor")
+    return capitalize(", ".join(parts) + ".")
+
+
+def whence(edges):
+    """"nereden biliyorsun" — künyenin kendisi.
+
+    Bu sorunun cevaplanabilmesi projenin dördüncü şartının somut hâli: her
+    olgu nereden geldiğini taşır ve insan gidip bakabilir.
+    """
+    if not edges:
+        return "henüz bir şey söylemedim ki."
+    seen = []
+    for edge in edges:
+        for source in (getattr(edge, "sources", None) or [edge.source]):
+            if source not in seen:
+                seen.append(source)
+    if len(seen) == 1:
+        return f"kaynağım: {seen[0]}."
+    return capitalize(f"kaynaklarım: {listing(seen)}.")
+
+
+def no_opinion(concept=None):
+    """Görüş sorusu. Anlamadım demekle görüşüm yok demek aynı şey değil.
+
+    Görüşün dayanağı olmaz; dayanaksız cümle kurmayan bir sistemin görüşü de
+    olamaz. Bunu söylemek bir eksiklik itirafı değil, mimarinin sonucu.
+    """
+    if concept:
+        return (f"bu bir görüş sorusu ve benim görüşüm yok. {concept} hakkında "
+                f"bildiklerimi sorabilirsin.")
+    return "bu bir görüş sorusu ve benim görüşüm yok — yalnız bildiklerimi söylerim."
+
+
+def inventory(memory, count=8):
+    """Sistemin gerçekten ne bildiği — sayarak, uydurmadan.
+
+    "ne biliyorsun" sorusunun cevabı bir tanıtım metni değil, bir DÖKÜM
+    olmalı. Sistem 486 kavram bilirken "bunu anlamadım" diyordu; şimdi
+    saydığını söylüyor.
+    """
+    import collections
+    from lmm.relations import IS_A, SAME_AS
+    concepts = [c for c in memory.concepts()]
+    kinds = collections.Counter(
+        e.target for e in memory.edges if e.relation == IS_A)
+    sources = collections.Counter(
+        e.source for e in memory.edges if e.relation != SAME_AS)
+    if not concepts:
+        return "henüz hiçbir şey bilmiyorum. bana bir şey öğretebilirsin."
+    parts = [f"{len(memory.edges)} bilgi, {len(concepts)} kavram"]
+    if kinds:
+        top = ", ".join(f"{t} ({n})" for t, n in kinds.most_common(count // 2))
+        parts.append(f"en çok bildiğim türler: {top}")
+    if sources:
+        where = ", ".join(f"{s} ({n})" for s, n in sources.most_common(3))
+        parts.append(f"kaynaklarım: {where}")
+    return capitalize(". ".join(parts) + ".")
+
+
+def nothing_more(concept):
+    """Söylenecek bir şey kalmadığında. Uydurmak yerine bitirmek."""
+    if not concept:
+        return "henüz bir şeyden konuşmadık, önce bir şey sor."
+    return f"{concept} hakkında bildiğim başka bir şey yok."
+
+
+def talked_about(topics):
+    """Sohbette nelerden konuşulduğu. Hiçbiri yoksa uydurulmuyor."""
+    if not topics:
+        return "henüz bir şey konuşmadık."
+    if len(topics) == 1:
+        return f"{topics[0]} hakkında konuşuyorduk."
+    return capitalize(", ".join(topics[:-1]) + f" ve {topics[-1]} "
+                      "hakkında konuşuyorduk.")
+
+
+def learned_wording(sentence):
+    """Yeni bir söyleyiş öğrendiğini söylemesi.
+
+    Söylenmesi önemli: sistem sessizce kural biriktirmemeli. Öğrendiği şey
+    görünür olmalı ki yanlışsa silinebilsin.
+    """
+    return f"(bu söyleyişi de öğrendim: \"{sentence}\")"
+
+
+def went_and_read(source, learned, refused=0):
+    """Bilmediğini fark edip gidip okuduğunu söylemesi.
+
+    Künye söyleniyor çünkü asıl mesele o: "öğrendim" demek kolay, nereden
+    öğrendiğini gösterebilmek zor. Reddedilen varsa o da söyleniyor — kaynağın
+    her dediğini almadığı, sistemin en çok gösterilmesi gereken davranışı.
+    """
+    if not learned:
+        return f"bilmiyordum, {source} sayfasını okudum ama bir şey çıkaramadım."
+    said = f"bilmiyordum, {source} sayfasını okudum: {learned} bilgi öğrendim"
+    if refused:
+        said += f" ({refused} iddiayı almadım)"
+    return said + "."
 
 
 def attribution(source):
@@ -369,8 +612,26 @@ def predicate(relation, target, object=None, role=None):
     return f"{middle}{verb_form(target, relation == CAN)}"
 
 
-def describe(concept, relation, target, object=None, role=None):
-    """A fact stated as a Turkish sentence, whatever its relation."""
+# Kendi cümle biçimi olan ilişkiler. Gerisi ilişki kaydının etiketiyle
+# söyleniyor.
+KNOWN_CLAUSES = (IS_A, NOT_A, HAS_PROPERTY, LACKS_PROPERTY, HAS_PART,
+                 LACKS_PART, CAN, CANNOT)
+
+
+def describe(concept, relation, target, object=None, role=None, kinds=None):
+    """A fact stated as a Turkish sentence, whatever its relation.
+
+    Tanınmayan bir ilişki YETENEK sanılıyordu ve sessizce bozuk cümle
+    üretiyordu: "kuş kanat gerektirir" bilgisi "öğrendim: kuş kanat" diye
+    onaylanıyordu. Oysa ilişki kaydı her ilişkinin okunabilir etiketini zaten
+    tutuyor (`lmm/kinds.py`) — projenin "ilişkiler veri, kod değil" iddiasının
+    kaçırdığı yer burasıydı. Yeni bir ilişki eklendiğinde artık bu dosya
+    değişmiyor.
+    """
+    if kinds is not None and relation not in KNOWN_CLAUSES:
+        kind = kinds.by_name.get(relation)
+        if kind is not None:
+            return f"{concept} {target} {kind.label}"
     if relation == IS_A:
         return is_a_clause(concept, target)
     if relation == NOT_A:
@@ -381,3 +642,14 @@ def describe(concept, relation, target, object=None, role=None):
     if relation in (HAS_PART, LACKS_PART):
         return part_clause(concept, target, relation == HAS_PART)
     return ability_clause(concept, target, relation == CAN, object, role)
+
+
+def which_meaning(name, readings):
+    """Bir ad birden çok şeye işaret ediyorsa, hepsini say ve sor.
+
+    Belirsizlik bir bilgisizlik değil; sistemin iki şeyi birden bilmesidir.
+    Birini seçip emin görünmek, bildiğinden azını söylemek olur.
+    """
+    listed = listing([f"bir {reading}" for reading in readings])
+    return (f"{name} birden fazla şeye işaret ediyor: {listed} olabilir. "
+            f"hangisini soruyorsun?")

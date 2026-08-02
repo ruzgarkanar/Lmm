@@ -9,7 +9,7 @@ from lmm.memory import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
 from lmm.phrasing import (ability_clause, property_clause, part_clause,
                           is_a_clause, is_not_a_clause, attribution,
                           disputed_note)
-from lmm.trust import INFERENCE
+from lmm.trust import INFERENCE, level
 
 
 def _clause_for(relation):
@@ -93,12 +93,15 @@ class Reasoning:
         """
         # Both polarities may be on record when sources disagreed. A settled
         # claim outranks one still marked disputed, so arbitration actually
-        # changes the answer instead of leaving the loser to speak first.
+        # changes the answer instead of leaving the loser to speak first. Among
+        # equally settled claims the stronger voice speaks: a person correcting
+        # a document was being accepted, thanked, and then ignored, because the
+        # document's edge simply came first in the list.
         held = [(polarity, self.memory.direct(concept, relation, target, object,
                                               role))
                 for polarity, relation in ((False, denies), (True, affirms))]
         held = [(polarity, edge) for polarity, edge in held if edge]
-        held.sort(key=lambda pair: pair[1].disputed)
+        held.sort(key=lambda pair: (pair[1].disputed, -level(pair[1].source)))
         if held:
             polarity, edge = held[0]
             said = clause(concept, target, polarity, object, role)

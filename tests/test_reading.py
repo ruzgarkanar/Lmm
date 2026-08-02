@@ -45,15 +45,31 @@ class TestReading(unittest.TestCase):
         self.assertEqual(len(report.learned), 1)
         self.assertEqual(len(report.reinforced), 1)
 
-    def test_a_contradiction_is_reported_and_refused(self):
-        """No human is at the keyboard, so nothing gets settled by guessing."""
+    def test_an_exception_a_document_states_is_taken(self):
+        """"penguen uçamaz" is not a contradiction — it is the exception.
+
+        A document cannot be asked "are you sure?", and this used to mean every
+        pack could say "penguen uçamaz" while the trained model still answered
+        that penguins fly. Nothing is guessed by taking it: "kuşlar uçar" stays
+        exactly as true, and only the penguin steps out from under it.
+        """
         report = read_text("Kuşlar uçar. Penguen bir kuştur. Penguen uçamaz.",
+                           self.memory, "hayvanlar.txt")
+        self.assertEqual(len(report.conflicts), 0)
+        edge = self.memory.direct("penguen", CANNOT, "uçmak")
+        self.assertIsNotNone(edge)
+        self.assertTrue(edge.is_exception)
+        self.assertIsNotNone(self.memory.direct("kuş", CAN, "uçmak"))
+
+    def test_a_contradiction_is_reported_and_refused(self):
+        """A clash with what was said about this very concept is a real one."""
+        report = read_text("Penguen uçar. Penguen uçamaz.",
                            self.memory, "celiskili.txt")
         self.assertEqual(len(report.conflicts), 1)
         self.assertIsNone(self.memory.direct("penguen", CANNOT, "uçmak"))
         edge, explanation = report.conflicts[0]
         self.assertEqual(edge.concept, "penguen")
-        self.assertIn("kuş", explanation)
+        self.assertIn("penguen", explanation)
 
     def test_reading_a_file(self):
         path = os.path.join(tempfile.mkdtemp(), "belge.txt")
@@ -99,11 +115,11 @@ class TestReadingThenTalking(unittest.TestCase):
         memory.save(path)
 
         session = Session(path)
-        self.assertTrue(session.respond("penguen uçar mı").startswith("evet"))
-        correction = session.respond("penguen uçamaz")
+        self.assertTrue(session.respond("penguen uçar mı").startswith("hayır"))
+        correction = session.respond("penguen uçar")
         self.assertIn("hayvanlar.txt", correction)
         self.assertIn("senin sözünü üstün tutuyorum", correction)
-        self.assertTrue(session.respond("penguen uçar mı").startswith("hayır"))
+        self.assertTrue(session.respond("penguen uçar mı").startswith("evet"))
 
 
 if __name__ == "__main__":
