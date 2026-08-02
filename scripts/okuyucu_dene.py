@@ -130,10 +130,15 @@ def main(argv):
     lines = [line for line in lines if line[:160] not in already][:count]
     print(f"{model} — {len(lines):,} tanım, {ESZAMANLI} eşzamanlı\n")
 
-    facts, failed = [], 0
+    written, failed = [0], 0
     tokens = [0, 0]
     lock = threading.Lock()
     started = time.time()
+    # Olgular ANINDA diske yazılıyor, sonda değil. İlk yazışta hepsi bellekte
+    # birikip en sonda yazılıyordu ve bu, iki buçuk saatlik bir koşuda kabul
+    # edilemez: kesinti her şeyi götürür ve "kaldığı yerden devam" da hiçbir
+    # şey bulamaz — çıktı dosyası koşu bitene kadar boş kalıyor.
+    handle = open(out, "a", encoding="utf-8")
 
     def one(sentence):
         nonlocal failed
@@ -143,7 +148,7 @@ def main(argv):
             with lock:
                 failed += 1
                 if failed <= 2:
-                    print(f"  hata: {reason}")
+                    print(f"  hata: {reason}", flush=True)
             return
         rows = rows_in(text)
         for row in rows:
@@ -151,21 +156,23 @@ def main(argv):
         with lock:
             tokens[0] += asked
             tokens[1] += said
-            facts.extend(rows)
-            done = len(facts)
-        return done
+            for row in rows:
+                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+            written[0] += len(rows)
+            if written[0] % 500 < len(rows):
+                handle.flush()
 
     with concurrent.futures.ThreadPoolExecutor(ESZAMANLI) as pool:
         for index, _ in enumerate(pool.map(one, lines), 1):
-            if index % 100 == 0:
-                print(f"  {index}/{len(lines)}  {len(facts)} olgu "
-                      f"({index / max(time.time() - started, 1):.1f} tanım/sn)",
+            if index % 500 == 0:
+                print(f"  {index:,}/{len(lines):,}  {written[0]:,} olgu "
+                      f"({index / max(time.time() - started, 1):.1f} tanım/sn, "
+                      f"kalan ~{(len(lines) - index) / max(index / max(time.time() - started, 1), 0.1) / 3600:.1f} sa)",
                       flush=True)
+    handle.flush()
+    handle.close()
+    facts = [None] * written[0]
     prompt_tokens, output_tokens = tokens
-
-    with open(out, "a", encoding="utf-8") as handle:
-        for row in facts:
-            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
     read = len(lines) - failed
     elapsed = time.time() - started
