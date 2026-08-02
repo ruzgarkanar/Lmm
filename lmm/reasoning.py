@@ -25,13 +25,48 @@ class Reasoning:
     def __init__(self, memory):
         self.memory = memory
 
+    # Bir kavramın DOĞRUDAN türleri arasında bu kadarlık bir kanıt farkı,
+    # ikisinin aynı şey hakkında olmadığını söyler. Aynı pay `gate._definition`
+    # içinde de var ama orası yalnız TANIM sorusunu koruyordu; kalıtım
+    # korumasızdı ve asıl zarar oradan geliyordu.
+    SENSE_MARGIN = 0.1
+
     def ancestors(self, concept):
-        """Type ancestors, nearest first, along whichever relation builds them."""
+        """Type ancestors, nearest first, along whichever relation builds them.
+
+        Zayıf kanıtlı bir tür, güçlüsünün yanında YÜRÜNMÜYOR. Sebebi ölçüldü:
+        Vikipedi'deki "Kuş, bir mizah dergisidir" cümlesi grafa
+        `kuş --type--> komedi` yazmış (güven 0,6), oysa `kuş --type--> hayvan`
+        kayıtlı derlemden geliyor (0,9). Kalıtım ikisini de yürüyünce:
+
+            penguen ataları -> [kuş, hayvan, KOMEDİ, canlı, varlık, DERGİSİ...]
+            > penguen bir komedi mi
+            evet, penguen bir komedidir.
+
+        Kapının merkez sözü tam burada kırılıyordu ve kapının kendi kusuru
+        değildi: graf gerçekten öyle diyordu. Ama "graf öyle diyor" savunması
+        ancak grafın SÖYLEDİĞİ tek bir şey varken geçerli; iki anlam bir düğüme
+        çökmüşse, ikisini birden yürümek bir şey söylemek değil, iki şeyi
+        karıştırmaktır.
+
+        Ölçüldü: 16.774 kavramın 308'i birden çok tür taşıyor ve bunların
+        533'ü Vikipedi hasadından geliyor — yani bu tek bir kavramın tuhaflığı
+        değil, hasadın sistematik yan ürünü. Ölçek büyüdükçe oran da artıyor
+        (%8 @35.234 kavram, ölçüm ayrı raporda).
+
+        Bu bir anlam ayrımı ÇÖZÜMÜ değil, kirliliğin yayılmasını durduran bir
+        kapı. Gerçek çözüm düğüm kimliğine anlam eklemek ve o daha büyük bir iş.
+        """
         hierarchy = self.memory.kinds.hierarchical()
         result, queue, seen = [], [concept], {concept}
         while queue:
             current = queue.pop(0)
-            for edge in self.memory.query(current, hierarchy):
+            edges = self.memory.query(current, hierarchy)
+            if len(edges) > 1:
+                strongest = max(edge.confidence for edge in edges)
+                edges = [edge for edge in edges
+                         if strongest - edge.confidence <= self.SENSE_MARGIN]
+            for edge in edges:
                 if edge.target not in seen:
                     seen.add(edge.target)
                     result.append(edge.target)
