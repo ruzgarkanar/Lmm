@@ -20,11 +20,18 @@ VOWELS = "aeıioöuü"
 class SuffixFamily:
     """One suffix and the shapes it takes, with the rule that picks between them."""
 
-    def __init__(self, skeleton, harmony, examples, endings=None):
+    def __init__(self, skeleton, harmony, examples, endings=None, strength=0):
         self.skeleton = skeleton        # the consonants, e.g. "lr" for -lar/-ler
         self.harmony = harmony          # {stem's last vowel: the suffix's tail}
         self.endings = endings or {}    # {stem's last letter: the suffix's head}
         self.examples = examples
+        # Ailenin KAÇ kez görüldüğü. Örnekler beşte kırpılıyor ve sıralama
+        # `len(examples)` ile yapılıyordu — hepsi beş olduğu için sıralama
+        # aslında alfabetikti ve en yaygın ekler öne HİÇ çıkmıyordu. Sayı
+        # hesaplanıyordu ama saklanmıyordu; ölçüm yapılmadığı için de kimse
+        # fark etmemişti. Bu organın tek işi "hangi ek gerçek" demek ve o
+        # sorunun cevabı tam olarak bu sayı.
+        self.strength = strength
 
     def _head(self, stem):
         if not self.endings:
@@ -76,13 +83,49 @@ def _skeleton(suffix):
     return "".join(c for c in suffix if c not in VOWELS)
 
 
+PRODUCTIVE = 4      # bir gövdenin gövde sayılması için kaç FARKLI ek alması
+
+
+def _productive(known, max_length, least=PRODUCTIVE):
+    """Tek başına geçmese de gövde olan parçalar.
+
+    Ölçüldü ve eksik olan tam buydu. Ölçüt "geriye kalan gövde kendisi bir
+    kelime mi" iken elle bildirilen 122 ekin 55'i (%45) keşfediliyordu ve
+    kalanın dağılımı tesadüf değildi:
+
+        bulunan     koşaç 8/8, ayrılma 7/7, mastar 2/2, çoğul 2/2, tamlayan 7/8
+        bulunamayan geniş zaman 0/7, zaman 0/4, yeterlilik 0/2, koşul 0/2
+
+    Yani İSİM ekleri bulunuyor, FİİL ekleri yapısal olarak bulunamıyor:
+    "kuşlar" -> "kuş" bir kelimedir ama "yürür" -> "yürü" değildir. Türkçede
+    fiil kökü tek başına durmaz ve bu, dilin kendisinden gelen bir engel.
+
+    Çözüm dil bilgisi gerektirmiyor: bir parça BİRÇOK FARKLI ekle birleşiyorsa
+    gerçek gövdedir. "yürü" tek başına geçmez ama "yürümek", "yürür", "yürüdü",
+    "yürüyor" hepsi geçer — dört ayrı ek, bir gövde. Tek bir ekle geçen parça
+    ise kelimenin içidir, sınır değil.
+
+    Eşik SAYIYA bakıyor, orana değil: bu dosyadaki her eşik gibi, oran derlem
+    boyutuyla ölçekleniyor ve sıra ölçeklenmiyor.
+    """
+    endings = {}
+    for word in sorted(known):
+        for length in range(1, max_length + 1):
+            if len(word) <= length + 1:
+                continue
+            endings.setdefault(word[:-length], set()).add(word[-length:])
+    return {stem for stem, seen in endings.items() if len(seen) >= least}
+
+
 def discover(words, minimum=3, max_length=4):
     """Suffix families the word list supports, commonest first.
 
     A candidate is any ending that leaves behind a stem which is itself a word we
-    have seen — that is what separates a suffix from a coincidence of spelling.
+    have seen — or a part that combines with enough different endings to be a
+    stem even though it never stands alone.
     """
     known = set(words)
+    stems = known | _productive(known, max_length)
     # SIRALI dolaşılıyor ve bu bir üslup tercihi değil, doğruluk şartı.
     # Küme sırası `PYTHONHASHSEED`'e bağlı; sıralamadan dolaşınca keşfedilen
     # ek aileleri her çalıştırmada başka türlü kuruluyordu ve sonuç şuydu:
@@ -99,7 +142,7 @@ def discover(words, minimum=3, max_length=4):
             if len(word) <= length + 1:
                 continue
             stem, suffix = word[:-length], word[-length:]
-            if stem not in known:
+            if stem not in stems:
                 continue
             sightings.setdefault(suffix, []).append(stem)
 
@@ -135,11 +178,12 @@ def discover(words, minimum=3, max_length=4):
                    for vowel, counts in vowel_votes.items()}
         endings = {letter: max(sorted(counts), key=counts.get)
                    for letter, counts in ending_votes.items()}
-        found.append(SuffixFamily(skeleton, harmony, examples[:5], endings))
-    # İkincil ölçüt iskelet: örnek sayıları eşit olduğunda (sık oluyor, çünkü
-    # örnekler 5'te kırpılıyor) sıralama ekleme sırasına düşüyordu — yani yine
-    # hash sırasına.
-    found.sort(key=lambda family: (-len(family.examples), family.skeleton))
+        found.append(SuffixFamily(skeleton, harmony, examples[:5], endings,
+                                  strength=sum(len(stems)
+                                               for _, stems in variants)))
+    # Sıralama GERÇEK sayıya göre. İkincil ölçüt iskelet: eşitlikte sıralama
+    # ekleme sırasına, yani hash sırasına düşüyordu.
+    found.sort(key=lambda family: (-family.strength, family.skeleton))
     return found
 
 
