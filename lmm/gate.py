@@ -7,9 +7,15 @@ from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
                            HAS_PART, LACKS_PART, PLACE, REQUIRES, ALL)
 from lmm.phrasing import (is_a_clause, is_not_a_clause, denied, ability_clause,
                           property_clause,
-                          who_clause, ability_summary, property_summary,
-                          verb_form, dont_know, attribution, how_many,
-                          listing, copula, which_meaning, compared)
+                          dont_know, how_many, which_meaning, compared,
+                          because, because_chain, actually, affirmed,
+                          inherited_clause, definition_answer, requirements,
+                          unknown_requirement, more_so, both_but_unranked,
+                          only_one_has, no_comparison, never_learned_properties,
+                          properties_answer, never_learned_abilities,
+                          abilities_answer, never_heard_action, nobody_does,
+                          who_answer, never_heard_property, nobody_is,
+                          who_is_answer)
 from lmm.similarity import nearest
 from lmm.intuition import (ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES,
                            ASK_DESCRIBE, ASK_HOW_MANY, ASK_WHERE,
@@ -136,9 +142,8 @@ class EpistemicGate:
                 if edge.target not in found:
                     found.append(edge.target)
         if not found:
-            return (f"{concept} için ne gerektiğini bilmiyorum. "
-                    f"bana öğretir misin?")
-        return f"{concept} için {listing(found)} gerekir."
+            return unknown_requirement(concept)
+        return requirements(concept, found)
 
     def _which_more(self, first, second, trait):
         """"hangisi daha hızlı, kartal mı penguen mi" — sıralama, tahmin değil.
@@ -159,19 +164,18 @@ class EpistemicGate:
         ahead = self._beats(first, second, trait)
         behind = self._beats(second, first, trait)
         if ahead and not behind:
-            return f"{first}, çünkü {first} {second}den {trait}dır."
+            return more_so(first, second, trait)
         if behind and not ahead:
-            return f"{second}, çünkü {second} {first}den {trait}dır."
+            return more_so(second, first, trait)
         mine = self._has_trait(first, trait)
         theirs = self._has_trait(second, trait)
         if mine and theirs:
-            return (f"ikisi de {trait}, ama hangisinin daha {trait} olduğunu "
-                    f"bilmiyorum.")
+            return both_but_unranked(trait)
         if mine:
-            return f"{first} {trait}, {second} için bunu bilmiyorum."
+            return only_one_has(first, second, trait)
         if theirs:
-            return f"{second} {trait}, {first} için bunu bilmiyorum."
-        return f"{first} ile {second} arasında {trait} karşılaştırması bilmiyorum."
+            return only_one_has(second, first, trait)
+        return no_comparison(first, second, trait)
 
     def _beats(self, concept, other, trait):
         """Kayıtlı bir üstünlük var mı: "X, Y'den TRAIT'tir"."""
@@ -211,9 +215,8 @@ class EpistemicGate:
             return self._dont_know(intent.concept)
         concept, place = found[0]
         clause = ability_clause(intent.concept, intent.target, True, place, PLACE)
-        if concept != intent.concept:
-            return f"{clause}, çünkü {intent.concept} bir {concept}."
-        return clause + "."
+        return inherited_clause(clause, intent.concept,
+                                concept if concept != intent.concept else None)
 
     def _how_many(self, intent):
         """"bazı kuşlar uçar mı" — read off the members, not stored as a fact.
@@ -247,7 +250,7 @@ class EpistemicGate:
         if target in ancestors:
             chain = [is_a_clause(concept, step) for step in ancestors
                      if step == target or ancestors.index(step) == 0]
-            return f"evet, {chain[-1]}."
+            return affirmed(chain[-1])
         return self._apart(concept, ancestors, target) or self._dont_know(concept)
 
     def _apart(self, concept, ancestors, target):
@@ -291,20 +294,19 @@ class EpistemicGate:
                                             intent.role)
         if known is None:
             return self._dont_know(intent.concept)
-        return f"{'evet' if known else 'hayır'}, çünkü {' ve '.join(chain)}."
+        return because(known, chain)
 
     def _property(self, concept, prop, object=None, role=None):
         known, chain = self.reasoning.has_property(concept, prop, object, role)
         if known is None:
             return self._dont_know(concept)
-        prefix = "evet" if known else "hayır"
-        return f"{prefix}, çünkü {' ve '.join(chain)}."
+        return because(known, chain)
 
     def _all_properties(self, concept):
         found = self.reasoning.properties(concept)
         if not found:
-            return f"{concept} nasıldır, bunu hiç öğrenmedim."
-        return property_summary(concept, self._telling(concept, found)) + "."
+            return never_learned_properties(concept)
+        return properties_answer(concept, self._telling(concept, found))
 
     def _telling(self, concept, found, most=MOST_TOLD):
         """Bilgi taşıyanları öne al, kalabalığı kes.
@@ -334,28 +336,27 @@ class EpistemicGate:
         if relation == HAS_PROPERTY:
             return self._who_is(action)
         if action not in self.memory.actions():
-            return f"{verb_form(action, True)} diye bir şeyi hiç duymadım."
+            return never_heard_action(action)
         found = self.reasoning.who_can(action, positive)
         if not found:
-            return (f"bildiğim hiçbir şeyin {verb_form(action, positive)}ini "
-                    f"öğrenmedim.")
-        return who_clause(found, action, positive) + "."
+            return nobody_does(action, positive)
+        return who_answer(found, action, positive)
 
     def _who_is(self, prop):
         """"kimler beyaz" — everything known to carry a property."""
         if prop not in self.memory.properties():
-            return f"'{prop}' diye bir niteliği hiç duymadım."
+            return never_heard_property(prop)
         found = [c for c in self.memory.concepts()
                  if self.reasoning.has_property(c, prop)[0] is True]
         if not found:
-            return f"bildiğim hiçbir şeyin {prop} olduğunu öğrenmedim."
-        return f"{listing(found)} {prop}{copula(prop)}."
+            return nobody_is(prop)
+        return who_is_answer(found, prop)
 
     def _abilities(self, concept):
         found = self.reasoning.abilities(concept)
         if not found:
-            return f"{concept} ne yapabilir, bunu hiç öğrenmedim."
-        return ability_summary(concept, self._telling(concept, found)) + "."
+            return never_learned_abilities(concept)
+        return abilities_answer(concept, self._telling(concept, found))
 
     def _why(self, intent):
         """Why questions work the same for what a thing does and how it is."""
@@ -367,8 +368,8 @@ class EpistemicGate:
         if known is None:
             return self._dont_know(intent.concept)
         if known is not True:
-            return f"aslında {clause(intent.concept, intent.target, known)}."
-        return "çünkü " + " ve ".join(chain) + "."
+            return actually(clause(intent.concept, intent.target, known))
+        return because_chain(chain)
 
     def _definition(self, concept):
         """Bir adın birden çok karşılığı varsa, seçmek uydurmaktır.
@@ -389,17 +390,14 @@ class EpistemicGate:
         if rivals:
             readings = [best.target] + [edge.target for edge in rivals]
             return which_meaning(concept, readings)
-        answer = f"{is_a_clause(concept, best.target)} ({attribution(best.source)})."
-        if best.confidence < HEDGE_THRESHOLD:
-            return "emin değilim ama " + answer
-        return answer
+        return definition_answer(concept, best.target, best.source,
+                                 sure=best.confidence >= HEDGE_THRESHOLD)
 
     def _ability(self, concept, action, object=None, role=None):
         known, chain = self.reasoning.can_do(concept, action, object, role)
         if known is None:
             return self._dont_know(concept)
-        prefix = "evet" if known else "hayır"
-        return f"{prefix}, çünkü {' ve '.join(chain)}."
+        return because(known, chain)
 
     def _dont_know(self, concept):
         known = self.memory.concepts()

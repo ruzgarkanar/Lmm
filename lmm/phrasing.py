@@ -737,3 +737,290 @@ def which_meaning(name, readings):
     listed = listing([f"bir {reading}" for reading in readings])
     return (f"{name} birden fazla şeye işaret ediyor: {listed} olabilir. "
             f"hangisini soruyorsun?")
+
+
+def sentences(clauses):
+    """Birkaç yargıyı tek paragrafa dizer: büyük harf, nokta, ayırma."""
+    return capitalize(". ".join(clauses) + ".")
+
+
+# ---------------------------------------------------------------------------
+# KAPININ SÖYLEYİŞİ
+#
+# Kapı (`lmm/gate.py`) neyi bildiğini biliyor; onu nasıl söyleyeceğini
+# bilmemeli. Ölçüldü: kapıda 39 Türkçe dizgi sabiti vardı — ', çünkü ',
+# 'hayır', ' karşılaştırması bilmiyorum.' — yani ikinci bir dil, kapıyı
+# değiştirmeyi gerektiriyordu. Oysa kapının kararı dilden bağımsız: "biliyorum
+# / bilmiyorum / şu kanıtla". Aşağıdakiler yalnızca o kararların Türkçesi.
+# ---------------------------------------------------------------------------
+
+
+def because(known, chain):
+    """Evet/hayır ve gerekçesi. Kapının en sık kurduğu cümle.
+
+    Gerekçe cevabın süsü değil kendisi: "evet" tek başına bir LLM cevabıdır,
+    "evet, çünkü penguen bir kuş ve kuş uçar" bir kanıt zinciridir.
+    """
+    return f"{'evet' if known else 'hayır'}, çünkü {' ve '.join(chain)}."
+
+
+def because_chain(chain):
+    """Yalnız gerekçe — "neden" sorusunda evet/hayır zaten sorulmuyor."""
+    return "çünkü " + " ve ".join(chain) + "."
+
+
+def actually(clause):
+    """Sorunun öncülü yanlışsa, cevap vermeden önce onu düzeltmek.
+
+    "penguen neden uçar" sorusuna gerekçe uydurmak yerine öncülü çürütmek —
+    bir dil modelinin en kolay yanıldığı yer.
+    """
+    return f"aslında {clause}."
+
+
+def affirmed(clause):
+    """Kanıtı zaten cümle olan bir "evet"."""
+    return f"evet, {clause}."
+
+
+def inherited_clause(clause, concept, ancestor=None):
+    """Cevap kalıtımdan geliyorsa nereden geldiğini de söyler."""
+    if ancestor is None:
+        return clause + "."
+    return f"{clause}, çünkü {concept} bir {ancestor}."
+
+
+def definition_answer(concept, target, source, sure=True):
+    """Tanım, künyesiyle. Güven düşükse cümlenin kendisi bunu söylüyor."""
+    answer = f"{is_a_clause(concept, target)} ({attribution(source)})."
+    return answer if sure else "emin değilim ama " + answer
+
+
+def requirements(concept, needed):
+    """"bir kuşun uçabilmesi için ne gerekir" — kayıtlı önkoşullar."""
+    return f"{concept} için {listing(needed)} gerekir."
+
+
+def unknown_requirement(concept):
+    """Önkoşulu tahmin etmek cevabı uydurmakla aynı şey; onun yerine sormak."""
+    return f"{concept} için ne gerektiğini bilmiyorum. bana öğretir misin?"
+
+
+def more_so(winner, loser, trait):
+    """Kayıtlı bir üstünlük: "kartal, çünkü kartal serçeden hızlıdır"."""
+    return f"{winner}, çünkü {winner} {loser}den {trait}dır."
+
+
+def both_but_unranked(trait):
+    """İkisinde de nitelik var ama sıralama kayıtlı değil — uydurulmuyor."""
+    return f"ikisi de {trait}, ama hangisinin daha {trait} olduğunu bilmiyorum."
+
+
+def only_one_has(known_one, other, trait):
+    """Biri hakkında bilinen var, öteki hakkında yok. İkisi de söyleniyor."""
+    return f"{known_one} {trait}, {other} için bunu bilmiyorum."
+
+
+def no_comparison(first, second, trait):
+    return f"{first} ile {second} arasında {trait} karşılaştırması bilmiyorum."
+
+
+def never_learned_properties(concept):
+    return f"{concept} nasıldır, bunu hiç öğrenmedim."
+
+
+def properties_answer(concept, properties):
+    return property_summary(concept, properties) + "."
+
+
+def never_learned_abilities(concept):
+    return f"{concept} ne yapabilir, bunu hiç öğrenmedim."
+
+
+def abilities_answer(concept, abilities):
+    return ability_summary(concept, abilities) + "."
+
+
+def never_heard_action(action):
+    """Fiili hiç duymamak ile onu kimsenin yapmadığını bilmek ayrı şeyler."""
+    return f"{verb_form(action, True)} diye bir şeyi hiç duymadım."
+
+
+def nobody_does(action, positive):
+    return f"bildiğim hiçbir şeyin {verb_form(action, positive)}ini öğrenmedim."
+
+
+def who_answer(concepts, action, positive):
+    return who_clause(concepts, action, positive) + "."
+
+
+def never_heard_property(prop):
+    return f"'{prop}' diye bir niteliği hiç duymadım."
+
+
+def nobody_is(prop):
+    return f"bildiğim hiçbir şeyin {prop} olduğunu öğrenmedim."
+
+
+def who_is_answer(concepts, prop):
+    return f"{listing(concepts)} {prop}{copula(prop)}."
+
+
+# ---------------------------------------------------------------------------
+# İKİ ÖZNELİ CEVABIN BİRLEŞTİRİLMESİ
+#
+# `lmm/coordination.py` cümleyi bölmeyi biliyor — o bir yapı işi ve dilden
+# bağımsız. Ama iki cevabın TEK cümlede nasıl birleşeceği dile bağlı: "evet,
+# ikisi de" Türkçenin kısaltması, İngilizcenin değil. Bölme orada kaldı,
+# söyleyiş buraya geldi.
+# ---------------------------------------------------------------------------
+
+# Bir cevabın hangi yönde olduğunu, cevabın KENDİ açılışından anlıyoruz.
+# Bu bir kullanıcı metni taraması değil: bu cümleleri yukarıdaki işlevler
+# kurdu, yani kendi çıktımızın imzasına bakıyoruz — `REFUSALS` ile aynı fikir.
+_YES, _NO = "evet", "hayır"
+
+
+def combined(answers):
+    """İki cevabı tek cümlede birleştirir — aynıysa kısaltarak.
+
+    Farklıysa ikisi de söyleniyor, çünkü farkın kendisi cevabın parçası.
+    """
+    first, second = answers[0], answers[1]
+    if first.startswith(_YES) and second.startswith(_YES):
+        return f"evet, ikisi de. {first} {second}"
+    if first.startswith(_NO) and second.startswith(_NO):
+        return f"hayır, ikisi de değil. {first} {second}"
+    return f"{first} Ama {second}"
+
+
+# ---------------------------------------------------------------------------
+# SOSYAL ALIŞVERİŞİN CEVAPLARI
+#
+# `lmm/social.py` hangi alışverişin sorulduğunu tanır; ne söyleneceğini bilmez.
+# Sayılar bellekten geliyor, uydurulmuyor — bilinmiyorsa "birçok" deniyor,
+# çünkü bir sayı vermek onu bilmek demektir.
+# ---------------------------------------------------------------------------
+
+
+def _counted(amount):
+    return "birçok" if amount is None else amount
+
+
+def greeted(facts=None, concepts=None):
+    return "merhaba. bildiğim şeyleri sorabilirsin."
+
+
+def farewelled(facts=None, concepts=None):
+    return "görüşmek üzere. öğrendiklerim kayıtlı kalıyor."
+
+
+def thanked(facts=None, concepts=None):
+    return "rica ederim."
+
+
+def wellbeing(facts=None, concepts=None):
+    return (f"iyiyim. {_counted(facts)} bilgi ve "
+            f"{_counted(concepts)} kavram tutuyorum.")
+
+
+def introduced(facts=None, concepts=None):
+    """Sistemin kendisi hakkında söyledikleri uydurma değil, kodun gerçeği."""
+    return (f"ben LMM'im — yaşayan bellek modeli. bildiklerim ağırlıklarda "
+            f"değil, okunabilir bir bellekte duruyor: şu an {_counted(facts)} "
+            f"bilgi, {_counted(concepts)} kavram. bilmediğimi uyduramam.")
+
+
+def what_i_can_do(facts=None, concepts=None):
+    return ("bildiğim şeyleri sorabilirsin, bana yeni bilgi öğretebilirsin, "
+            "yanlışımı tek cümleyle düzeltebilirsin. her cevabımda kaynağımı "
+            "söylerim, bilmediğimde de bilmediğimi.")
+
+
+# ---------------------------------------------------------------------------
+# SOHBET ARAYÜZÜNÜN SÖYLEDİKLERİ
+#
+# `lmm/cli.py` oturumu kurar; ne söyleyeceğini bilmez. Açılış satırları,
+# yardım ekranı ve onay cevapları da kullanıcıya söylenen Türkçedir — kapının
+# cevapları kadar. Ölçüldü: arayüzde 51 Türkçe dizgi sabiti vardı.
+# ---------------------------------------------------------------------------
+
+
+def exception_learned():
+    """Bekleyen çelişki istisna olarak kabul edildi."""
+    return "öğrendim (istisna olarak işledim)."
+
+
+def not_learned():
+    """Öğretmen reddetti; kaydedilmedi ve bu açıkça söyleniyor."""
+    return "tamam, öğrenmedim."
+
+
+def status(facts, concepts, words, kinds):
+    """Bir satırda sistemin sayılabilir hâli — tanıtım değil, döküm."""
+    return (f"{facts} bilgi · {concepts} kavram · "
+            f"{words} öğrenilmiş kelime · {kinds} ilişki türü")
+
+
+def opened(path):
+    return f"LMM — yaşayan bellek: {path}"
+
+
+def inquiry_open():
+    return "  soruşturma açık: bilmediğim bir şey sorulursa gidip okurum."
+
+
+def intent_network(backbone, ready):
+    """Ağ isteğe bağlı; yokluğu da söyleniyor çünkü davranışı değiştiriyor."""
+    state = f"açık ({backbone})" if ready else "yok"
+    return f"  niyet ağı: {state} — kalıp yetmediğinde devreye giriyor."
+
+
+def wording_open():
+    return ("  söyleyiş öğrenme: açık"
+            " — anlaşılmayan cümleden kalıcı kalıp çıkarır.")
+
+
+def dictionary_open():
+    return "  sözlük: açık — tanımadığı sözcüğün eş anlamlısını arar."
+
+
+def voice_state(ready):
+    return (f"  akıcı ağız: {'açık' if ready else 'YÜKLENEMEDİ'}"
+            " — cevap çekirdeğe söyletilir, geri okunup denetlenir.")
+
+
+def help_hint():
+    return "  'yardım' yazarsan ne söyleyebileceğini gösteririm."
+
+
+def saved_and_gone():
+    return "bellek kaydedildi. hoşça kal."
+
+
+def help_text():
+    """Yardım ekranı. Sabit değil işlev, çünkü ikinci bir dil bunu değiştirir.
+
+    Örnekler elle yazılı ve bilerek: bu ekran sistemin ne bildiğini değil,
+    hangi CÜMLE BİÇİMLERİNİ anladığını gösteriyor. Grafa göre değişmemesi
+    gereken tek örnek listesi bu — `known_shapes` grafın bildiğini gösterir,
+    burası dilin kendisini.
+    """
+    return """
+ÖĞRETMEK                          SORMAK
+  penguen bir kuştur                penguen nedir
+  penguen bir memeli değildir       penguen bir kuş mu
+  kuşlar uçar                       penguen uçar mı
+  penguen uçamaz                    kimler uçar
+  kuşlar tüylüdür                   penguen tüylü mü
+  bazı kuşlar uçmaz                 bazı kuşlar uçar mı
+  kuşun kanadı var                  kuşun kanadı var mı
+  penguen kutupta yaşar             penguen neden uçamaz
+  kediler fare yakalar              penguen ne yapabilir
+  kartal serçeden büyüktür          penguen nasıldır
+  kelime: koşmak = koşar / koşamaz  penguen anlat
+                                    17 çarpı 43 kaç
+
+  Konuşmayı sürdürür: "peki yüzer mi", "anlat", "nasıldır"
+  Komutlar: yardım · durum · çık
+"""
