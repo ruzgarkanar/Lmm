@@ -29,6 +29,24 @@ class CycleError(Exception):
     """Raised when a write would create a cycle in the type hierarchy."""
 
 
+def coverage(quantifier):
+    """Bir iddianın türün ne kadarına ulaştığı. Evrensel > varsayılan > varoluşsal.
+
+    Sayı değil sıra: Cyc'in 0-100 aralığından kaçınmanın bedeli, nicelikleri
+    yine de karşılaştırabilmek. Üç basamak yetiyor, çünkü dilin ayırdığı da bu.
+
+    NEDEN evrensel ile "hiçbiri" aynı basamakta: bu gösterimde olumsuzluk
+    yüklemde duruyor, nicelikte değil. "hiçbir kuş uçmaz" -> (kuş, cannot,
+    uçmak, hiçbiri); "tüm kuşlar uçmaz" -> (kuş, cannot, uçmak, hepsi). İkisi
+    de aynı evrensel olumsuz iddia — Türkçedeki olumsuzluk uyumu yüzünden
+    "hiç" ile "-mez" tek bir olumsuzluk. Mantıktan gelen okur NO'nun kutbu
+    çevirmesini bekler; burada çevirmez, INHERITING = (ALL, NO) da bunu söylüyor.
+    """
+    if quantifier in INHERITING:
+        return 2
+    return 1 if quantifier == MOST else 0
+
+
 class Edge:
     def __init__(self, concept, relation, target, object=None, role=None,
                  source="unknown", confidence=None, is_exception=False,
@@ -102,6 +120,7 @@ class Memory:
         """
         self._by_concept = {}
         self._exact = {}
+        self._quantities = {}
         self._concepts = []
         self._concept_set = set()
         self._actions, self._action_set = [], set()
@@ -111,8 +130,14 @@ class Memory:
 
     def _index(self, edge):
         self._by_concept.setdefault(edge.concept, []).append(edge)
-        self._exact[(edge.concept, edge.relation, edge.target, edge.object,
-                     edge.role)] = edge
+        # Nicelik kimliğin parçası. Değilken "bazı kuşlar uçmaz" ile "hiçbir kuş
+        # uçmaz" aynı kenara düşüyordu ve ikincisi birincisini corroborate() ile
+        # GÜÇLENDİRİYORDU: iki ayrı iddia tek kayda çöküyor, evrensel olan da
+        # yutuluyordu. Ölçüldü: SOME(a) sonra NO(b) yazınca tek kenar kalıyor ve
+        # güven 0.60 -> 0.75'e çıkıyordu — hiç söylenmemiş bir mutabakat.
+        slot = (edge.concept, edge.relation, edge.target, edge.object, edge.role)
+        self._exact[slot + (edge.quantifier,)] = edge
+        self._quantities.setdefault(slot, []).append(edge)
         self._note_concept(edge.concept)
         if edge.relation in TYPE_RELATIONS:
             self._note_concept(edge.target)
@@ -162,14 +187,55 @@ class Memory:
             return list(found)
         return [e for e in found if e.relation == relation]
 
-    def direct(self, concept, relation, target, object=None, role=None):
-        return self._exact.get((concept, relation, target, object, role))
+    def direct(self, concept, relation, target, object=None, role=None,
+               quantifier=None):
+        """Aranan olgu. Nicelik verilmezse o yuvadaki en geniş kapsamlı iddia.
+
+        İKİ NİCELİK AYNI ANDA DURABİLİR Mİ? Evet — ve bu bir çelişki değil.
+        Aynı yüklem kutbunda "hepsi", "çoğu" ve "bazı" altbağlılık (subalternation)
+        ilişkisindedir: hepsi -> çoğu -> bazı. Evrensel doğruysa varoluşsal da
+        doğrudur; ikisi birlikte tutarlıdır. Bu yüzden ikisini de saklıyoruz.
+
+        Mantığın karşıtlık karesinde asıl çelişki KUTUPLAR ARASINDA: evrensel-P
+        ile varoluşsal-¬P (A ile O). O çatışmayı zaten reasoning.find_conflict
+        yakalıyor — ölçtüm: "kuşlar uçar" + "bazı kuşlar uçmaz" bugün de
+        "bir çelişki fark ettim" diyor, çünkü karşıt bağıntıya bakıyor. Burada
+        yapılması gereken, o denetime yuvanın EN GÜÇLÜ iddiasını göstermek.
+
+        Nicelik sormayan çağrı — kodun çoğu — "bu yuvada ne biliyorum" diye
+        sorar; doğru cevap en geniş kapsamlı olandır, çünkü evrensel iddia
+        varoluşsalı zaten içerir. Aksi hâli ölçtüm: "bazı kuşlar uçmaz" sırf
+        önce yazıldığı için sonradan gelen "hiçbir kuş uçmaz"ı sonsuza dek
+        gölgeliyor, INHERITING dışı kaldığı için de kalıtımı kapatıyordu —
+        "penguen uçar mı" cevapsız kalıyordu. Şimdi evrensel olan iniyor.
+
+        Eşitlikte ilk yazılan konuşur: max() ilk en büyüğü döndürür, yani
+        kayıt sırası kararlı kalır ve aynı ölçüm iki kez aynı sonucu verir.
+        """
+        slot = (concept, relation, target, object, role)
+        if quantifier is not None:
+            return self._exact.get(slot + (quantifier,))
+        held = self._quantities.get(slot)
+        if not held:
+            return None
+        return max(held, key=lambda edge: coverage(edge.quantifier))
+
+    def quantities(self, concept, relation, target, object=None, role=None):
+        """Aynı yuvada duran bütün nicelikler, yazılma sırasıyla.
+
+        Bir kenarın artık tek bir niceliği olmadığını görmek isteyen için:
+        cevaplayan direct()'in seçtiğini alır, denetleyen hepsini görmelidir.
+        """
+        return list(self._quantities.get(
+            (concept, relation, target, object, role), ()))
 
     def write(self, edge):
         if edge.relation == IS_A and self._creates_cycle(edge):
             raise CycleError(f"{edge.concept} -> {edge.target} creates a cycle")
+        # Pekişme yalnız AYNI nicelik için. Farklı nicelik yeni bir iddiadır;
+        # onu tanık saymak, kimsenin söylemediği bir mutabakatı uydurmaktı.
         existing = self.direct(edge.concept, edge.relation, edge.target,
-                               edge.object, edge.role)
+                               edge.object, edge.role, edge.quantifier)
         if existing is not None:
             existing.corroborate(edge.source)
             return existing
