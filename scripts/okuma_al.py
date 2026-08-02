@@ -42,7 +42,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from lmm import frequency, phrasing                         # noqa: E402
 from lmm.intuition import TEACH                             # noqa: E402
-from lmm.memory import Edge, Memory                         # noqa: E402
+from lmm.memory import CycleError, Edge, Memory             # noqa: E402
 from lmm.reasoning import Reasoning                         # noqa: E402
 from lmm.relations import CAN, CANNOT, HAS_PART, HAS_PROPERTY, IS_A  # noqa: E402
 from lmm.turkish import TurkishMorphology                   # noqa: E402
@@ -85,8 +85,29 @@ def _a_target(target, relation, memory, counts, grades, morphology):
     target = morphology.strip_copula(target)
     if not target or target.isdigit() or any(ch.isdigit() for ch in target):
         return None
+    # İyelik eki soyuluyor — AMA yalnız soyulmuş hâli grafın tanıdığı bir
+    # kavramsa. Ölçüldü: okuyucu bazen tamlama içindeki biçimi veriyor
+    # ("van gölü bir GÖLÜDÜR") ve graf `gölü` ile `göl`ü iki AYRI tür sanıp
+    # olmayan bir belirsizlik bildiriyordu:
+    #
+    #   van gölü nedir -> "birden fazla şeye işaret ediyor: bir gölü ve bir göl"
+    #
+    # Koşul şart: "kedi" kelimesinden "ked" çıkarmak yanlış olurdu. Kararı
+    # yine graf veriyor, kural değil.
+    known = set(memory.concepts())
+    for ending in sorted(getattr(morphology, "possessive_suffixes", ()),
+                         key=len, reverse=True):
+        if not target.endswith(ending) or len(target) - len(ending) < 3:
+            continue
+        stem = target[: -len(ending)]
+        softened = (stem[:-1] + getattr(morphology, "softened", {}).get(
+            stem[-1], stem[-1])) if stem else stem
+        for candidate in (stem, softened):
+            if candidate in known:
+                return candidate        # çıplak ad TERCİH ediliyor
+        break
     if relation == HAS_PROPERTY and target not in set(memory.properties()):
-        if target in set(memory.concepts()):
+        if target in known:
             return None
     return target
 
@@ -275,9 +296,22 @@ def take_parallel(rows, graph, memory, source, write=False, workers=None):
             if len(rejected["çelişki"]) < 4:
                 rejected["çelişki"].append(f"{concept} {relation} {target}")
             continue
-        tally["GEÇTİ"] += 1
         if write:
-            memory.write(Edge(concept, relation, target, source=source))
+            # Döngü grafın kendi kapısı ve DOĞRU çalışıyor: "medulla bir
+            # omurilik soğanıdır" + "omurilik soğanı bir medulladır" bir
+            # kalıtım halkası kurar ve `ancestors` orada sonsuza dek döner.
+            # Ama hata yakalanmıyordu ve TÜM ALIM ÇÖKÜYORDU — iki buçuk
+            # saatlik okumanın ardından tek bir kötü üçlü her şeyi
+            # durduruyordu. Tek bir olgunun reddi, işin tamamının kaybı
+            # olmamalı.
+            try:
+                memory.write(Edge(concept, relation, target, source=source))
+            except CycleError:
+                tally["döngü kurardı"] += 1
+                if len(rejected["döngü"]) < 4:
+                    rejected["döngü"].append(f"{concept} {relation} {target}")
+                continue
+        tally["GEÇTİ"] += 1
     return tally, rejected
 
 
@@ -347,9 +381,13 @@ def take(rows, memory, source, write=False, language=None):
             tally["grafla çelişti"] += 1
             rejected["çelişki"].append(f"{concept} {relation} {target}")
             continue
-        tally["GEÇTİ"] += 1
         if write:
-            memory.write(Edge(concept, relation, target, source=source))
+            try:
+                memory.write(Edge(concept, relation, target, source=source))
+            except CycleError:
+                tally["döngü kurardı"] += 1
+                continue
+        tally["GEÇTİ"] += 1
     return tally, rejected
 
 
