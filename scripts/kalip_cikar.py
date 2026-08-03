@@ -116,6 +116,21 @@ def shapes(rows, morphology, counts, verbs):
         # Yuvası olmayan bir şekil kalıp değil, cümlenin kendisidir.
         if not any(s in (KAVRAM, FIIL, NITELIK) for s in slots):
             continue
+        # ÇAPASI olmayan bir şekil de kalıp değil, JOKERDİR. Yalnız kavram
+        # yuvaları ve bir soru ekinden ibaret bir şekil her cümleye uyar ve
+        # niyeti keyfî atar. Ölçüldü: 6+ kelimelik gerçek sorularda okunanların
+        # %38'i YANLIŞ niyetle okunuyordu ve yanlışların çoğu bu jokerlerden
+        # geliyordu —
+        #
+        #   "Karbondioksid toksik bir gaz mıdır" -> ASK_WHY
+        #   kalıp: {kavram}{kavram}{kavram}{kavram}{kavram}{soru}
+        #
+        # Soru eki soru olduğunu söyler ama HANGİ soru olduğunu söylemez.
+        # Onu söyleyen şey ya bir soru sözcüğü (KIM) ya da sabit bir
+        # kelimedir. İkisi de yoksa şekil hiçbir şey ayırt etmiyor.
+        if not any(s == KIM or s not in (KAVRAM, FIIL, NITELIK, SORU)
+                   for s in slots):
+            continue
         concept, target = _places(slots, relation)
         if concept is None:
             continue
