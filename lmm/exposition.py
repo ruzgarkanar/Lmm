@@ -26,7 +26,7 @@ class Exposition:
         self.memory = memory
         self.reasoning = reasoning
 
-    def describe(self, concept, sense=None):
+    def describe(self, concept, sense=None, focus_rank=None):
         """Everything worth saying about a concept, as connected prose.
 
         Bir kavramı anlatmak eskiden grafın tamamını ÜÇ kez tarıyordu — bir
@@ -42,7 +42,7 @@ class Exposition:
         speaks = self._sense_speaks(concept, sense)
         parts = [self._identity(concept, sense), self._exceptions(concept),
                  self._inherited(concept) if speaks else "",
-                 self._own(concept, sense)]
+                 self._own(concept, sense, focus_rank)]
         said = [part for part in parts if part]
         if not said:
             return phrasing.dont_know(concept)
@@ -118,7 +118,7 @@ class Exposition:
         return (f"{phrasing.capitalize(parent)} olduğu için "
                 f"{phrasing.listing(clauses)}.")
 
-    def _own(self, concept, sense=None):
+    def _own(self, concept, sense=None, focus_rank=None):
         """Facts stated about it directly, minus the exceptions already told.
 
         Seçilen anlamın olguları öne alınıyor, ötekiler ATILMIYOR: damgasız
@@ -129,6 +129,15 @@ class Exposition:
         if sense:
             edges.sort(key=lambda edge: (edge.context is not None
                                          and edge.context != sense))
+        # Sorunun kelimelerine yakın olgular başa: "dalağın alınması ne zaman
+        # ZARARLI olur" ile "dalak nedir" artık aynı dökümü vermesin. Kapı
+        # sıralayıcıyı veriyor (`gate._focus_rank`); soru sinyalsizse boş
+        # döner ve sıra değişmez.
+        if focus_rank is not None:
+            close = focus_rank(concept, [edge.target for edge in edges
+                                         if edge.target is not None])
+            if close:
+                edges.sort(key=lambda edge: -close.get(edge.target, 0.0))
         clauses = []
         for edge in edges:
             if edge.relation == IS_A:
