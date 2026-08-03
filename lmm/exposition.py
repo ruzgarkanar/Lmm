@@ -13,12 +13,30 @@ What it will not do is write a poem. Composition from knowledge is a different
 machine from composition from a probability distribution, and this is the one
 that cannot make things up.
 """
-from lmm.relations import IS_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY
+import collections
+
+from lmm.relations import (IS_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
+                           HAS_PART, LACKS_PART)
 from lmm.trust import INFERENCE
 from lmm import phrasing
 
 OPPOSITES = {CAN: CANNOT, CANNOT: CAN,
              HAS_PROPERTY: LACKS_PROPERTY, LACKS_PROPERTY: HAS_PROPERTY}
+
+
+# Bir cümleye en çok kaç öge sığar. Fazlası okunmuyor: göz zinciri kaybediyor.
+MOST_IN_A_SENTENCE = 6
+
+# Olgu türünden anlatı öbeğine. İlişki adları `lmm/relations.py`'de ve bu
+# eşleme oradaki türlerin ANLATIDAKİ karşılığı — hangi cümlede söylenecekler.
+GROUPS = {HAS_PROPERTY: "nasıl", LACKS_PROPERTY: "nasıl",
+          CAN: "ne yapar", CANNOT: "ne yapar",
+          HAS_PART: "nesi var", LACKS_PART: "nesi var"}
+
+# Her öbeğin açılışı. Türkçe burada duruyor çünkü `lmm/phrasing.py` "ne denir"
+# dosyası — ama bu üç sözcük anlatının İSKELETİ ve iskelet burada kuruluyor.
+OPENINGS = {"nasıl": "Ayrıca", "ne yapar": "Kendisi",
+            "nesi var": "Yapısında", "other": "Ayrıca"}
 
 
 class Exposition:
@@ -116,8 +134,18 @@ class Exposition:
             clauses.append(phrasing.predicate(relation, target, obj, role))
         if not clauses:
             return ""
-        return (f"{phrasing.capitalize(parent)} olduğu için "
-                f"{phrasing.listing(clauses)}.")
+        # Kalıtım da bölünüyor. On sekiz öge tek cümlede sayıldığında
+        # ("Hayvan olduğu için bir bitki değildir, yer, uyur, solur, ... ve
+        # varlık var") okuyan zinciri kaybediyor. Kesme burada da var:
+        # atadan gelen, kavramın KENDİ bilgisinden daha az söz hakkı almalı.
+        if self.told_most is not None:
+            clauses = clauses[:max(MOST_IN_A_SENTENCE, self.told_most // 2)]
+        said = [f"{phrasing.capitalize(parent)} olduğu için "
+                f"{phrasing.listing(clauses[:MOST_IN_A_SENTENCE])}."]
+        for at in range(MOST_IN_A_SENTENCE, len(clauses), MOST_IN_A_SENTENCE):
+            said.append(f"Yine {parent} olduğu için "
+                        f"{phrasing.listing(clauses[at:at + MOST_IN_A_SENTENCE])}.")
+        return " ".join(said)
 
     def _own(self, concept, sense=None, focus_rank=None):
         """Facts stated about it directly, minus the exceptions already told.
@@ -139,22 +167,41 @@ class Exposition:
                                          if edge.target is not None])
             if close:
                 edges.sort(key=lambda edge: -close.get(edge.target, 0.0))
-        clauses = []
+        # Olgular TÜRLERİNE göre öbekleniyor ve her öbek ayrı bir cümle
+        # kuruyor. Öncesinde hepsi tek bir virgül zinciriydi ve ölçüldü:
+        #
+        #   "Ayrıca uçar, tüylüdür, sıcakkanlıdır, yumurtlar, öter, kanadı
+        #    var, gagası var, tüyü var, dişi yok, yüzer, eskidir, ... ve
+        #    kanat var."  (kırk öge, tek cümle)
+        #
+        # Bir dil modelinin cevabını nesir yapan şey süslü kelimeler değil,
+        # BÖLÜNME: ne olduğu ayrı, ne yaptığı ayrı, nesi olduğu ayrı cümlede
+        # söyleniyor. Bölecek bilgi bizde zaten var — olgunun ilişkisi.
+        # Yeni veri gerekmiyor, yalnız var olanı okumak.
+        held = collections.OrderedDict()
         for edge in edges:
-            if edge.relation == IS_A:
+            if edge.relation == IS_A or self._contradicts_family(edge):
                 continue
-            if self._contradicts_family(edge):
-                continue
-            clause = phrasing.predicate(edge.relation, edge.target, edge.object, edge.role)
+            clause = phrasing.predicate(edge.relation, edge.target,
+                                        edge.object, edge.role)
             if edge.source == INFERENCE:
                 clause += " (sanırım)"
-            clauses.append(clause)
-        if not clauses:
+            held.setdefault(GROUPS.get(edge.relation, "other"),
+                            []).append(clause)
+        total = sum(len(items) for items in held.values())
+        if not total:
             return ""
-        # Anlatma sorusu daha geniş konuşur; kesme yine var ama soruya göre.
-        if self.told_most is not None:
-            clauses = clauses[:self.told_most]
-        return f"Ayrıca {phrasing.listing(clauses)}."
+        # Kesme öbeklerin ÜSTÜNDE: pay her öbeğe büyüklüğüne göre düşüyor,
+        # yoksa ilk öbek bütçeyi yiyor ve "ne yapabilir" hiç söylenmiyordu.
+        budget = self.told_most if self.told_most is not None else total
+        said = []
+        for name, items in held.items():
+            share = max(1, round(budget * len(items) / total))
+            for at in range(0, min(len(items), share), MOST_IN_A_SENTENCE):
+                piece = items[at:at + MOST_IN_A_SENTENCE]
+                opening = OPENINGS[name] if at == 0 else "Ayrıca"
+                said.append(f"{opening} {phrasing.listing(piece)}.")
+        return " ".join(said)
 
     def _speaks_for_itself(self, concept, relation, target):
         """Does the concept hold its own view on this — agreeing or not?"""

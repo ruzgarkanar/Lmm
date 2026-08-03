@@ -58,7 +58,12 @@ class TestComposition(unittest.TestCase):
                       self.exposition.describe("penguen"))
 
     def test_its_own_facts_come_last(self):
-        self.assertIn("Ayrıca yüzer", self.exposition.describe("penguen"))
+        # Öbek açılışı artık türe göre: kendi EYLEMLERİ "Kendisi" ile
+        # başlıyor, nitelikleri "Ayrıca" ile. Sınanan şey açılış sözcüğü
+        # değil SIRA — kendi olgusu kalıtımdan sonra gelmeli.
+        said = self.exposition.describe("penguen")
+        self.assertIn("yüzer", said)
+        self.assertLess(said.index("tüylü"), said.index("yüzer"))
 
     def test_a_guess_is_flagged_inside_the_paragraph(self):
         self.memory.write(Edge("penguen", HAS_PROPERTY, "hızlı",
