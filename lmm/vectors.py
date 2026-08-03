@@ -53,6 +53,7 @@ class Vectors:
         self.index = {}             # word -> index
         self.vectors = {}           # word -> [float]
         self.counts = {}            # word -> how often it was seen
+        self.composed = {}          # phrase -> [float], built from its parts
 
     # --- counting ---------------------------------------------------------
 
@@ -142,11 +143,55 @@ class Vectors:
     # --- using ------------------------------------------------------------
 
     def vector(self, word):
-        return self.vectors.get(word)
+        """The word's vector — built from its parts when the word itself
+        was never seen.
+
+        Counting gives a vector to a word, and a phrase is not a word. The
+        graph disagrees: 26.466 of its 58.245 concepts are phrases — "organ
+        nakli", "kalp krizi", "hava kirliliği". Forty-five per cent of what
+        the system knows had no geometry at all, and no amount of corpus
+        fixes that, because there is no token to count.
+
+        This is the piece of an LLM that has no equivalent here and it is not
+        the gradient. Subword pieces let a transformer represent a string it
+        has never seen, by COMPOSING. The composition is what matters, and
+        composition needs no training: the mean of the parts, in a space
+        where meaning is already linear. That linearity is the same property
+        that makes king - man + woman land near queen — an old and measured
+        fact about counted spaces, not a trained one.
+
+        The mean is the plainest composition there is. It loses word order
+        and it treats a head like a modifier. Both are real losses. It is
+        also free, deterministic, and reaches everything the parts reach —
+        so it is what gets measured first.
+        """
+        found = self.vectors.get(word)
+        if found is not None:
+            return found
+        return self._composed(word)
+
+    def _composed(self, phrase):
+        """Mean of the parts, cached. None when no part is known."""
+        if phrase in self.composed:
+            return self.composed[phrase]
+        parts = [self.vectors[piece] for piece in phrase.split()
+                 if piece in self.vectors]
+        if not parts:
+            self.composed[phrase] = None
+            return None
+        size = len(parts[0])
+        mean = [sum(part[at] for part in parts) / len(parts)
+                for at in range(size)]
+        # Uzunluğa göre normalleme: kosinüs yönü okuyor, iki kelimelik bir
+        # ifadenin tek kelimeden kısa çıkması karşılaştırmayı bozardı.
+        scale = math.sqrt(sum(value * value for value in mean)) or 1.0
+        mean = [value / scale for value in mean]
+        self.composed[phrase] = mean
+        return mean
 
     def similar(self, word, count=8):
         """The words that keep the same company, nearest first."""
-        target = self.vectors.get(word)
+        target = self.vector(word)
         if target is None:
             return []
         scored = [(cosine(target, other), candidate)
@@ -157,12 +202,12 @@ class Vectors:
 
     def nearest(self, word, among, count=1):
         """The closest of a given set — for placing a stranger among known words."""
-        target = self.vectors.get(word)
+        target = self.vector(word)
         if target is None:
             return []
         scored = []
         for candidate in among:
-            other = self.vectors.get(candidate)
+            other = self.vector(candidate)      # çok kelimeli hedef de bileşir
             if other is not None and candidate != word:
                 scored.append((cosine(target, other), candidate))
         scored.sort(reverse=True)
