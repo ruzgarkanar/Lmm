@@ -23,6 +23,7 @@ except Exception:                                           # noqa: BLE001
     def reading_of(name, has_target=True):   # torch yoksa: kalıplarla çalışır
         return None
 from lmm.distill import split_words
+from lmm.trust import TEACHER, stranger_source
 from lmm.verbs import is_structural
 from lmm import frequency
 from lmm.grammar import Pattern
@@ -108,7 +109,18 @@ class Session:
     """One conversation: the five organs wired together over a memory file."""
 
     def __init__(self, path, language=None, inquiry=None, wording=None,
-                 intent=None, voice=None, dictionary=None, vectors=None):
+                 intent=None, voice=None, dictionary=None, vectors=None,
+                 speaker=None):
+        # KİM KONUŞUYOR. Varsayılan `None` işletmeci demek — bugüne kadar tek
+        # kullanıcı vardı ve o sistemin sahibiydi. İnsanlara açıldığında her
+        # oturum kendi konuşanını taşıyacak ve yazdığı her olgu o adı
+        # sırtlayacak: bir yabancının cümlesi, doğrulanmış bir belgeyle aynı
+        # ağırlıkta duramaz.
+        #
+        # Ölçüldü ve durabiliyordu — "kediler uçar" dendiğinde graf "kedi
+        # uçar, koşar, tırmanır" demeye başlıyordu. Uydurma değil (kaynağı
+        # yazılı, kapıdan geçti) ama yanlış, ve tek cümleyle yapılabiliyordu.
+        self.speaker = (stranger_source(speaker) if speaker else TEACHER)
         self.path = path
         self.memory = Memory.load(path)
         # Gömme vektörleri: varsa bağlanır, yoksa sistem eskisi gibi çalışır.
@@ -723,7 +735,7 @@ class Session:
                        if len(self.memory.query(word)) >= 3][:2]
             return not_understood(None, self.memory, spotted,
                                   long=len(tokenize(line)) > 3)
-        status, message, edge = self.learning.teach(intent)
+        status, message, edge = self.learning.teach(intent, self.speaker)
         if status == CONFLICT:
             self.pending = edge
             return message

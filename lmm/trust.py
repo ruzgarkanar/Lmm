@@ -11,21 +11,46 @@ so. Between equals it does not choose — it asks, because picking a winner
 between two sources of equal standing is guessing.
 """
 
-HUMAN = 4
-DOCUMENT = 3
-DISTILLED = 2       # produced by a language model
-INFERRED = 1        # the system worked it out itself
+OPERATOR = 5        # the person who runs this memory
+DOCUMENT = 4        # a curated file, checked before it was handed over
+DISTILLED = 3       # produced by a language model
+INFERRED = 2        # the system worked it out itself
+STRANGER = 1        # someone talking to it who nobody has vouched for
+
+# Eski adı `HUMAN`; işletmeci ile YABANCI ayrılınca anlamı daraldı. Eski ad
+# duruyor çünkü kod ve testler onu kullanıyor ve aynı şeyi gösteriyor.
+HUMAN = OPERATOR
 
 TEACHER = "sen"
 INFERENCE = "çıkarım"
 DISTILLED_PREFIX = "llm:"
+
+# Bir dil modelinin ürettiği her şey DISTILLED. Önekler burada YAZILI, çünkü
+# `level()` bilmediği her kaynağı belge sayıyordu ve bu sessiz bir terfiydi:
+# `okuyucu:gpt-4.1` etiketli 112 bin olgu, elle derlenmiş `hayvanlar.txt` ile
+# aynı basamaktaydı. Bir dil modelinin çıktısı bir belge değildir; ne yazık ki
+# ikisini ayıran tek şey etiketin kendisi, o yüzden etiketler burada durur.
+DISTILLED_PREFIXES = (DISTILLED_PREFIX, "okuyucu:", "web:", "merak:",
+                      "pilot:", "gpt", "azure:")
+
+# Sohbetten gelen ve kimsenin kefil olmadığı kaynak. Sistem insanlara
+# açıldığında yazılacak her şey bu öneki taşımalı: bir yabancının tek cümlesi,
+# doğrulanmış bir belgeyi ezmemeli. Ölçüldü ve ezebiliyordu —
+#
+#     > kediler uçar     -> "öğrendim: kedi uçar"
+#     > kedi ne yapabilir -> "kedi UÇAR, koşar, tırmanır..."
+#
+# Uydurma değil: kaynağı yazılı, kapıdan geçti, çelişki yoktu. Ama bir
+# yabancının sözü, grafın gövdesiyle aynı ağırlıkta durmamalı.
+STRANGER_PREFIX = "sohbet:"
 
 # Her basamağın kendi ŞERİDİ var ve şeritler örtüşmüyor: bir basamaktaki
 # kayıtlar ne kadar çoğalırsa çoğalsın bir üsttekinin tabanına ulaşamaz.
 # İnsan ile belge eskiden aynı sayıdaydı (0,60) ve sonuç ölçüldü: iki dil
 # modeli çıktısı 0,65 ile bir insanı geçiyordu. `arbitrate` sırayı mutlak
 # sayarken güven sayısı onu delip geçiyordu — aynı dosyada iki farklı doğru.
-CONFIDENCE = {HUMAN: 0.75, DOCUMENT: 0.6, DISTILLED: 0.5, INFERRED: 0.45}
+CONFIDENCE = {OPERATOR: 0.75, DOCUMENT: 0.6, DISTILLED: 0.5, INFERRED: 0.45,
+              STRANGER: 0.3}
 # Bir tanık daha, kalan kuşkunun ne kadarını kapatır. Toplamsal değil, çünkü
 # toplamsalken dördüncü belge tavanı dolduruyordu: 0,98 "ulaşılmaz" diye
 # yazılmıştı ve dört kaynakta ulaşılıyordu.
@@ -38,13 +63,21 @@ def distilled_source(model_name):
 
 
 def level(source):
+    source = source or ""
     if source == INFERENCE:
         return INFERRED
-    if source.startswith(DISTILLED_PREFIX):
+    if source.startswith(STRANGER_PREFIX):
+        return STRANGER
+    if any(source.startswith(mark) for mark in DISTILLED_PREFIXES):
         return DISTILLED
     if source == TEACHER:
-        return HUMAN
+        return OPERATOR
     return DOCUMENT
+
+
+def stranger_source(who):
+    """Sohbetten gelen bir kaynağın adı — kim söylediği kayda geçsin."""
+    return f"{STRANGER_PREFIX}{who}"
 
 
 def confidence_for(source):
