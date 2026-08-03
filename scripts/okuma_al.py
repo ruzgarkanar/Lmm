@@ -268,7 +268,11 @@ def _screen(chunk):
                 rejected.append(("geri okuma",
                                  f"{concept} {relation} {target}"))
             continue
-        passed.append((concept, relation, target))
+        # Cümlenin kendisi değil KİMLİĞİ taşınıyor: aynı cümleden çıkan
+        # olguları eşleştirmeye yetiyor ve grafı şişirmiyor.
+        context = row.get("cümle")
+        passed.append((concept, relation, target,
+                       hash(context) & 0xFFFFFFFF if context else None))
     return passed, tally, rejected
 
 
@@ -289,7 +293,7 @@ def take_parallel(rows, graph, memory, source, write=False, workers=None):
                 if len(rejected[kind]) < 4:
                     rejected[kind].append(example)
     reasoning = Reasoning(memory)
-    for concept, relation, target in survivors:
+    for concept, relation, target, context in survivors:
         known, _ = reasoning.about(concept, relation, target)
         if known is not None and known != (relation not in (CANNOT,)):
             tally["grafla çelişti"] += 1
@@ -305,7 +309,8 @@ def take_parallel(rows, graph, memory, source, write=False, workers=None):
             # durduruyordu. Tek bir olgunun reddi, işin tamamının kaybı
             # olmamalı.
             try:
-                memory.write(Edge(concept, relation, target, source=source))
+                memory.write(Edge(concept, relation, target, source=source,
+                                  context=context))
             except CycleError:
                 tally["döngü kurardı"] += 1
                 if len(rejected["döngü"]) < 4:

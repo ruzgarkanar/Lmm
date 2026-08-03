@@ -71,7 +71,8 @@ def coverage(quantifier):
 class Edge:
     def __init__(self, concept, relation, target, object=None, role=None,
                  source="unknown", confidence=None, is_exception=False,
-                 timestamp=None, sources=None, disputed=False, quantifier=ALL):
+                 timestamp=None, sources=None, disputed=False, quantifier=ALL,
+                 context=None):
         self.concept = concept
         self.relation = relation        # IS_A | CAN | CANNOT
         self.target = target
@@ -87,6 +88,21 @@ class Edge:
         self.is_exception = is_exception
         self.disputed = disputed        # sources disagree and neither prevailed
         self.quantifier = quantifier    # how much of the kind this covers
+        # Bu olgunun hangi CÜMLEDEN geldiği. Kaynaktan ayrı bir şey: kaynak
+        # "kim söyledi", bağlam "hangi söyleyişte".
+        #
+        # Anlam ayrımının en güçlü sinyali burada ve atılıyordu. Aynı cümleden
+        # çıkan olgular aynı ANLAMA aittir; ölçüldü:
+        #
+        #   tavla  cümle 1 -> oyun, iki, zar, pul, platform
+        #          cümle 2 -> mahalle, hatay, defne
+        #   kartal cümle 1 -> ilçe, banliyö        (İstanbul)
+        #          cümle 3 -> kasaba, kurulu, nüfus (Macaristan)
+        #
+        # Vektörle ayırmayı denedim ve 20 bin cümlelik gömme 6 nitelikten
+        # 5'ini doğru ayırdı, `hızlı`yı kaçırdı. Künye zaten kusursuz ayırıyor
+        # ve hiçbir tahmin gerektirmiyor — geometri değil PROVENANS.
+        self.context = context
         self.timestamp = timestamp if timestamp is not None else time.time()
 
     def corroborate(self, source):
@@ -104,7 +120,7 @@ class Edge:
                 "source": self.source, "sources": self.sources,
                 "confidence": self.confidence, "is_exception": self.is_exception,
                 "disputed": self.disputed, "quantifier": self.quantifier,
-                "timestamp": self.timestamp}
+                "context": self.context, "timestamp": self.timestamp}
 
     @staticmethod
     def from_dict(data):
