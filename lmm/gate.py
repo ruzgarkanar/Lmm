@@ -195,11 +195,23 @@ class EpistemicGate:
 
     def _traits(self, concept):
         """Bu kavram için geçerli olan şeyler — kendi kayıtları ve kalıtımı."""
+        # Kavramın KENDİ kayıtlarında etkin anlam süzgeci uygulanıyor;
+        # atalardan gelenler zaten o anlama ait, çünkü ata seçimi anlam
+        # ayrımından geçmiş durumda (`reasoning.lineage`). Süzgeç olmadan
+        # karşılaştırma iki anlamı karıştırıyordu:
+        #
+        #   kartal ile penguen arasındaki fark ne
+        #   -> "kartal: avlanmak yapabilir, hızlı, İSTANBUL SAHİP, kurul"
+        split = self._many_senses(concept)
+        sense = self._sense(concept) if split else None
         found = []
-        for step in [concept] + self.reasoning.ancestors(concept):
+        for at, step in enumerate([concept] + self.reasoning.ancestors(concept)):
             for edge in self.memory.query(step):
                 if edge.relation in (IS_A, NOT_A):
                     continue
+                if (split and at == 0 and edge.context is not None
+                        and edge.context != sense):
+                    continue        # karşılaştırmada öteki anlam gürültüdür
                 mark = (edge.relation, edge.target)
                 if mark not in found:
                     found.append(mark)
@@ -303,8 +315,93 @@ class EpistemicGate:
             return self._dont_know(concept)
         return because(known, chain)
 
+    def _many_senses(self, concept):
+        """Bu kavram gerçekten birden çok ANLAM taşıyor mu.
+
+        Birden çok BAĞLAM, birden çok anlam demek değil: aynı şey birkaç
+        cümlede anlatılmış olabilir. İlk yazışta bunları karıştırdım ve süzgeç
+        doğru olguları kesti — sınav %97,3'ten %95,7'ye düştü, yanlış cevap
+        4'ten 9'a çıktı.
+
+        Ayıran şey türlerin İLİŞKİSİ: biri ötekinin atası mı, ortak ataları
+        var mı. Hepsi ilgiliyse tek anlamdır ve süzgecin işi yoktur.
+
+        Ölçüt `ancestors`, `_related` DEĞİL. İkincisi HAM erişime bakıyor ve
+        128 binlik kirli grafta neredeyse her şey her şeye bağlı çıkıyor —
+        "tavla" yeniden tek anlamlı sanıldı. `ancestors` anlam süzgecinden
+        geçiyor; `mahalle in ancestors("oyun")` -> False.
+        """
+        targets = [edge.target for edge in self.memory.query(concept, IS_A)
+                   if edge.target]
+        for at, one in enumerate(targets):
+            above = self.reasoning.ancestors(one)
+            for other in targets[at + 1:]:
+                theirs = self.reasoning.ancestors(other)
+                if (other in above or one in theirs
+                        or (set(above) & set(theirs))):
+                    continue
+                return True
+        return False
+
+    def _sense(self, concept):
+        """Kavramın ETKİN anlamı — en güçlü tür kaydının geldiği cümle.
+
+        Aynı cümleden çıkan olgular aynı anlama aittir ve bu, künyede duran
+        bir olgu; tahmin değil. Ölçüldü:
+
+            kartal  (damgasız)  -> kuş, avlanmak, hızlı
+                    2421167707  -> ilçe, banliyö          (İstanbul)
+                    2561926007  -> kasaba, kurul, nüfus   (Macaristan)
+            tavla   778856018   -> oyun, iki
+                    1038044999  -> mahalle, hatay, defne
+
+        Vektörle ayırmak da denendi ve zayıf kaldı (altı nitelikten beşi doğru,
+        `hızlı` yanlış). Provenans hiçbir tahmin gerektirmiyor.
+        """
+        edges = self.memory.query(concept, IS_A)
+        if not edges:
+            return None
+        return max(edges, key=lambda edge: edge.confidence).context
+
+    def _in_sense(self, concept, found):
+        """Yalnız etkin anlama ait olgular.
+
+        Damgasız kayıtlar her anlamla uyumlu sayılıyor: elle derlenen
+        dosyalardan gelenlerin bağlamı yok ve onları elemek, en güvenilir
+        bilgiyi atmak olurdu.
+
+        ATMIYOR, SIRALIYOR. Önce elemeyi denedim ve ölçüm durdurdu: sınav
+        %97,3'ten %96,7'ye düştü, çünkü öteki anlama ait olgular tamamen
+        kayboluyordu —
+
+            soru : taşlıca nasıldır      kayıt: taşlıca --property--> kâhtada
+            cevap: taşlıca küçüktür.     (başka anlamın nitelikleri)
+
+        O olgu ne yanlış ne uydurma; yalnız başka bir anlama ait. Atmak
+        bilgiyi kaybetmek, sıralamak ise doğru anlamı öne almak. Kesme
+        (`_telling`) zaten baştan alıyor, yani etkin anlam konuşuyor ve öteki
+        kaybolmuyor.
+
+        Kavram tek anlamlıysa bu sıralama hiçbir şey yapmıyor — 47.872
+        kavramın yalnız 2.788'i birden çok cümleden besleniyor.
+        """
+        marks = {}
+        for edge in self.memory.query(concept):
+            if edge.target is not None:
+                marks.setdefault(edge.target, edge.context)
+        if not self._many_senses(concept):
+            return found                # tek anlamlı: süzgecin işi yok
+        sense = self._sense(concept)
+        # Anahtar HEDEF. `reasoning.properties` (hedef, kutup) döndürüyor,
+        # `abilities` de öyle — ilk yazışta (ilişki, hedef) anahtarı kullandım,
+        # hiçbir arama tutmadı ve süzgeç sessizce her şeyi geçirdi. Kurulmuş
+        # ama kapanmamış bir kapı, hiç olmamasından kötüdür: çalıştığı
+        # sanılır.
+        return sorted(found, key=lambda item:
+                      0 if marks.get(item[0], None) in (None, sense) else 1)
+
     def _all_properties(self, concept):
-        found = self.reasoning.properties(concept)
+        found = self._in_sense(concept, self.reasoning.properties(concept))
         if not found:
             return never_learned_properties(concept)
         return properties_answer(concept, self._telling(concept, found))
@@ -331,7 +428,23 @@ class EpistemicGate:
         for distance, step in enumerate(steps):
             for edge in self.memory.query(step):
                 rank.setdefault(edge.target, distance)
-        return sorted(found, key=lambda item: rank.get(item[0], 99))[:most]
+        # ANLAM birincil ölçüt, mesafe ikincil. Sıralamayı `_in_sense`
+        # yapıyordu ama burası mesafeye göre yeniden sıralayıp onu eziyordu:
+        # "kartal nasıldır" cevabında Macaristan kasabasının `kurul` niteliği
+        # geri geliyordu. İki sıralama üst üste binerse sonuncusu kazanır.
+        other = self._other_sense(concept)
+        return sorted(found, key=lambda item: (item[0] in other,
+                                               rank.get(item[0], 99)))[:most]
+
+    def _other_sense(self, concept):
+        """Etkin anlama AİT OLMAYAN hedefler — çok anlamlı kavramlarda."""
+        if not self._many_senses(concept):
+            return frozenset()
+        sense = self._sense(concept)
+        return frozenset(edge.target for edge in self.memory.query(concept)
+                         if edge.target is not None
+                         and edge.context is not None
+                         and edge.context != sense)
 
     def _who(self, action, positive, relation=CAN):
         if relation == HAS_PROPERTY:
@@ -354,7 +467,7 @@ class EpistemicGate:
         return who_is_answer(found, prop)
 
     def _abilities(self, concept):
-        found = self.reasoning.abilities(concept)
+        found = self._in_sense(concept, self.reasoning.abilities(concept))
         if not found:
             return never_learned_abilities(concept)
         return abilities_answer(concept, self._telling(concept, found))
