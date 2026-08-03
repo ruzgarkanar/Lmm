@@ -563,6 +563,11 @@ PATTERNS = [
     Pattern(["nasıldır"], ASK_PROPERTIES, None, None, None, "çıplak nasıl"),
     Pattern(["nasıl"], ASK_PROPERTIES, None, None, None, "çıplak nasıl 2"),
     Pattern(["ne", "yapabilir"], ASK_ABILITIES, None, None, None, "çıplak neler"),
+    # Öznesiz "ne yapar" — konusu sohbetten gelir. Bu kalıp yokken cümle
+    # `ASK_WHO(yapmak)` diye okunuyor ve "yapan HERKESİ" sayıyordu: sohbette
+    # kalpten bahsederken cevap "kartal, kaplan, kurt, geyik..." oluyordu.
+    # Eksiltili soru, evrensel soru değildir.
+    Pattern(["ne", "yapar"], ASK_ABILITIES, None, None, None, "çıplak ne yapar"),
 
     Pattern([KIM, FIIL], ASK_WHO, FROM_VERB, None, 1, "kimler uçar"),
     Pattern([KAVRAM, "ne", "yapabilir"], ASK_ABILITIES, None, 0, None, "ne yapabilir"),
