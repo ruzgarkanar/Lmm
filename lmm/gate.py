@@ -30,6 +30,10 @@ HEDGE_THRESHOLD = 0.5
 # Bir listede en çok kaç şey söylenir. Fazlası cevap değil döküm oluyor ve
 # okuyan kaybediyor. Kalanı "başka ne biliyorsun" ile alınabilir.
 MOST_TOLD = 5
+# Bir anlam öbeğinin sorunun kelimelerine ne kadar yakın durması, güvenin
+# sabit seçimini bozmaya yetsin. Eşik olmadan gürültü seçiyor: her öbekte bir
+# kelime bir kelimeye biraz benzer ve en yüksek gürültü kazanıyor.
+SENSE_MARGIN = 0.35
 # Karşılaştırmada kaç ortak ata söylenir. İkiden fazlası hiyerarşinin
 # tepesine tırmanıyor ("varlık", "şey") ve orada her şey ortaktır.
 CLOSEST_SHARED = 2
@@ -42,6 +46,10 @@ class EpistemicGate:
         self.memory = memory
         self.reasoning = reasoning
         self.exposition = Exposition(memory, reasoning)
+        # O ANKİ CÜMLENİN kelimeleri. Anlam seçimi buna bakıyor; boşken kapı
+        # eski davranışına düşüyor, yani bir oturum bunu hiç kurmasa da
+        # çalışır. Kolaylık, bağımlılık değil.
+        self.focus_words = ()
 
     def answer(self, intent):
         if intent.kind == ASK_WHO:
@@ -52,7 +60,8 @@ class EpistemicGate:
         if intent.kind == ASK_WHY:
             return self._why(intent)
         if intent.kind == ASK_DESCRIBE:
-            return self.exposition.describe(intent.concept)
+            return self.exposition.describe(
+                intent.concept, self._sense(intent.concept, self.focus_words))
         if intent.kind == ASK_COMPARE:
             return self._compare(intent.concept, intent.target)
         if intent.kind == ASK_REQUIREMENT:
@@ -203,7 +212,7 @@ class EpistemicGate:
         #   kartal ile penguen arasındaki fark ne
         #   -> "kartal: avlanmak yapabilir, hızlı, İSTANBUL SAHİP, kurul"
         split = self._many_senses(concept)
-        sense = self._sense(concept) if split else None
+        sense = self._sense(concept, self.focus_words) if split else None
         found = []
         for at, step in enumerate([concept] + self.reasoning.ancestors(concept)):
             for edge in self.memory.query(step):
@@ -343,8 +352,8 @@ class EpistemicGate:
                 return True
         return False
 
-    def _sense(self, concept):
-        """Kavramın ETKİN anlamı — en güçlü tür kaydının geldiği cümle.
+    def _sense(self, concept, focus=()):
+        """Kavramın ETKİN anlamı — sorunun işaret ettiği cümle.
 
         Aynı cümleden çıkan olgular aynı anlama aittir ve bu, künyede duran
         bir olgu; tahmin değil. Ölçüldü:
@@ -361,7 +370,65 @@ class EpistemicGate:
         edges = self.memory.query(concept, IS_A)
         if not edges:
             return None
-        return max(edges, key=lambda edge: edge.confidence).context
+        strongest = max(edges, key=lambda edge: edge.confidence).context
+        if not focus:
+            return strongest
+        # SORUNUN KENDİSİ ANLAMI SEÇER. Güvene bakmak sabit bir seçimdir:
+        # `sos` her zaman oyun, `maya` her zaman paket çıkıyordu, cümlede ne
+        # yazarsa yazsın. Ölçüldü, 29 cevabın 8'i tam buradan bozuluyordu:
+        #
+        #     "Kerevizli Dip Sos nasıl yapılır?"  -> "Sos bir oyundur"
+        #     "Cumhuriyet Partisi..."             -> "Cumhuriyet bir gazetedir"
+        #
+        # Her anlam öbeği, sorunun kelimelerine ne kadar yakın durduğuyla
+        # yarışıyor. Yakınlık gömmeden geliyor — `kerevizli` ile `yiyecek`
+        # aynı çevrede geçer, `oyun` ile geçmez.
+        #
+        # LLM'de bunun adı dikkat: bağlam, hangi temsilin okunacağını
+        # ağırlıklandırıyor. Aynı iş, ayrık grafta: bağlam, hangi PROVENANS
+        # öbeğinin konuşacağını ağırlıklandırıyor. Fark şu ki burada seçilen
+        # şey bir vektör değil, kaynağı yazılı bir cümle.
+        #
+        # Geometri yalnız SEÇİYOR, hiçbir olgu YAZMIYOR — sınır burada da
+        # duruyor. Yakınlık hiçbir öbeği öne çıkarmazsa güvene dönülüyor.
+        vectors = getattr(self.memory, "vectors", None)
+        if vectors is None:
+            return strongest
+        groups = self._sense_groups(concept)
+        if len(groups) < 2:
+            return strongest
+        best, mark = 0.0, strongest
+        for context, targets in groups.items():
+            score = 0.0
+            for word in focus:
+                if word == concept:
+                    continue
+                close = vectors.nearest(word, targets, 1)
+                if close:
+                    score = max(score, close[0][1])
+            if score > best:
+                best, mark = score, context
+        return mark if best >= SENSE_MARGIN else strongest
+
+    def _sense_groups(self, concept):
+        """Anlam öbekleri: künye -> o cümleden çıkan hedefler.
+
+        Çokanlamlılığın ölçüsü budur, tür kaydı değil. `_many_senses` yalnız
+        `type` bağlarına bakıyor ve ölçüldü — kaçırıyor:
+
+            sos  368270650   has:soya, has:mirin, property:tatlı   (yemek)
+                 1947393639  type:oyun, property:iki               (oyun)
+
+        Yemek anlamının hiç tür kaydı yok, o yüzden `sos` "tek anlamlı"
+        sayılıyor ve soru ne olursa olsun oyun anlamı konuşuyordu. Ayrı
+        cümleden gelmek, ayrı anlam olmak için yeterli kanıt.
+        """
+        groups = {}
+        for edge in self.memory.query(concept):
+            if edge.target is not None:
+                groups.setdefault(edge.context, []).append(str(edge.target))
+        groups.pop(None, None)          # damgasızlar her anlamla uyumlu
+        return groups
 
     def _in_sense(self, concept, found):
         """Yalnız etkin anlama ait olgular.
@@ -389,9 +456,13 @@ class EpistemicGate:
         for edge in self.memory.query(concept):
             if edge.target is not None:
                 marks.setdefault(edge.target, edge.context)
-        if not self._many_senses(concept):
+        # İki ayrı kanıt, ikisi de çokanlamlılığı gösterebilir: ayrı türler
+        # (`_many_senses`) ya da ayrı cümleler (`_sense_groups`). İlki tek
+        # başınayken yemek anlamı olan `sos`u kaçırıyordu.
+        if not (self._many_senses(concept)
+                or len(self._sense_groups(concept)) > 1):
             return found                # tek anlamlı: süzgecin işi yok
-        sense = self._sense(concept)
+        sense = self._sense(concept, self.focus_words)
         # Anahtar HEDEF. `reasoning.properties` (hedef, kutup) döndürüyor,
         # `abilities` de öyle — ilk yazışta (ilişki, hedef) anahtarı kullandım,
         # hiçbir arama tutmadı ve süzgeç sessizce her şeyi geçirdi. Kurulmuş
@@ -449,7 +520,7 @@ class EpistemicGate:
         """Etkin anlama AİT OLMAYAN hedefler — çok anlamlı kavramlarda."""
         if not self._many_senses(concept):
             return frozenset()
-        sense = self._sense(concept)
+        sense = self._sense(concept, self.focus_words)
         return frozenset(edge.target for edge in self.memory.query(concept)
                          if edge.target is not None
                          and edge.context is not None

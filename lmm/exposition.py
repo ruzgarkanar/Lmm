@@ -26,7 +26,7 @@ class Exposition:
         self.memory = memory
         self.reasoning = reasoning
 
-    def describe(self, concept):
+    def describe(self, concept, sense=None):
         """Everything worth saying about a concept, as connected prose.
 
         Bir kavramı anlatmak eskiden grafın tamamını ÜÇ kez tarıyordu — bir
@@ -35,18 +35,56 @@ class Exposition:
         zaten indeksliyor. Ölçüldü: 16 bin olguda 0,51 ms, 323 binde 22,05 ms
         — anlatılan kavram büyümediği hâlde.
         """
-        parts = [self._identity(concept), self._exceptions(concept),
-                 self._inherited(concept), self._own(concept)]
+        # Seçilen anlamın tür kaydı yoksa KALITIM DA susuyor. Tür ve kalıtım
+        # aynı kaydın iki yüzü: "sos bir oyundur" susturulup "oyun olduğu için
+        # eğlencelidir" bırakılırsa hiçbir şey kazanılmıyor, yalnız kaynağı
+        # gizlenmiş oluyor.
+        speaks = self._sense_speaks(concept, sense)
+        parts = [self._identity(concept, sense), self._exceptions(concept),
+                 self._inherited(concept) if speaks else "",
+                 self._own(concept, sense)]
         said = [part for part in parts if part]
         if not said:
             return phrasing.dont_know(concept)
         return " ".join(said)
 
-    def _identity(self, concept):
+    def _sense_speaks(self, concept, sense):
+        """Seçilen anlamın kendi tür kaydı var mı — yoksa soyağacı susmalı."""
+        if not sense:
+            return True
+        edges = self.memory.query(concept, IS_A)
+        if not edges:
+            return True
+        return any(edge.context in (None, sense) for edge in edges)
+
+    def _identity(self, concept, sense=None):
+        """Kavramın ne olduğu — SORULAN anlamda.
+
+        Güvene bakmak sabit bir cevap veriyordu: `cumhuriyet` her zaman
+        gazete, ne sorulursa sorulsun. Oysa graf yönetim anlamını da biliyor
+        ve ikisi ayrı cümleden geldiği için künyeleri de ayrı. Anlam
+        seçildiğinde önce o anlamın tür kaydı konuşuyor; o anlamın tür kaydı
+        yoksa (yemek anlamındaki `sos` gibi) güvene dönülüyor, yani hiçbir
+        bilgi kaybolmuyor.
+        """
         edges = self.memory.query(concept, IS_A)
         if not edges:
             return ""
-        best = max(edges, key=lambda e: e.confidence)
+        chosen = [edge for edge in edges if edge.context == sense] if sense else []
+        if sense and not chosen:
+            # Seçilen anlamın tür kaydı yok. Damgasız kayıt her anlamla
+            # uyumlu, o konuşabilir; ama her tür kaydı BAŞKA bir cümleden
+            # geliyorsa susmak gerekiyor:
+            #
+            #     "Kerevizli dip sos nasıl yapılır?" -> "Sos bir OYUNDUR..."
+            #
+            # O cümle uydurma değil, grafta duruyor. Ama sorulan anlamda
+            # doğru değil, ve yanlış anlamda söylenen doğru cümle yanlıştır.
+            # Susulduğunda kavramın kendi olguları konuşuyor (`_own` onları
+            # seçilen anlama göre zaten öne alıyor), yani cevap kaybolmuyor.
+            if not self._sense_speaks(concept, sense):
+                return ""
+        best = max(chosen or edges, key=lambda e: e.confidence)
         sentence = phrasing.capitalize(phrasing.is_a_clause(concept, best.target))
         ancestors = self.reasoning.ancestors(concept)
         if len(ancestors) > 1:
@@ -80,10 +118,19 @@ class Exposition:
         return (f"{phrasing.capitalize(parent)} olduğu için "
                 f"{phrasing.listing(clauses)}.")
 
-    def _own(self, concept):
-        """Facts stated about it directly, minus the exceptions already told."""
+    def _own(self, concept, sense=None):
+        """Facts stated about it directly, minus the exceptions already told.
+
+        Seçilen anlamın olguları öne alınıyor, ötekiler ATILMIYOR: damgasız
+        kayıtlar her anlamla uyumlu ve elemek en güvenilir bilgiyi atmak
+        olurdu — bu bir kez ölçüldü ve sınavı düşürmüştü.
+        """
+        edges = list(self.memory.query(concept))
+        if sense:
+            edges.sort(key=lambda edge: (edge.context is not None
+                                         and edge.context != sense))
         clauses = []
-        for edge in self.memory.query(concept):
+        for edge in edges:
             if edge.relation == IS_A:
                 continue
             if self._contradicts_family(edge):
