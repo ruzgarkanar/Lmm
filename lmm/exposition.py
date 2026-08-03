@@ -25,6 +25,7 @@ class Exposition:
     def __init__(self, memory, reasoning):
         self.memory = memory
         self.reasoning = reasoning
+        self.told_most = None       # kapı kurar; None ise kesme yok
 
     def describe(self, concept, sense=None, focus_rank=None):
         """Everything worth saying about a concept, as connected prose.
@@ -150,6 +151,9 @@ class Exposition:
             clauses.append(clause)
         if not clauses:
             return ""
+        # Anlatma sorusu daha geniş konuşur; kesme yine var ama soruya göre.
+        if self.told_most is not None:
+            clauses = clauses[:self.told_most]
         return f"Ayrıca {phrasing.listing(clauses)}."
 
     def _speaks_for_itself(self, concept, relation, target):

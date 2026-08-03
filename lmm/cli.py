@@ -579,6 +579,11 @@ class Session:
             # Cümlenin kendi kelimeleri kapıya veriliyor: çokanlamlı bir
             # kavramda hangi anlamın konuşacağını soru belirlesin.
             self.gate.focus_words = tuple(tokenize(line))
+            # Cevabın GENİŞLİĞİ de soruya bağlı. Sabitken "kısa cevap ver"
+            # yönergesi yalnız cümleyi kırpıyordu; şimdi kaç olgunun
+            # söyleneceğini baştan belirliyor — kırpmak ile seçmek ayrı şeyler.
+            self.gate.told_most = phrasing.told_most(
+                self.directives.get("length"))
             said = self._fluent(intent, line, self._question(intent))
             # ÇOKLU HİPOTEZ. İlk okuma cevap üretmediyse ve kavram grafta
             # yoksa, adaylar sırayla deneniyor. Bu, sistemin tek sert kararını
