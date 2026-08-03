@@ -881,9 +881,34 @@ class Session:
                 self.goal_steps.add(step.key)
                 return step.text
             return ""
+        # Çıkarım SÖYLENİYOR ama YAZILMIYOR. Ölçüldü: 128 binlik grafta her
+        # öğretme turu grafa bir uydurma olgu yazıyordu —
+        #
+        #   > glorp bir kuştur
+        #   öğrendim ... sanırım ÜÇOBALAR BİR KILIÇTIR
+        #   yazılan: üçobalar --type--> kılıç  kaynak=çıkarım
+        #
+        # Öğretilenle ilgisi yok: `propose` bütün grafı tarayıp ilk sahipsizi
+        # döndürüyor. Üç ayrı sıkılaştırma denendi (bilgi değeri eşiği, ortak
+        # sahip sayısı, tek raf şartı) ve hiçbiri yetmedi; yalnız saçmalığın
+        # türü değişti ("mençeler bir kaplandır", çünkü ikisi de `ankara` ve
+        # `beypazarı` taşıyor).
+        #
+        # Mekanizmanın ÖNCÜLÜ bu veride geçersiz: "aynı davranışı paylaşıyor,
+        # öyleyse aynı şeydir" ancak davranış o türü TANIMLIYORSA geçerli, ve
+        # Vikipedi'den gelen konum olguları hiçbir şey tanımlamıyor.
+        #
+        # Yazmayı durdurmak yeteneği kapatmak değil, hafızayı korumak: tahmin
+        # söyleniyor, insan onaylarsa öğretebiliyor. Uydurmamak bu mimarinin
+        # tek şartı ve bir tahmin, kalıcı hafızaya kendi başına giremez.
         hypothesis = self.induction.propose()
         if hypothesis is not None:
-            self.induction.learn(hypothesis)
+            # GENELLEME yazılıyor, YERLEŞTİRME yazılmıyor. İkisi ayrı türden:
+            # genelleme sayıma dayanıyor ("bu ailenin şu kadar üyesi bunu
+            # yapıyor") ve `support` taşıyor; yerleştirme şekle dayanıyor
+            # ("bu şey şuna benziyor") ve hiçbir kanıt taşımıyor.
+            if not getattr(hypothesis, "guessed", False):
+                self.induction.learn(hypothesis)
             return generalising(hypothesis.examples,
                                 describe(hypothesis.concept, hypothesis.relation,
                                          hypothesis.target))
