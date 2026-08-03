@@ -22,6 +22,8 @@ except Exception:                                           # noqa: BLE001
     def reading_of(name, has_target=True):   # torch yoksa: kalıplarla çalışır
         return None
 from lmm.distill import split_words
+from lmm.verbs import is_structural
+from lmm import frequency
 from lmm.grammar import Pattern
 from lmm.discovered import words_of
 from lmm import arithmetic
@@ -563,11 +565,17 @@ class Session:
                 # bulunamadığında giriliyor, yani başka türlü sessizlik olacak
                 # yerde. Özne cevapta açıkça geçiyor ("Orman bir yerdir"), o
                 # yüzden yanlış anladıysak kullanıcı görüyor.
-                for name in self._candidates(intent.concept):
-                    for shape in (Intent(intent.kind, name, intent.relation,
-                                         intent.target, intent.object,
-                                         intent.role, intent.quantifier),
-                                  Intent(ASK_DESCRIBE, name)):
+                for name, same_thing in self._candidates(intent.concept):
+                    shapes = [Intent(intent.kind, name, intent.relation,
+                                     intent.target, intent.object,
+                                     intent.role, intent.quantifier)]
+                    # ANLAT yalnız kimliği koruyan adaya açık. Gömme komşusu
+                    # sorulan şeyin kendisi değil, o yüzden onun hakkında
+                    # konuşmak soruyu cevaplamaz. Özgün şekli deneyebilir —
+                    # orada okunan ilişkinin de tutması gerekiyor, çok daha sıkı.
+                    if same_thing:
+                        shapes.append(Intent(ASK_DESCRIBE, name))
+                    for shape in shapes:
                         other = self._typed(shape)
                         tried = self._fluent(other, line,
                                              self._question(other))
@@ -635,10 +643,34 @@ class Session:
 
         Uydurma riski artmıyor: aday sayısı artıyor, kapı gevşemiyor. Kazanan
         aday da seçilmiyor, grafta CEVAP ÜRETEN kazanıyor.
+
+        Her aday `(ad, aynı_şey_mi)` ikilisiyle dönüyor ve bu ayrım ölçümle
+        geldi. Alt öbek ve ek soyma KİMLİĞİ KORUR: "ormanların önemi" ile
+        "orman" aynı şeydir, başka söylenişi. Gömme komşusu korumaz — "fosfor"
+        ile "kükürt" iki ayrı elementtir. Ayrım yapılmadığında olan şuydu:
+
+            "Fosfor hangi besinlerde bulunur?" -> "Kükürt bir elementtir..."
+            "Kaza namazı nasıl kılınır?"       -> "Olay bir kavramdır..."
+
+        Hiçbiri uydurma değil, her cümle graftan geliyor. Ama sorulmayan
+        soruya cevap vermek, cevap vermemekten kötüdür.
         """
         if not concept:
             return []
+        # YAPI SÖZCÜĞÜ KAVRAM DEĞİLDİR. Ayrıştırıcı özneyi bulamadığında sık
+        # sık kapalı sınıftan bir kelime tutuyor: `bu`, `böyle`, `olan`,
+        # `biraz`, `fazla`. Bunlara aday üretmek zararlı — gömme `bu` için
+        # `vankomisin` ve `trakeostomi` öneriyordu, çünkü dağılımsal benzerlik
+        # her yerde geçen bir kelimeye hiçbir şey söyleyemez.
+        #
+        # Ölçüt kelime listesi değil, SIRA: bir dilin en sık kelimeleri her
+        # derlemde aynı türdendir. `lmm/verbs.is_structural` bunu sayımdan
+        # okuyor. Zamir zaten bağlamdan çözülür, gömmeden değil.
+        counts = frequency.counts()
+        if all(is_structural(word, counts) for word in concept.split()):
+            return []
         found, seen = [], {concept}
+        same = set()                # kimliği koruyanlar
         words = concept.split()
         # Alt öbekler: sondan ve baştan daralt.
         for size in range(len(words) - 1, 0, -1):
@@ -646,6 +678,7 @@ class Session:
                 piece = " ".join(words[at:at + size])
                 if piece and piece not in seen:
                     seen.add(piece)
+                    same.add(piece)
                     found.append(piece)
         # Ek soyma: biçimbilim tek kelimede yapıyor, öbeğin başında yapmıyordu.
         morphology = getattr(getattr(self.language, "grammar", None),
@@ -653,11 +686,24 @@ class Session:
         if morphology is not None:
             for piece in list(found) + [concept]:
                 head = piece.split()[0]
-                for peeled in (morphology.strip_plural(head),
-                               morphology.strip_genitive(head,
+                # Kesme işareti bir EK sınırı: "urfa’da" -> "urfa". Özel ad
+                # eklerini kesmeyle ayırıyor ve gövde solda kalıyor.
+                for mark in ("’", "'"):
+                    if mark in head:
+                        head = head.split(mark)[0]
+                # Durum eki taşıyan kelime kavramın kendisi değil, ROLÜ:
+                # "kadında", "turizmle", "urfa’da". Biçimbilim bunu zaten
+                # biliyor (`role_of`) ve tek kelimede kullanılıyordu; öbeğin
+                # başında kullanılmıyordu ve 43 soru tam burada kayboldu.
+                stem, _ = morphology.role_of(head)
+                for peeled in (head, stem,
+                               morphology.strip_plural(stem),
+                               morphology.strip_accusative(stem),
+                               morphology.strip_genitive(stem,
                                                          self._concepts())):
                     if peeled and peeled not in seen:
                         seen.add(peeled)
+                        same.add(peeled)
                         found.append(peeled)
         # Anlam komşusu: gömme varsa, BİLİNEN kavramlar arasından.
         vectors = getattr(self.memory, "vectors", None)
@@ -674,7 +720,7 @@ class Session:
         # AĞIRLIK: graf kaç olgu biliyorsa o kadar destekli.
         found = [name for name in found if self.memory.query(name)]
         found.sort(key=lambda name: -len(self.memory.query(name)))
-        return found[:most]
+        return [(name, name in same) for name in found[:most]]
 
     def _correction(self, line):
         """"hayır penguen uçamaz" -> düzeltilmiş cümle, değilse None.
