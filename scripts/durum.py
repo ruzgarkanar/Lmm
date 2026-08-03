@@ -75,7 +75,13 @@ def _exam(script, graph, extra):
 
 def real_sentences(graph, reader, count=150, seed=21):
     """Bizim yazmadığımız cümlelerde kapsam ve UYDURMA."""
-    path = "data/tr-gercek-niyet.txt"
+    # SINAV kümesi — hiçbir eğitim dosyasında geçmeyen satırlar. Önce
+    # `tr-gercek-niyet.txt` kullanılıyordu ve o dosyanın %83'ü niyet ağının
+    # eğitim verisinin içindeydi: "bağımsız ölçüm" dediğim şey kirliydi ve
+    # okuma oranını 10-18 puan abartıyordu (%77-86 yerine gerçekte %67,5).
+    # Cevaplama ve uydurma etkilenmemişti ama okuma için söylenen her sayı
+    # yanlıştı. Ölçen aracın kendisi yanılırsa, ölçüm ölçümden kötüdür.
+    path = "data/sinav/tr-sinav.txt"
     if not os.path.exists(path):
         print("    (veri yok)")
         return
