@@ -159,6 +159,7 @@ class Memory:
         self._by_target = {}
         self._exact = {}
         self._quantities = {}
+        self._loose = {}       # nesne/rol yok sayılarak: okuma için
         self._concepts = []
         self._concept_set = set()
         self._actions, self._action_set = [], set()
@@ -191,6 +192,18 @@ class Memory:
         slot = (edge.concept, edge.relation, edge.target, edge.object, edge.role)
         self._exact[slot + (edge.quantifier,)] = edge
         self._quantities.setdefault(slot, []).append(edge)
+        # NESNESİZ de indekslenir. Nesne kimliğin parçası (yazarken iki ayrı
+        # iddia ayrı kalmalı) ama SORARKEN kısıt değil zenginlik: "kalp ne
+        # yapabilir" sorusu nesneyi bilmiyor ve bilmek zorunda da değil.
+        #
+        # Bu ölçülerek bulundu ve bulunmasaydı pahalıya patlayacaktı: dilbilgisi
+        # nesneyi zaten yakalıyor ("kalp kanı pompalar" -> nesne=kan) ama o olgu
+        # yazıldıktan sonra HİÇBİR sorguya görünmüyordu, çünkü her arama
+        # nesne=None ile geliyor ve yuva anahtarı tutmuyordu. Okuyucu nesne
+        # üretmeye başlasa yüz bin olgu sessizce erişilemez olacaktı.
+        if edge.object is not None or edge.role is not None:
+            self._loose.setdefault((edge.concept, edge.relation, edge.target),
+                                   []).append(edge)
         self._note_concept(edge.concept)
         if edge.relation in TYPE_RELATIONS:
             self._note_concept(edge.target)
@@ -269,6 +282,9 @@ class Memory:
         if quantifier is not None:
             return self._exact.get(slot + (quantifier,))
         held = self._quantities.get(slot)
+        if not held and object is None and role is None:
+            # Nesnesiz sorulan soru, nesneli olguyu da görmeli.
+            held = self._loose.get((concept, relation, target))
         if not held:
             return None
         return max(held, key=lambda edge: coverage(edge.quantifier))
@@ -287,8 +303,11 @@ class Memory:
             raise CycleError(f"{edge.concept} -> {edge.target} creates a cycle")
         # Pekişme yalnız AYNI nicelik için. Farklı nicelik yeni bir iddiadır;
         # onu tanık saymak, kimsenin söylemediği bir mutabakatı uydurmaktı.
-        existing = self.direct(edge.concept, edge.relation, edge.target,
-                               edge.object, edge.role, edge.quantifier)
+        # YAZARKEN tam yuva: nesnesi farklı olan iki iddia ayrı kayıttır.
+        # Gevşek eşleşme burada olsaydı "kalp kanı pompalar" ile "kalp suyu
+        # pompalar" tek kayda çöker ve ikincisi birincisini pekiştirirdi.
+        existing = self._exact.get((edge.concept, edge.relation, edge.target,
+                                    edge.object, edge.role, edge.quantifier))
         if existing is not None:
             existing.corroborate(edge.source)
             return existing

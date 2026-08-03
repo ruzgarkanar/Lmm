@@ -527,6 +527,21 @@ class EpistemicGate:
                                                -focus.get(item[0], 0.0),
                                                rank.get(item[0], 99)))[:most]
 
+    def _enriched(self, concept, relation, found):
+        """(eylem, kutup) ikililerine, grafta duruyorsa NESNEYİ ekler.
+
+        `reasoning.abilities` yalnız eylemi ve kutbu döndürüyor — nesne graf
+        kenarında duruyor ama cevaba hiç ulaşmıyordu. Kalıtımla gelen eylemin
+        nesnesi yok (kavramın kendi kaydı değil), o zaman ikili kalıyor.
+        """
+        richer = []
+        for action, positive in found:
+            edge = next((one for one in self.memory.query(concept, relation)
+                         if one.target == action and one.object), None)
+            richer.append((action, positive, edge.object, edge.role) if edge
+                          else (action, positive))
+        return richer
+
     def _focus_rank(self, concept, targets):
         """Hedef -> sorunun kelimelerine yakınlık. Yakın olan konuşsun.
 
@@ -610,7 +625,9 @@ class EpistemicGate:
         if not found:
             return self._likely(concept, CAN) \
                 or never_learned_abilities(concept)
-        return abilities_answer(concept, self._telling(concept, found))
+        return abilities_answer(concept,
+                                self._enriched(concept, CAN,
+                                               self._telling(concept, found)))
 
     def _why(self, intent):
         """Why questions work the same for what a thing does and how it is."""

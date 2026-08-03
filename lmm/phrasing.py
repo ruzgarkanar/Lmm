@@ -241,8 +241,20 @@ def who_clause(concepts, action, positive=True):
 
 
 def ability_summary(concept, abilities):
-    """penguen, [(yüzmek, True), (uçmak, False)] -> "penguen yüzer ve uçamaz"."""
-    clauses = [verb_form(action, positive) for action, positive in abilities]
+    """penguen, [(yüzmek, True), (uçmak, False)] -> "penguen yüzer ve uçamaz".
+
+    Üçlü yerine dörtlü de gelebilir: (eylem, kutup, nesne, rol). Nesne varsa
+    söylenir — "kalp pompalar" değil "kalp kanı pompalar". Bir cümlenin
+    LLM'inki gibi okunmasını sağlayan şey akıcı sözcük seçimi değil, eylemin
+    NEYE yapıldığının orada durması.
+    """
+    clauses = []
+    for ability in abilities:
+        action, positive = ability[0], ability[1]
+        object = ability[2] if len(ability) > 2 else None
+        role = ability[3] if len(ability) > 3 else None
+        middle = f"{case_form(object, role)} " if object else ""
+        clauses.append(f"{middle}{verb_form(action, positive)}")
     return f"{concept} {listing(clauses)}"
 
 
