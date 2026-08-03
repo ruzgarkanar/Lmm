@@ -374,7 +374,10 @@ def not_understood(resembles=None, memory=None, spotted=(), long=False):
     yakaladığımız belli olur.
     """
     example = _example(resembles, memory) or SHAPE_EXAMPLES.get(resembles)
-    if example:
+    # Şekil örneği yalnız KISA cümlede yardım eder: "kartal uçarmı" yazana
+    # "'kuş uçar mı' gibi mi?" demek yol gösterir. Beş kelimelik gerçek bir
+    # soruya kuş örneği vermek ölçümdeki en utandırıcı cevaptı.
+    if example and not long:
         return (f"bunu anlamadım. '{example}' gibi bir şey mi demek istedin? "
                 f"kelimelerinden birini bilmiyor olabilirim.")
     # İki yeni söyleyiş de "anlamadım" taşıyor — `is_a_refusal` cevabı
