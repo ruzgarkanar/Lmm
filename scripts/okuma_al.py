@@ -132,18 +132,43 @@ def _a_concept(name, counts, verbs, morphology):
     return True
 
 
-def _said(concept, relation, target):
-    """Üçlüyü sistemin kendi ağzından bir cümleye çevirir."""
+def _said(concept, relation, target, object=None, role=None):
+    """Olguyu sistemin kendi ağzından bir cümleye çevirir."""
     if relation == IS_A:
         return phrasing.is_a_clause(concept, target)
     if relation == HAS_PROPERTY:
-        return phrasing.property_clause(concept, target, True)
+        return phrasing.property_clause(concept, target, True, object, role)
     if relation == HAS_PART:
         return phrasing.part_clause(concept, target, True)
-    return phrasing.ability_clause(concept, target, relation == CAN)
+    return phrasing.ability_clause(concept, target, relation == CAN,
+                                   object, role)
 
 
-def _round_trip(concept, relation, target, language):
+def _an_infinitive(word, morphology):
+    """Bu hedef bir fiil MASTARI mı — biçimden, listeden değil."""
+    endings = getattr(morphology, "infinitive_suffixes", ())
+    return any(word.endswith(end) and len(word) > len(end) + 1
+               for end in endings)
+
+
+def _verb_known(infinitive, lexicon):
+    """Sözlük ya da derlem bu fiili GERÇEKTEN biliyor mu.
+
+    `lexicon.surface()` sorulamaz: bilmediğinde sessizce mastardan türetip
+    döndürüyor, yani "biliyor musun" sorusuna her zaman evet diyor. İlk
+    yazışta ona sordum ve öğretme yolu hiç açılmadı — kurulmuş ama hiç
+    çalışmayan bir kapı, çalıştığı sanıldığı için hiç olmamasından kötü.
+
+    Bilinen bir fiilin çekimi ÜSTÜNE YAZILMAMALI: düzensizleri derlem doğru
+    biliyor ("gitmek" -> "gider"), türetme yanlış verebilir.
+    """
+    if (infinitive, True) in getattr(lexicon, "_forms", {}):
+        return True
+    return any(name == infinitive
+               for name, _ in frequency.verbs().values())
+
+
+def _round_trip(concept, relation, target, language, object=None, role=None):
     """Cümleye çevrilip GERİ okunuyor mu — ve aynı olgu mu çıkıyor.
 
     Bu kapı bir kez kaldırıldı ve gecenin en tehlikeli deliğini açtı: kelime
@@ -156,10 +181,20 @@ def _round_trip(concept, relation, target, language):
     kalıplarını kullanıyor. Yanlış okuyucuyla yapılan denetim, sistemin
     gerçekte anladığı şeyleri eliyordu.
     """
-    intent = language.understand(_said(concept, relation, target))
-    return (intent.kind == TEACH and intent.concept == concept
+    intent = language.understand(_said(concept, relation, target,
+                                       object, role))
+    if not (intent.kind == TEACH and intent.concept == concept
             and intent.relation == relation
-            and str(intent.target or "").startswith(str(target)[:4]))
+            and str(intent.target or "").startswith(str(target)[:4])):
+        return False
+    # NESNE DE GERİ OKUNMALI. Yoksa kapı nesnesiz cümleyi doğrulayıp nesneli
+    # olguyu yazardı: yazılan şey sınanandan fazla olurdu ve fazlası
+    # denetimsiz kalırdı. Ayrıştırıcı nesneyi çekimli döndürüyor ("kanı"),
+    # okuyucu eksiz veriyor ("kan") — baş harflerden eşleşme yeterli.
+    if object:
+        read = str(intent.object or "")
+        return bool(read) and read.startswith(str(object)[:4])
+    return True
 
 
 _SHARED = {}
@@ -241,6 +276,8 @@ def _screen(chunk):
         concept = (row.get("kavram") or "").strip().lower()
         relation = (row.get("ilişki") or row.get("iliski") or "").strip()
         target = (row.get("hedef") or "").strip().lower()
+        object = (row.get("nesne") or "").strip().lower() or None
+        role = (row.get("rol") or "").strip().lower() or None
         if relation not in ALLOWED:
             tally["ilişki tanınmadı"] += 1
             continue
@@ -262,6 +299,31 @@ def _screen(chunk):
         if relation == HAS_PART and not _round_trip(concept, relation,
                                                     target, language):
             target = phrasing.possessed(target)
+        # BİLMEDİĞİ FİİLİ OKUYAMIYOR. Ölçüldü: 306 eylem olgusunun 77'si
+        # "epinefrin dilde uygular" gibi kusursuz bir cümle üretti ve
+        # ayrıştırıcı UNKNOWN dedi — `uygular` derlemde geçmiyor, sözlükte
+        # yok, dolayısıyla o cümle kurulamıyor ve doğru bir olgu kapıda
+        # reddediliyor. Sistemin kendi ağzı kendi bilgisini eliyordu.
+        #
+        # Çözüm uydurmak değil TÜRETMEK: okuyucu mastarı veriyor, biçimbilim
+        # geniş zamanı zaten kuruyor (`phrasing.aorist`), ve sözcük dağarcığı
+        # yeniden eğitimsiz büyüyor — bu projenin üçüncü şartı.
+        #
+        # Sınır: yalnız mastar EKİYLE biten bir hedef fiil sayılıyor. Fiil
+        # öğrenmek olguyu geçirmiyor; olgu yine geri okunacak, çelişki
+        # denetiminden geçecek ve ancak öyle yazılacak.
+        if (relation in (CAN, CANNOT) and _an_infinitive(target, morphology)
+                and not _verb_known(target, memory.lexicon)):
+            memory.learn_word(target, phrasing.aorist(target, True),
+                              phrasing.aorist(target, False))
+        # Nesne AYRI bir iddia ve ayrı sınanıyor. Geri okunmuyorsa olgu
+        # atılmıyor, nesnesi düşürülüyor: "kalp pompalar" hâlâ doğru ve
+        # kaynağı var. Sınanamayanı yazmak ile sınananı atmak arasındaki
+        # doğru yer burası.
+        if object and not _round_trip(concept, relation, target, language,
+                                      object, role):
+            tally["nesne geri okunamadı"] += 1
+            object = role = None
         if not _round_trip(concept, relation, target, language):
             tally["geri okunamadı"] += 1
             if len(rejected) < 4:
@@ -271,8 +333,13 @@ def _screen(chunk):
         # Cümlenin kendisi değil KİMLİĞİ taşınıyor: aynı cümleden çıkan
         # olguları eşleştirmeye yetiyor ve grafı şişirmiyor.
         context = row.get("cümle")
+        # NESNE DE TAŞINMALI. İlk yazışta demet dörtlüydü ve nesne paralel
+        # elemede doğrulanıp orada kalıyordu: kapı 79 nesneyi sınayıp
+        # geçirdi, yazma yolu hiçbirini görmedi, graf yine %0 nesneli çıktı.
+        # Sınanan ile yazılan aynı şey olmalı.
         passed.append((concept, relation, target,
-                       hash(context) & 0xFFFFFFFF if context else None))
+                       hash(context) & 0xFFFFFFFF if context else None,
+                       object, role))
     return passed, tally, rejected
 
 
@@ -293,7 +360,7 @@ def take_parallel(rows, graph, memory, source, write=False, workers=None):
                 if len(rejected[kind]) < 4:
                     rejected[kind].append(example)
     reasoning = Reasoning(memory)
-    for concept, relation, target, context in survivors:
+    for concept, relation, target, context, object, role in survivors:
         known, _ = reasoning.about(concept, relation, target)
         if known is not None and known != (relation not in (CANNOT,)):
             tally["grafla çelişti"] += 1
@@ -310,7 +377,7 @@ def take_parallel(rows, graph, memory, source, write=False, workers=None):
             # olmamalı.
             try:
                 memory.write(Edge(concept, relation, target, source=source,
-                                  context=context))
+                                  context=context, object=object, role=role))
             except CycleError:
                 tally["döngü kurardı"] += 1
                 if len(rejected["döngü"]) < 4:
@@ -355,6 +422,8 @@ def take(rows, memory, source, write=False, language=None):
         concept = (row.get("kavram") or "").strip().lower()
         relation = (row.get("ilişki") or row.get("iliski") or "").strip()
         target = (row.get("hedef") or "").strip().lower()
+        object = (row.get("nesne") or "").strip().lower() or None
+        role = (row.get("rol") or "").strip().lower() or None
         if relation not in ALLOWED:
             tally["ilişki tanınmadı"] += 1
             rejected["ilişki"].append(relation)
@@ -376,6 +445,31 @@ def take(rows, memory, source, write=False, language=None):
         if relation == HAS_PART and not _round_trip(concept, relation,
                                                     target, language):
             target = phrasing.possessed(target)
+        # BİLMEDİĞİ FİİLİ OKUYAMIYOR. Ölçüldü: 306 eylem olgusunun 77'si
+        # "epinefrin dilde uygular" gibi kusursuz bir cümle üretti ve
+        # ayrıştırıcı UNKNOWN dedi — `uygular` derlemde geçmiyor, sözlükte
+        # yok, dolayısıyla o cümle kurulamıyor ve doğru bir olgu kapıda
+        # reddediliyor. Sistemin kendi ağzı kendi bilgisini eliyordu.
+        #
+        # Çözüm uydurmak değil TÜRETMEK: okuyucu mastarı veriyor, biçimbilim
+        # geniş zamanı zaten kuruyor (`phrasing.aorist`), ve sözcük dağarcığı
+        # yeniden eğitimsiz büyüyor — bu projenin üçüncü şartı.
+        #
+        # Sınır: yalnız mastar EKİYLE biten bir hedef fiil sayılıyor. Fiil
+        # öğrenmek olguyu geçirmiyor; olgu yine geri okunacak, çelişki
+        # denetiminden geçecek ve ancak öyle yazılacak.
+        if (relation in (CAN, CANNOT) and _an_infinitive(target, morphology)
+                and not _verb_known(target, memory.lexicon)):
+            memory.learn_word(target, phrasing.aorist(target, True),
+                              phrasing.aorist(target, False))
+        # Nesne AYRI bir iddia ve ayrı sınanıyor. Geri okunmuyorsa olgu
+        # atılmıyor, nesnesi düşürülüyor: "kalp pompalar" hâlâ doğru ve
+        # kaynağı var. Sınanamayanı yazmak ile sınananı atmak arasındaki
+        # doğru yer burası.
+        if object and not _round_trip(concept, relation, target, language,
+                                      object, role):
+            tally["nesne geri okunamadı"] += 1
+            object = role = None
         if not _round_trip(concept, relation, target, language):
             tally["geri okunamadı"] += 1
             rejected["geri okuma"].append(f"{concept} {relation} {target}")
@@ -388,7 +482,8 @@ def take(rows, memory, source, write=False, language=None):
             continue
         if write:
             try:
-                memory.write(Edge(concept, relation, target, source=source))
+                memory.write(Edge(concept, relation, target, source=source,
+                                  object=object, role=role))
             except CycleError:
                 tally["döngü kurardı"] += 1
                 continue
