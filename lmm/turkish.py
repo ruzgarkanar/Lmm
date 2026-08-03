@@ -176,6 +176,12 @@ class TurkishMorphology:
                   "daha kısa", "kısa kes", "uzatma"),
         "long": ("uzun anlat", "ayrıntılı anlat", "detaylı anlat",
                  "uzun cevap ver", "ayrıntılı cevap ver"),
+        # Cümlenin İÇİNDE geçen uzunluk isteği. Yönerge oturumu değiştirir,
+        # bunlar yalnız o cevabı: "penguen hakkında bildiğin her şeyi uzun
+        # uzun anlat" bir yönerge değil, uzun cevap isteyen bir SORU.
+        "long_here": ("uzun uzun", "her şeyi", "hepsini", "ayrıntılı olarak",
+                      "detaylıca", "uzunca"),
+        "short_here": ("kısaca", "tek cümleyle", "özetle", "kısa kes"),
         "plain": ("kaynak gösterme", "kaynaksız konuş", "kaynak yazma",
                   "kaynakları gizle"),
         "cited": ("kaynak göster", "kaynaklı konuş", "kaynakları göster"),

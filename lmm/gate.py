@@ -43,10 +43,13 @@ HEDGE_THRESHOLD = 0.5
 # doğru yer burası: döküme kaçmadan önceki en geniş nokta.
 MOST_TOLD = 8
 # Anlatma isteyen soru daha geniş: "anlat" diyen döküm değil ANLATI istiyor.
-DESCRIBING = 9
+# Dokuz denendi ve ölçüm "sabit" dedi: "nedir" 114 karakter, "anlat" 130 —
+# 1,3 kat. Aynı ölçümde dil modeli 4,8 kat açılıyor (278 -> 1348). Bir cevabın
+# uzunluğu soruya bakmıyorsa sistem soruyu değil kendini konuşuyor.
+DESCRIBING = 24
 # Yönergeyle istenen uzunluklar. LLM'de bunu istem yapıyor; burada oturum
 # hatırlıyor ve her cevaba uygulanıyor.
-TOLD_BY_LENGTH = {"short": 3, "long": 12}
+TOLD_BY_LENGTH = {"short": 3, "long": 30}
 # Bir anlam öbeğinin sorunun kelimelerine ne kadar yakın durması, güvenin
 # sabit seçimini bozmaya yetsin. Eşik olmadan gürültü seçiyor: her öbekte bir
 # kelime bir kelimeye biraz benzer ve en yüksek gürültü kazanıyor.
@@ -86,8 +89,11 @@ class EpistemicGate:
             # ANLATMA sorusu daha geniş: "anlat" diyen döküm değil anlatı
             # istiyor. Yönerge verilmişse o kazanır — kullanıcının söylediği,
             # sistemin varsayımını her zaman yener.
-            self.exposition.told_most = max(self.told_most, DESCRIBING) \
-                if self.told_most >= MOST_TOLD else self.told_most
+            # ANLAT geniş konuşur — ama istenen kısaysa istenen kazanır.
+            # Kullanıcının söylediği, sistemin varsayımını her zaman yener.
+            self.exposition.told_most = (max(self.told_most, DESCRIBING)
+                                         if self.told_most >= MOST_TOLD
+                                         else self.told_most)
             return self.exposition.describe(
                 intent.concept, self._sense(intent.concept, self.focus_words),
                 self._focus_rank)
