@@ -120,6 +120,12 @@ class TurkishMorphology:
     indefinite = "bir"
     # Sohbeti bitiren, yardım isteyen ve durum soran sözler. ASCII eşdeğerleri
     # bilerek duruyor: Türkçe klavyesi olmayan da çıkabilmeli.
+    # Söylem arası: cümlenin konusu değil, konu DEĞİŞTİĞİNİN işareti.
+    # "bu arada kalp nedir" sorusunda ayrıştırıcı `bu`yu özne sanıyordu, `bu`
+    # zamiri de bir önceki konuya çözülüyordu — farklı soruya aynı cevap.
+    # Kapalı sınıf: openers gibi dilin verisi, kod değil.
+    asides = ("bu arada", "her neyse", "neyse", "aklıma gelmişken")
+
     exit_words = ("çık", "cik", "exit")
     help_words = ("yardım", "yardim", "help", "?")
     status_words = ("durum", "istatistik")
