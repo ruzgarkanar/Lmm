@@ -148,6 +148,31 @@ class TurkishMorphology:
                      "kendini tanıt", "kendini tanıtır mısın", "sen nesin"),
         "ability": ("ne yapabilirsin", "neler yapabilirsin",
                     "ne işe yarıyorsun", "nasıl kullanılır", "yardım"),
+        # Tepki: bilgi istemeyen, konuşmayı süren sözler. Soru sanılıp
+        # "kelimeyi öğret" deniyordu — 12 turluk ölçümde iki tur böyle gitti.
+        "backchannel": ("hmm", "hm", "ilginç", "vay", "vay be", "öyle mi",
+                        "anladım", "iyiymiş", "güzelmiş", "peki", "tamam",
+                        "hadi ya", "cidden mi", "aynen"),
+        # Vazgeçme: konuyu kapat, yenisine geç.
+        "dismissal": ("boşver", "boş ver", "geç bunu", "fark etmez",
+                      "önemli değil", "kapat bu konuyu"),
+        # İtiraz açılışı: içerik yok, yalnız "yanlışsın" var. Cevap, doğrusunu
+        # İSTEMEK — düzeltme mekanizması zaten var, ona davet ediliyor.
+        "challenge": ("yanlış biliyorsun", "yanlışın var", "yanlış bu",
+                      "emin misin", "bence yanlış", "doğru mu bu",
+                      "yanlış bence"),
+    }
+    # Yönergeler: davranışı değiştiren buyruklar. LLM'deki system prompt'un
+    # buradaki karşılığı — fark şu: prompt her istekte yeniden gönderilir,
+    # yönerge bir kez söylenir ve oturum hatırlar. Kapalı sınıf.
+    directives = {
+        "short": ("kısa cevap ver", "kısa konuş", "kısa cevapla",
+                  "daha kısa", "kısa kes", "uzatma"),
+        "long": ("uzun anlat", "ayrıntılı anlat", "detaylı anlat",
+                 "uzun cevap ver", "ayrıntılı cevap ver"),
+        "plain": ("kaynak gösterme", "kaynaksız konuş", "kaynak yazma",
+                  "kaynakları gizle"),
+        "cited": ("kaynak göster", "kaynaklı konuş", "kaynakları göster"),
     }
     # Açılış sözcükleri: cümlenin başında durup hiçbir şey eklemeyenler.
     # "acaba penguen uçabilir mi" ile "penguen uçabilir mi" aynı soru.

@@ -33,6 +33,9 @@ THANKS = "thanks"
 WELLBEING = "wellbeing"
 IDENTITY = "identity"
 ABILITY = "ability"
+BACKCHANNEL = "backchannel"
+DISMISSAL = "dismissal"
+CHALLENGE = "challenge"
 
 # Her biri, o niyeti taşıyan sözler. Kelime kelime değil, cümlenin tamamı ya da
 # içinde geçen anahtar aranıyor — "selam", "selam nasılsın", "merhaba dostum".
@@ -56,6 +59,9 @@ REPLIES = {
     WELLBEING: phrasing.wellbeing,
     IDENTITY: phrasing.introduced,
     ABILITY: phrasing.what_i_can_do,
+    BACKCHANNEL: phrasing.acknowledged,
+    DISMISSAL: phrasing.dismissed,
+    CHALLENGE: phrasing.challenged,
 }
 
 
@@ -82,7 +88,19 @@ def recognise(sentence):
     # kapı ayrıştırmadan ÖNCE çalıştığı için bu, bilinen bir kavramı bilinmez
     # kılan sessiz bir tıkaçtı — ve hangi kavramların tıkandığı sözcük
     # listesine bakılarak kestirilemezdi.
-    for kind in (WELLBEING, IDENTITY, ABILITY, THANKS, FAREWELL, GREETING):
+    # Tepki ve vazgeçme YALNIZ cümlenin tamamı o sınıftansa tanınır:
+    # "ilginç" kelimesi "penguen ilginç mi" sorusunun içinde de geçer ve
+    # oradan bir soru çıkar, tepki değil. Diğer sınıflarda dizi araması
+    # yeterli çünkü sözleri bilgi cümlesinde geçmiyor.
+    for kind in (BACKCHANNEL, DISMISSAL):
+        vocabulary = {word for form in EXCHANGES.get(kind, ())
+                      for word in form.split()}
+        from lmm.turkish import TurkishMorphology
+        loose = vocabulary | set(getattr(TurkishMorphology, "openers", ()))             | set(getattr(TurkishMorphology, "asides", ()))
+        if words and all(word in loose for word in words)                 and any(word in vocabulary for word in words):
+            return kind
+    for kind in (CHALLENGE, WELLBEING, IDENTITY, ABILITY, THANKS, FAREWELL,
+                 GREETING):
         for form in EXCHANGES[kind]:
             spoken = form.split()
             for start in range(len(words) - len(spoken) + 1):
