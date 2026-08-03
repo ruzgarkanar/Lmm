@@ -723,6 +723,20 @@ def dont_know(concept, suggestions=()):
     return f"{plain} {did_you_mean(suggestions)}"
 
 
+def related_instead(concept, neighbours):
+    """Bilmiyorum, ama ANLAMCA yakın şunları biliyorum.
+
+    Yazım benzerliğinden ayrı bir şey: "kus" ile "kuş" harf komşusu, "glokom"
+    ile "katarakt" ANLAM komşusu. İkincisini yalnız dağılım verebilir.
+
+    Söylenen şey bir iddia DEĞİL: sorulan kavram hakkında hiçbir şey
+    söylenmiyor, yalnız elde ne olduğu gösteriliyor. Geometri aday bulur,
+    kararı kapı verir — ve burada kapı zaten "bilmiyorum" demiş durumda.
+    """
+    return (f"{concept} hakkında bir şey bilmiyorum. "
+            f"şunları biliyorum, ilgili olabilir: {listing(neighbours)}.")
+
+
 def need_first(question, suggestions=()):
     """It has a goal but no ground to stand on yet."""
     plain = ("bunu bilmiyorum. cevaplayabilmem için önce şunu öğrenmem lazım: "
