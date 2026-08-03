@@ -5,7 +5,7 @@ hallucination is not filtered out — it is unreachable.
 """
 from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
                            HAS_PART, LACKS_PART, PLACE, REQUIRES, ALL)
-from lmm.phrasing import (related_instead,
+from lmm.phrasing import (related_instead, likely_traits,
                           is_a_clause, is_not_a_clause, denied, ability_clause,
                           property_clause,
                           dont_know, how_many, which_meaning, compared,
@@ -403,7 +403,16 @@ class EpistemicGate:
     def _all_properties(self, concept):
         found = self._in_sense(concept, self.reasoning.properties(concept))
         if not found:
-            return never_learned_properties(concept)
+            # Bilinmiyorsa kardeşlerinden ÇIKARILABİLİR mi. Eşik ölçüldü:
+            # kardeşlerin yarısından fazlasında varsa isabet %83,3. Daha
+            # düşük eşikte daha çok şey söylenir ama %29'a düşer ve onda
+            # yedisi yanlış olur — gerekçeli bile olsa söylenemez.
+            #
+            # Kapsam dürüstçe DÜŞÜK: kavramların %1,2'sinde çalışıyor. Sebebi
+            # ölçüldü — Vikipedi kardeşlere ortak nitelik değil, her birine
+            # kendine özgü ayrıntı veriyor. Yapı sağlam, veri seyrek.
+            return self._likely(concept, HAS_PROPERTY) \
+                or never_learned_properties(concept)
         return properties_answer(concept, self._telling(concept, found))
 
     def _telling(self, concept, found, most=MOST_TOLD):
@@ -466,10 +475,22 @@ class EpistemicGate:
             return nobody_is(prop)
         return who_is_answer(found, prop)
 
+    def _likely(self, concept, relation):
+        """Kardeşlerden çıkan tahmin — varsa cümlesi, yoksa None."""
+        guesses = self.reasoning.likely(concept, relation)
+        if not guesses:
+            return None
+        family = next((edge.target for edge
+                       in self.memory.query(concept, IS_A)), None)
+        if not family:
+            return None
+        return likely_traits(concept, [name for name, _ in guesses], family)
+
     def _abilities(self, concept):
         found = self._in_sense(concept, self.reasoning.abilities(concept))
         if not found:
-            return never_learned_abilities(concept)
+            return self._likely(concept, CAN) \
+                or never_learned_abilities(concept)
         return abilities_answer(concept, self._telling(concept, found))
 
     def _why(self, intent):

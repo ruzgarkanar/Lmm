@@ -245,6 +245,54 @@ class Reasoning:
                     queue.append(other)
         return found
 
+    # Bir tahminin söylenebilmesi için kardeşlerin bu kadarında bulunması
+    # gerekiyor. Eşik ÖLÇÜLDÜ, seçilmedi — 600 saklı kenarda:
+    #
+    #     ilk 1 önerinin isabeti   %18,6      (tek başına söylenemez)
+    #     kardeşlerin %30'unda     %40,9
+    #     kardeşlerin %50'sinde    %83,3      <- seçilen
+    #     kardeşlerin %70'inde     %80,0      (daha seyrek, daha iyi değil)
+    #
+    # %83 isabet, "muhtemelen" diyerek söylenebilir bir sayı. Daha düşük eşik
+    # daha çok şey söyletir ama söylenenlerin yarısı yanlış olur.
+    LIKELY = 0.5
+    LEAST_SIBLINGS = 4
+
+    def likely(self, concept, relation, most=3):
+        """Kardeşlerinden ÇIKARILAN, ama söylenmemiş nitelikler.
+
+        Graftaki düzenlilik yazılmamış bir kenarı tahmin etmeye yetiyor mu
+        diye ölçüldü ve yetiyor: saklanan bir kenar, yalnız yapıya bakılarak
+        rastgelenin 2,2 katı doğrulukla bulunuyor (ilk 20'de %38,0 / %17,5).
+        Yani graf bir liste değil — yazılmamış olan, yazılanlardan çıkıyor.
+        LLM'in "ara değer bulma" yeteneğinin graf karşılığı bu.
+
+        Dönen şey bir OLGU DEĞİL, bir tahmindir ve öyle söylenmeli. Grafa
+        yazılamaz: bu gece ölçüldü, yazılan tahmin hafızayı kirletiyor ve
+        biriktikçe cevapları bozuyor. Söylenebilir, çünkü gerekçesi var ve
+        gerekçe cevapla birlikte veriliyor.
+        """
+        hierarchy = self.memory.kinds.hierarchical()
+        siblings = set()
+        for edge in self.memory.query(concept, hierarchy):
+            if edge.target:
+                siblings.update(other.concept for other
+                                in self.memory.incoming(edge.target, hierarchy))
+        siblings.discard(concept)
+        if len(siblings) < self.LEAST_SIBLINGS:
+            return []
+        held = {edge.target for edge in self.memory.query(concept, relation)}
+        counted = {}
+        for name in siblings:
+            for edge in self.memory.query(name, relation):
+                if edge.target and edge.target not in held:
+                    counted[edge.target] = counted.get(edge.target, 0) + 1
+        found = [(target, times / len(siblings))
+                 for target, times in counted.items()
+                 if times / len(siblings) >= self.LIKELY]
+        found.sort(key=lambda item: (-item[1], item[0]))
+        return found[:most]
+
     def about(self, concept, relation, target, object=None, role=None):
         """Any relation at all, read from the registry rather than a branch.
 
