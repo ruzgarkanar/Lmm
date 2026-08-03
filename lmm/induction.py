@@ -21,6 +21,17 @@ from lmm.memory import (Edge, IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
                         INHERITING)
 
 MINIMUM_EXAMPLES = 2
+# Bir aile en çok bu kadar üyeyle taranır. Ölçüldü: `bakım bir işlemdir`
+# öğretmek 1,0 saniye sürüyordu ve saniyenin 2,9'u burada geçiyordu —
+# `işlem` ailesinin 13.322 üyesi, her nitelik için üç kez taranıyor ve
+# 892.574 kez `_opinionated` çağrılıyor. Sohbetle beslemeyi imkânsız kılan
+# yavaşlık buydu.
+#
+# Kesmek bir kayıp ve kaydı düşülmeli: on üç bin üyeli bir aile hakkında
+# kural önerilmiyor artık. Ama o aileler zaten kural vermiyor — üyeleri
+# birbirine benzemiyor, `işlem` altında ne varsa var. Kural, ancak dar ve
+# tutarlı bir ailede anlamlı.
+LARGEST_FAMILY = 400
 MINIMUM_TRAITS = 2      # one shared habit is a coincidence
 
 
@@ -280,9 +291,9 @@ class Induction:
             families = {name: kids for name, kids in families.items()
                         if name in near}
         for parent, children in families.items():
-            if len(children) < MINIMUM_EXAMPLES:
+            if not MINIMUM_EXAMPLES <= len(children) <= LARGEST_FAMILY:
                 continue
-            for target, affirms, denies, lookup in self._traits():
+            for target, affirms, denies, lookup in self._traits(children):
                 if lookup(parent, target)[0] is not None:
                     continue                    # the type is already settled
                 # Only what the system was told counts as evidence, never what
@@ -333,8 +344,33 @@ class Induction:
         return [edge.concept for edge in self.memory.edges
                 if edge.relation == IS_A and edge.target == parent]
 
-    def _traits(self):
-        for action in self.memory.actions():
+    def _traits(self, among=None):
+        """Denenecek nitelikler. `among` verilirse yalnız o ailede GEÇENLER.
+
+        Önceden grafın bildiği her nitelik her aile için deneniyordu. Bir
+        ailede hiç kimsede olmayan nitelik kural veremez — `agree` boş çıkar
+        ve `MINIMUM_EXAMPLES` eşiğini geçemez — ama denenmesi bedava değil:
+        ölçüldü, 2.231 nitelik x 400 üye = 892.574 tarama, ve bir cümle
+        öğretmek 1,0 saniye sürüyordu.
+
+        Daraltma sonucu değiştirmiyor, yalnız imkânsızı denemeyi bırakıyor.
+        """
+        if among is None:
+            for action in self.memory.actions():
+                yield action, CAN, CANNOT, self.reasoning.can_do
+            for prop in self.memory.properties():
+                yield prop, HAS_PROPERTY, LACKS_PROPERTY, self.reasoning.has_property
+            return
+        actions, properties = set(), set()
+        for child in among:
+            for edge in self.memory.query(child):
+                if edge.target is None:
+                    continue
+                if edge.relation in (CAN, CANNOT):
+                    actions.add(edge.target)
+                elif edge.relation in (HAS_PROPERTY, LACKS_PROPERTY):
+                    properties.add(edge.target)
+        for action in actions:
             yield action, CAN, CANNOT, self.reasoning.can_do
-        for prop in self.memory.properties():
+        for prop in properties:
             yield prop, HAS_PROPERTY, LACKS_PROPERTY, self.reasoning.has_property
