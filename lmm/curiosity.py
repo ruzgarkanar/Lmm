@@ -33,7 +33,17 @@ class Curiosity:
         return None
 
     def _gaps(self):
-        concepts = self.memory.concepts()
+        # HAKKINDA BİR ŞEY BİLİNENLER ÖNCE. Süzmek değil sıralamak: `concepts()`
+        # özneleri de HEDEF olarak geçen adları da veriyor, ve ikinciler çoğu
+        # zaman bir tamlamanın parçası — `dalı`, `sistemi`, `resm`. Onları
+        # elemek küçük bir grafta her şeyi elerdi (yeni öğrenilen bir hedef
+        # hakkında soru sormak doğru), ama büyük grafta öne almak yanlış.
+        #
+        # Ölçüldü: bu sıralama olmadan merak döngüsü bir dil modeline "dalı
+        # nedir?" diye soruyor ve model olmayan bir şeye tanım uyduruyordu.
+        # Kötü soru, kötü cevabın kaynağıdır.
+        concepts = sorted(self.memory.concepts(),
+                          key=lambda name: -len(self.memory.query(name)))
         for concept in concepts:            # what is this thing, anyway?
             if not self.memory.query(concept, IS_A):
                 yield Question(f"type:{concept}",
