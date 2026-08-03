@@ -240,6 +240,12 @@ class Intuition(LanguageOrgan):
         morphology = self.grammar.morphology
         while tokens and tokens[0] in morphology.openers:
             tokens = tokens[1:]         # "peki uçar mı" is "uçar mı"
+        # Söylem araları çok kelimeli olabilir ("bu arada"), o yüzden tek tek
+        # kelime soymak onları yakalayamıyordu — `bu` özne sanılıyordu.
+        for aside in getattr(morphology, "asides", ()):
+            parts = aside.split()
+            if tokens[:len(parts)] == parts and len(tokens) > len(parts):
+                tokens = tokens[len(parts):]
         # Muhatap zamiri de baştan ayıklanıyor: bir soruda "bana"/"bize"
         # cümlenin konusu değil, kime söylendiğidir — ve LMM her zaman
         # muhatap. Sonradan atmak yetmiyordu, çünkü yanlış bir okuma önce
