@@ -82,7 +82,14 @@ class Reasoning:
         ayrımına dayanamaz, yoksa sonsuz özyineleme olur. Kenar sayısına bağlı
         önbellek, çünkü bu test grafın büyük olduğu yerde çağrılıyor.
         """
-        marker = len(self.memory.edges)
+        # Ölçüt `revision`, kenar SAYISI değil. Sayı net-sıfır değişimde
+        # yanılıyor: bir kavram unutulup aynı sayıda yeni olgu yazılınca sayı
+        # geri aynı olur ve önbellek bayat kalır. Ölçüldü — `forget(kartal)`
+        # 11 kenar sildi, 11 yeni olgu yazıldı, sayı 128.485'e döndü ve
+        # önbellek silineni hâlâ biliyordu. `revision` her yazmada, `purges`
+        # her unutmada artıyor ve ikisi birlikte geri saymıyor.
+        marker = (getattr(self.memory, 'revision', 0),
+                  getattr(self.memory, 'purges', 0))
         cache = getattr(self, "_reach_cache", None)
         if cache is None or cache[0] != marker:
             cache = (marker, {})
@@ -202,7 +209,14 @@ class Reasoning:
         Önbellek kenar sayısına bağlı: graf büyürken her sorguda tüm kenarları
         taramak ölçekte kabul edilemez ve tümevarımda tam bu hata ölçülmüştü.
         """
-        marker = len(self.memory.edges)
+        # Ölçüt `revision`, kenar SAYISI değil. Sayı net-sıfır değişimde
+        # yanılıyor: bir kavram unutulup aynı sayıda yeni olgu yazılınca sayı
+        # geri aynı olur ve önbellek bayat kalır. Ölçüldü — `forget(kartal)`
+        # 11 kenar sildi, 11 yeni olgu yazıldı, sayı 128.485'e döndü ve
+        # önbellek silineni hâlâ biliyordu. `revision` her yazmada, `purges`
+        # her unutmada artıyor ve ikisi birlikte geri saymıyor.
+        marker = (getattr(self.memory, 'revision', 0),
+                  getattr(self.memory, 'purges', 0))
         cached = getattr(self, "_alias_cache", None)
         if cached is not None and cached[0] == marker:
             return cached[1]
