@@ -155,6 +155,13 @@ def aorist(infinitive, positive=True):
     gider) bu kuralla yanlış çıkar; o yüzden son çare, ilk yol değil. Yanlış
     bir çekim yine de mastardan iyidir: mastar cümleyi hiç kurdurmuyor.
     """
+    # BİLEŞİK FİİL: "devam etmek", "yer almak". Çekim yalnız SON kelimede
+    # olur, baştaki ad olduğu gibi durur. Ölçüldü — okuma pilotunda 36 olgu
+    # tam buradan kayboldu: "devam etir", "ileri sürer" yerine bozuk biçimler
+    # çıkıyor ve bozuk cümle geri okunamıyordu.
+    if " " in infinitive:
+        head, _, last = infinitive.rpartition(" ")
+        return f"{head} {aorist(last, positive)}"
     stem = infinitive
     for ending in ("mak", "mek"):
         if stem.endswith(ending) and len(stem) > len(ending) + 1:
@@ -162,6 +169,9 @@ def aorist(infinitive, positive=True):
             break
     if not positive:
         return stem + ("maz" if _harmony_vowel(stem) in "aıou" else "mez")
+    # Olumsuzda ek ÜNSÜZLE başlıyor, yumuşama olmuyor ("etmez"); olumluda
+    # ünlüyle başlıyor ve gövde yumuşuyor ("eder").
+    stem = _voicing_stems().get(stem, stem)
     if stem and stem[-1] in "aeıioöuü":
         return stem + "r"
     # Tek heceli gövde GENİŞ ünlü alır, çok heceli DAR: "uç" -> uçar ama
@@ -171,6 +181,12 @@ def aorist(infinitive, positive=True):
     if len(vowels) <= 1 and stem not in _narrow_stems():
         return stem + ("a" if _harmony_vowel(stem) in "aıou" else "e") + "r"
     return stem + _harmony_vowel(stem) + "r"
+
+
+def _voicing_stems():
+    """Ünlü önünde son ünsüzü yumuşayan gövdeler — dilden soruluyor."""
+    from lmm.turkish import TurkishMorphology
+    return getattr(TurkishMorphology, "voicing_aorist_stems", {})
 
 
 def _narrow_stems():

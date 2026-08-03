@@ -103,6 +103,12 @@ class TurkishMorphology:
     # gereken bilgi, tıpkı soru sözcükleri gibi.
     narrow_aorist_stems = ("al", "bil", "bul", "dur", "gel", "gör", "kal",
                            "ol", "öl", "san", "var", "ver", "vur")
+    # Son ünsüzü ünlü önünde yumuşayan gövdeler: "et" -> eder, "git" -> gider.
+    # Kapalı ve küçük bir sınıf. Olmadan "devam eter" çıkıyordu ve bileşik
+    # fiiller ("devam etmek", "yardım etmek") okuma kapısında toptan
+    # reddediliyordu — Türkçenin en üretken fiil kalıbı.
+    voicing_aorist_stems = {"et": "ed", "git": "gid", "tat": "tad",
+                            "güt": "güd", "dit": "did"}
     # Aşağıdakiler ÇIKTI değil GİRDİ: sistemin söyledikleri değil, tanıdıkları.
     # `lmm/phrasing.py` "ne denir"i bilir, burası "ne duyulur"u. İkisi de dil ama
     # yönleri ters, ve karıştırılınca ikinci bir dil eklemek iki dosya yerine

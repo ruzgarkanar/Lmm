@@ -45,7 +45,7 @@ from lmm.harvest import _config, HarvestError                # noqa: E402
 ISTEM = """Aşağıdaki ansiklopedi tanımından OLGULAR çıkar.
 
 Her olgu için TAM OLARAK şu biçimde bir JSON satırı yaz:
-{"kavram": "...", "ilişki": "...", "hedef": "..."}
+{"kavram": "...", "ilişki": "...", "hedef": "...", "nesne": "...", "rol": "..."}
 
 `ilişki` yalnız şunlardan biri olabilir:
   type      X bir Y'dir            {"kavram":"kartal","ilişki":"type","hedef":"kuş"}
@@ -54,10 +54,17 @@ Her olgu için TAM OLARAK şu biçimde bir JSON satırı yaz:
   cannot    X şunu yapamaz         {"kavram":"penguen","ilişki":"cannot","hedef":"uçmak"}
   has       X'in şu parçası var    {"kavram":"kuş","ilişki":"has","hedef":"kanat"}
 
+`nesne` ve `rol` YALNIZ eylem neye/nereye yapılıyorsa yazılır, yoksa hiç yazma:
+  nesne  eylemin nesnesi    {"kavram":"kalp","ilişki":"can","hedef":"pompalamak","nesne":"kan","rol":"nesne"}
+  yer    eylemin yeri       {"kavram":"penguen","ilişki":"can","hedef":"yaşamak","nesne":"kutup","rol":"yer"}
+
 Kurallar:
 - `kavram` her satırda tanımın KONUSU olsun, küçük harfle. Cümle başındaki
   zarfı özne sanma: "Matematikte, grup bir yapıdır" -> kavram `grup`.
 - `hedef` TEK kelime olsun: sıfat sıfat, fiil MASTAR halinde (uçmak, avlanmak).
+- `nesne` de TEK kelime ve EKSİZ olsun: "kanı" değil `kan`, "kutupta" değil
+  `kutup`. Eki sistem kendi ekler.
+- Eylem nesnesizse `nesne` ve `rol` alanlarını hiç yazma. Uydurma.
 - Metinde olmayan hiçbir şey yazma. Emin değilsen o satırı hiç yazma.
 - Yalnız JSON satırları döndür, başka hiçbir şey yazma.
 
@@ -95,6 +102,8 @@ def rows_in(text):
             row = json.loads(piece)
         except ValueError:
             continue
+        # Nesne ve rol İSTEĞE BAĞLI: olmayan bir nesneyi zorlamak, modelin
+        # uydurmasını istemek olurdu. Üçlü hâlâ geçerli bir olgu.
         if row.get("kavram") and row.get("ilişki") and row.get("hedef"):
             found.append(row)
     return found
