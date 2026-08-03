@@ -723,6 +723,19 @@ def dont_know(concept, suggestions=()):
     return f"{plain} {did_you_mean(suggestions)}"
 
 
+def likely_traits(concept, guesses, family):
+    """Bilinmiyor ama KARDEŞLERİNDEN çıkıyor — tahmin olduğu söylenerek.
+
+    Bir olgu değil bir tahmin, ve gerekçesi cevapla BİRLİKTE veriliyor:
+    "çünkü bildiğim X'lerin çoğu öyle". Gerekçesi olmayan tahmin uydurmadır;
+    gerekçesi olan tahmin, insanın da yaptığı şeydir.
+
+    Grafa yazılmıyor — bu gece ölçüldü, yazılan tahmin hafızayı kirletiyor.
+    """
+    return (f"{concept} hakkında bunu öğrenmedim, ama muhtemelen "
+            f"{listing(guesses)} — çünkü bildiğim {family}lerin çoğu öyle.")
+
+
 def related_instead(concept, neighbours):
     """Bilmiyorum, ama ANLAMCA yakın şunları biliyorum.
 
