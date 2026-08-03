@@ -536,6 +536,9 @@ class Session:
             self.thread.note(intent.concept)
         if intent.kind != TEACH:
             self.last = intent          # eksiltili sorular buna dayanacak
+            # Cümlenin kendi kelimeleri kapıya veriliyor: çokanlamlı bir
+            # kavramda hangi anlamın konuşacağını soru belirlesin.
+            self.gate.focus_words = tuple(tokenize(line))
             said = self._fluent(intent, line, self._question(intent))
             # ÇOKLU HİPOTEZ. İlk okuma cevap üretmediyse ve kavram grafta
             # yoksa, adaylar sırayla deneniyor. Bu, sistemin tek sert kararını
