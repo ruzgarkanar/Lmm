@@ -34,6 +34,10 @@ MOST_TOLD = 5
 # sabit seçimini bozmaya yetsin. Eşik olmadan gürültü seçiyor: her öbekte bir
 # kelime bir kelimeye biraz benzer ve en yüksek gürültü kazanıyor.
 SENSE_MARGIN = 0.35
+# Bir olgunun, sorunun kelimelerine "yakın" sayılması için eşik. Eşiğin altı
+# gürültü: her kelime her kelimeye biraz benzer ve en yüksek gürültüyü öne
+# almak sıralamayı bozar.
+FOCUS_MARGIN = 0.35
 # Karşılaştırmada kaç ortak ata söylenir. İkiden fazlası hiyerarşinin
 # tepesine tırmanıyor ("varlık", "şey") ve orada her şey ortaktır.
 CLOSEST_SHARED = 2
@@ -61,7 +65,8 @@ class EpistemicGate:
             return self._why(intent)
         if intent.kind == ASK_DESCRIBE:
             return self.exposition.describe(
-                intent.concept, self._sense(intent.concept, self.focus_words))
+                intent.concept, self._sense(intent.concept, self.focus_words),
+                self._focus_rank)
         if intent.kind == ASK_COMPARE:
             return self._compare(intent.concept, intent.target)
         if intent.kind == ASK_REQUIREMENT:
@@ -513,8 +518,51 @@ class EpistemicGate:
         # "kartal nasıldır" cevabında Macaristan kasabasının `kurul` niteliği
         # geri geliyordu. İki sıralama üst üste binerse sonuncusu kazanır.
         other = self._other_sense(concept)
+        # SORU birincil ölçüt. Sorunun kelimelerine yakın olgu, mesafesi ne
+        # olursa olsun önce konuşur — "dalak ne zaman ZARARLI olur" sorusunda
+        # `zararlı`ya yakın hedefler, dökümün başına gelir. Soru sinyal
+        # vermiyorsa ("dalak nedir") sıralama eskisi gibi: anlam, sonra mesafe.
+        focus = self._focus_rank(concept, [item[0] for item in found])
         return sorted(found, key=lambda item: (item[0] in other,
+                                               -focus.get(item[0], 0.0),
                                                rank.get(item[0], 99)))[:most]
+
+    def _focus_rank(self, concept, targets):
+        """Hedef -> sorunun kelimelerine yakınlık. Yakın olan konuşsun.
+
+        Cümlenin öznesi çıkarıldıktan sonra kalan kelimeler ÇÖPE GİDİYORDU ve
+        ölçüldü — sonuç, farklı soruya aynı cevap:
+
+            "dalağın alınması ne zaman ZARARLI olur"  6 kelimeden 1'i kullanıldı
+            "dalak nedir"                             ikisine de aynı döküm
+
+        LLM'de atılan kelime yok: cevap cümlenin tamamına şartlanır. Buradaki
+        karşılığı bu sıralama — soru kelimeleri, düğümün olguları arasından
+        hangilerinin söyleneceğini ağırlıklandırıyor. Anlam seçimiyle
+        (`_sense`) aynı mekanizmanın ikinci yarısı: o hangi ANLAM konuşacak
+        diye soruyordu, bu hangi OLGULAR.
+
+        Geometri yine yalnız SEÇİYOR: sıralanan her olgu grafta duruyor,
+        kaynağıyla. Hiçbir şey eklenmiyor, hiçbir şey atılmıyor — kesilen,
+        "başka ne biliyorsun" ile alınabilir.
+        """
+        vectors = getattr(self.memory, "vectors", None)
+        if vectors is None or not self.focus_words:
+            return {}
+        from lmm import frequency
+        from lmm.verbs import is_structural
+        counts = frequency.counts()
+        asked = [word for word in self.focus_words
+                 if word not in concept and concept not in word
+                 and not is_structural(word, counts)]
+        if not asked:
+            return {}
+        scored = {}
+        for target in targets:
+            close = vectors.nearest(str(target), asked, 1)
+            if close and close[0][1] >= FOCUS_MARGIN:
+                scored[target] = close[0][1]
+        return scored
 
     def _other_sense(self, concept):
         """Etkin anlama AİT OLMAYAN hedefler — çok anlamlı kavramlarda."""

@@ -10,7 +10,8 @@ from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
                            UNKNOWN_WORD, AMBIGUOUS, PRONOUNS, ASK_THREAD,
                            ASK_WHY, ASK_PROPERTIES, ASK_MORE,
                            ASK_INVENTORY, ASK_CERTAINTY, ASK_SOURCE,
-                           ASK_OPINION, ASK_DESCRIBE, lower, tokenize)
+                           ASK_OPINION, ASK_DESCRIBE, ASK_COMPARE, lower,
+                           tokenize)
 from lmm import social
 from lmm import coordination
 from lmm.thread import Thread
@@ -699,11 +700,16 @@ class Session:
                 # biliyor (`role_of`) ve tek kelimede kullanılıyordu; öbeğin
                 # başında kullanılmıyordu ve 43 soru tam burada kayboldu.
                 stem, _ = morphology.role_of(head)
+                # Ekler KATMAN KATMAN soyuluyor: "ormanların" bir kez soyunca
+                # "ormanlar" ve graf onu bilmiyor — `orman`ı biliyor. Tek
+                # geçişte kalmak, kavramı gömme komşusu sanmaktı (kimlik
+                # kaybolup ANLAT yolu kapanıyordu).
+                genitive = morphology.strip_genitive(stem, self._concepts())
                 for peeled in (head, stem,
                                morphology.strip_plural(stem),
                                morphology.strip_accusative(stem),
-                               morphology.strip_genitive(stem,
-                                                         self._concepts())):
+                               genitive,
+                               morphology.strip_plural(genitive)):
                     if peeled and peeled not in seen:
                         seen.add(peeled)
                         same.add(peeled)
@@ -841,7 +847,12 @@ class Session:
         if not marks:
             return None
         tokens = tokenize(line)
-        at = next((i for i, token in enumerate(tokens) if token in marks), None)
+        # Zamir çekimli de gelebilir: "İKİSİNİN farkı ne". Ölçüt yine kapalı
+        # sınıf — yalnız dilin gönderme zamirleri, gövdesinden tanınıyor.
+        at = next((i for i, token in enumerate(tokens)
+                   if token in marks
+                   or any(token.startswith(mark) and len(token) - len(mark) <= 4
+                          for mark in marks)), None)
         if at is None:
             return None
         tail = [token for token in tokens[at + 1:]
@@ -852,6 +863,21 @@ class Session:
         topics = self.thread.recent(2)
         if len(topics) < 2:
             return None
+        # Önce İKİLİ okuma: "ikisinin farkı ne" iki konuyu tek soruda istiyor,
+        # konu başına aynı soruyu sormak değil. İki konu dilin kendi
+        # bağlayıcılarıyla birleştirilip olağan yoldan okutulur — cümleyi
+        # yine dilbilgisi anlar, burada hiçbir kalıp yazılı değil. Yalnız
+        # karşılaştırma okuması kabul ediliyor; olmadıysa tek tek yol sürüyor.
+        links = (tuple(getattr(morphology, "postpositions", ())[:1])
+                 + tuple(getattr(morphology, "joiners", ())))
+        for link in links:
+            both = " ".join([topics[1], link, topics[0]] + tail)
+            found = self.language.understand(both)
+            if found.kind == ASK_COMPARE:
+                answer = self.gate.answer(self._typed(found))
+                if not is_a_refusal(answer):
+                    self._kept(found, topics[1])
+                    return answer
         answers = []
         for topic in reversed(topics):
             said = None
