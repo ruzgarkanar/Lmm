@@ -78,17 +78,27 @@ class Induction:
         self.memory = memory
         self.reasoning = reasoning
 
-    def propose(self):
+    def propose(self, about=None):
         """The first generalisation memory supports but nobody has stated.
 
         Placing a stranger comes before generalising over a family: knowing what
         something *is* unlocks everything its kind already knows, so it is worth
         more than one more rule about a type we have already placed.
         """
-        for hypothesis in self.placements():
-            hypothesis.guessed = True       # yazılamaz: bkz. `lmm/cli.py`
-            return hypothesis
-        for hypothesis in self.candidates():
+        # YERLEŞTİRME artık önerilmiyor. Ölçüldü ve öncülü bu veride
+        # geçersiz: "aynı davranışı paylaşıyor, öyleyse aynı şeydir" ancak
+        # davranış o türü TANIMLIYORSA geçerli. Vikipedi'nin konum olguları
+        # hiçbir şey tanımlamıyor ve üç ayrı sıkılaştırmadan sonra bile
+        # üretilen her öneri saçmaydı:
+        #
+        #   > zurnabalık bir kuştur
+        #   öğrendim ... şunu fark ettim: ankara ve beypazarı —
+        #   sanırım MENÇELER BİR KAPLANDIR
+        #
+        # Yazmayı zaten durdurmuştuk; söylemek de gürültü. Mekanizma duruyor
+        # (`placements()` çağrılabilir) ama sohbete kendiliğinden girmiyor:
+        # ortak nitelik taşıyan bir derlemde yeniden açılabilir.
+        for hypothesis in self._candidates(about):
             return hypothesis
         return None
 
@@ -240,7 +250,7 @@ class Induction:
         """Every generalisation the memory supports right now, in one pass."""
         return list(self._candidates())
 
-    def _candidates(self):
+    def _candidates(self, about=None):
         # Aileler TEK geçişte kuruluyor. Önce her kavram için tüm kenarlar
         # taranıyordu ve bu karesel: 16.774 kavram x 16.164 kenar = 271 milyon
         # işlem. Ölçüldü: bir öğretme turu 5,90 saniye, bir soru turu 0,03 —
@@ -254,6 +264,21 @@ class Induction:
         for edge in self.memory.edges:
             if edge.relation == IS_A and edge.target:
                 families.setdefault(edge.target, []).append(edge.concept)
+        # `about` verilirse yalnız O KAVRAMIN aileleri taranıyor. Tam tarama
+        # 128 binlik grafta ilk adayı bulmak için 19,2 saniye sürüyor ve her
+        # öğretme turunda çalışıyordu — yerleştirme kısa devre yaptığı için
+        # şimdiye kadar görünmemişti.
+        #
+        # Daraltma hız için değil DOĞRULUK için de: "kartal bir kuştur"
+        # dendikten sonra kuşlar hakkında bir kural aramak anlamlı, grafın
+        # öbür ucundaki bir aile hakkında aramak değil. Bu, bugün ölçülen
+        # kusurun aynısıydı — `propose` öğretilenle ilgisiz şeyler öneriyordu.
+        if about:
+            near = set(self.memory.query(about, IS_A) and
+                       [edge.target for edge in self.memory.query(about, IS_A)])
+            near |= set(self.reasoning.ancestors(about))
+            families = {name: kids for name, kids in families.items()
+                        if name in near}
         for parent, children in families.items():
             if len(children) < MINIMUM_EXAMPLES:
                 continue

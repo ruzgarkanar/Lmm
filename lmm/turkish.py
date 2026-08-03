@@ -207,6 +207,20 @@ class TurkishMorphology:
     affirmations = ("evet", "e", "ee", "aynen", "tabii", "tabi", "olur",
                     "öğren", "kaydet")
     refusals = ("hayır", "hayir", "yok", "olmaz", "istemiyorum", "boşver")
+    # DÜZELTME açılışı: "hayır penguen uçamaz". Ret sözcüğüyle aynı kelimeler
+    # ama işlevi başka — tek başına duruyorsa ret, arkasından cümle geliyorsa
+    # düzeltmedir. Bildirilmediği için ayrıştırıcı "hayır"ı KAVRAM sanıyordu:
+    #
+    #   > hayır penguen uçamaz
+    #   öğrendim: hayır penguen uçamaz. bunu hiç öğrenmedim: HAYIR nedir?
+    #
+    # Bir sistemin yanlışını düzeltmek, ona bir şey öğretmek kadar temel.
+    corrections = ("hayır", "hayir", "yanlış", "yanlıs", "değil", "aslında",
+                   "olmaz", "doğru değil")
+    # UNUTMA: kalıcı hafızadan silmek. Bir LLM'in ağırlıklarından bilgi
+    # silinemez; burada silinebiliyor ve bunun sohbetten erişilebilir olması
+    # gerekiyor — dosyayı elle açmak bir arayüz değildir.
+    forget_words = ("unut", "sil", "kaldır", "unutmalısın", "sil bunu")
     postpositions = ("ile", "ila", "karşı", "göre", "kadar", "gibi", "için",
                      "rağmen", "beri", "dolayı")
     intensifiers = ("çok", "daha", "en", "pek", "oldukça", "gayet", "epey",

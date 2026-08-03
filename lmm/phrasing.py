@@ -723,6 +723,17 @@ def dont_know(concept, suggestions=()):
     return f"{plain} {did_you_mean(suggestions)}"
 
 
+def forgotten(concept, count):
+    """Silindi — kaç kayıt gittiği söylenerek.
+
+    Bir LLM'in ağırlıklarından bilgi silinemez. Burada silinebiliyor ve KAÇ
+    kaydın gittiğini söylemek, silmenin gerçekten olduğunun kanıtı.
+    """
+    if not count:
+        return f"{concept} hakkında zaten bir şey bilmiyordum."
+    return f"{concept} hakkında bildiğim {count} şeyi unuttum."
+
+
 def likely_traits(concept, guesses, family):
     """Bilinmiyor ama KARDEŞLERİNDEN çıkıyor — tahmin olduğu söylenerek.
 
