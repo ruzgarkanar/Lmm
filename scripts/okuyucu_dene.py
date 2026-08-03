@@ -94,6 +94,27 @@ def _ask(sentence, url, headers):
             usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
 
 
+def _ask_plain(question, url, headers, istem=None):
+    """Aynı bağlantı, DÜZ CÜMLE isteyen istem — olgu çıkarma yok.
+
+    Merak döngüsü bunu kullanıyor: dil modeli olgu değil cümle söylüyor,
+    olguyu bizim okuyucumuz çıkarıyor. İki aşamayı tek isteğe sıkıştırmak,
+    modeli hem kaynak hem hakem yapardı.
+    """
+    body = {"messages": [{"role": "user",
+                          "content": (istem or "{soru}").replace("{soru}",
+                                                                 question)}],
+            "temperature": 0}
+    request = urllib.request.Request(
+        url, data=json.dumps(body).encode("utf-8"),
+        headers={"Content-Type": "application/json", **headers})
+    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        payload = json.load(response)
+    usage = payload.get("usage", {})
+    return (payload["choices"][0]["message"]["content"].strip(),
+            usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
+
+
 def rows_in(text):
     """Modelin çıktısından JSON nesnelerini ayıklar."""
     found = []

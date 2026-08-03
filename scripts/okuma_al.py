@@ -103,13 +103,41 @@ def _a_target(target, relation, memory, counts, grades, morphology):
         softened = (stem[:-1] + getattr(morphology, "softened", {}).get(
             stem[-1], stem[-1])) if stem else stem
         for candidate in (stem, softened):
-            if candidate in known:
+            # KOŞUL İKİ TANE, ve ikincisi bu gece eklendi. "Grafta var mı"
+            # tek başına DÖNGÜSEL: bir kez giren çöp kendini besliyor.
+            # `bat` bir kez kavram oldu, ondan sonra her `batı` ona soyuldu;
+            # `resmi` -> `resm` de aynı yoldan, ve sınav cevaplarında
+            # görünüyorlardı:
+            #
+            #     güneşli nasıldır -> "güneşli bat, yeni, resm, eski..."
+            #
+            # İkinci koşul DERLEME soruyor, grafa değil: gerçek bir iyelik
+            # soyulduğunda çıplak ad da yaygındır, çünkü o da bir kelimedir.
+            # Ölçüldü:
+            #
+            #     gölü -> göl     0,62     batı  -> bat    0,03
+            #     kanadı -> kanat 2,64     resmi -> resm   0,08
+            #     adası -> ada    1,44     kişi  -> kiş    0,00
+            #
+            # İki küme arasında yedi kat boşluk var; eşik oraya konuyor.
+            # Kelime listesi değil, sayım.
+            if candidate in known and _a_word(candidate, target, counts):
                 return candidate        # çıplak ad TERCİH ediliyor
         break
     if relation == HAS_PROPERTY and target not in set(memory.properties()):
         if target in known:
             return None
     return target
+
+
+# Çıplak adın, çekimli hâline göre en az bu kadar sık geçmesi gerekiyor.
+# Doğru soymalarda en düşük 0,62, yanlışlarda en yüksek 0,08 ölçüldü.
+STEM_SHARE = 0.25
+
+
+def _a_word(stem, inflected, counts):
+    """Bu gövde derlemde KENDİ BAŞINA bir kelime gibi duruyor mu."""
+    return counts.get(stem, 0) >= STEM_SHARE * counts.get(inflected, 0)
 
 
 def _a_concept(name, counts, verbs, morphology):
