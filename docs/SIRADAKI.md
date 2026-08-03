@@ -7,92 +7,90 @@ işin neden o sırada olduğu, ve bittiğinde neye bakılacağı yazılı.
 
     graf              128.485 olgu · 58.245 kavram
     ilişki dağılımı   type %48,5 · property %42,7 · has %7,5 · can %1,1
-    olcut             tohum 7 %97,3 · tohum 31 %98,3
+    olcut             tohum 7 %97,5 · tohum 31 %97,5
     sohbet sınavı     açılış %98,3 · bağlam tutma %100
-    gerçek sorular    anlıyor %86,5 · cevaplıyor %5,0 · dürüst ret %91 · UYDURMA 0
-    hız               128 binlik grafta kurulum 1,26 sn · soru başına 21 ms
+    gerçek sorular    cevaplıyor %14,5 · UYDURMA 0
+    hız               kurulum 1,33 sn · soru başına 56 ms
     testler           702
 
-Darboğaz artık dil değil **bilgi**: 400 gerçek sorunun %56,1'inde grafın hiç
-duymadığı bir kavram var (`glokom`, `sendromu`, `belirtileri`). Ayrıştırıcı
-cümlelerin %86,5'ini okuyor ama graf cevap veremiyor.
+Cevaplama %1,0'dan %14,5'e çıktı ve bu **veri eklenmeden** oldu. Sebebi
+teşhisin yanlış olmasıydı: "graf bilmiyor" sanılan şeyi graf biliyordu.
+
+    "Ormanların önemi ve faydaları nelerdir?"
+      ayrıştırıcı -> 'ormanların önemi'   grafta yok
+      gerçek özne -> 'orman'              grafta 15 olgu VAR
+
+Ayrıştırıcı bir cümleden TEK kavram çıkarıyordu ve sonrası ona bağlıydı.
+Artık aday üretiliyor (alt öbek, ek soyma, gömme komşusu), graf onları
+ağırlıklandırıyor, cevap üreten kazanıyor, kapı değişmedi.
+
+**Sayıyı okurken.** Ara ölçümde %31,5 görünmüştü ve o sayı dürüst değildi:
+cevapların yarısı sorulmayan soruya veriliyordu ("Fosfor hangi besinlerde
+bulunur?" -> "Kükürt bir elementtir"). Gömme komşusu **başka bir şeydir**;
+artık yalnız kimliği koruyan aday (alt öbek, ek soyma) anlatabiliyor.
+%14,5 elle sayılmış: 29 cevabın 24'ü sorulan öznede.
 
 ---
 
-## 1. Gömmeyi derlemle kur ve bilinmeyen kelimeye bağla
+## 1. Okuma — %33,5 hâlâ ayrıştırılamıyor
 
-**Neden.** `lmm/vectors.py` yazılmış, ölçülmüş, kullanılmıyor. Ölçüm 2.105
-cümlelik oyuncak bir derlemle bile rastgelenin iki katı:
+**Neden.** Kalan en büyük dilim bu. Ama tavanı ölçüldü ve düşük: okunamayan
+67 sorunun **%76'sında grafın hiç bilmediği bir konu var**. Oralarda ret
+zaten doğru davranış:
 
-    sınıf      kelime   komşusu aynı sınıf   rastgele olsa
-    nitelik       264              %24            %17
-    kavram        550              %61            %34
-    TOPLAM                         %49            %25
+    "Öyleyse her şey yolunda mı?"          grafta karşılığı yok
+    "Ne o, yoksa onlardan korkuyor musunuz?"  grafta karşılığı yok
 
-    kuş  ->  hayvandır, memeli, arı, kediler, tüylüdür, balık
+Kazanılabilir olan %24, yani tüm soruların **%8'i**.
 
-Elimizde 808 MB derlem var ve hiç kullanılmadı. Gradyan yok, GPU yok,
-rastgelelik yok — Levy & Goldberg 2014'e göre gömme zaten bir PMI
-çarpanlaması, gradyan yalnızca ona varmanın bir yolu.
+**İş.** Round-trip'i geçen okumaları kalıp tümevarımına sinyal olarak vermek
+(kendi kendine denetim). Sistemin doğru okuduğu her cümle, benzer cümleleri
+okumayı öğretir.
 
-**İş.** `scripts/` altına bir kurucu: `data/tr-metin.txt`'ten sayarak vektör
-üret, model dosyasına yaz. Sonra `gate._dont_know` yolunda bilinmeyen kelime
-için en yakın BİLİNEN kavramı öner.
-
-**Sınır — mutlak.** Geometri aday bulur, **kararı kapı verir**. Dosyanın kendi
-belgesi bunu söylüyor: dağılımsal benzerlik zıtları ayıramaz, "neden oldu" ile
-"engelledi" aynı çevrede geçer. Vektör asla bir olgu yazmamalı.
-
-**Bittiğinde bakılacak.** `scripts/durum.py` — "gerçek cümleler" bölümünde
-`cevapladı` yükselmeli, `uydurma` 0 kalmalı. Kalmıyorsa iş yanlış yapılmıştır.
+**Bittiğinde bakılacak.** `1_OKUNAMADI` payı; `olcut` düşmemeli.
 
 ---
 
-## 2. Bağlamdan anlam seçimi
+## 2. Kavram grafta yok — %39,5
 
-**Neden.** Çokanlamlılık kalan en büyük mantık kusuru ve graf büyüdükçe
-kötüleşiyor: 16 binlik grafta kavramların %1,8'i çok türlüydü, 35 binlikte
-%8,1. Bugün `kartal` hem kuş hem İstanbul ilçesi ve nitelikleri karışıyor:
+**Neden.** Aday üretimi bunun bir kısmını kurtardı, kalanında çıkarılan şey
+zaten kavram değil: `urfa’da` (graf `urfa`yı hiç bilmiyor), `fibroadenom`,
+`2çalışma`, `»genel`. Yapı sözcükleri (`bu`, `böyle`, `olan`) artık eleniyor.
 
-    kartal ile penguen arasındaki fark nedir
-    -> "kartal: avlanmak yapabilir, hızlı, istanbul sahip, kurul"
+**İş.** İki ayrı şey karışıyor ve ayrılması lazım:
 
-Kalıtımda yayılmasını durdurduk (`reasoning.lineage`), kökte duruyor.
+    ÖZNE ÇIKARMA   "turizmle" -> "turizm". Araç eki ünsüzden sonra `-le`,
+                   envanterde yalnız ünlü sonrası `-yle` var (`lmm/turkish.py`
+                   `oblique_suffixes`). Geniş bir liste eklemek riskli:
+                   `damla` -> `dam`, `tarla` -> `tar`. Graf doğrulaması var
+                   ama önce ölçülmeli.
+    GERÇEK EKSİK   `fibroadenom` grafta yok ve olmalı. Burası veri işi.
 
-**İş.** `lmm/spreading.py` kişiselleştirilmiş PageRank yapıyor ama oturum
-odağına bağlı değil. Bağlanacak: sohbet neyden bahsediyorsa o anlam seçilsin.
-Tam çözüm düğüm kimliğine anlam eklemek (`kartal#kuş`) — daha büyük iş, önce
-bağlam seçimi ölçülmeli.
-
-**Bittiğinde bakılacak.** "kuşlardan bahsederken kartal" ile "şehirlerden
-bahsederken kartal" farklı cevap vermeli, ve `olcut` düşmemeli.
+**Bittiğinde bakılacak.** `3_KAVRAM_GRAFTA_YOK` payı; uydurma 0 kalmalı.
 
 ---
 
-## 3. Gövde metnini oku
+## 3. Anlam seçimi — kuruldu, sınırı var
 
-**Neden.** Tanımlar bitti — 99.218 tanım okundu, 123.631 olgu geçti. Ama
-tanım bir şeyin NE OLDUĞUNU söyler, NASIL olduğunu değil. `can` ilişkisi hâlâ
-%1,1 (1.450 olgu) ve "ne yapabilir" soruları bundan besleniyor.
+**Yapıldı.** Soru artık hangi anlamın konuşacağını seçiyor:
 
-**İş.** Aynı okuyucu hattı (`scripts/okuyucu_dene.py` + `okuma_al.py`),
-girdi `data/tr-metin.txt`. Cümle seçimi gerekiyor: 808 MB'ın tamamı değil,
-özne+yüklem taşıyan sade cümleler.
+    "Kerevizli dip sos nasıl yapılır?"  -> dash var, soya var, mirin var, tatlı
+    "Bu oyunda sos nasıl oynanır?"      -> Sos bir oyundur, eğlencelidir
 
-**Uyarı — ölçüldü.** Ham gövde metnini KENDİ ayrıştırıcımızla okumak %9 verim
-ve çöp kavram veriyordu (`aşağıdaki kupa`, `sukhbaatar kızıl bayrak`).
-Okuyucusuz denemeye değmez.
+Ölçüt provenans: aynı cümleden çıkan olgular aynı anlama ait. Yakınlığı
+gömme veriyor ama gömme yalnız SEÇİYOR, hiçbir olgu yazmıyor.
 
-**Bittiğinde bakılacak.** `can` ve `has` payı; "ne yapabilir" cevaplarının
-zenginliği.
+**Kalan sınır.** Seçilen anlamın tür kaydı yoksa soyağacı susuyor ve cevap
+"Ayrıca ..." diye başlıyor. Doğru ama kırık bir cümle. Öteki anlamın
+olguları da sona atılıyor, atılmıyor — bilerek, çünkü elemek ölçümde sınavı
+düşürmüştü.
 
 ---
 
 ## 4. Şeyleştirme — bileşik ifade
 
 **Neden.** Olgu birimi `(kavram, ilişki, hedef)` üçlüsü ve nitelemeye yer yok.
-"Kırmızı olmayan büyük kuş" ifade edilemiyor. Bu gece nitelemenin özneye
-YAPIŞMASINI engelledik ama söyleyemiyoruz hâlâ.
+"Kırmızı olmayan büyük kuş" ifade edilemiyor.
 
 **İş.** Olgunun kendisi düğüm olsun (RDF şeyleştirmesi, Davidson olay
 semantiği). `lmm/memory.py` `Edge` ve kimlik anahtarı, `lmm/frames.py`
@@ -111,23 +109,21 @@ Keşif organı çalışıyor ama %47'de:
     bulunan      koşaç 8/8 · ayrılma 7/7 · çoğul 2/2 · tamlayan 7/8
     bulunamayan  zaman 0/4 · yeterlilik 0/2 · koşul 0/2
 
-Üretken gövde ölçütü fiil eklerini 0'dan 4'e çıkardı ama iyelik 4/8'den 0/8'e
-düştü — net kazanç iki ek. Organ bitmedi.
-
 **Neden en sonda.** İkinci bir dil eklemenin önündeki engel bu, ama Türkçe
-çalışırken kimseyi durdurmuyor. Önceki dört madde ölçülebilir kazanç veriyor,
-bu vermiyor.
+çalışırken kimseyi durdurmuyor.
 
 ---
 
 ## Sırayı bozmamak için
 
 Her madde bittiğinde **üç ölçüm birden** koşulacak, çünkü bir kazanç başka bir
-kaybı gizleyebiliyor — bu gece iki kez oldu:
+kaybı gizleyebiliyor:
 
     python3 scripts/durum.py --graf models/graph/birlesik.lmm
     python3 -m unittest discover -s tests
 
-`durum.py` beşini bir arada basıyor: graf, olcut (iki tohum), sohbet sınavı,
-gerçek cümleler, hız. Uydurma satırı **her zaman 0** olmalı; olmuyorsa iş
-geri alınır.
+Uydurma satırı **her zaman 0** olmalı; olmuyorsa iş geri alınır.
+
+**Ve sayının içine bakılacak.** Bu gece cevaplama %31,5 göründü, testler
+geçti, uydurma 0'dı — ve cevapların yarısı çöptü. Bir sayının yükselmesi
+işin doğru olduğunu göstermez; cevapları elle okumak gösterir.
