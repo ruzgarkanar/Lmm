@@ -105,13 +105,27 @@ class Pursuit:
         vectors = getattr(self.memory, "vectors", None)
         if vectors is None or not concept:
             return ()
+        # Yapı sözcüğünden komşu çıkmaz: "turizmle aynı" ifadesinin vektörü
+        # bileşimde `aynı`ya çöküyor ve `aynı` her yerde geçtiği için
+        # komşuları gürültü ("scobey", "kartuş"). Ölçüt sıra, liste değil.
+        from lmm import frequency
+        from lmm.verbs import is_structural
+        counts = frequency.counts()
+        meaningful = [word for word in concept.split()
+                      if not is_structural(word, counts)]
+        if not meaningful:
+            return ()
         try:
-            close = vectors.similar(concept, 40)
+            close = vectors.similar(" ".join(meaningful), 40)
         except Exception:                                   # noqa: BLE001
             return ()
         known = set(self.memory.concepts())
         found = []
-        for word, _ in close:
+        for word, score in close:
+            # Eşiğin altı gürültü: "ilgili olabilir" diye sunulan şey
+            # gerçekten yakın olmalı, yoksa öneri sistemi rastgele gösterir.
+            if score < 0.45:
+                break
             if word in known and word != concept and self.memory.query(word):
                 found.append(word)
             if len(found) >= count:

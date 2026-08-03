@@ -555,7 +555,7 @@ class Session:
             spotted = [word for word in tokens
                        if len(self.memory.query(word)) >= 3][:2]
             return not_understood(resembles, self.memory, spotted,
-                                  long=len(tokens) > 4)
+                                  long=len(tokens) > 3)
         if intent.kind == ASK_THREAD:
             return talked_about(self.thread.recent())
         if intent.kind == ASK_MORE:
@@ -654,7 +654,10 @@ class Session:
         # yazılır ve bir daha çıkmaz. Bu kapı yanılmayı cevapsızlığa
         # çeviriyor — hafızayı kirletmektense anlamamak.
         if self._asks_something(line):
-            return not_understood(None)
+            spotted = [word for word in tokenize(line)
+                       if len(self.memory.query(word)) >= 3][:2]
+            return not_understood(None, self.memory, spotted,
+                                  long=len(tokenize(line)) > 3)
         status, message, edge = self.learning.teach(intent)
         if status == CONFLICT:
             self.pending = edge
