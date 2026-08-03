@@ -104,7 +104,8 @@ class Induction:
         kullandım ve her arama 0 dönüp denetim sessizce geçti — kapı kurulmuş
         ama kapanmamış oluyordu.
         """
-        marker = len(self.memory.edges)
+        marker = (getattr(self.memory, 'revision', 0),
+                  getattr(self.memory, 'purges', 0))
         cached = getattr(self, "_holders_cache", None)
         if cached is not None and cached[0] == marker:
             return cached[1]

@@ -173,7 +173,14 @@ class Session:
         yeni bir liste kopyalanıp kümeye çevriliyordu. Ölçüldü: 10 katlık
         grafta ayrıştırma süresinin %30'u. 17 katta kabul edilemez.
         """
-        marker = len(self.memory.edges)
+        # Ölçüt `revision`, kenar SAYISI değil. Sayı net-sıfır değişimde
+        # yanılıyor: bir kavram unutulup aynı sayıda yeni olgu yazılınca sayı
+        # geri aynı olur ve önbellek bayat kalır. Ölçüldü — `forget(kartal)`
+        # 11 kenar sildi, 11 yeni olgu yazıldı, sayı 128.485'e döndü ve
+        # önbellek silineni hâlâ biliyordu. `revision` her yazmada, `purges`
+        # her unutmada artıyor ve ikisi birlikte geri saymıyor.
+        marker = (getattr(self.memory, 'revision', 0),
+                  getattr(self.memory, 'purges', 0))
         cached = getattr(self, "_concepts_cache", None)
         if cached is not None and cached[0] == marker:
             return cached[1]
