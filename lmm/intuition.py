@@ -240,6 +240,13 @@ class Intuition(LanguageOrgan):
         morphology = self.grammar.morphology
         while tokens and tokens[0] in morphology.openers:
             tokens = tokens[1:]         # "peki uçar mı" is "uçar mı"
+        # Açıcı SONDA da durabilir: "nasıldır peki", "ne yapar peki". Yalnız
+        # baştan soyulduğunda o cümleler okunamıyordu ve sistem `peki`yi bir
+        # nitelik sanıyordu — "'peki' diye bir niteliği hiç duymadım".
+        # Ölçüldü: uzun sohbet sınavında eksiltili takiplerin üçte biri
+        # buradan kayboluyordu.
+        while len(tokens) > 1 and tokens[-1] in morphology.openers:
+            tokens = tokens[:-1]
         # Söylem araları çok kelimeli olabilir ("bu arada"), o yüzden tek tek
         # kelime soymak onları yakalayamıyordu — `bu` özne sanılıyordu.
         for aside in getattr(morphology, "asides", ()):
