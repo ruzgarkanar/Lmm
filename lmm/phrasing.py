@@ -269,8 +269,12 @@ def ability_summary(concept, abilities):
         action, positive = ability[0], ability[1]
         object = ability[2] if len(ability) > 2 else None
         role = ability[3] if len(ability) > 3 else None
+        doubtful = ability[4] if len(ability) > 4 else False
         middle = f"{case_form(object, role)} " if object else ""
-        clauses.append(f"{middle}{verb_form(action, positive)}")
+        said = f"{middle}{verb_form(action, positive)}"
+        if doubtful:
+            said += " (birinin söylediği, doğrulanmadı)"
+        clauses.append(said)
     return f"{concept} {listing(clauses)}"
 
 

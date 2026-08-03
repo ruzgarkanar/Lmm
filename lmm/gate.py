@@ -23,6 +23,7 @@ from lmm.intuition import (ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES,
                            ASK_COMPARE, ASK_WHICH_MORE,
                            ASK_REQUIREMENT)
 from lmm.exposition import Exposition
+from lmm.trust import STRANGER, level
 
 import collections
 
@@ -567,11 +568,27 @@ class EpistemicGate:
         """
         richer = []
         for action, positive in found:
-            edge = next((one for one in self.memory.query(concept, relation)
-                         if one.target == action and one.object), None)
-            richer.append((action, positive, edge.object, edge.role) if edge
-                          else (action, positive))
+            held = [one for one in self.memory.query(concept, relation)
+                    if one.target == action]
+            edge = next((one for one in held if one.object), None)
+            # Beşinci alan KUŞKU. Anlatma yolunda işaret vardı, yetenek
+            # yolunda yoktu ve aynı olgu iki soruya iki farklı dürüstlükle
+            # cevap veriyordu: "kedi anlat" işaretliyor, "kedi ne yapabilir"
+            # işaretlemiyordu. Aynı bilgi, aynı işaret.
+            doubt = self._doubtful(concept, action)
+            if edge is not None:
+                richer.append((action, positive, edge.object, edge.role,
+                               doubt))
+            else:
+                richer.append((action, positive, None, None, doubt))
         return richer
+
+    def _doubtful(self, concept, target):
+        """Bu olgu yalnız bir yabancının sözüne mi dayanıyor."""
+        for edge in self.memory.query(concept):
+            if edge.target == target:
+                return level(edge.source) <= STRANGER and not edge.sources[1:]
+        return False
 
     def _focus_rank(self, concept, targets):
         """Hedef -> sorunun kelimelerine yakınlık. Yakın olan konuşsun.

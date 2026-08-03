@@ -17,7 +17,7 @@ import collections
 
 from lmm.relations import (IS_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
                            HAS_PART, LACKS_PART)
-from lmm.trust import INFERENCE
+from lmm.trust import INFERENCE, STRANGER, level
 from lmm import phrasing
 
 OPPOSITES = {CAN: CANNOT, CANNOT: CAN,
@@ -155,6 +155,10 @@ class Exposition:
         olurdu — bu bir kez ölçüldü ve sınavı düşürmüştü.
         """
         edges = list(self.memory.query(concept))
+        # GÜVEN sıralaması en altta duruyor: üstüne anlam ve odak sıralaması
+        # gelecek ve onlar daha güçlü ölçüt. Ama eşitlikte, daha güvenilir
+        # kaynak önce konuşsun — yoksa sırayı kayıt zamanı belirliyor.
+        edges.sort(key=lambda edge: -edge.confidence)
         if sense:
             edges.sort(key=lambda edge: (edge.context is not None
                                          and edge.context != sense))
@@ -186,6 +190,13 @@ class Exposition:
                                         edge.object, edge.role)
             if edge.source == INFERENCE:
                 clause += " (sanırım)"
+            elif level(edge.source) <= STRANGER and not edge.sources[1:]:
+                # Bir yabancının, başka kimsenin doğrulamadığı sözü. Atılmıyor
+                # — kaynağı yazılı ve kapıdan geçti — ama aynı sesle
+                # söylenmiyor. Ölçüldü: "kediler uçar" diyen biri, cevabı
+                # "kedi uçar, koşar, tırmanır" hâline getirebiliyordu ve
+                # okuyan hangisinin nereden geldiğini göremiyordu.
+                clause += " (birinin söylediği, doğrulanmadı)"
             held.setdefault(GROUPS.get(edge.relation, "other"),
                             []).append(clause)
         total = sum(len(items) for items in held.values())
