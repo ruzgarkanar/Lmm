@@ -182,8 +182,20 @@ class TestPlacingAStranger(unittest.TestCase):
         self.memory.write(Edge("pelikan", HAS_PROPERTY, "tüylü", source="sen"))
 
     def test_behaviour_suggests_a_category(self):
+        """Mekanizma TEMİZ bir grafta geçerli ve öyle kalıyor.
+
+        `propose()` artık yerleştirme döndürmüyor ve bu bir üretim kararı,
+        mekanizmanın reddi değil: 128 binlik Vikipedi grafında öncül geçersiz
+        çıktı — "aynı davranışı paylaşıyor, öyleyse aynı şeydir" ancak davranış
+        o türü TANIMLIYORSA geçerli ve konum olguları hiçbir şey tanımlamıyor.
+        Üç sıkılaştırmadan sonra bile üretilen her öneri saçmaydı.
+
+        Burada kanıt için doğrudan `placements()` çağrılıyor: ortak nitelik
+        taşıyan bir derlemde `propose()` yeniden açılabilsin diye mekanizmanın
+        çalıştığı ölçülü kalmalı.
+        """
         self._teach_pelican()
-        hypothesis = self.induction.propose()
+        hypothesis = self.induction.placements()[0]
         self.assertEqual((hypothesis.concept, hypothesis.relation,
                           hypothesis.target), ("pelikan", IS_A, "kuş"))
 
@@ -198,7 +210,7 @@ class TestPlacingAStranger(unittest.TestCase):
 
     def test_the_placement_unlocks_what_its_kind_knows(self):
         self._teach_pelican()
-        self.induction.learn(self.induction.propose())
+        self.induction.learn(self.induction.placements()[0])
         self.assertIn("hayvan", self.reasoning.ancestors("pelikan"))
 
 

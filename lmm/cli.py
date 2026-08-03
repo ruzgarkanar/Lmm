@@ -31,7 +31,7 @@ from lmm.induction import Induction
 from lmm.network import MiniNetwork
 from lmm.curiosity import Curiosity
 from lmm.pursuit import Pursuit
-from lmm.phrasing import (wondering, not_understood, now_i_can, generalising,
+from lmm.phrasing import (forgotten, wondering, not_understood, now_i_can, generalising,
                           describe, teach_me_the_word, learned_word, computed,
                           cannot_compute, which_reading, went_and_read,
                           learned_wording, is_a_refusal, talked_about,
@@ -465,6 +465,12 @@ class Session:
         if self._an_opinion(line):
             return no_opinion(self.focus)
 
+        forgotten_now = self._forget(line)
+        if forgotten_now is not None:
+            return forgotten_now
+        corrected = self._correction(line)
+        if corrected is not None:
+            line = corrected
         referred = self._referred(line)
         if referred is not None:
             return referred
@@ -557,6 +563,50 @@ class Session:
         if status in (LEARNED, CORRECTED):
             return f"{message} {self._after_learning()}".strip()
         return message
+
+    def _correction(self, line):
+        """"hayır penguen uçamaz" -> düzeltilmiş cümle, değilse None.
+
+        Ret sözcüğüyle aynı kelimeler ama işlevi başka: tek başına duruyorsa
+        ret, arkasından cümle geliyorsa DÜZELTMEDİR. Bildirilmediği için
+        ayrıştırıcı "hayır"ı kavram sanıyordu ve grafa `hayır penguen` diye
+        bir düğüm yazılıyordu:
+
+            > hayır penguen uçamaz
+            öğrendim: hayır penguen uçamaz. bunu hiç öğrenmedim: HAYIR nedir?
+
+        Bir sistemin yanlışını düzeltmek, ona bir şey öğretmek kadar temel ve
+        bunun DOSYA AÇMADAN yapılabilmesi gerekiyor.
+        """
+        # Başka bir dil organı takılıysa `grammar` ya da `morphology`
+        # olmayabilir; sistem o zaman da çalışmalı.
+        grammar = getattr(self.language, "grammar", None)
+        marks = getattr(getattr(grammar, "morphology", None), "corrections", ())
+        tokens = tokenize(line)
+        if len(tokens) < 2 or tokens[0] not in marks:
+            return None
+        return " ".join(tokens[1:])
+
+    def _forget(self, line):
+        """"penguen hakkında bildiklerini unut" -> silme, değilse None.
+
+        `memory.forget` yazılmıştı ve sohbetten erişilemiyordu — dosyayı elle
+        açmak bir arayüz değildir. Silinebilir olmak bu mimarinin LLM
+        karşısındaki en somut farkı; erişilemezse yok sayılır.
+        """
+        grammar = getattr(self.language, "grammar", None)
+        marks = getattr(getattr(grammar, "morphology", None),
+                        "forget_words", ())
+        tokens = tokenize(line)
+        if not marks or not tokens or tokens[-1] not in marks:
+            return None
+        known = self._concepts()
+        for size in range(min(3, len(tokens) - 1), 0, -1):
+            for at in range(len(tokens) - size):
+                name = " ".join(tokens[at:at + size])
+                if name in known:
+                    return forgotten(name, self.memory.forget(name))
+        return None
 
     def _an_opinion(self, line):
         """Bu cümle görüş mü soruyor.
@@ -945,7 +995,9 @@ class Session:
         # Yazmayı durdurmak yeteneği kapatmak değil, hafızayı korumak: tahmin
         # söyleniyor, insan onaylarsa öğretebiliyor. Uydurmamak bu mimarinin
         # tek şartı ve bir tahmin, kalıcı hafızaya kendi başına giremez.
-        hypothesis = self.induction.propose()
+        # Öğretilen kavramın ailesi taranıyor, tüm graf değil.
+        hypothesis = self.induction.propose(getattr(self.last, "concept", None)
+                                            or self.focus)
         if hypothesis is not None:
             # GENELLEME yazılıyor, YERLEŞTİRME yazılmıyor. İkisi ayrı türden:
             # genelleme sayıma dayanıyor ("bu ailenin şu kadar üyesi bunu
