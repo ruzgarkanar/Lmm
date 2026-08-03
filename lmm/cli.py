@@ -35,6 +35,7 @@ from lmm.network import MiniNetwork
 from lmm.curiosity import Curiosity
 from lmm.pursuit import Pursuit
 from lmm import phrasing
+from lmm.phrasing import about_instead
 from lmm.phrasing import (forgotten, wondering, not_understood, now_i_can, generalising,
                           describe, teach_me_the_word, learned_word, computed,
                           cannot_compute, which_reading, went_and_read,
@@ -437,15 +438,52 @@ class Session:
         # değişen yalnız uzunluk ve kaynak gösterimi.
         return phrasing.directed(said, self.directives)
 
+    def _sole_topic(self, tokens, least=5):
+        """Cümledeki TEK baskın kavram — yoksa None.
+
+        Baskınlık şart: "Tuzla 16 Nisan'da büyük Türkiye için evet mi"
+        cümlesinde `tuzla` grafta var ama sorunun konusu o değil. İki
+        kavram yarışıyorsa hangisinin sorulduğunu bilmiyoruz.
+        """
+        scored = sorted(((len(self.memory.query(word)), word)
+                         for word in set(tokens)
+                         if len(self.memory.query(word)) >= least),
+                        reverse=True)
+        if not scored:
+            return None
+        if len(scored) > 1 and scored[1][0] * 2 > scored[0][0]:
+            return None                 # ikisi de güçlü: hangisi belli değil
+        return scored[0][1]
+
+    def _asked_length(self, line):
+        """Cümlenin kendisi uzunluk istiyor mu — yalnız bu cevap için."""
+        grammar = getattr(self.language, "grammar", None)
+        morphology = getattr(grammar, "morphology", None)
+        table = getattr(morphology, "directives", None) or {}
+        text = lower(line)
+        for kind, name in (("long_here", "long"), ("short_here", "short")):
+            if any(form in text for form in table.get(kind, ())):
+                return name
+        return None
+
     def _directive(self, line):
         """Cümle bir yönerge mi? Kapalı sınıftan, dizgi karşılaştırmasıyla."""
         grammar = getattr(self.language, "grammar", None)
         morphology = getattr(grammar, "morphology", None)
         table = getattr(morphology, "directives", None) or {}
         text = lower(line).strip(" .,!?")
+        # YÖNERGE, cümlenin TAMAMI olmalı. Parça eşleşmesi soruyu yutuyordu:
+        # "kuş hakkında bildiğin her şeyi uzun uzun anlat" cümlesi "uzun
+        # anlat" ile bitiyor ve sistem soruya cevap vermek yerine "tamam,
+        # bundan sonra ayrıntılı anlatırım" diyordu. Bir soruyu ayara
+        # çevirmek, sorulanı hiç duymamaktır.
+        #
+        # Cümle içindeki uzunluk isteği ayrı bir şey ve `_asked_length`
+        # onu okuyor: o, oturumu değil YALNIZ O CEVABI değiştiriyor.
         for kind, forms in table.items():
-            if any(text == form or text.endswith(" " + form)
-                   or text.startswith(form + " ") for form in forms):
+            if kind.endswith("_here"):
+                continue                # bunlar yönerge değil, soru içi istek
+            if any(text == form for form in forms):
                 return kind
         return None
 
@@ -554,6 +592,25 @@ class Session:
             tokens = tokenize(line)
             spotted = [word for word in tokens
                        if len(self.memory.query(word)) >= 3][:2]
+            # Cümleyi çözemedik ama konuyu tanıdıysak SUSMAK ZORUNDA DEĞİLİZ.
+            # Ölçüldü: uzun sohbet sınavında "kuş hakkında bildiğin her şeyi
+            # uzun uzun anlat" cümlesi ayrıştırılamıyor ve sistem "kuş
+            # hakkında bir şeyler biliyorum" deyip susuyordu — bildiğini
+            # söylemeden.
+            #
+            # Sınır dar: cümle SORU olacak, ve grafın iyi bildiği TEK bir
+            # kavram bulunacak. İki aday varsa hangisinin sorulduğunu
+            # bilmiyoruz demektir ve o zaman susmak doğrudur.
+            # Soru işareti ŞART DEĞİL: "kuş hakkında her şeyi anlat" bir
+            # istek, soru değil, ve susmak için sebep değil. Bu dala zaten
+            # ancak ayrıştırma tamamen başarısızken geliniyor — yani hiçbir
+            # şey öğrenilmeyecek, yalnız söylenecek.
+            about = self._sole_topic(tokens)
+            if about is not None:
+                said = self._question(self._typed(Intent(ASK_DESCRIBE, about)))
+                if not is_a_refusal(said):
+                    self.thread.note(about)
+                    return about_instead(about, said)
             return not_understood(resembles, self.memory, spotted,
                                   long=len(tokens) > 3)
         if intent.kind == ASK_THREAD:
@@ -582,8 +639,11 @@ class Session:
             # Cevabın GENİŞLİĞİ de soruya bağlı. Sabitken "kısa cevap ver"
             # yönergesi yalnız cümleyi kırpıyordu; şimdi kaç olgunun
             # söyleneceğini baştan belirliyor — kırpmak ile seçmek ayrı şeyler.
+            # Uzunluk üç yerden gelebilir, sonuncusu kazanır: varsayılan,
+            # oturum yönergesi, ve CÜMLENİN KENDİSİ. Üçüncüsü olmadan "her
+            # şeyi uzun uzun anlat" ile "anlat" aynı cevabı alıyordu.
             self.gate.told_most = phrasing.told_most(
-                self.directives.get("length"))
+                self._asked_length(line) or self.directives.get("length"))
             said = self._fluent(intent, line, self._question(intent))
             # ÇOKLU HİPOTEZ. İlk okuma cevap üretmediyse ve kavram grafta
             # yoksa, adaylar sırayla deneniyor. Bu, sistemin tek sert kararını

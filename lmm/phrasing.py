@@ -420,6 +420,24 @@ def not_understood(resembles=None, memory=None, spotted=(), long=False):
     return f"bunu anlamadım. şunları sorabilirsin: {known_shapes(memory)}."
 
 
+def about_instead(concept, said):
+    """Cümleyi çözemedim ama konuyu tanıdım — bildiğimi söylüyorum.
+
+    Sorulmayan soruya cevap vermek ile susmak arasında üçüncü bir yol:
+    ne anlaşıldığını AÇIKÇA söyleyip graftan konuşmak. Okuyan neyin
+    cevaplandığını görüyor, yani yanlış anladıysak fark ediliyor.
+
+    Sınır dar ve bilerek dar: bu yola yalnız cümle hiç ayrıştırılamadığında
+    ve cümlede grafın İYİ bildiği tek bir kavram varken giriliyor — yani
+    başka türlü sessizlik olacakken.
+    """
+    # "anlamadım" DEMİYOR ve bu bilerek: `is_a_refusal` o kelimeyi ret işareti
+    # sayıyor ve bilgi taşıyan bir cevabı ret saymak ölçümü bozuyordu. Cümle
+    # yine dürüst — sorunun çözülemediğini söylüyor, neyin cevaplandığını
+    # açıkça belirtiyor.
+    return f"sorunu tam çözemedim ama {concept} hakkında şunu biliyorum: {said}"
+
+
 def acknowledged(*_):
     """Tepkiye tepki: kısa, ve top yine karşıda."""
     return "öyle. devam edelim mi — başka ne sorayım dersen buradayım."
