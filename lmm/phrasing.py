@@ -363,13 +363,83 @@ def known_shapes(memory=None, count=6):
     return "'<kavram> nedir', '<kavram> ne yapabilir', '<kavram> nasıldır'"
 
 
-def not_understood(resembles=None, memory=None):
-    """What to say when nothing parsed — with a guess, if there is one."""
+def not_understood(resembles=None, memory=None, spotted=(), long=False):
+    """What to say when nothing parsed — with a guess, if there is one.
+
+    Uzun bir cümleye örnek kalıp saymak ("şunları sorabilirsin: 'kuş tüylü
+    mü'...") ölçümde en utandırıcı cevaptı: şeker hastası hamileler sorusuna
+    kuş örneği. Örnekler keşfeden kullanıcıya yardım eder; gerçek bir soruyu
+    anlamamışsak doğru hamle LLM'inkiyle aynı — AÇIKLAMA İSTEMEK, ders vermek
+    değil. Cümlede tanınan bir kavram varsa o da söylenir: en azından neyi
+    yakaladığımız belli olur.
+    """
     example = _example(resembles, memory) or SHAPE_EXAMPLES.get(resembles)
     if example:
         return (f"bunu anlamadım. '{example}' gibi bir şey mi demek istedin? "
                 f"kelimelerinden birini bilmiyor olabilirim.")
+    # İki yeni söyleyiş de "anlamadım" taşıyor — `is_a_refusal` cevabı
+    # ret olarak tanımalı, yoksa aday yolu ve öğrenme denemeleri açılmıyor.
+    if spotted:
+        return (f"bu cümleyi tam anlamadım ama {listing(list(spotted))} "
+                f"hakkında bir şeyler biliyorum. sorunu tek cümleyle, düz "
+                f"bir soru olarak sorar mısın?")
+    if long:
+        return ("bu cümleyi tam anlamadım. tek cümlelik, düz bir soru "
+                "olarak sorar mısın?")
     return f"bunu anlamadım. şunları sorabilirsin: {known_shapes(memory)}."
+
+
+def acknowledged(*_):
+    """Tepkiye tepki: kısa, ve top yine karşıda."""
+    return "öyle. devam edelim mi — başka ne sorayım dersen buradayım."
+
+
+def dismissed(*_):
+    """Konu kapandı; küslük yok."""
+    return "tamam, geçtim. başka bir şey sor istersen."
+
+
+def challenged(*_):
+    """"Yanlışsın" içeriksiz bir itiraz: doğrusunu istemek tek dürüst cevap.
+
+    Düzeltme mekanizması zaten var — kullanıcı doğrusunu tek cümleyle yazarsa
+    kayıt düzeltiliyor. Buradaki iş yalnız o kapıyı göstermek.
+    """
+    return ("olabilir — neyi yanlış bildiğimi söyler misin? doğrusunu tek "
+            "cümleyle yazarsan kaydımı düzeltirim.")
+
+
+def directive_set(kind):
+    """Yönerge alındı; tek cümleyle onay."""
+    said = {"short": "tamam, bundan sonra kısa cevap veririm.",
+            "long": "tamam, bundan sonra ayrıntılı anlatırım.",
+            "plain": "tamam, kaynakları artık göstermem.",
+            "cited": "tamam, cevaplarda kaynağı da söylerim."}
+    return said.get(kind, "tamam.")
+
+
+import re as _re
+
+_CITATION = _re.compile(r"\s*\((?:doğrudan bilgi, )?kaynak(?:larım)?: [^)]*\)")
+
+
+def directed(said, directives):
+    """Oturumun yönergelerini söylenmiş cevaba uygular.
+
+    LLM'de prompt üretimin İÇİNİ şartlar; burada üretim graftan geliyor ve
+    zaten doğru, şartlanan yalnız SÖYLEYİŞ: uzunluk ve kaynak gösterimi.
+    Kısaltma cümle sınırından yapılır, cümlenin içi kesilmez — kesilen bilgi
+    kaybolmuyor, "devamını anlat" ile alınabilir.
+    """
+    if not said or not directives:
+        return said
+    if directives.get("sources") is False:
+        said = _CITATION.sub("", said)
+    if directives.get("length") == "short":
+        pieces = said.split(". ")
+        if len(pieces) > 2:
+            said = ". ".join(pieces[:2]).rstrip(".") + "."
+    return said
 
 
 def which_reading(word, readings):

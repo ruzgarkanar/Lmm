@@ -34,6 +34,7 @@ from lmm.induction import Induction
 from lmm.network import MiniNetwork
 from lmm.curiosity import Curiosity
 from lmm.pursuit import Pursuit
+from lmm import phrasing
 from lmm.phrasing import (forgotten, wondering, not_understood, now_i_can, generalising,
                           describe, teach_me_the_word, learned_word, computed,
                           cannot_compute, which_reading, went_and_read,
@@ -168,6 +169,10 @@ class Session:
         # biliyorsun" sorularının cevabı burada. Yeni bilgi değil, zaten
         # tutulan künyenin sorulabilir hâle gelmesi.
         self.grounds = []
+        # Oturumun yönergeleri — LLM'deki system prompt'un karşılığı. Prompt
+        # her istekte yeniden gönderilir; yönerge bir kez söylenir ve oturum
+        # hatırlar. Boşken hiçbir şey değişmiyor.
+        self.directives = {}
         # Akıcı ağız: grafın cevabını çekirdeğe söyletir, ama üretilen cümle
         # geri okunup grafla karşılaştırılır. Verilmezse şablonlar kullanılır —
         # akıcılık isteğe bağlı, doğruluk değil.
@@ -426,6 +431,36 @@ class Session:
         return f"{said} {learned_wording(line)}"
 
     def respond(self, line):
+        said = self._respond(line)
+        # Yönergeler söyleyişe EN SONDA uygulanır — hangi yoldan çıkarsa
+        # çıksın. İçerik graftan gelmiş ve kapıdan geçmiş durumda; burada
+        # değişen yalnız uzunluk ve kaynak gösterimi.
+        return phrasing.directed(said, self.directives)
+
+    def _directive(self, line):
+        """Cümle bir yönerge mi? Kapalı sınıftan, dizgi karşılaştırmasıyla."""
+        grammar = getattr(self.language, "grammar", None)
+        morphology = getattr(grammar, "morphology", None)
+        table = getattr(morphology, "directives", None) or {}
+        text = lower(line).strip(" .,!?")
+        for kind, forms in table.items():
+            if any(text == form or text.endswith(" " + form)
+                   or text.startswith(form + " ") for form in forms):
+                return kind
+        return None
+
+    def _respond(self, line):
+        directive = self._directive(line)
+        if directive is not None:
+            if directive == "short":
+                self.directives["length"] = "short"
+            elif directive == "long":
+                self.directives["length"] = "long"
+            elif directive == "plain":
+                self.directives["sources"] = False
+            elif directive == "cited":
+                self.directives["sources"] = True
+            return phrasing.directive_set(directive)
         if self.pending is not None:
             settled = self._resolve_pending(line)
             if settled is not None:
@@ -516,7 +551,11 @@ class Session:
                 if learned is not None:
                     return learned
             resembles = intent.resembles if intent.resemblance >= RESEMBLANCE else None
-            return not_understood(resembles, self.memory)
+            tokens = tokenize(line)
+            spotted = [word for word in tokens
+                       if len(self.memory.query(word)) >= 3][:2]
+            return not_understood(resembles, self.memory, spotted,
+                                  long=len(tokens) > 4)
         if intent.kind == ASK_THREAD:
             return talked_about(self.thread.recent())
         if intent.kind == ASK_MORE:
@@ -552,8 +591,12 @@ class Session:
             #
             # Kazananı biz seçmiyoruz: grafta CEVAP ÜRETEN kazanıyor, ve kapı
             # yine doğruluyor. Aday sayısı artıyor, kapı gevşemiyor.
-            if (is_a_refusal(said) and intent.concept
-                    and not self.memory.query(intent.concept)):
+            # Koşul "kavram grafta yok" DEĞİL, "graf adayı daha iyi
+            # tanıyor". İlk hâli yoklukla sınırlıydı ve bir eş adlılık onu
+            # kapattı: `kuşlar` grafta VAR — Bursa'nın köyü olarak, 3 olgu.
+            # Kavram "var" sayıldı, aday yolu açılmadı ve sistem kuş yerine
+            # "kuşlar nedir, öğret" dedi. Ölçüt destek: `kuş` 15 olgu > köy 3.
+            if is_a_refusal(said) and intent.concept:
                 # İki ŞEKİL deneniyor, çünkü özne yanlış okunduğunda cümlenin
                 # gerisi de yanlış okunuyor. Ölçüldü: "Ormanların önemi ve
                 # faydaları nelerdir" cümlesi `ASK(ormanların önemi, type,
@@ -569,7 +612,10 @@ class Session:
                 # bulunamadığında giriliyor, yani başka türlü sessizlik olacak
                 # yerde. Özne cevapta açıkça geçiyor ("Orman bir yerdir"), o
                 # yüzden yanlış anladıysak kullanıcı görüyor.
+                held = len(self.memory.query(intent.concept))
                 for name, same_thing in self._candidates(intent.concept):
+                    if len(self.memory.query(name)) <= held:
+                        continue        # aday, eldekinden iyi tanınmıyor
                     shapes = [Intent(intent.kind, name, intent.relation,
                                      intent.target, intent.object,
                                      intent.role, intent.quantifier)]
