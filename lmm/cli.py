@@ -10,7 +10,7 @@ from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
                            UNKNOWN_WORD, AMBIGUOUS, PRONOUNS, ASK_THREAD,
                            ASK_WHY, ASK_PROPERTIES, ASK_MORE,
                            ASK_INVENTORY, ASK_CERTAINTY, ASK_SOURCE,
-                           ASK_OPINION, lower, tokenize)
+                           ASK_OPINION, ASK_DESCRIBE, lower, tokenize)
 from lmm import social
 from lmm import coordination
 from lmm.thread import Thread
@@ -535,6 +535,49 @@ class Session:
         if intent.kind != TEACH:
             self.last = intent          # eksiltili sorular buna dayanacak
             said = self._fluent(intent, line, self._question(intent))
+            # ÇOKLU HİPOTEZ. İlk okuma cevap üretmediyse ve kavram grafta
+            # yoksa, adaylar sırayla deneniyor. Bu, sistemin tek sert kararını
+            # geri alınabilir yapıyor: ayrıştırıcının yanılması artık yolun
+            # sonu değil.
+            #
+            # Geri izleme bu projede zaten var — `grammar._fit_from` kalıp
+            # eşleştirirken tam bunu yapıyor. Kavram çözümlemesinde yoktu ve
+            # ölçüldü: 200 gerçek sorunun %47'si orada kayboluyordu.
+            #
+            # Kazananı biz seçmiyoruz: grafta CEVAP ÜRETEN kazanıyor, ve kapı
+            # yine doğruluyor. Aday sayısı artıyor, kapı gevşemiyor.
+            if (is_a_refusal(said) and intent.concept
+                    and not self.memory.query(intent.concept)):
+                # İki ŞEKİL deneniyor, çünkü özne yanlış okunduğunda cümlenin
+                # gerisi de yanlış okunuyor. Ölçüldü: "Ormanların önemi ve
+                # faydaları nelerdir" cümlesi `ASK(ormanların önemi, type,
+                # fay)` diye okunmuştu — "orman bir FAY mıdır" sorusu. Adayı
+                # o bozuk şeklin içine koymak işe yaramaz.
+                #
+                #   ÖZGÜN    ilişki doğru okunmuş olabilir, önce o denenir
+                #   ANLAT    okunamadıysa graf o kavram hakkında ne biliyorsa
+                #
+                # ANLAT bir tahmin değil: her cümlesi graftan geliyor ve kapı
+                # yine önünde. Sorulmayan soruya cevap verme riski var, ve
+                # sınır tam burada — bu yola YALNIZCA kavram grafta
+                # bulunamadığında giriliyor, yani başka türlü sessizlik olacak
+                # yerde. Özne cevapta açıkça geçiyor ("Orman bir yerdir"), o
+                # yüzden yanlış anladıysak kullanıcı görüyor.
+                for name in self._candidates(intent.concept):
+                    for shape in (Intent(intent.kind, name, intent.relation,
+                                         intent.target, intent.object,
+                                         intent.role, intent.quantifier),
+                                  Intent(ASK_DESCRIBE, name)):
+                        other = self._typed(shape)
+                        tried = self._fluent(other, line,
+                                             self._question(other))
+                        if not is_a_refusal(tried):
+                            intent, said = other, tried
+                            self.last = intent
+                            break
+                    else:
+                        continue
+                    break
             self._remember_grounds(intent)
             # Ayrıştırıcı güvenle YANLIŞ okuyabiliyor: "bana penguenlerden
             # bahseder misin" cümlesini %100 güvenle "bana" hakkında bir soru
@@ -563,6 +606,75 @@ class Session:
         if status in (LEARNED, CORRECTED):
             return f"{message} {self._after_learning()}".strip()
         return message
+
+    def _candidates(self, concept, most=5):
+        """Kavram için ADAYLAR — ağırlıklı, en desteklenen önce.
+
+        Bu, sistemin tek SERT kararını yumuşatıyor. Ayrıştırıcı cümleden bir
+        kavram çıkarıyor ve ondan sonraki her şey ona bağlı; yanılırsa graf
+        boşuna aranıyor ve dönüş yok. Ölçüldü — 200 gerçek sorunun %47'si tam
+        burada kayboluyordu ve sebep grafın bilmemesi DEĞİLDİ:
+
+            "Ormanların önemi ve faydaları nelerdir?"
+              ayrıştırıcı  -> 'ormanların önemi'   grafta yok
+              gerçek özne  -> 'orman'              grafta 15 olgu VAR
+
+        LLM'de bu adım hiç yok: dağıtık temsilde `orman` ile `ormanların
+        önemi` zaten aynı bölgede, ayrı şey değiller. Bizde ayrı düğümler —
+        biri var biri yok.
+
+        Üç kaynaktan aday üretiliyor, hepsi elimizde olan şeylerden:
+
+            ALT ÖBEK      "ormanların önemi" -> "ormanların" -> "orman"
+            EK SOYMA      biçimbilim zaten yapıyor, öbek için yapılmıyordu
+            ANLAM KOMŞUSU gömme, bilinen kavramlar arasından
+
+        Ağırlık graftan geliyor: bir aday hakkında graf kaç olgu biliyorsa o
+        kadar desteklidir. Dikkatin (attention) buradaki karşılığı bu — kararı
+        biz vermiyoruz, GRAFIN DESTEĞİ veriyor.
+
+        Uydurma riski artmıyor: aday sayısı artıyor, kapı gevşemiyor. Kazanan
+        aday da seçilmiyor, grafta CEVAP ÜRETEN kazanıyor.
+        """
+        if not concept:
+            return []
+        found, seen = [], {concept}
+        words = concept.split()
+        # Alt öbekler: sondan ve baştan daralt.
+        for size in range(len(words) - 1, 0, -1):
+            for at in (0, len(words) - size):
+                piece = " ".join(words[at:at + size])
+                if piece and piece not in seen:
+                    seen.add(piece)
+                    found.append(piece)
+        # Ek soyma: biçimbilim tek kelimede yapıyor, öbeğin başında yapmıyordu.
+        morphology = getattr(getattr(self.language, "grammar", None),
+                             "morphology", None)
+        if morphology is not None:
+            for piece in list(found) + [concept]:
+                head = piece.split()[0]
+                for peeled in (morphology.strip_plural(head),
+                               morphology.strip_genitive(head,
+                                                         self._concepts())):
+                    if peeled and peeled not in seen:
+                        seen.add(peeled)
+                        found.append(peeled)
+        # Anlam komşusu: gömme varsa, BİLİNEN kavramlar arasından.
+        vectors = getattr(self.memory, "vectors", None)
+        if vectors is not None:
+            for word in ([concept] + words)[:2]:
+                try:
+                    close = vectors.similar(word, 12)
+                except Exception:                           # noqa: BLE001
+                    continue
+                for name, _ in close:
+                    if name not in seen and self.memory.query(name):
+                        seen.add(name)
+                        found.append(name)
+        # AĞIRLIK: graf kaç olgu biliyorsa o kadar destekli.
+        found = [name for name in found if self.memory.query(name)]
+        found.sort(key=lambda name: -len(self.memory.query(name)))
+        return found[:most]
 
     def _correction(self, line):
         """"hayır penguen uçamaz" -> düzeltilmiş cümle, değilse None.
