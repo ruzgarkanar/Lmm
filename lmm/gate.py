@@ -383,6 +383,34 @@ class EpistemicGate:
         edges = self.memory.query(concept, IS_A)
         if not edges:
             return self._dont_know(concept)
+        # Aynı zincirdeki iki tür BELİRSİZLİK DEĞİLDİR, özgülük farkıdır.
+        # "insan bir memelidir" ile "insan bir canlıdır" ikisi de doğru ve
+        # `canlı`, `memeli`nin atası. Ölçüt yalnız güven farkıyken ikisi de
+        # 0,75 olduğu için ayrılamıyordu ve sistem olmayan bir belirsizlik
+        # bildiriyordu:
+        #
+        #   insan nedir -> "birden fazla şeye işaret ediyor: bir memeli ve
+        #                   bir canlı olabilir. hangisi?"
+        #
+        # Graf 128 bine çıkınca bu her yerde patladı; küçük grafta iki tür
+        # nadirdi. Aynı zincirdeyse EN ÖZGÜL olan seçiliyor — seçmek burada
+        # uydurmak değil, çünkü öteki de aynı şeyin daha genel adı.
+        # Ölçüt `ancestors`, `_reach` DEĞİL. İlki anlam süzgecinden geçiyor,
+        # ikincisi ham. Ham kümeyle denendi ve gerçek belirsizliği YUTTU:
+        # 128 binlik grafta `mahalle` neredeyse her şeyin ham erişiminde
+        # (`mahalle in _reach("oyun")` -> True) ve "tavla" yeniden tek anlamlı
+        # sanıldı — bu projenin klasik belirsizlik örneği sessizce kayboldu.
+        # Anlam süzgeçli zincirde `mahalle in ancestors("oyun")` -> False.
+        settled = []
+        for edge in sorted(edges, key=lambda e: -e.confidence):
+            if any(edge.target in self.reasoning.ancestors(other.target)
+                   for other in settled):
+                continue                # zaten söylenenin ATASI: daha genel
+            settled = [held for held in settled
+                       if held.target
+                       not in self.reasoning.ancestors(edge.target)]
+            settled.append(edge)
+        edges = settled or edges
         best = max(edges, key=lambda e: e.confidence)
         rivals = [edge for edge in edges
                   if edge.target != best.target
