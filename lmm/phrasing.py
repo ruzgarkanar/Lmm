@@ -454,6 +454,17 @@ import re as _re
 _CITATION = _re.compile(r"\s*\((?:doğrudan bilgi, )?kaynak(?:larım)?: [^)]*\)")
 
 
+def told_most(length):
+    """Yönergenin istediği genişlik — kaç olgu söylenecek.
+
+    Kırpmak ile seçmek ayrı şeyler: `directed()` kurulmuş cümleyi kesiyor,
+    bu ise hangi olguların kurulacağını belirliyor. İkisi de gerekli — biri
+    uzunluğu, öteki içeriği tutuyor.
+    """
+    from lmm.gate import MOST_TOLD, TOLD_BY_LENGTH
+    return TOLD_BY_LENGTH.get(length, MOST_TOLD)
+
+
 def directed(said, directives):
     """Oturumun yönergelerini söylenmiş cevaba uygular.
 

@@ -29,7 +29,24 @@ import collections
 HEDGE_THRESHOLD = 0.5
 # Bir listede en çok kaç şey söylenir. Fazlası cevap değil döküm oluyor ve
 # okuyan kaybediyor. Kalanı "başka ne biliyorsun" ile alınabilir.
-MOST_TOLD = 5
+#
+# SABİT DEĞİL, VARSAYILAN. Sabit olduğu sürece cevabın uzunluğu soruya
+# bakmıyordu: "kalp nedir" ile "kalp anlat" aynı genişlikte çıkıyor, "uzun
+# anlat" dense bile değişmiyordu. Ölçüldü ve bedeli de görüldü — grafa 686
+# doğru olgu eklendiğinde sınav %97,5'ten %95,8'e düştü, çünkü doğru cevap
+# beş kişilik listeye giremedi. Sekize çıkarınca eski seviyeye döndü, yani
+# kayıp bilgide değil kesmedeydi.
+# Sekiz, beş değil: ölçüldü. Beşteyken grafa doğru olgu eklemek sınavı
+# DÜŞÜRÜYORDU (%97,5 -> %95,8), çünkü doğru cevap listeye giremiyordu —
+# bilgi arttıkça cevabın kötüleşmesi, kesmenin yanlış yerde olduğunun kanıtı.
+# Sekizde eski seviye geri geliyor ve on ikide bir şey değişmiyor, yani
+# doğru yer burası: döküme kaçmadan önceki en geniş nokta.
+MOST_TOLD = 8
+# Anlatma isteyen soru daha geniş: "anlat" diyen döküm değil ANLATI istiyor.
+DESCRIBING = 9
+# Yönergeyle istenen uzunluklar. LLM'de bunu istem yapıyor; burada oturum
+# hatırlıyor ve her cevaba uygulanıyor.
+TOLD_BY_LENGTH = {"short": 3, "long": 12}
 # Bir anlam öbeğinin sorunun kelimelerine ne kadar yakın durması, güvenin
 # sabit seçimini bozmaya yetsin. Eşik olmadan gürültü seçiyor: her öbekte bir
 # kelime bir kelimeye biraz benzer ve en yüksek gürültü kazanıyor.
@@ -54,6 +71,8 @@ class EpistemicGate:
         # eski davranışına düşüyor, yani bir oturum bunu hiç kurmasa da
         # çalışır. Kolaylık, bağımlılık değil.
         self.focus_words = ()
+        # Kaç şey söylenecek. Oturum yönergeden kurar; kurulmazsa varsayılan.
+        self.told_most = MOST_TOLD
 
     def answer(self, intent):
         if intent.kind == ASK_WHO:
@@ -64,6 +83,11 @@ class EpistemicGate:
         if intent.kind == ASK_WHY:
             return self._why(intent)
         if intent.kind == ASK_DESCRIBE:
+            # ANLATMA sorusu daha geniş: "anlat" diyen döküm değil anlatı
+            # istiyor. Yönerge verilmişse o kazanır — kullanıcının söylediği,
+            # sistemin varsayımını her zaman yener.
+            self.exposition.told_most = max(self.told_most, DESCRIBING) \
+                if self.told_most >= MOST_TOLD else self.told_most
             return self.exposition.describe(
                 intent.concept, self._sense(intent.concept, self.focus_words),
                 self._focus_rank)
@@ -491,7 +515,7 @@ class EpistemicGate:
                 or never_learned_properties(concept)
         return properties_answer(concept, self._telling(concept, found))
 
-    def _telling(self, concept, found, most=MOST_TOLD):
+    def _telling(self, concept, found, most=None):
         """Bilgi taşıyanları öne al, kalabalığı kes.
 
         "kartal ne yapabilir" sorusuna dokuz şey saymak teknik olarak doğru ama
@@ -506,6 +530,7 @@ class EpistemicGate:
 
         Kesme sessiz değil: kalanı "başka ne biliyorsun" ile sorulabilir.
         """
+        most = most if most is not None else self.told_most
         if len(found) <= most:
             return found
         steps = [concept] + self.reasoning.ancestors(concept)
