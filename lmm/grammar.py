@@ -316,6 +316,23 @@ class Grammar:
         if slot in (KAVRAM, TUR) and any(lexicon.knows(token)
                                          for token in span):
             return None
+        # Öbeğin BÜTÜNÜ önce sorulur. Son kelime tek başına soyuluyordu ve
+        # öbek ondan sonra birleştiriliyordu:
+        #
+        #     grafta: "çin yeni yılı" --type--> festival
+        #     > çin yeni yılı nedir
+        #     kavram okundu: "çin yeni yıl"   ("yılı" -> "yıl" soyuldu)
+        #     < "yoksa çin yeni yılı mı demek istedin?"
+        #
+        # Sistem elindeki adın kendisini geri öneriyordu. Ölçüldü: 25.916 çok
+        # kelimeli kavramın ~%12,5'i (≈3.200) üzerinde olgu taşıdığı hâlde
+        # soruyla erişilemezdi. Denetim kelime başına vardı, ÖBEK başına yoktu.
+        #
+        # Kararı yine graf veriyor: bütün hâli biliniyorsa ek kelimenin
+        # parçasıdır, soyulmaz.
+        whole = " ".join(span)
+        if slot in (KAVRAM, TUR) and whole in self.known():
+            return whole
         tail = self._capture(slot, span[-1], lexicon)
         if tail is None:
             return None
