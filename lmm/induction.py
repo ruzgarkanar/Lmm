@@ -14,6 +14,8 @@ That is the part an LLM cannot do: it generalises too, but it cannot tell you
 that it did, cannot show you the examples that convinced it, and cannot be
 corrected on one point without retraining.
 """
+import collections
+
 from lmm.memory import (Edge, IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
                         LACKS_PROPERTY, INFERRED, INFERRED_CONFIDENCE,
                         INHERITING)
@@ -47,6 +49,12 @@ SUPPORT = 0.75
 
 
 class Hypothesis:
+    # Yerleştirme mi genelleme mi. İkisi ayrı türden çıkarım ve ayrı
+    # güvenilirlikte: GENELLEME sayıma dayanıyor ("bu ailenin şu kadar üyesi
+    # bunu yapıyor"), YERLEŞTİRME şekle ("bu şey şuna benziyor"). Birincisi
+    # ölçülebilir kanıt taşıyor, ikincisi taşımıyor.
+    guessed = False
+
     def __init__(self, concept, relation, target, examples, support=None):
         self.concept = concept
         self.relation = relation
@@ -78,10 +86,35 @@ class Induction:
         more than one more rule about a type we have already placed.
         """
         for hypothesis in self.placements():
+            hypothesis.guessed = True       # yazılamaz: bkz. `lmm/cli.py`
             return hypothesis
         for hypothesis in self.candidates():
             return hypothesis
         return None
+
+    # Bir niteliğin kavramların bu kadarından fazlasında bulunması, o niteliğin
+    # hiçbir şey ayırt etmediği anlamına gelir. Oran seçildi, sayı değil: graf
+    # büyüdükçe mutlak sayı anlamını yitirir, oran yitirmez.
+    TELLING = 0.005
+
+    def _holders(self):
+        """Her niteliği HANGİ kavramların taşıdığı — kenar sayısına bağlı önbellek.
+
+        Anahtar `_behaviour` ile BİREBİR aynı dörtlü olmalı. İlk yazışta ikili
+        kullandım ve her arama 0 dönüp denetim sessizce geçti — kapı kurulmuş
+        ama kapanmamış oluyordu.
+        """
+        marker = len(self.memory.edges)
+        cached = getattr(self, "_holders_cache", None)
+        if cached is not None and cached[0] == marker:
+            return cached[1]
+        held = {}
+        for edge in self.memory.edges:
+            if edge.target and edge.source != INFERRED:
+                key = (edge.relation, edge.target, edge.object, edge.role)
+                held.setdefault(key, set()).add(edge.concept)
+        self._holders_cache = (marker, held)
+        return held
 
     def placements(self):
         """Concepts with no place, put where their behaviour says they belong.
@@ -98,14 +131,65 @@ class Induction:
             traits = self._behaviour(concept)
             if len(traits) < MINIMUM_TRAITS:
                 continue                    # too little behaviour to go on
+            fitting = []
             for category in self._categories():
                 if category == concept:
                     continue
                 shared = traits & self._behaviour(category)
-                if len(shared) >= MINIMUM_TRAITS and shared == traits:
-                    placed.append(Hypothesis(concept, IS_A, category,
-                                             sorted(t[1] for t in shared)))
-                    break
+                if len(shared) < MINIMUM_TRAITS or shared != traits:
+                    continue
+                # Ortak niteliklerin BİLGİ TAŞIMASI şart. Ölçüldü: 128 binlik
+                # grafta `bağlı` 3.724 kavramda (%6,4), `ilçe` 1.870'te — ve
+                # tam bu ikisi yüzünden her öğretme turunda grafa uydurma bir
+                # olgu yazılıyordu:
+                #
+                #   > glorp bir kuştur
+                #   öğrendim ... sanırım ÜÇOBALAR BİR KILIÇTIR
+                #   yazılan: üçobalar --type--> kılıç  kaynak=çıkarım
+                #
+                # Öğretilen şeyle hiç ilgisi yok: `propose` 58 bin kavramı
+                # tarayıp graftaki İLK sahipsizi döndürüyor ve o da hep aynı
+                # köy adı. Oran %100 — her tur bir saçmalık.
+                #
+                # Ölçüt projenin kendi ilkesi (`gate._telling` ile aynı): bir
+                # olgunun bilgi değeri, onu kaç kavramın paylaştığıyla ters
+                # orantılı. Herkeste olan, kimse hakkında bilgi değildir.
+                # Gerçek ayırt ediciler karşılaştırma için: `uçmak` 12
+                # kavramda, `tüylü` 7, `hızlı` 72.
+                # Sorulan şey "en seyrek nitelik ne kadar seyrek" DEĞİL, "bu
+                # niteliklerin HEPSİNE birden kaç kavram sahip". İlk yazışta
+                # en seyreğe baktım ve yetmedi: `bağlı` 102 kavramda, tavanın
+                # altında, ama `bağlı`+`ilçe` ikilisi binlerce köy adında ve
+                # ayırt ettiği hiçbir şey yok.
+                fitting.append((category, shared))
+                if len(fitting) > 1:
+                    break           # birden çok raf uyuyor: seçmek uydurmaktır
+            # BİR raf uyuyorsa yerleştirme bir çıkarımdır; İKİ raf uyuyorsa
+            # seçim keyfîdir ve keyfî seçim uydurmadır. Kapı bunu tanım
+            # sorusunda zaten söylüyor ("birden çok karşılık varsa seçmek
+            # uydurmaktır") — burada söylenmiyordu ve `break` ilk uyanı
+            # alıyordu.
+            #
+            # Ölçüldü: 128 binlik grafta her öğretme turunda grafa uydurma bir
+            # olgu yazılıyordu — `glorp bir kuştur` deyince `üçobalar bir
+            # kılıçtır`. Öğretilenle ilgisi yok; `bağlı`+`ilçe` davranışını 96
+            # kavram paylaşıyor ve onlarca raf eşit derecede uyuyor.
+            if len(fitting) != 1:
+                continue
+            category, shared = fitting[0]
+            # Ayrıca ortak davranış BİLGİ TAŞIMALI: onu paylaşan kalabalıksa
+            # ayırt ettiği bir şey yok. Ölçüt projenin kendi ilkesi
+            # (`gate._telling` ile aynı).
+            held = self._holders()
+            together = None
+            for trait in shared:
+                owners = held.get(trait, set())
+                together = owners if together is None else together & owners
+            ceiling = max(2, int(len(self.memory.concepts()) * self.TELLING))
+            if len(together or ()) > ceiling:
+                continue
+            placed.append(Hypothesis(concept, IS_A, category,
+                                     sorted(t[1] for t in shared)))
         return placed
 
     def _categories(self):
