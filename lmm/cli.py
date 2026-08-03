@@ -72,13 +72,50 @@ SUBJECTLESS = (ASK_WHO, UNKNOWN, UNKNOWN_WORD, AMBIGUOUS, ASK_THREAD,
                ASK_MORE, ASK_INVENTORY, ASK_CERTAINTY, ASK_SOURCE)
 
 
+_HELD_VECTORS = {}
+
+
+def _vectors(path="models/gomme.json"):
+    """Kayıtlı gömme vektörleri — yoksa None ve sistem onsuz çalışır.
+
+    SÜREÇ BAŞINA bir kez yükleniyor. İlk yazışta her `Session` kendi kopyasını
+    okuyordu ve 20 MB'lık dosya test takımını 5,8 saniyeden 44,8'e çıkardı —
+    702 test, her biri bir oturum. Vektörler salt okunur ve derleme bağlı,
+    yani paylaşmak güvenli; graf gibi oturuma özel değiller.
+    """
+    if path in _HELD_VECTORS:
+        return _HELD_VECTORS[path]
+    import json
+    import os
+    found = None
+    if os.path.exists(path):
+        try:
+            from lmm.vectors import Vectors
+            with open(path, encoding="utf-8") as handle:
+                found = Vectors.from_dict(json.load(handle))
+        except Exception:                                   # noqa: BLE001
+            found = None
+    _HELD_VECTORS[path] = found
+    return found
+
+
 class Session:
     """One conversation: the five organs wired together over a memory file."""
 
     def __init__(self, path, language=None, inquiry=None, wording=None,
-                 intent=None, voice=None, dictionary=None):
+                 intent=None, voice=None, dictionary=None, vectors=None):
         self.path = path
         self.memory = Memory.load(path)
+        # Gömme vektörleri: varsa bağlanır, yoksa sistem eskisi gibi çalışır.
+        # Niyet ağıyla aynı disiplin — kolaylık, bağımlılık değil.
+        #
+        # Ne işe yaradığı dar ve kasıtlı: kapı "bilmiyorum" dediğinde ve yazım
+        # komşusu da bulunmadığında, ANLAMCA yakın BİLİNEN kavramları
+        # gösteriyor. Bir olgu üretmiyor, bir iddiada bulunmuyor; yalnız elde
+        # ne olduğunu söylüyor. Dağılımsal benzerlik zıtları ayıramaz ("sıcak"
+        # ile "soğuk" aynı çevrede geçer, bu projede ölçüldü) — o yüzden
+        # geometri ADAY bulur, kararı kapı verir.
+        self.memory.vectors = vectors if vectors is not None else _vectors()
         lexicon.use(self.memory.lexicon)    # this session speaks its own words
         reasoning = Reasoning(self.memory)
         self.gate = EpistemicGate(self.memory, reasoning)

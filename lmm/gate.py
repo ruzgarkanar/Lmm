@@ -5,7 +5,8 @@ hallucination is not filtered out — it is unreachable.
 """
 from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
                            HAS_PART, LACKS_PART, PLACE, REQUIRES, ALL)
-from lmm.phrasing import (is_a_clause, is_not_a_clause, denied, ability_clause,
+from lmm.phrasing import (related_instead,
+                          is_a_clause, is_not_a_clause, denied, ability_clause,
                           property_clause,
                           dont_know, how_many, which_meaning, compared,
                           because, because_chain, actually, affirmed,
@@ -429,4 +430,39 @@ class EpistemicGate:
 
     def _dont_know(self, concept):
         known = self.memory.concepts()
-        return dont_know(concept, nearest(concept, known) if concept else ())
+        close = nearest(concept, known) if concept else ()
+        if close:
+            return dont_know(concept, close)
+        # Yazım komşusu yoksa ANLAM komşusuna bakılır. İkisi ayrı şey: "kus"
+        # ile "kuş" harf komşusu, "glokom" ile "katarakt" anlam komşusu ve
+        # ikincisini yalnız dağılım verebilir.
+        #
+        # Ölçüldü: 400 gerçek sorunun %56,1'inde grafın hiç duymadığı bir
+        # kavram var. Bunların çoğunda yazım komşusu da yok, yani cevap düz
+        # "bilmiyorum" oluyordu. Elde ne olduğunu söylemek bir iddia değil ve
+        # kullanıcıya sorusunu yeniden sorma imkânı veriyor.
+        #
+        # Vektör hiçbir zaman bir OLGU üretmiyor; yalnız hangi kavramların
+        # gösterileceğini seçiyor. Kapı bu noktada zaten "bilmiyorum" demiş.
+        neighbours = self._related_known(concept)
+        if neighbours:
+            return related_instead(concept, neighbours)
+        return dont_know(concept, ())
+
+    def _related_known(self, concept, count=3):
+        """Anlamca yakın ve grafın BİLDİĞİ kavramlar — vektör varsa."""
+        vectors = getattr(self.memory, "vectors", None)
+        if vectors is None or not concept:
+            return ()
+        try:
+            close = vectors.similar(concept, 40)
+        except Exception:                                   # noqa: BLE001
+            return ()
+        known = set(self.memory.concepts())
+        found = []
+        for word, _ in close:
+            if word in known and word != concept and self.memory.query(word):
+                found.append(word)
+            if len(found) >= count:
+                break
+        return tuple(found)
