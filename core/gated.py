@@ -24,18 +24,30 @@ görünemez. Bu bir eğilim değil, arama uzayının şekli.
 """
 import torch
 
-# Türkçe'nin kapalı sınıfı: olgu taşımayan, yeni üye almayan kelimeler.
-GLUE = (
-    "bir", "birer", "ve", "ile", "ya", "veya", "ama", "fakat", "çünkü", "ki",
-    "de", "da", "ise", "hem", "ne", "değil", "yok", "var", "için", "gibi",
-    "göre", "kadar", "sonra", "önce", "en", "çok", "az", "daha", "bu", "şu",
-    "o", "her", "bazı", "hiç", "tüm", "bütün", "evet", "hayır", "ancak",
-    "yalnız", "sadece", "böyle", "şöyle", "öyle", "yani", "ayrıca", "ise",
-    # Sınıflandırma kelimeleri: içerik taşımazlar, yapı kurarlar. "bir kuş
-    # TÜRÜDÜR" cümlesindeki iddia kuştur, tür değil.
-    "tür", "türü", "türüdür", "çeşit", "çeşidi", "cins", "cinsi", "olan",
-    "olarak", "biri", "biridir", "şey", "şeydir",
-)
+# Kapalı sınıf ARTIK YAZILMIYOR, sayılıyor. Burada kırk sekiz Türkçe kelime
+# elle sıralanmıştı ("bir", "ve", "ile", "değil"...) ve o liste bu projenin
+# kendi kuralına aykırıydı: bir dil motoru bir dilin kelimelerini içermemeli.
+#
+# Aynı soruyu `lmm/verbs.is_structural` sayımdan cevaplıyor — bir dilin en sık
+# kelimeleri her derlemde aynı türdendir. Ölçüldü ve bu gece iki liste daha
+# böyle silindi (`light_words` 17/17, `not_concepts` 29/30 yakalanıyordu),
+# hiçbir ölçüm düşmeden.
+#
+# Derlem yoksa boş küme döner ve ses yalnız grafın onayladığı kelimelerle
+# konuşur — daha dar, ama yanlış değil.
+def glue_words(most=400):
+    """Yapı kuran, olgu taşımayan kelimeler — derlemin sıklık sırasından."""
+    try:
+        from lmm import frequency
+        from lmm.verbs import structural_set
+        counts = frequency.counts()
+        return tuple(structural_set(counts)) if counts else ()
+    except Exception:                                       # noqa: BLE001
+        return ()
+
+
+GLUE = glue_words()
+
 PUNCTUATION = (".", ",", "!", "?", ";", ":", "-", "(", ")", "'")
 
 
