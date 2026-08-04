@@ -127,7 +127,16 @@ def rows_from(paths, most=None, longest=2048):
             marks[at] = CONCEPT
         relations = []
         for concept, relation, target in facts:
-            if concept != subject or not target:
+            if concept != subject:
+                continue
+            if not target:
+                # HEDEFSİZ ÖRNEK GEÇERLİ. Soru cümlelerinde hedef yok —
+                # "kartal nedir" sorusunda söylenecek bir hedef yoktur, ve
+                # onları elemek ağı yalnız bildirme cümlesiyle eğitiyordu.
+                # Ölçüldü ve tam bu yüzden sorularda çalışmıyordu:
+                #     "Kartal, yırtıcı bir kuş türüdür." -> kavram=Kartal ✓
+                #     "kartal nedir"                     -> kavram='rtal'  ✗
+                relations.append(relation)
                 continue
             where = span_of(sentence, target)
             if where is None:
