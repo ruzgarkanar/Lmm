@@ -42,7 +42,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from lmm import frequency, phrasing                         # noqa: E402
 from lmm.intuition import TEACH                             # noqa: E402
-from lmm.memory import CycleError, Edge, Memory             # noqa: E402
+from lmm.memory import (CycleError, Edge, Memory,           # noqa: E402
+                        context_mark)
 from lmm.reasoning import Reasoning                         # noqa: E402
 from lmm.relations import CAN, CANNOT, HAS_PART, HAS_PROPERTY, IS_A  # noqa: E402
 from lmm.turkish import TurkishMorphology                   # noqa: E402
@@ -366,7 +367,7 @@ def _screen(chunk):
         # geçirdi, yazma yolu hiçbirini görmedi, graf yine %0 nesneli çıktı.
         # Sınanan ile yazılan aynı şey olmalı.
         passed.append((concept, relation, target,
-                       hash(context) & 0xFFFFFFFF if context else None,
+                       context_mark(context),
                        object, role))
     return passed, tally, rejected
 

@@ -29,7 +29,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from lmm.memory import Memory                               # noqa: E402
+from lmm.memory import Memory, context_mark                 # noqa: E402
 
 
 def contexts(path):
@@ -46,7 +46,7 @@ def contexts(path):
         sentence = row.get("cümle")
         if not (concept and relation and target and sentence):
             continue
-        mark = hash(sentence) & 0xFFFFFFFF
+        mark = context_mark(sentence)
         exact.setdefault((concept, relation, target), mark)
         loose.setdefault((concept, relation, target[:4]), mark)
     return exact, loose
