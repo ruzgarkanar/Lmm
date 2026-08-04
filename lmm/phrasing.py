@@ -183,8 +183,18 @@ def aorist(infinitive, positive=True):
     return stem + _harmony_vowel(stem) + "r"
 
 
+_ALPHABET = {}
+
+
 def _letters():
-    """(ünlüler, ünsüzler) — dilin kendi bildirdiği alfabeden."""
+    """(ünlüler, ünsüzler) — dilin kendi bildirdiği alfabeden.
+
+    Sonuç saklanıyor. Saklanmadığında derlemin 607.935 kelimesi harf harf
+    taranıyordu ve bu, bir cevapta 29 kez oluyordu: "kuş anlat" 50 ms'den
+    5,7 saniyeye çıktı. Alfabe cevap başına değişmiyor.
+    """
+    if _ALPHABET:
+        return _ALPHABET["held"]
     from lmm.turkish import TurkishMorphology
     vowels = getattr(TurkishMorphology, "vowels", "aeıioöuü")
     alphabet = getattr(TurkishMorphology, "alphabet", None)
@@ -194,7 +204,8 @@ def _letters():
         for word in frequency.counts():
             seen.update(letter for letter in word if letter.isalpha())
         alphabet = "".join(sorted(seen))
-    return vowels, "".join(c for c in alphabet if c not in vowels)
+    _ALPHABET["held"] = (vowels, "".join(c for c in alphabet if c not in vowels))
+    return _ALPHABET["held"]
 
 
 def _attested(stem, positive, infinitive_wanted=None):
