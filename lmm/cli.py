@@ -8,7 +8,7 @@ from lmm.reasoning import Reasoning
 from lmm.gate import EpistemicGate
 from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
                            UNKNOWN_WORD, AMBIGUOUS, PRONOUNS, ASK_THREAD,
-                           ASK_WHY, ASK_PROPERTIES, ASK_MORE,
+                           ASK_MORE,
                            ASK_INVENTORY, ASK_CERTAINTY, ASK_SOURCE,
                            ASK_OPINION, ASK_DESCRIBE, ASK_COMPARE, lower,
                            tokenize)
@@ -61,11 +61,11 @@ RESEMBLANCE = 0.5       # below this, guessing at what you meant is noise
 # ve okuma cümleye uyacak. Geçemeyen atılıyor. Eşiği düşürmek yanlış cevabı
 # değil, yalnız deneme sayısını artırıyor.
 NEURAL_THRESHOLD = 0.15
-# Çıplak soru sözcüğü hangi soruyu sürdürüyor. Kapalı bir eşleme: sözcükler
-# zaten bildirilmiş kapalı sınıftan, buradaki yalnızca hangi niyete
-# karşılık geldikleri.
-FOLLOW_UPS = {"neden": ASK_WHY, "niye": ASK_WHY, "niçin": ASK_WHY,
-              "nasıl": ASK_PROPERTIES, "kim": ASK_WHO, "kimler": ASK_WHO}
+# Çıplak soru sözcüğü hangi soruyu sürdürüyor: eşleme artık `lmm/turkish.py`'de
+# (`bare_questions`). Sözcükler zaten oradaki kapalı sınıftandı; hangi niyete
+# karşılık geldikleri de dile ait bilgi ve burada yazılı kalmaları, ikinci bir
+# dil için bu dosyaya dokunmak demekti. Bildirmeyen bir dil boş eşleme verir:
+# çıplak takip anlaşılmaz ama sohbet durmaz.
 # Sözcük listeleri artık `lmm/turkish.py`'de: çıktı değil GİRDİ oldukları için
 # yerleri `phrasing.py` değil dilin tanımı. Buradaki kopyalar UYUŞMUYORDU da —
 # `openers` burada altı sözcüktü, dilde sekiz; "acaba kartal", "hem kartal" ve
@@ -1197,7 +1197,7 @@ class Session:
         bare = asking.interrogative_of(words[0], morphology)
         if bare is None:
             return None
-        kind = FOLLOW_UPS.get(bare)
+        kind = getattr(morphology, "bare_questions", {}).get(bare)
         if kind is None:
             return None
         return Intent(kind, self.last.concept, self.last.relation,

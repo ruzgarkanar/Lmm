@@ -294,6 +294,46 @@ def own_inference(said):
     return f"{said} (kendi çıkarımım)"
 
 
+# Anlatının SÖYLENİŞİ. Bunlar `lmm/exposition.py`'de duruyordu ve orası
+# paragrafı KURAN organ — neyin söyleneceğine karar veriyor, nasıl söyleneceğine
+# değil. Bir sonraki dil için anlatının sırası aynı kalır, bu sözcükler değişir;
+# o yüzden yerleri burası. Öbek ADLARI ("nasıl", "ne yapar", "nesi var") orada
+# kaldı: onlar kullanıcıya çıkmayan iç kimlikler, çıkan yalnız karşılıkları.
+_GROUP_OPENINGS = {"nasıl": "Ayrıca", "ne yapar": "Kendisi",
+                   "nesi var": "Yapısında"}
+
+
+def group_opening(group=None):
+    """Bir olgu öbeğini açan söz; öbeksiz sürdürme "Ayrıca" ile."""
+    return _GROUP_OPENINGS.get(group, "Ayrıca")
+
+
+def exception_clause(family, concept, own):
+    """Ailenin kuralı ve onu çiğneyen kavram: "Kuş uçar ama penguen uçamaz"."""
+    return f"{capitalize(family)} ama {concept} {own}."
+
+
+def because_it_is(parent, traits, again=False):
+    """Atadan gelenler, nereden geldikleri söylenerek.
+
+    Aynı ata birden çok cümleye bölündüğünde ikincisi "Yine" ile bağlanıyor —
+    okuyanın zinciri kaybetmemesi için, ve bu bir bağlaç, yani dile ait.
+    """
+    if again:
+        return f"Yine {parent} olduğu için {traits}."
+    return f"{capitalize(parent)} olduğu için {traits}."
+
+
+def guessed(clause):
+    """Çıkarımla varılmış bir olgu, öyle olduğu söylenerek."""
+    return f"{clause} (sanırım)"
+
+
+def unconfirmed(clause):
+    """Tek bir yabancının, başka kimsenin doğrulamadığı sözü."""
+    return f"{clause} (birinin söylediği, doğrulanmadı)"
+
+
 def part_clause(concept, part, positive=True, object=None, role=None):
     """kuş, kanadı -> "kuşun kanadı var" / "kuşun kanadı yok"."""
     return f"{genitive(concept)} {part} {'var' if positive else 'yok'}"

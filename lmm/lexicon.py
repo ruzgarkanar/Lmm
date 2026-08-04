@@ -12,30 +12,17 @@ the duration of a request.
 """
 import contextvars
 
-# Elle yazılmış çekirdek: surface -> (mastar, olumlu_mu).
+
+# Çekirdek dağarcık: yüzey -> (mastar, olumlu_mu). Kelimelerin KENDİSİ
+# `lmm/turkish.py`'ye taşındı — bu dosya bir motor ve hangi dile baktığını
+# bilmemeli. Burada kalan şey yalnız "bir çekirdek vardır" bilgisi.
 #
-# Bu liste artık başlangıç dağarcığının TAMAMI değil, DİBİ. Derlem varken
-# üstüne 1555 fiil biniyor (bkz. `seed_verbs`); yokken yalnız bu kalır ve
-# sistem çalışmaya devam eder.
-#
-# Yine de silinemez, ve nedeni ölçülebilir: derlem olumsuzu kuralla üretiyor
-# ("uçmaz"), oysa bu dilde yetersizlik ayrı bir ektir ("uçamaz") ve sistemin
-# KONUŞTUĞU biçim odur. Sıra bu yüzden önemli — `_forms` ilk gördüğü yüzeyi
-# saklıyor, o da buradan gelmeli. Yalnız derleme bırakılsa "penguen uçamaz"
-# yerine "penguen uçmaz" denirdi: anlam aynı değil, ve söyleyiş bozulurdu.
-CORE_VERBS = {
-    "uçar": ("uçmak", True), "uçamaz": ("uçmak", False),
-    "yüzer": ("yüzmek", True), "yüzemez": ("yüzmek", False),
-    "koşar": ("koşmak", True), "koşamaz": ("koşmak", False),
-    "okur": ("okumak", True), "okuyamaz": ("okumak", False),
-    "içer": ("içmek", True), "içemez": ("içmek", False),
-    "konuşur": ("konuşmak", True), "konuşamaz": ("konuşmak", False),
-    # Turkish separates "does not" from "cannot": uçmaz and uçamaz are both
-    # heard, and both land on the same relation here.
-    "uçmaz": ("uçmak", False), "yüzmez": ("yüzmek", False),
-    "koşmaz": ("koşmak", False), "okumaz": ("okumak", False),
-    "içmez": ("içmek", False), "konuşmaz": ("konuşmak", False),
-}
+# Bu küme başlangıç dağarcığının TAMAMI değil, DİBİ. Derlem varken üstüne 1555
+# fiil biniyor (bkz. `seed_verbs`); yokken yalnız bu kalır ve sistem çalışmaya
+# devam eder. Çekirdeğini bildirmeyen bir dil boş küme verir — dar, ama yanlış
+# değil.
+def core_verbs():
+    return dict(getattr(_language(), "core_verbs", {}))
 
 
 # Çekim ekleri — zaman, olumsuzluk, kişi, yeterlik — `lmm/turkish.py`'ye
@@ -84,7 +71,7 @@ def seed_verbs():
     olduğu gibi.
     """
     from lmm import frequency
-    found = dict(CORE_VERBS)
+    found = core_verbs()
     for surface, reading in frequency.verbs().items():
         found.setdefault(surface, reading)
     return found
@@ -173,8 +160,13 @@ class Lexicon:
         """
         from lmm.turkish import TurkishMorphology
         endings = getattr(TurkishMorphology, "infinitive_suffixes", ())
-        back = getattr(TurkishMorphology, "back_vowels", "aıou")
-        vowels = getattr(TurkishMorphology, "vowels", "aeıioöuü")
+        # Ünlüler dilden okunuyor, burada YEDEĞİ tutulmuyordu ama tutuluyormuş
+        # gibi duruyordu: iki harf dizisi de Türkçe'ye aitti. Bildirmeyen bir
+        # dil boş küme veriyor, o zaman hiçbir harf ünlü sayılmıyor ve döngü
+        # sessizce hiçbir mastar üretmiyor — dosyanın geri kalanındaki desenin
+        # aynısı.
+        back = getattr(TurkishMorphology, "back_vowels", "")
+        vowels = getattr(TurkishMorphology, "vowels", "")
         if not endings:
             return
         aorist = getattr(TurkishMorphology, "aorist_suffixes", ())
