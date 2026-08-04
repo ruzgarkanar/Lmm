@@ -31,6 +31,11 @@ COPULA_SUFFIXES = _MORPHOLOGY.copula_suffixes
 PLURAL_SUFFIXES = _MORPHOLOGY.plural_suffixes
 INTERROGATIVES = _MORPHOLOGY.interrogatives
 PRONOUNS = _MORPHOLOGY.pronouns
+# Çekimin en dış katmanları — kişi eki, çoğul, koşaç. Liste `lmm/turkish.py`'de
+# duruyor: bu dosya bir motor ve hangi dilin eklerini soyduğunu bilmemeli.
+OUTER_SUFFIXES = tuple(getattr(_MORPHOLOGY, "outer_suffixes", ()))
+# Küçük harfe indirirken düzeltilecek harf çiftleri. Yine dilden okunuyor.
+LOWERCASE_PAIRS = tuple(getattr(_MORPHOLOGY, "lowercase_pairs", ()))
 
 
 def lower(text):
@@ -39,8 +44,14 @@ def lower(text):
     Python maps "İ" to "i" plus a combining dot, not to "i", so "İnsanlar"
     silently becomes a different word from "insan". Every sentence starting
     with İ was quietly learned under a concept nobody could ever ask about.
+
+    Hangi harfin hangisine düştüğü DİLE ait ve orada bildiriliyor; indirme
+    işlemi burada kalıyor. Çift bildirmeyen bir dilde yalnız Python'ın kendi
+    indirmesi çalışır.
     """
-    return text.replace("İ", "i").replace("I", "ı").lower()
+    for upper, small in LOWERCASE_PAIRS:
+        text = text.replace(upper, small)
+    return text.lower()
 
 
 def tokenize(sentence):
@@ -77,9 +88,7 @@ class Intent:
 def _peeled(word):
     """Kelimenin çekim katmanları soyulmuş hâlleri, en azdan çoğa."""
     found = [word]
-    for ending in ("sınız", "siniz", "sunuz", "sünüz", "sın", "sin", "sun",
-                   "sün", "ım", "im", "um", "üm", "ız", "iz", "uz", "üz",
-                   "lar", "ler", "dır", "dir", "dur", "dür"):
+    for ending in OUTER_SUFFIXES:
         if word.endswith(ending) and len(word) - len(ending) >= 3:
             found.append(word[: -len(ending)])
     return found
@@ -103,9 +112,7 @@ def _a_known_verb(word):
     if word in known:
         return True
     # Çekim katmanları: kişi eki, çoğul, koşaç dışta durur.
-    for ending in ("sınız", "siniz", "sunuz", "sünüz", "sın", "sin", "sun",
-                   "sün", "ım", "im", "um", "üm", "ız", "iz", "uz", "üz",
-                   "lar", "ler", "dır", "dir", "dur", "dür"):
+    for ending in OUTER_SUFFIXES:
         if word.endswith(ending) and len(word) - len(ending) >= 3:
             if word[: -len(ending)] in known:
                 return True

@@ -33,10 +33,11 @@ GROUPS = {HAS_PROPERTY: "nasıl", LACKS_PROPERTY: "nasıl",
           CAN: "ne yapar", CANNOT: "ne yapar",
           HAS_PART: "nesi var", LACKS_PART: "nesi var"}
 
-# Her öbeğin açılışı. Türkçe burada duruyor çünkü `lmm/phrasing.py` "ne denir"
-# dosyası — ama bu üç sözcük anlatının İSKELETİ ve iskelet burada kuruluyor.
-OPENINGS = {"nasıl": "Ayrıca", "ne yapar": "Kendisi",
-            "nesi var": "Yapısında", "other": "Ayrıca"}
+# Öbeğin AÇILIŞ sözcükleri artık `lmm/phrasing.py`'de. Burada duruyorlardı ve
+# gerekçesi "iskelet burada kuruluyor" idi; ama iskeleti kuran şey öbeklerin
+# SIRASI, açılış sözcüğü değil. Sıra burada kaldı, sözcük dile gitti: ikinci bir
+# dil aynı sırayı başka sözcüklerle açar.
+OTHER = "other"
 
 
 class Exposition:
@@ -119,7 +120,9 @@ class Exposition:
                 continue
             family = self._family_clause(edge)
             own = phrasing.predicate(edge.relation, edge.target, edge.object, edge.role)
-            said.append(f"{phrasing.capitalize(family)} ama {concept} {own}.")
+            # "ama" bir bağlaçtı ve motorun ortasında duruyordu; istisnayı
+            # kuran mantık burada, söyleyişi `lmm/phrasing.py`'de.
+            said.append(phrasing.exception_clause(family, concept, own))
         return " ".join(said)
 
     def _inherited(self, concept):
@@ -140,11 +143,15 @@ class Exposition:
         # atadan gelen, kavramın KENDİ bilgisinden daha az söz hakkı almalı.
         if self.told_most is not None:
             clauses = clauses[:max(MOST_IN_A_SENTENCE, self.told_most // 2)]
-        said = [f"{phrasing.capitalize(parent)} olduğu için "
-                f"{phrasing.listing(clauses[:MOST_IN_A_SENTENCE])}."]
+        # "... olduğu için ..." ve onu sürdüren "Yine" birer bağlaçtı ve burada
+        # yazılıydı. Kaç cümleye bölüneceği burada kalıyor (o bir okunurluk
+        # kararı), cümlenin kendisi dile gitti.
+        said = [phrasing.because_it_is(
+            parent, phrasing.listing(clauses[:MOST_IN_A_SENTENCE]))]
         for at in range(MOST_IN_A_SENTENCE, len(clauses), MOST_IN_A_SENTENCE):
-            said.append(f"Yine {parent} olduğu için "
-                        f"{phrasing.listing(clauses[at:at + MOST_IN_A_SENTENCE])}.")
+            said.append(phrasing.because_it_is(
+                parent, phrasing.listing(clauses[at:at + MOST_IN_A_SENTENCE]),
+                again=True))
         return " ".join(said)
 
     def _own(self, concept, sense=None, focus_rank=None):
@@ -188,16 +195,19 @@ class Exposition:
                 continue
             clause = phrasing.predicate(edge.relation, edge.target,
                                         edge.object, edge.role)
+            # Künyeler (`(sanırım)`, `(birinin söylediği...)`) dile taşındı:
+            # hangi olgunun künye alacağı bir GÜVEN kararı ve burada kalıyor,
+            # künyenin nasıl söyleneceği ise söyleyişe ait.
             if edge.source == INFERENCE:
-                clause += " (sanırım)"
+                clause = phrasing.guessed(clause)
             elif level(edge.source) <= STRANGER and not edge.sources[1:]:
                 # Bir yabancının, başka kimsenin doğrulamadığı sözü. Atılmıyor
                 # — kaynağı yazılı ve kapıdan geçti — ama aynı sesle
                 # söylenmiyor. Ölçüldü: "kediler uçar" diyen biri, cevabı
                 # "kedi uçar, koşar, tırmanır" hâline getirebiliyordu ve
                 # okuyan hangisinin nereden geldiğini göremiyordu.
-                clause += " (birinin söylediği, doğrulanmadı)"
-            held.setdefault(GROUPS.get(edge.relation, "other"),
+                clause = phrasing.unconfirmed(clause)
+            held.setdefault(GROUPS.get(edge.relation, OTHER),
                             []).append(clause)
         total = sum(len(items) for items in held.values())
         if not total:
@@ -210,7 +220,7 @@ class Exposition:
             share = max(1, round(budget * len(items) / total))
             for at in range(0, min(len(items), share), MOST_IN_A_SENTENCE):
                 piece = items[at:at + MOST_IN_A_SENTENCE]
-                opening = OPENINGS[name] if at == 0 else "Ayrıca"
+                opening = phrasing.group_opening(name if at == 0 else None)
                 said.append(f"{opening} {phrasing.listing(piece)}.")
         return " ".join(said)
 

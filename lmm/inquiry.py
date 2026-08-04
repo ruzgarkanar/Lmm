@@ -52,6 +52,7 @@ from lmm.frames import read, to_fact
 from lmm.intuition import tokenize
 from lmm.memory import Edge
 from lmm.reading import sentences
+from lmm.turkish import TurkishMorphology
 from lmm.verbs import graded_pairs
 
 ENDPOINT = "https://tr.wikipedia.org/w/api.php"
@@ -110,20 +111,21 @@ def _cleaned(text):
     return re.sub(r"\s+", " ", text)
 
 
-# Koşaçsız tanım: Türkçe koşacı düşürebiliyor ve ansiklopedi bunu sık yapıyor.
-# "Vaşak, ... hayvan türlerinin ortak adı." cümlesinde yüklem eki yok, o yüzden
-# çerçeve okuyucusu hiçbir şey bulamıyordu — sayfaya ulaşılıyor, okunuyor ve
-# sıfır olgu çıkıyordu. Sessiz bir başarısızlık: organ "çalışıyor" görünüyor.
-BARE_DEFINITION = re.compile(
-    r"^(?P<konu>[^,.(]{2,40})\s*[,(].{0,200}?"
-    r"\bbir\s+(?P<tur>[a-zçğıöşü]+)"
-    r"(?:dır|dir|dur|dür|tır|tir|tur|tür)?\b", re.I | re.S)
-# "... X türlerinin ortak adı" / "... X cinsinin genel adı" — ansiklopedinin
-# en sık ikinci kalıbı ve içinde tür bilgisi var.
-COMMON_NAME = re.compile(
-    r"^(?P<konu>[^,.(]{2,40})\s*[,(].{0,200}?"
-    r"\b(?P<tur>[a-zçğıöşü]+)\s+(?:tür|cins|familya)\w*\s+"
-    r"(?:ortak|genel|bilimsel)\s+adı", re.I | re.S)
+# Tanım kalıpları ve çekim ekleri `lmm/turkish.py`'de duruyor: bu dosya bir
+# motor — "ilk cümlede bir tanım kipi var mı" diye soruyor, kipin neye
+# BENZEDİĞİNİ bilmiyor. Kalıbını bildirmeyen bir dil boş küme veriyor; o zaman
+# tanım kipi hiç aranmaz ve yalnız çerçeve okuyucusu çalışır — dar, ama yanlış
+# değil.
+#
+# `konu` ve `tur` grup adları iki taraf arasındaki sözleşme: kalıbı yazan dil
+# bu iki grubu adlandırır, buradaki okuyucu onları sorar.
+DEFINITION_SHAPES = tuple(getattr(TurkishMorphology, "definition_shapes", ()))
+# Koşaç türün parçası değil ("bir tatlıdır" -> "tatlı") ve hangi eklerin koşaç
+# olduğunu dil söylüyor.
+COPULA_ENDINGS = tuple(getattr(TurkishMorphology, "copula_on_tense", ()))
+# Metinden kelime çıkarırken bu dilin harfleri gerekiyor: İngiliz alfabesi
+# Türkçe'yi kesiyor ve "çalışır" ile "calisir" ayrı kelime oluyordu.
+WORD = re.compile("[" + getattr(TurkishMorphology, "letters", "a-z") + "]+")
 
 SHORTEST_NAME = 2       # harf — tek harf bir kavram değil, bir işarettir
 SHORTEST_KIND = 3       # harf — bkz. `definitions.MINIMUM`, aynı derlemde ölçüldü
@@ -137,7 +139,7 @@ def definition_in(text, title=None):
     düşünce bulunamıyordu.
     """
     first = text.split(".")[0].strip()
-    for shape in (BARE_DEFINITION, COMMON_NAME):
+    for shape in DEFINITION_SHAPES:
         found = shape.search(first)
         if not found:
             continue
@@ -145,7 +147,7 @@ def definition_in(text, title=None):
         kind = found.group("tur").strip().lower()
         # Koşaç türün parçası değil: "bir tatlıdır" -> "tatlı". Düzenli ifade
         # eki isteğe bağlı yakalıyor ve yakaladığında gövdeye yapışıyordu.
-        for ending in ("dır", "dir", "dur", "dür", "tır", "tir", "tur", "tür"):
+        for ending in COPULA_ENDINGS:
             if kind.endswith(ending) and len(kind) > len(ending) + 2:
                 kind = kind[: -len(ending)]
                 break
@@ -172,7 +174,7 @@ def facts_in(text, lexicon=None):
     Tablo yoksa metnin kendi sayacına düşülür — körleşir ama çalışır.
     """
     text = _cleaned(text)
-    tokens = re.findall(r"[a-zçğıöşü]+", text.lower())
+    tokens = WORD.findall(text.lower())
     words = frequency.counts() or collections.Counter(tokens)
     graded = frequency.grades() or collections.Counter(graded_pairs(tokens))
     found, seen = [], set()
@@ -288,7 +290,9 @@ def investigate(memory, concept, fetcher=fetch, reader=None, most=MOST,
             "çelişen": clashed, "uydurma": invented, "kesildi": cut}
 
 
-PLURAL = ("lar", "ler")
+# Çoğul eki de dilden okunuyor; bildirmeyen bir dilde hiçbir ad soyulmaz ve
+# kavram olduğu gibi yazılır.
+PLURAL = tuple(getattr(TurkishMorphology, "plural_suffixes", ()))
 
 
 def _singular(name, memory):

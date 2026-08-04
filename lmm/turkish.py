@@ -7,6 +7,8 @@ against a pattern list.
 
 A second language means another module shaped like this one, not another parser.
 """
+import re
+
 from lmm.grammar import (Pattern, Grammar, KAVRAM, TUR, NITELIK, SOZ, FIIL,
                          SORU, KIM, ROL, NICEL, SAHIP, NESNEL, FROM_VERB)
 # Durum ve zaman ETİKETLERİ. Türkçe sözcüklere benziyorlar ama dil değiller:
@@ -233,6 +235,15 @@ class TurkishMorphology:
         ("kim", "kimler"),
         ("ne", "neler"),
     )
+    # Tek başına söylenen bir soru sözcüğü hangi soruyu sürdürür. "penguen
+    # nedir" dedikten sonra yalnızca "neden" demek, aynı kavram için bir SEBEP
+    # sorusudur. Hangi sözcüğün hangi soruyu sorduğu dile ait bilgi: `groups`
+    # zaten hangilerinin aynı şeyi sorduğunu bildiriyor, bu da onların NEYİ
+    # sorduğunu. `lmm/cli.py`'de sabit duruyordu ve orası dilin yaşadığı yer
+    # değil — `affirmations` ile aynı gerekçeyle buraya taşındı.
+    bare_questions = {"neden": ASK_WHY, "niye": ASK_WHY, "niçin": ASK_WHY,
+                      "nasıl": ASK_PROPERTIES, "kim": ASK_WHO,
+                      "kimler": ASK_WHO}
     denials = ("değil", "değildir", "yok", "yoktur")
     # Bir SORUYA verilen onay ve ret. Cümle içindeki olumsuzluktan (`denials`)
     # ayrı: "yok" ikisinde de geçiyor ama biri yüklemi olumsuzluyor, öteki
@@ -385,6 +396,71 @@ class TurkishMorphology:
     # Bu dilin harfleri. Metinden kelime çıkarırken gerekiyor ve İngiliz
     # alfabesi Türkçe'yi kesiyor: "çalışır" ile "calisir" ayrı kelimeler.
     letters = "a-zçğıöşü"
+
+    # --- Aşağısı `lmm/intuition.py` ile `lmm/inquiry.py`'den taşındı ---------
+    #
+    # İkisi de motor: biri cümleyi okuyor, diğeri kaynak metni. Hangi dile
+    # baktıklarını bilmemeleri gerekirken içlerinde elle yazılmış Türkçe ek ve
+    # kalıp duruyordu. İşlem orada kaldı, veri buraya geldi.
+
+    # Küçük harfe indirirken hangi harf hangisine düşer. Python "İ"yi "i" artı
+    # birleşen noktaya çeviriyor, "I"yı da "i"ye — ikisi de bu dilde yanlış ve
+    # bedeli ölçülmüştü: "İnsanlar" ile "insan" ayrı kavram oluyordu. Hangi
+    # çiftlerin düzeltileceği DİLE ait; indirme işlemi değil.
+    lowercase_pairs = (("İ", "i"), ("I", "ı"))
+
+    # Bir çekimin en DIŞ katmanları: kişi eki, çoğul, koşaç. Bir kelimenin
+    # bilinen bir fiil olup olmadığına bakarken soyuluyorlar.
+    #
+    # `person_suffixes`in aynısı DEĞİL ve bilerek: buradaki liste kaynaşma
+    # ünsüzlü biçimleri ("yım", "yiz") almıyor, buna karşılık koşacın yalnız
+    # d'li dördünü ("dır", "dir", "dur", "dür") alıyor. İki listeyi birleştirmek
+    # soyulan katman kümesini genişletir, yani davranışı değiştirir; taşımak
+    # onu değiştirmemeli.
+    outer_suffixes = ("sınız", "siniz", "sunuz", "sünüz", "sın", "sin", "sun",
+                      "sün", "ım", "im", "um", "üm", "ız", "iz", "uz", "üz",
+                      "lar", "ler", "dır", "dir", "dur", "dür")
+
+    # Sözlüğün doğduğu andaki çekirdek dağarcık: yüzey -> (mastar, olumlu_mu).
+    #
+    # Derlem varken üstüne binlerce fiil biniyor (bkz. `lexicon.seed_verbs`);
+    # yokken yalnız bu kalıyor. Silinemez oluşunun sebebi ölçülebilir: derlem
+    # olumsuzu kuralla üretiyor ("uçmaz"), oysa bu dilde yetersizlik ayrı bir
+    # ektir ("uçamaz") ve sistemin KONUŞTUĞU biçim odur. Sıra bu yüzden önemli —
+    # sözlük ilk gördüğü yüzeyi saklıyor, o da buradan gelmeli.
+    core_verbs = {
+        "uçar": ("uçmak", True), "uçamaz": ("uçmak", False),
+        "yüzer": ("yüzmek", True), "yüzemez": ("yüzmek", False),
+        "koşar": ("koşmak", True), "koşamaz": ("koşmak", False),
+        "okur": ("okumak", True), "okuyamaz": ("okumak", False),
+        "içer": ("içmek", True), "içemez": ("içmek", False),
+        "konuşur": ("konuşmak", True), "konuşamaz": ("konuşmak", False),
+        # Bu dil "yapmaz" ile "yapamaz"ı ayırır: ikisi de duyuluyor ve ikisi de
+        # aynı ilişkiye düşüyor.
+        "uçmaz": ("uçmak", False), "yüzmez": ("yüzmek", False),
+        "koşmaz": ("koşmak", False), "okumaz": ("okumak", False),
+        "içmez": ("içmek", False), "konuşmaz": ("konuşmak", False),
+    }
+
+    # Ansiklopedik tanım kalıpları. Motorun yaptığı iş "ilk cümlede bir tanım
+    # kipi var mı" diye sormak; kipin neye BENZEDİĞİ bu dile ait.
+    #
+    # `konu` ve `tur` grup adları iki taraf arasındaki sözleşme: hangi dil
+    # olursa olsun kalıbı yazan bu iki grubu adlandırır, okuyan da onları sorar.
+    #
+    # Birincisi koşaçsız tanım — Türkçe koşacı düşürebiliyor ve ansiklopedi
+    # bunu sık yapıyor: "Vaşak, ... hayvan türlerinin ortak adı." cümlesinde
+    # yüklem eki yok, o yüzden çerçeve okuyucusu hiçbir şey bulamıyordu.
+    # İkincisi "... X türlerinin ortak adı" — en sık ikinci kalıp, içinde tür
+    # bilgisi var.
+    definition_shapes = (
+        re.compile(r"^(?P<konu>[^,.(]{2,40})\s*[,(].{0,200}?"
+                   r"\bbir\s+(?P<tur>[a-zçğıöşü]+)"
+                   r"(?:dır|dir|dur|dür|tır|tir|tur|tür)?\b", re.I | re.S),
+        re.compile(r"^(?P<konu>[^,.(]{2,40})\s*[,(].{0,200}?"
+                   r"\b(?P<tur>[a-zçğıöşü]+)\s+(?:tür|cins|familya)\w*\s+"
+                   r"(?:ortak|genel|bilimsel)\s+adı", re.I | re.S),
+    )
 
     # Kavram ya da hedef OLAMAYACAK kelimeler. Hepsi kapalı sınıf; grafta
 
