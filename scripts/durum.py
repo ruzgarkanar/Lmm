@@ -69,7 +69,9 @@ def _exam(script, graph, extra):
     for line in out.stdout.splitlines():
         line = line.strip()
         if line.startswith(("DOĞRU", "YANLIŞ", "isabet", "cevapladığ",
-                            "TAŞIDI", "UNUTTU", "bağlam")):
+                            "TAŞIDI", "UNUTTU", "bağlam", "cevapladı",
+                            "eksiltili", "hamle", "gerçek soru", "kısa",
+                            "orta", "uzun", "en uzun", "hafızaya")):
             print(f"    {line}")
 
 
@@ -146,6 +148,9 @@ def main(argv):
     print("\n=== SOHBET SINAVI (çok turlu)")
     _exam("sohbet_sinavi.py", graph,
           ["--sohbet", "30" if quick else "60", "--tohum", "7", "--anla"])
+    print("\n=== UZUN SOHBET (uzunluk soruya uyuyor mu)")
+    _exam("uzun_sohbet.py", graph,
+          ["--sohbet", "4" if quick else "8", "--tohum", "7"])
     print("\n=== GERÇEK CÜMLELER (bizim yazmadığımız)")
     real_sentences(graph, reader, count=60 if quick else 150)
     print("\n=== HIZ")
