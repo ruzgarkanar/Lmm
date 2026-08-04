@@ -74,6 +74,10 @@ FOLLOW_UPS = {"neden": ASK_WHY, "niye": ASK_WHY, "niçin": ASK_WHY,
 # "anlaşılmadı" sayılmamalılar — sohbetin kendisi hakkında bir sorunun öznesi
 # yoktur. ASK_THREAD burada olmadığı için cevap üretiliyor ama sessizce
 # "anlamadım"a çevriliyordu.
+# Bir kavram hakkında "konuşulacak kadar" bilgi. Altındaysa anlatmak, cevap
+# vermek değil bir iki kırıntı dökmektir.
+TOPIC_SUPPORT = 5
+
 SUBJECTLESS = (ASK_WHO, UNKNOWN, UNKNOWN_WORD, AMBIGUOUS, ASK_THREAD,
                ASK_MORE, ASK_INVENTORY, ASK_CERTAINTY, ASK_SOURCE)
 
@@ -732,6 +736,25 @@ class Session:
                     else:
                         continue
                     break
+            # KAVRAM BİLİNİYOR AMA SORULAN OLGU YOK. Ölçüldü, 200 gerçek
+            # soruda %15,5 —
+            #
+            #   "Akciğer vereminden vücudun hangi tarafları etkilenebilir"
+            #   kavram=akciğer (14 olgu), ilişki=can, hedef=YOK
+            #   cevap: "bilmiyorum. akciğer hakkında bunu bana öğretir misin?"
+            #
+            # Sorulan tam şeyi bilmemek, hiçbir şey bilmemek değil. Sınır
+            # HEDEFTE: hedefi olan soru bir evet/hayır denetimidir ("fay
+            # İran'a uzanıyor mu") ve orada dürüst cevap "bilmiyorum"dur —
+            # bildiklerini saymak, sorulanı cevaplamamaktır. Hedefi olmayan
+            # soru açık uçludur ve elde ne varsa onu istiyor.
+            if (is_a_refusal(said) and intent.concept and intent.target is None
+                    and len(self.memory.query(intent.concept)) >= TOPIC_SUPPORT):
+                wider = self._typed(Intent(ASK_DESCRIBE, intent.concept))
+                tried = self._question(wider)
+                if not is_a_refusal(tried):
+                    said = about_instead(intent.concept, tried)
+                    self.last = wider
             self._remember_grounds(intent)
             # Ayrıştırıcı güvenle YANLIŞ okuyabiliyor: "bana penguenlerden
             # bahseder misin" cümlesini %100 güvenle "bana" hakkında bir soru
