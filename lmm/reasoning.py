@@ -69,6 +69,22 @@ class Reasoning:
         """Bir kavramın doğrudan türleri, kanıt payı uygulandıktan sonra."""
         edges = self.memory.query(concept, self.memory.kinds.hierarchical())
         if len(edges) > 1:
+            # BASAMAK önce, güven sonra. Güven farkı tek başına yetmiyordu:
+            # doğrulanmış bir belge 0,60 veriyor, tek bir web cümlesi de 0,60
+            # ve ikisi aynı paydan yürüyor. Ölçüldü, 252 binlik grafta —
+            #
+            #     kuş ataları -> [hayvan, KOMEDİ, paraves, tür, ADA, canlı,
+            #                     teropod, sürüngen, DRAM, yer]
+            #
+            # `hayvan` elle derlenmiş dosyadan, `komedi` bir mizah dergisinin
+            # adından, `ada` bir yer adından. Üçünü birden yürümek bir şey
+            # söylemek değil, üç şeyi karıştırmaktır — ve kalıtım yoluyla
+            # her cevaba sızıyor.
+            #
+            # Basamak `lmm/trust.py`de tanımlı ve bu dosyada okunmuyordu.
+            best = max(level(edge.source) for edge in edges)
+            edges = [edge for edge in edges if level(edge.source) == best]
+        if len(edges) > 1:
             strongest = max(edge.confidence for edge in edges)
             edges = [edge for edge in edges
                      if strongest - edge.confidence <= self.SENSE_MARGIN]

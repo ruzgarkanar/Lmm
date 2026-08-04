@@ -46,6 +46,21 @@ DISTILLED_PREFIXES = (DISTILLED_PREFIX, "okuyucu:", "web:", "merak:",
 # ettiriyordu.
 PIPELINE_MARK = ":"
 
+# İki nokta da yetmedi: `vikipedi-tanım` bir hattın ürünü ama iki nokta
+# taşımıyor ve BELGE sayıldı — 14.812 olgu, elle derlenmiş `hayvanlar.txt` ile
+# aynı basamakta. Sonucu ölçüldü:
+#
+#     kuş --type--> komedi   (vikipedi-tanım)     "Kuş, bir mizah dergisidir"
+#     kuş --type--> hayvan   (hayvanlar.txt)
+#     kuş ataları -> [hayvan, KOMEDİ, canlı, DRAM, ...]
+#     > penguen bir komedi mi   ->   "evet, penguen bir komedidir."
+#
+# Ölçüt artık BİÇİM: bir belgenin dosya adı vardır (`hayvanlar.txt`), bir
+# hattın etiketi (`vikipedi-tanım`, `web2:gpt-4.1`). Uzantı, elle konmuş
+# olmanın gözlemlenebilir izidir; yeni bir hat eklemek hiçbir listeyi
+# güncellemeyi gerektirmiyor.
+DOCUMENT_MARK = "."
+
 # Sohbetten gelen ve kimsenin kefil olmadığı kaynak. Sistem insanlara
 # açıldığında yazılacak her şey bu öneki taşımalı: bir yabancının tek cümlesi,
 # doğrulanmış bir belgeyi ezmemeli. Ölçüldü ve ezebiliyordu —
@@ -77,16 +92,22 @@ def distilled_source(model_name):
 
 def level(source):
     source = source or ""
+    # SIRA ÖNEMLİ ve bir kez yanlış kuruldu: biçim denetimi işletmeci
+    # denetiminden önce gelince `sen` de "dosya adı değil" diye damgalandı
+    # ve insan, belgenin altına düştü. Kimlik denetimleri her zaman biçim
+    # denetimlerinden önce.
     if source == INFERENCE:
         return INFERRED
+    if source == TEACHER:
+        return OPERATOR
     if source.startswith(STRANGER_PREFIX):
         return STRANGER
     if any(source.startswith(mark) for mark in DISTILLED_PREFIXES):
         return DISTILLED
     if PIPELINE_MARK in source:
         return DISTILLED
-    if source == TEACHER:
-        return OPERATOR
+    if DOCUMENT_MARK not in source:
+        return DISTILLED            # etiket, dosya değil
     return DOCUMENT
 
 
