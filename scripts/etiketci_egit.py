@@ -35,7 +35,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.tagger import rows_from, spans_from, OUT, CONCEPT, TARGET  # noqa: E402
 
-LONGEST = 160           # harf. Ölçüldü: örneklerin ortancası bunun altında.
+# Bağlam. 2048 harf — bugünkü verinin ortancası 78 ve en uzunu 160, yani şu an
+# fazlasıyla geniş. Bilerek: uzun cümleyi ANLAMAK için mimarinin buna hazır
+# olması gerekiyor ve konum kodlaması göreli (RoPE), yani genişletmek sonradan
+# yeniden eğitim istemiyor. Dolgu maliyeti yığın içinde en uzun örneğe göre
+# kesiliyor, sabit 2048 değil.
+LONGEST = 2048
 HELD_OUT = 3000         # sınav için ayrılan, eğitimde hiç görülmeyen
 
 
@@ -47,10 +52,16 @@ def alphabet_of(rows):
     return {letter: at + 1 for at, letter in enumerate(sorted(seen))}
 
 
-def encode(sentence, marks, letters):
-    ids = [letters.get(ch, 0) for ch in sentence[:LONGEST]]
-    tags = list(marks[:LONGEST])
-    pad = LONGEST - len(ids)
+def encode(sentence, marks, letters, width=None):
+    """Harf kimlikleri ve etiketler, YIĞININ en uzununa göre dolgulanmış.
+
+    Sabit 2048'e dolgulamak işlemin çoğunu boşluğa harcıyordu: ortanca cümle
+    78 harf, yani %96'sı dolgu. Yığın başına kesmek aynı sonucu veriyor.
+    """
+    width = width or LONGEST
+    ids = [letters.get(ch, 0) for ch in sentence[:width]]
+    tags = list(marks[:width])
+    pad = width - len(ids)
     return ids + [0] * pad, tags + [-100] * pad, len(ids)
 
 
@@ -59,7 +70,7 @@ def main(argv):
     if not paths:
         print(__doc__.strip().splitlines()[-1])
         return 1
-    rounds = int(argv[argv.index("--tur") + 1]) if "--tur" in argv else 3
+    rounds = int(argv[argv.index("--tur") + 1]) if "--tur" in argv else 12
     width = int(argv[argv.index("--boyut") + 1]) if "--boyut" in argv else 256
     out = (argv[argv.index("--yaz") + 1] if "--yaz" in argv
            else "models/etiketci")
@@ -71,6 +82,10 @@ def main(argv):
     rows = rows_from(paths)
     random.Random(7).shuffle(rows)
     exam, rows = rows[:HELD_OUT], rows[HELD_OUT:]
+    # En iyi tur saklanıyor, son tur değil. Bu projede bir kez ölçüldü:
+    # 4.850 örnekle dördüncü turda eğitim kaybı düşerken sınav %68,5'ten
+    # %56,3'e indi — ders ezberi. Son turu saklamak o düşüşü kaydeder.
+    best = 0.0
     letters = alphabet_of(rows)
     print(f"  {len(rows):,} eğitim · {len(exam):,} sınav · "
           f"{len(letters)} harf (sayıldı, bildirilmedi)")
@@ -110,9 +125,10 @@ def main(argv):
         running, seen = 0.0, 0
         for at in range(0, len(rows), batch):
             chunk = rows[at:at + batch]
+            width = min(LONGEST, max(len(s) for s, _, _ in chunk))
             ids, tags = [], []
             for sentence, marks, _ in chunk:
-                one, two, _ = encode(sentence, marks, letters)
+                one, two, _ = encode(sentence, marks, letters, width)
                 ids.append(one)
                 tags.append(two)
             ids = torch.tensor(ids, device=device)
@@ -135,7 +151,8 @@ def main(argv):
         with torch.no_grad():
             for at in range(0, len(exam), 128):
                 chunk = exam[at:at + 128]
-                ids = torch.tensor([encode(s, m, letters)[0]
+                width = min(LONGEST, max(len(s) for s, _, _ in chunk))
+                ids = torch.tensor([encode(s, m, letters, width)[0]
                                     for s, m, _ in chunk], device=device)
                 guess = model(ids).argmax(-1).tolist()
                 for (sentence, marks, _), line in zip(chunk, guess):
@@ -149,9 +166,15 @@ def main(argv):
         print(f"  tur {turn + 1} · kayıp {running / max(seen, 1):.4f} · "
               f"KAVRAM %{right / len(exam) * 100:.1f} · "
               f"KAVRAM+HEDEF %{both / len(exam) * 100:.1f}", flush=True)
-        os.makedirs(out, exist_ok=True)
-        torch.save({"model": model.state_dict(), "config": config.to_dict(),
-                    "letters": letters}, os.path.join(out, "etiketci.pt"))
+        score = both / len(exam)
+        if score >= best:
+            best = score
+            os.makedirs(out, exist_ok=True)
+            torch.save({"model": model.state_dict(),
+                        "config": config.to_dict(),
+                        "letters": letters, "tur": turn + 1, "isabet": score},
+                       os.path.join(out, "etiketci.pt"))
+            print("      (en iyi, saklandı)", flush=True)
     print(f"\n  -> {out}/etiketci.pt  ({time.time() - started:.0f} sn)")
     return 0
 

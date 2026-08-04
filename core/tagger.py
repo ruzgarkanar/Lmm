@@ -74,9 +74,26 @@ def labels_for(sentence, concept, target):
     return marks
 
 
-def rows_from(paths, most=None, longest=160):
-    """Okuma çıktılarından etiketli örnekler."""
-    found = []
+def rows_from(paths, most=None, longest=2048):
+    """Okuma çıktılarından etiketli örnekler — CÜMLE BAŞINA BİR TANE.
+
+    İlk yazışta her olgu ayrı bir örnekti ve veri kendiyle çelişiyordu.
+    Ölçüldü: 171.933 cümleden 147.061'i (yani %86) birden çok olgu veriyor ve
+    aynı cümle iki kez, iki farklı hedef işaretlenmiş hâlde görünüyordu —
+
+        "Kitaplarının bazıları Türkiye'de yasadışıdır."
+          örnek 1: hedef = yasadışıdır
+          örnek 2: hedef = Türkiye'de
+
+    Model ikisini birden "doğru" diye görüyor ve hangisini işaretleyeceğini
+    öğrenemiyor. İlk eğitimin sonucu bunu gösterdi: kavram %37,9, ama kavram
+    ve hedef BİRLİKTE %0,9.
+
+    Bir cümlenin bir öznesi vardır ve birden çok şey söylenir. Doğru biçim de
+    o: kavram bir kez, hedeflerin hepsi. Öznesi farklı olan olgular
+    düşürülüyor — onlar yan cümleden geliyor ve aynı diziye sığmazlar.
+    """
+    held = {}
     for path in paths:
         if not os.path.exists(path):
             continue
@@ -93,12 +110,38 @@ def rows_from(paths, most=None, longest=160):
                 continue
             if len(sentence) > longest:
                 continue
-            marks = labels_for(sentence, concept, target)
-            if marks is None:
+            held.setdefault(sentence, []).append((concept, relation, target))
+
+    found = []
+    for sentence, facts in held.items():
+        # Öznesi en çok tekrarlanan kavram: cümlenin konusu o.
+        counted = {}
+        for concept, _, _ in facts:
+            counted[concept] = counted.get(concept, 0) + 1
+        subject = max(counted, key=counted.get)
+        place = span_of(sentence, subject)
+        if place is None:
+            continue
+        marks = [OUT] * len(sentence)
+        for at in range(*place):
+            marks[at] = CONCEPT
+        relations = []
+        for concept, relation, target in facts:
+            if concept != subject or not target:
                 continue
-            found.append((sentence, marks, relation))
-            if most and len(found) >= most:
-                return found
+            where = span_of(sentence, target)
+            if where is None:
+                continue
+            if any(marks[at] != OUT for at in range(*where)):
+                continue        # çakışma: aynı harf iki role verilemez
+            for at in range(*where):
+                marks[at] = TARGET
+            relations.append(relation)
+        if not relations:
+            continue
+        found.append((sentence, marks, relations[0]))
+        if most and len(found) >= most:
+            return found
     return found
 
 
