@@ -220,7 +220,19 @@ def _node(word):
     Bildirmeyen bir dilde eleme yalnız uzunluğa ve harflere kalır — gevşek,
     ama bu organın kendi kararı değil.
     """
-    if not word or len(word) < 3 or word in _suffixes("not_concepts"):
+    if not word or len(word) < 3:
+        return False
+    # Elle yazılmış "kavram olamayacaklar" listesi vardı ve ölçüldü: otuz
+    # kelimenin yirmi dokuzunu sıklık sırası zaten yakalıyor. Bir dilin en sık
+    # kelimeleri her derlemde aynı türdendir — bağlaç, zamir, edat — ve o
+    # sıralama sayımla geliyor, yazımla değil.
+    #
+    # Derlem yoksa eleme yalnız uzunluğa ve harflere kalır; bu organın kendi
+    # kararı değil, dilin bildirmediği yerde susmak.
+    from lmm import frequency
+    from lmm.verbs import is_structural
+    counts = frequency.counts()
+    if counts and is_structural(word, counts):
         return False
     return word.replace("'", "").isalpha()
 
