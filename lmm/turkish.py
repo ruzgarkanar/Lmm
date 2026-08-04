@@ -97,18 +97,6 @@ class TurkishMorphology:
     # reddediliyordu. Dağarcık derleme bağlanınca (18 -> 1559 yüzey) delik
     # açığa çıktı — bir yeteneğin başka bir kusuru gizlemesi.
     conditional_suffixes = ("sa", "se")
-    # Tek heceli olduğu hâlde geniş zamanda DAR ünlü alan fiiller. Kapalı bir
-    # sınıf — Türkçede on üç tane — ve sayımla bulunamaz: "gelmek" ile
-    # "gülmek" aynı biçimde ama biri "gelir" öteki "güler". Bildirilmesi
-    # gereken bilgi, tıpkı soru sözcükleri gibi.
-    narrow_aorist_stems = ("al", "bil", "bul", "dur", "gel", "gör", "kal",
-                           "ol", "öl", "san", "var", "ver", "vur")
-    # Son ünsüzü ünlü önünde yumuşayan gövdeler: "et" -> eder, "git" -> gider.
-    # Kapalı ve küçük bir sınıf. Olmadan "devam eter" çıkıyordu ve bileşik
-    # fiiller ("devam etmek", "yardım etmek") okuma kapısında toptan
-    # reddediliyordu — Türkçenin en üretken fiil kalıbı.
-    voicing_aorist_stems = {"et": "ed", "git": "gid", "tat": "tad",
-                            "güt": "güd", "dit": "did"}
     # Aşağıdakiler ÇIKTI değil GİRDİ: sistemin söyledikleri değil, tanıdıkları.
     # `lmm/phrasing.py` "ne denir"i bilir, burası "ne duyulur"u. İkisi de dil ama
     # yönleri ters, ve karıştırılınca ikinci bir dil eklemek iki dosya yerine

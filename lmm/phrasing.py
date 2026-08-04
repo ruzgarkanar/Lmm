@@ -143,50 +143,131 @@ def possessed(word):
 
 
 def aorist(infinitive, positive=True):
-    """Mastardan geniş zaman: "tırmanmak" -> "tırmanır" / "tırmanmaz".
+    """Mastardan geniş zaman — çekimi DERLEM söyler, liste değil.
 
-    SON ÇARE. Önce sözlüğe, sonra derleme bakılıyor; ikisi de bilmiyorsa
-    cümle mastarla kuruluyordu ve bozuk çıkıyordu: "karakter tırmanmak".
-    Bozuk cümle geri okunamıyor, dolayısıyla doğru bir olgu kapıda
-    reddediliyordu — sistemin kendi ağzı, kendi bilgisini eliyordu.
+    Bu işlev iki elle yazılmış KÖK listesine dayanıyordu: dar ünlü alan
+    gövdeler ("al", "bil", "gel"...) ve ünlü önünde yumuşayan gövdeler ("et",
+    "git"...). İkisi de Türkçe kelime listesiydi ve bir dil motorunda kelime
+    listesi olmamalı — ikinci bir dil, ikinci bir liste demek, ve o listeyi
+    yazan kişinin bildiği kadarıyla sınırlı kalmak demek.
 
-    Türetme dilin bildirdiği eklerden: ünlüyle biten gövde yalnız -r alır,
-    ünsüzle biten uyuma göre geniş ünlü + r. Düzensiz fiiller (gitmek ->
-    gider) bu kuralla yanlış çıkar; o yüzden son çare, ilk yol değil. Yanlış
-    bir çekim yine de mastardan iyidir: mastar cümleyi hiç kurdurmuyor.
+    Derlem ikisini de zaten biliyor ve sorulması yeterliydi. Ölçüldü:
+
+        gel  -> gelir 130.012 · geler     26      git -> gider 27.144 · giter 0
+        al   -> alır   51.076 · alar     479      et  -> eder 130.900 · eter 319
+        ol   -> olur  223.436 · olar     206      uç  -> uçar  3.636 · uçur   66
+
+    Sekizde sekiz. Yöntem: olabilecek bütün çekimler üretiliyor — ünlü
+    uyumunun her hâli, ve son ünsüzün her değişkesi — sonra derlemde EN ÇOK
+    geçen seçiliyor. Yanlış üretilenler kelime bile olmadığı için sayımda
+    yoklar; olan biri çıkarsa doğrusu ondan sıktır.
+
+    Hiçbiri geçmiyorsa kural işliyor: uyum + `-r`. O da bir tahmindir ve
+    tahmin olduğu belli.
     """
-    # BİLEŞİK FİİL: "devam etmek", "yer almak". Çekim yalnız SON kelimede
-    # olur, baştaki ad olduğu gibi durur. Ölçüldü — okuma pilotunda 36 olgu
-    # tam buradan kayboldu: "devam etir", "ileri sürer" yerine bozuk biçimler
-    # çıkıyor ve bozuk cümle geri okunamıyordu.
     if " " in infinitive:
         head, _, last = infinitive.rpartition(" ")
         return f"{head} {aorist(last, positive)}"
     stem = infinitive
-    for ending in ("mak", "mek"):
+    for ending in _of("infinitive_suffixes"):
         if stem.endswith(ending) and len(stem) > len(ending) + 1:
             stem = stem[: -len(ending)]
             break
+    best = _attested(stem, positive, infinitive)
+    if best is not None:
+        return best
     if not positive:
         return stem + ("maz" if _harmony_vowel(stem) in "aıou" else "mez")
-    # Olumsuzda ek ÜNSÜZLE başlıyor, yumuşama olmuyor ("etmez"); olumluda
-    # ünlüyle başlıyor ve gövde yumuşuyor ("eder").
-    stem = _voicing_stems().get(stem, stem)
-    if stem and stem[-1] in "aeıioöuü":
+    if stem and stem[-1] in _letters()[0]:
         return stem + "r"
-    # Tek heceli gövde GENİŞ ünlü alır, çok heceli DAR: "uç" -> uçar ama
-    # "tırman" -> tırmanır. İlk yazışta bu ayrım yoktu ve tek heceliler
-    # "uçur", "yüzür" diye çıkıyordu. Hece sayısı ünlü sayısıdır.
-    vowels = [letter for letter in stem if letter in "aeıioöuü"]
-    if len(vowels) <= 1 and stem not in _narrow_stems():
-        return stem + ("a" if _harmony_vowel(stem) in "aıou" else "e") + "r"
     return stem + _harmony_vowel(stem) + "r"
 
 
-def _voicing_stems():
-    """Ünlü önünde son ünsüzü yumuşayan gövdeler — dilden soruluyor."""
+def _letters():
+    """(ünlüler, ünsüzler) — dilin kendi bildirdiği alfabeden."""
     from lmm.turkish import TurkishMorphology
-    return getattr(TurkishMorphology, "voicing_aorist_stems", {})
+    vowels = getattr(TurkishMorphology, "vowels", "aeıioöuü")
+    alphabet = getattr(TurkishMorphology, "alphabet", None)
+    if alphabet is None:
+        from lmm import frequency
+        seen = set()
+        for word in frequency.counts():
+            seen.update(letter for letter in word if letter.isalpha())
+        alphabet = "".join(sorted(seen))
+    return vowels, "".join(c for c in alphabet if c not in vowels)
+
+
+def _attested(stem, positive, infinitive_wanted=None):
+    """Derlemin FİİL olarak tanıdığı çekim. Yoksa None.
+
+    İlk yazışta adaylar körlemesine üretilip sıklığa bakıldı ve yanlış çıktı:
+    `almak` için `ağır`, `etmek` için `eğer`, `bilmek` için `birer` seçildi —
+    hepsi gerçek kelime, hiçbiri fiil değil. Sıklık tek başına "bu bir kelime
+    mi" sorusunu cevaplıyor, "bu bir FİİL mi" sorusunu değil.
+
+    Derlemin fiil tablosu ikinci soruyu cevaplıyor ve o da sayımla kurulmuş:
+    bir kök hem olumlu hem olumsuz çekimiyle metinde geçiyorsa fiildir
+    (`lmm/verbs.py`). Yani burada da elle yazılmış hiçbir şey yok — bir
+    sayımın sonucu başka bir sayımla süzülüyor.
+
+    Gövdenin son ünsüzü ünlü önünde değişebiliyor ("git" -> "gider") ve neye
+    döndüğü BİLİNMİYOR; bilmeye de gerek yok, çünkü aranan şey gövdenin
+    tamamı değil ilk harfleri.
+    """
+    from lmm import frequency
+    verbs = frequency.verbs()
+    counts = frequency.counts()
+    if not verbs or len(stem) < 2:
+        return None
+    vowels, _ = _letters()
+
+    def tail_fits(surface, root):
+        """Gövdeden sonrası geniş zaman eki mi — ünlü + r, ya da yalnız r."""
+        if not surface.startswith(root):
+            return False
+        tail = surface[len(root):]
+        return tail == "r" or (len(tail) == 2 and tail[0] in vowels
+                               and tail[1] == "r")
+
+    exact, loose = [], []
+    for surface, (name, polarity) in verbs.items():
+        if polarity is not positive:
+            continue
+        # Tablonun kendi mastarı da tutmalı. Yalnız biçime bakmak yetmiyordu:
+        # `gitar` kelimesi tabloda fiil sayılıyor ve gövdesi `git` ile
+        # başlayıp kuyruğu `-ar` olduğu için "gitmek"in çekimi sanıldı.
+        # Tablonun `gitar` için verdiği mastar `gitmek` DEĞİL, ve o fark
+        # burada okunuyor.
+        if name != infinitive_wanted:
+            continue
+        # Kuyruk sınavı ŞART: yalnız öneke bakmak daha uzun fiilleri getiriyor
+        # ve ölçüldü — "gitmek" için `gitar`, "etmek" için `etkilenir`,
+        # "yüzmek" için `yürür`. Hepsi gerçek fiil, hiçbiri aranan çekim
+        # değil. Bir kelimeyle başlamak, o kelimenin çekimi olmak değildir.
+        if tail_fits(surface, stem):
+            exact.append((counts.get(surface, 0), surface))
+        elif len(stem) > 2 and tail_fits(surface, stem[:-1] + surface[len(stem) - 1:len(stem)]) \
+                and surface[:len(stem) - 1] == stem[:-1]:
+            loose.append((counts.get(surface, 0), surface))
+    held = exact or loose
+    if not held and positive:
+        # Tablo tutmadıysa BİÇİM geçerli adaylar derlemde aranıyor: gövde +
+        # ünlü + r. Ünsüz değiştirilmiyor, o yüzden alakasız kelimeler
+        # (`ağır`, `eğer`) aday bile olmuyor. Bu, tek heceli gövdelerin geniş
+        # ünlü aldığını bilmeden `yüzer`i bulmayı sağlıyor — o bilgi eskiden
+        # elle yazılmış on üç köklük bir listedeydi.
+        held = [(counts.get(stem + vowel + "r", 0), stem + vowel + "r")
+                for vowel in vowels]
+        held.append((counts.get(stem + "r", 0), stem + "r"))
+    if not held:
+        return None
+    count, best = max(held)
+    return best if count > 0 else None
+
+
+def _of(name):
+    from lmm.turkish import TurkishMorphology
+    return getattr(TurkishMorphology, name, ())
 
 
 def _narrow_stems():
