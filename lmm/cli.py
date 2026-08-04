@@ -467,6 +467,14 @@ class Session:
             return None                 # ikisi de güçlü: hangisi belli değil
         return scored[0][1]
 
+    def _asked_to_tell(self, line):
+        """Cümle anlatmamı istiyor mu — soru işareti olmadan da."""
+        grammar = getattr(self.language, "grammar", None)
+        morphology = getattr(grammar, "morphology", None)
+        table = getattr(morphology, "directives", None) or {}
+        words = tokenize(line)
+        return any(word in table.get("asking_here", ()) for word in words)
+
     def _asked_length(self, line):
         """Cümlenin kendisi uzunluk istiyor mu — yalnız bu cevap için."""
         grammar = getattr(self.language, "grammar", None)
@@ -613,12 +621,16 @@ class Session:
             # Sınır dar: cümle SORU olacak, ve grafın iyi bildiği TEK bir
             # kavram bulunacak. İki aday varsa hangisinin sorulduğunu
             # bilmiyoruz demektir ve o zaman susmak doğrudur.
-            # Soru işareti ŞART DEĞİL: "kuş hakkında her şeyi anlat" bir
-            # istek, soru değil, ve susmak için sebep değil. Bu dala zaten
-            # ancak ayrıştırma tamamen başarısızken geliniyor — yani hiçbir
-            # şey öğrenilmeyecek, yalnız söylenecek.
+            # SORU ya da İSTEK olmalı. Şart tamamen kaldırılmıştı ve ölçüldü:
+            # karşılıklı sohbette bir öğretme cümlesine ("Bronz bakır ve kalay
+            # karışımıdır") cevap veriliyordu — hem de "sorunu tam çözemedim"
+            # diye. Bildirme, cevap istemez.
+            #
+            # İstek de sayılıyor çünkü "kuş hakkında her şeyi anlat" cümlesinde
+            # soru işareti yok ama cevap bekleniyor.
             about = self._sole_topic(tokens)
-            if about is not None:
+            if about is not None and (self._asks_something(line)
+                                      or self._asked_to_tell(line)):
                 said = self._question(self._typed(Intent(ASK_DESCRIBE, about)))
                 if not is_a_refusal(said):
                     self.thread.note(about)
