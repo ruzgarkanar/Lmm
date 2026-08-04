@@ -182,6 +182,10 @@ class TurkishMorphology:
         "long_here": ("uzun uzun", "her şeyi", "hepsini", "ayrıntılı olarak",
                       "detaylıca", "uzunca"),
         "short_here": ("kısaca", "tek cümleyle", "özetle", "kısa kes"),
+        # ANLATMA İSTEĞİ: soru işareti yok ama cevap bekleniyor. "kuş hakkında
+        # her şeyi anlat" bir bildirme değil; bunu bildirme sayıp susmak,
+        # sorulanı duymamaktı.
+        "asking_here": ("anlat", "bahset", "söyle", "açıkla", "tanıt"),
         "plain": ("kaynak gösterme", "kaynaksız konuş", "kaynak yazma",
                   "kaynakları gizle"),
         "cited": ("kaynak göster", "kaynaklı konuş", "kaynakları göster"),
