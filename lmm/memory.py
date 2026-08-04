@@ -68,6 +68,29 @@ def coverage(quantifier):
     return 1 if quantifier == MOST else 0
 
 
+def context_mark(sentence):
+    """Bir cümlenin KARARLI kimliği.
+
+    Önceden `hash(cümle) & 0xFFFFFFFF` kullanılıyordu ve Python'un dizgi
+    özeti SÜREÇ BAŞINA rastgeleleşiyor. Ölçüldü:
+
+        aynı cümle, birinci süreç : 4056205005
+        aynı cümle, ikinci süreç  :  489932605
+
+    Sonucu sessizdi ama gerçekti: aynı cümle iki ayrı alım koşusunda
+    okunduğunda iki ayrı ANLAM sayılıyor, ve künyeden cümleye geri gitmek —
+    yani provenansı denetlemek — imkânsız oluyor. Anlam ayrımının bütün
+    dayanağı bu künye ve dayanağın kendisi kararsızdı.
+
+    `blake2b` süreçten bağımsız: aynı cümle her zaman aynı sayı.
+    """
+    if not sentence:
+        return None
+    import hashlib
+    digest = hashlib.blake2b(sentence.encode("utf-8"), digest_size=4).digest()
+    return int.from_bytes(digest, "big")
+
+
 class Edge:
     def __init__(self, concept, relation, target, object=None, role=None,
                  source="unknown", confidence=None, is_exception=False,
