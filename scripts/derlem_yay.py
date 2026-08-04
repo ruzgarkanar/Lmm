@@ -39,7 +39,15 @@ def _selector():
     return module
 
 
-def pick(path, want, stride, seen_sentences=()):
+def pick(path, want, stride, seen_sentences=(), most_per_document=4):
+    """Belge başına birden çok cümle alınabilir.
+
+    Tek cümle almak çeşitliliği koruyordu ama derlemin büyük kısmını
+    okumadan bırakıyor: 2,5 milyon satırdan yalnız 120 bin cümle çıktı ve
+    bunların hepsi ayrı belgelerden. Dört cümle, konu çeşitliliğini bozmadan
+    hasadı dört katına çıkarıyor — bir ansiklopedi maddesinin ilk dört
+    cümlesi zaten farklı şeyler söyler.
+    """
     select = _selector()
     counts, verbs = frequency.counts(), frequency.verbs()
     morphology = TurkishMorphology()
@@ -48,6 +56,7 @@ def pick(path, want, stride, seen_sentences=()):
         seen += 1
         if seen % stride:
             continue
+        taken = 0
         for text in select._sentences(line):
             if text in skipped or not select.shaped(text):
                 continue
@@ -63,7 +72,11 @@ def pick(path, want, stride, seen_sentences=()):
                 continue
             found.append(text)
             skipped.add(text)
-            break                       # belge başına bir cümle: çeşitlilik
+            if len(found) % 1 == 0 and len(found) >= want:
+                break
+            if taken >= most_per_document:
+                break                   # aynı belgeden fazlası tek konuya boğar
+            taken += 1
         if len(found) >= want:
             break
     return found, seen
