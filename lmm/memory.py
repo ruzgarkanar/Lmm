@@ -166,6 +166,13 @@ class Memory:
         self.asked = set()
         self.vocabulary = []    # words learned beyond the core lexicon
         self.patterns = []      # ways of saying things, learned beyond the core
+        # Bir olguyu SÖYLEMENİN yolları (`lmm/saying.py`), metinden öğrenilmiş.
+        # `patterns` duymayı öğreniyor, bu söylemeyi: {ilişki: [[şablon, tanık]]}.
+        # Kalıplar gibi bu da bilgidir — model dosyasında taşınır, sohbette
+        # büyür, diske yazılır. Boşken hiçbir şey değişmiyor: konuşma yolu
+        # `lmm/exposition.py`'de önce buraya sorar, boş bulunca elle yazılmış
+        # söyleyişe düşer.
+        self.sayings = {}
         self.reputation = {}    # each source's record of agreeing and disagreeing
         self.health = {}        # per branch: how much is accepted, how much refused
         self.kinds = Kinds()    # what each relation does — data, not code
@@ -273,6 +280,24 @@ class Memory:
         if entry not in self.patterns:
             self.patterns.append(entry)
         return entry
+
+    def learn_saying(self, relation, template, witnesses=1):
+        """Bir olguyu söylemenin öğrenilmiş bir yolunu sakla.
+
+        Tanık sayısı TOPLANIYOR, üzerine yazılmıyor: aynı şablonu iki ayrı
+        derlemde görmek, bir derlemde iki kez görmekten daha güçlü bir
+        kanıttır ve sıra da buna göre kuruluyor (çoktan aza) — konuşurken
+        önce en çok görülen deneniyor.
+        """
+        held = self.sayings.setdefault(relation, [])
+        for entry in held:
+            if entry[0] == template:
+                entry[1] += witnesses
+                break
+        else:
+            held.append([template, witnesses])
+        held.sort(key=lambda entry: -entry[1])
+        return held
 
     def mark_asked(self, key):
         self.asked.add(key)
@@ -442,7 +467,8 @@ class Memory:
                    "edges": [e.to_dict() for e in self.edges],
                    "asked": sorted(self.asked),
                    "vocabulary": self.vocabulary,
-                   "patterns": self.patterns, "reputation": self.reputation,
+                   "patterns": self.patterns, "sayings": self.sayings,
+                   "reputation": self.reputation,
                    "health": self.health, "kinds": self.kinds.to_list()}
         opener, write_mode, _ = self._opener(path)
         temp = path + ".tmp"
@@ -465,6 +491,10 @@ class Memory:
                 memory._rebuild()
                 memory.asked = set(data.get("asked", []))
                 memory.patterns = data.get("patterns", [])
+                # Eski model dosyasında bu alan YOK ve olmaması bir hata
+                # değil: boş sözlük, "hiç söyleyiş öğrenmemişim" demek ve
+                # sistem elle yazılmış söyleyişiyle eskisi gibi konuşur.
+                memory.sayings = data.get("sayings", {}) or {}
                 memory.reputation = data.get("reputation", {})
                 memory.health = data.get("health", {})
                 memory.kinds.load(data.get("kinds", []))

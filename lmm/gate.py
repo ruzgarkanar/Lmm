@@ -799,8 +799,14 @@ class EpistemicGate:
         if rivals:
             readings = [best.target] + [edge.target for edge in rivals]
             return which_meaning(concept, readings)
+        # "X nedir" cevabının GÖVDESİ de önce öğrenilen söyleyişten isteniyor;
+        # anlatı yolunu (`Exposition._identity`) bağlamak yetmiyordu, çünkü
+        # tanım sorusu buradan çıkıyor. `learned_clause` boş söyleyiş
+        # sözlüğünde None döner ve cevap bugünküyle bire bir aynı kalır.
+        learned = self.exposition.learned_clause(concept, IS_A, best.target)
         return definition_answer(concept, best.target, best.source,
-                                 sure=best.confidence >= HEDGE_THRESHOLD)
+                                 sure=best.confidence >= HEDGE_THRESHOLD,
+                                 clause=learned.rstrip(" .") if learned else None)
 
     def _ability(self, concept, action, object=None, role=None):
         known, chain = self.reasoning.can_do(concept, action, object, role)

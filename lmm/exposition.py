@@ -18,7 +18,8 @@ import collections
 from lmm.relations import (IS_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
                            HAS_PART, LACKS_PART)
 from lmm.trust import INFERENCE, STRANGER, level
-from lmm import phrasing
+from lmm.turkish import TEACH
+from lmm import phrasing, saying
 
 OPPOSITES = {CAN: CANNOT, CANNOT: CAN,
              HAS_PROPERTY: LACKS_PROPERTY, LACKS_PROPERTY: HAS_PROPERTY}
@@ -45,6 +46,32 @@ class Exposition:
         self.memory = memory
         self.reasoning = reasoning
         self.told_most = None       # kapı kurar; None ise kesme yok
+        # Geri okuma sınavını yapacak dil organı. None ise ÖĞRENİLEN SÖYLEYİŞ
+        # KAPALI — sınavsız cümle kurmak, öğrenmenin tek güvencesini atmak
+        # olurdu. `lmm/cli.py` oturumun organını buraya bağlıyor.
+        self.language = None
+
+    def learned_clause(self, concept, relation, target):
+        """Bu olguyu METİNDEN öğrenilmiş bir söyleyişle kur — sınavı geçerse.
+
+        Elle yazılmış söyleyişler (`{kavram} bir {hedef}dır` gibi) programcının
+        kararıydı. Buradan geçen cümlenin her kelimesini derlem seçti; sıra da
+        derlemden geldi. Yine de körlemesine güvenilmiyor: kurulan cümle
+        sistemin kendi dilbilgisiyle geri okunuyor ve başladığı olguya
+        dönmüyorsa atılıyor (`saying.verified`).
+
+        None dönmesi normal ve ucuz: çağıran elle yazılmış söyleyişine düşer.
+        Yani öğrenilen BİRİNCİL, elle yazılan YEDEK — ve öğrenilen boşken
+        (henüz hiçbir şablon çıkarılmamışken) sistem bugünküyle bire bir aynı
+        cümleleri kuruyor.
+        """
+        if self.language is None or target is None:
+            return None
+        sayings = getattr(self.memory, "sayings", None)
+        if not sayings:
+            return None
+        return saying.verified(sayings, relation, concept, target,
+                               self.language, TEACH)
 
     def describe(self, concept, sense=None, focus_rank=None):
         """Everything worth saying about a concept, as connected prose.
@@ -105,7 +132,13 @@ class Exposition:
             if not self._sense_speaks(concept, sense):
                 return ""
         best = max(chosen or edges, key=lambda e: e.confidence)
-        sentence = phrasing.capitalize(phrasing.is_a_clause(concept, best.target))
+        # ÖNCE öğrenilen söyleyiş. Tutmazsa (ya da hiç öğrenilmemişse) elle
+        # yazılmış `is_a_clause`. Nokta burada atılıyor çünkü cümlenin sonu
+        # aşağıda kuruluyor; derlemden gelen şablon kendi noktasını taşıyor.
+        learned = self.learned_clause(concept, IS_A, best.target)
+        sentence = phrasing.capitalize(
+            learned.rstrip(" .") if learned
+            else phrasing.is_a_clause(concept, best.target))
         ancestors = self.reasoning.ancestors(concept)
         if len(ancestors) > 1:
             sentence += (f", {best.target} {phrasing.clitic_da(best.target)} "
@@ -241,7 +274,10 @@ class Exposition:
         opposite = OPPOSITES[edge.relation]
         for ancestor in self.reasoning.ancestors(edge.concept):
             if self.memory.direct(ancestor, opposite, edge.target):
-                return phrasing.describe(ancestor, opposite, edge.target)
+                # Aile kuralı da bir olgu: önce öğrenilen söyleyişle denenir.
+                learned = self.learned_clause(ancestor, opposite, edge.target)
+                return (learned.rstrip(" .") if learned
+                        else phrasing.describe(ancestor, opposite, edge.target))
         return ""
 
     def _nearest_parent(self, concept):
