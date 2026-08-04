@@ -320,9 +320,6 @@ class TurkishMorphology:
 
     # Yapı kelimeleri: dilbilgisi taşırlar, kavram değildirler. Asıl eleme
     # sıklıkla yapılıyor; bu liste yalnız sayımın kaçırdıklarını kapatıyor.
-    light_words = ("şey", "zaman", "kendi", "taraf", "yer", "hâl", "hal",
-                   "durum", "konu", "biri", "kimse", "yan", "yanı", "üzere",
-                   "kadar", "gibi", "göre")
 
     # Durum ekleri: bir kelimenin cümledeki rolünü söyleyen şey. Sıra önemli —
     # uzun ek önce denenmeli, yoksa "evden" içinde "de" bulunur. Etiketler
@@ -390,12 +387,6 @@ class TurkishMorphology:
     letters = "a-zçğıöşü"
 
     # Kavram ya da hedef OLAMAYACAK kelimeler. Hepsi kapalı sınıf; grafta
-    # düğüm olsalar bir şeyin adı değil, cümlenin çimentosu olurlardı.
-    # `lmm/frames.py`'den taşındı — orası çerçeve kuruyor, kelime saymıyor.
-    not_concepts = ("değil", "yok", "var", "bir", "birer", "bu", "şu", "o",
-                    "her", "tek", "çok", "az", "daha", "en", "ve", "ile",
-                    "de", "da", "ki", "gibi", "göre", "kadar", "için", "ise",
-                    "ne", "hem", "ya", "veya", "ancak", "ama")
 
     def genitive_readings(self, word):
         """Every way this word could be a possessor, longest stem first."""

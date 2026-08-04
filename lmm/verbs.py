@@ -178,8 +178,6 @@ def is_structural(word, seen, rank=STRUCTURAL_RANK):
     Sıra ölçeklenmiyor: bir dilin en sık üç yüz kelimesi her derlemde aynı
     türden şeylerdir — bağlaç, zamir, yardımcı fiil, "olan", "şey".
     """
-    if word in _of("light_words"):
-        return True
     return word in structural_set(seen, rank)
 
 
