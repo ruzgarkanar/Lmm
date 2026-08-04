@@ -69,12 +69,31 @@ class Vectors:
         return self
 
     def _cooccurrence(self, sentences):
+        """Kim kiminle geçiyor — sayarak.
+
+        BELLEK. 1,2 milyon cümlede bu adım sessizce ölüyordu: on milyonlarca
+        ayrı çift bir sözlükte tutuluyor ve süreç 24 GB'ı aşınca çekirdek onu
+        öldürüyor, log'a tek satır bile düşmeden.
+
+        İki değişiklik, ikisi de bellek için VE kalite için:
+
+        Nadir kelime eleniyor — bir derlemde iki kez geçen kelimenin dağılımı
+        yoktur, vektörü gürültüdür. Eşik derlem büyüklüğüyle ölçekleniyor.
+
+        Bir kez görülen ÇİFT eleniyor. PPMI, tek gözlemli bir çiftte
+        güvenilmez: payda küçük, oran patlıyor. Onları atmak hem sözlüğü
+        küçültüyor hem gürültüyü.
+        """
         sentences = [list(s) for s in sentences]
         seen = {}
         for tokens in sentences:
             for token in tokens:
                 seen[token] = seen.get(token, 0) + 1
+        # Eşik derlemle ölçekleniyor: küçük derlemde 2, büyükte daha yüksek.
+        floor = max(self.minimum, len(sentences) // 100000 + self.minimum)
+        self.minimum = floor
         self.counts = {w: n for w, n in seen.items() if n >= self.minimum}
+        del seen
         self.words = sorted(self.counts)
         self.index = {word: i for i, word in enumerate(self.words)}
 
@@ -92,6 +111,17 @@ class Vectors:
                     row = pairs.setdefault(word, {})
                     row[context] = row.get(context, 0) + 1
                     totals[word] += 1
+        # TEK GÖRÜLEN ÇİFT ATILIYOR. Hem bellek hem kalite: PPMI tek gözlemli
+        # bir çiftte güvenilmez (payda küçük, oran patlar), ve bu sözlük
+        # milyonlarca cümlede on milyonlarca girdiye çıkıp süreci öldürüyordu.
+        # Büyük derlemde uygulanıyor — küçükte her çift değerli.
+        if len(sentences) > 200000:
+            for word, row in list(pairs.items()):
+                kept_row = {c: n for c, n in row.items() if n > 1}
+                if kept_row:
+                    pairs[word] = kept_row
+                else:
+                    del pairs[word]
         return pairs, totals
 
     def _ppmi(self, pairs, totals):
