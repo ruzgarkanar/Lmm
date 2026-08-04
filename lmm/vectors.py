@@ -37,6 +37,10 @@ import math
 WINDOW = 4              # how far to either side counts as company
 MINIMUM_COUNT = 2       # a word seen once has no distribution to speak of
 DIMENSIONS = 48
+# Dikkat ağırlıklarının keskinliği. Sıfırda her kelime eşit ağırlık alır ve
+# bağlam kaybolur; çok yüksekte kelime yalnız kendine bakar ve statik hâline
+# döner. Aradaki değer ÖLÇÜLECEK — burada bir başlangıç duruyor.
+SHARPNESS = 4.0
 ITERATIONS = 12
 
 
@@ -210,6 +214,102 @@ class Vectors:
             other = self.vector(candidate)      # çok kelimeli hedef de bileşir
             if other is not None and candidate != word:
                 scored.append((cosine(target, other), candidate))
+        scored.sort(reverse=True)
+        return [(candidate, score) for score, candidate in scored[:count]]
+
+    def contextual(self, words, sharpness=None):
+        """Cümledeki her kelimenin, O CÜMLEYE göre hesaplanmış temsili.
+
+        Bu dosyanın ürettiği vektörler STATİK: `yüz` kelimesinin tek bir
+        temsili var ve surat, yüzmek, yüz sayısı hepsi aynı noktaya çöküyor.
+        Ölçüldü — komşuları `yüzü, üstünde, kırk, omuz, elli, kol`, yani üç
+        anlam birbirine karışmış hâlde.
+
+        Bir dil modelinin bu projeye göre asıl üstünlüğü buydu ve adı DİKKAT:
+        bir kelimenin temsili, içinde bulunduğu cümleden hesaplanıyor. Aynı
+        kelime "yüzünü yıkadı" ile "havuzda yüzdü" cümlelerinde iki ayrı
+        vektör alıyor, ve bunu kimse elle kurmuyor.
+
+        Burada kurulan, dikkatin en sade hâli: her kelime, cümledeki bütün
+        kelimelerin ağırlıklı ortalaması olur; ağırlık, aralarındaki benzerlik.
+        Öğrenilmiş Q/K/V izdüşümü YOK — kimlik izdüşümü var, yani hiçbir şey
+        eğitilmiyor.
+
+        NEDEN GPU GEREKMİYOR. Dikkati çalıştırmak ucuz, öğrenmek pahalı.
+        Ölçüldü: 11 kelimelik bir cümlede 11x11x96 = 11.616 işlem, saf
+        Python'da 0,98 ms. GPU, izdüşüm matrislerini trilyonlarca belirteç
+        üzerinde gradyanla öğrenmek için gerekiyor — mekanizmayı işletmek
+        için değil.
+
+        SINIR. Öğrenilmiş izdüşüm olmadan bu, dikkatin zayıf hâli: hangi
+        boyutun soru, hangisinin anahtar olduğunu bilmiyor. Ama bedava ve
+        aynı yönde çalışıyor; ölçüm neyi kazandırdığını söyleyecek.
+        """
+        sharpness = SHARPNESS if sharpness is None else sharpness
+        held = [self.vector(word) for word in words]
+        found = []
+        for at, mine in enumerate(held):
+            if mine is None:
+                found.append(None)
+                continue
+            weights, total = [], 0.0
+            for where, other in enumerate(held):
+                # KENDİNİ DIŞLA. Kimlik izdüşümünde bir kelime en çok kendine
+                # benzer (kosinüs 1,0) ve kendi ağırlığı her şeyi bastırıyor:
+                # ölçüldü, iki ayrı bağlamdaki temsiller 0,94-0,99 benzer
+                # çıktı, yani bağlam neredeyse hiç iş görmedi.
+                #
+                # Öğrenilmiş dikkat bunu izdüşümlerle çözüyor — soru ve
+                # anahtar ayrı uzaylarda, o yüzden kelime kendine bakmak
+                # zorunda değil. İzdüşüm yokken aynı işi yapmanın yolu,
+                # kelimeyi kendi ortalamasından çıkarmak: temsili artık
+                # KİMİNLE BULUNDUĞU kuruyor, kendisi değil.
+                if where == at:
+                    weights.append(0.0)
+                    continue
+                weight = (math.exp(cosine(mine, other) * sharpness)
+                          if other is not None else 0.0)
+                weights.append(weight)
+                total += weight
+            if not total:
+                found.append(mine)
+                continue
+            mixed = [0.0] * self.dimensions
+            for weight, other in zip(weights, held):
+                if other is None or not weight:
+                    continue
+                share = weight / total
+                for axis in range(self.dimensions):
+                    mixed[axis] += share * other[axis]
+            # ARTIK BAĞLANTI. Kelimenin kendi vektörü, bağlamdan gelenin
+            # ÜSTÜNE ekleniyor — transformer'daki residual bağlantının aynısı
+            # ve orada da tam bu sebeple var: kelime kimliğini korurken
+            # bağlam kazanmalı.
+            #
+            # Atlanınca ölçüldü ve zarar verdi: kısa soruda ("ibrahimağa
+            # nasıldır") bağlam neredeyse boş ve temsil gürültüye dönüyor,
+            # çünkü kelimenin kendisi tamamen atılmış oluyor. Sınav 80,8'den
+            # 77,5'e düştü ve keskinliği değiştirmek kurtarmadı.
+            for axis in range(self.dimensions):
+                mixed[axis] += mine[axis]
+            scale = math.sqrt(sum(value * value for value in mixed)) or 1.0
+            found.append([value / scale for value in mixed])
+        return found
+
+    def closest_to(self, vector, among, count=1):
+        """Verilen VEKTÖRE en yakın adaylar — kelimeye değil vektöre.
+
+        `nearest` bir kelimeden yola çıkıyor ve statik temsili kullanıyor.
+        Bağlamsal temsil bir kelime değil bir vektör olduğu için ayrı bir
+        kapı gerekiyordu.
+        """
+        if vector is None:
+            return []
+        scored = []
+        for candidate in among:
+            other = self.vector(candidate)
+            if other is not None:
+                scored.append((cosine(vector, other), candidate))
         scored.sort(reverse=True)
         return [(candidate, score) for score, candidate in scored[:count]]
 
