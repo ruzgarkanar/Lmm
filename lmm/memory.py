@@ -175,6 +175,16 @@ class Memory:
 
     def _index(self, edge):
         self.revision += 1
+        # Sözlüğe EYLEM ADLARI veriliyor. Sözlük bilmediği bir çekimden mastar
+        # türetebiliyor ama uydurmaması için bir dayanak lazım: belleğin
+        # gerçekten eylem olarak tanıdığı adlar. Bağ burada kuruluyor ve
+        # sözlük bunu `getattr` ile soruyor — bilmiyorsa eski davranışına
+        # düşüyor, yani bağımlılık değil kolaylık.
+        # Ad `actions` DEĞİL: sözlükte de bellekte de o ad zaten kullanılıyor
+        # ve bir yerde metot, bir yerde liste olunca `x in verbs` patlıyor.
+        # Ayrı ad, ayrı iş.
+        if getattr(self, "lexicon", None) is not None:
+            self.lexicon.known_actions = self._action_set
         if self._names:
             self._names = {}     # yeni ad gelmiş olabilir: dondurulmuş liste bayat
         self._by_concept.setdefault(edge.concept, []).append(edge)

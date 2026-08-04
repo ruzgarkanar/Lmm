@@ -129,7 +129,68 @@ class Lexicon:
         found = self._direct_or_ability(surface)
         if found is not None:
             return found
-        return self._inflected(surface)
+        found = self._inflected(surface)
+        if found is not None:
+            return found
+        return self._derived(surface)
+
+    def _derived(self, surface):
+        """Bilinmeyen çekimden MASTARI türet — ve yalnız bellek onu tanıyorsa.
+
+        Alım kapısı bunun tersini yapıyor: okuyucu mastarı veriyor, biçimbilim
+        çekimi kuruyor, fiil sözlüğe giriyor. Sohbet aynı şeyi yapamıyordu ve
+        sonucu ölçüldü — grafta DURAN bir olgu cevapsız kalıyor:
+
+            grafta    kuş --can--> yumurtlamak   (tr-canlilar.txt)
+            > kuş yumurtlar mı
+            "bunu bilmiyorum ama kuş bir hayvan. hayvan yumurtlar mı?"
+
+        Ayrıştırıcı `yumurtlar` diye okuyor, graf `yumurtlamak` tutuyor ve
+        ikisi buluşmuyordu. Bir kullanıcının öğretmeye çalıştığı fiil de aynı
+        duvara çarpıyor ("kalp kanı pompalar" -> "'pompalar' kelimesini
+        bilmiyorum").
+
+        SINIR: türetilen mastar UYDURULMUYOR — belleğin eylem olarak tanıdığı
+        bir ad değilse hiçbir şey döndürülmüyor. Yani bu, sözlüğe yeni fiil
+        eklemiyor; grafta zaten duran fiili görünür kılıyor. Aksi hâlde her
+        `-ar` ile biten ad bir fiil sanılırdı.
+        """
+        known = getattr(self, "known_actions", None)
+        if not known:
+            return None
+        for infinitive, positive in self._guessed_infinitives(surface):
+            if infinitive in known:
+                return infinitive, positive
+        return None
+
+    def _guessed_infinitives(self, surface):
+        """Yüzey biçimden olabilecek mastarlar, (mastar, kutup) olarak.
+
+        Ad `_infinitives` DEĞİL: `lmm/frames.py` o adı bu sınıfta bir ÖNBELLEK
+        olarak kullanıyor ve üstüne metot koymak onu sessizce bozuyordu —
+        `x in verbs` çağrısı bir metoda düşüyor. İki organ aynı nesnede aynı
+        adı kullanırsa biri diğerini görmeden ezer.
+        """
+        from lmm.turkish import TurkishMorphology
+        endings = getattr(TurkishMorphology, "infinitive_suffixes", ())
+        back = getattr(TurkishMorphology, "back_vowels", "aıou")
+        vowels = getattr(TurkishMorphology, "vowels", "aeıioöuü")
+        if not endings:
+            return
+        aorist = getattr(TurkishMorphology, "aorist_suffixes", ())
+        negative = getattr(TurkishMorphology, "aorist_negative_suffixes", ())
+        for suffixes, polarity in ((negative, False), (aorist, True)):
+            for suffix in sorted(suffixes, key=len, reverse=True):
+                if not surface.endswith(suffix):
+                    continue
+                stem = surface[: -len(suffix)]
+                if len(stem) < 2:
+                    continue
+                held = [letter for letter in stem if letter in vowels]
+                if not held:
+                    continue
+                ending = endings[0] if held[-1] in back else endings[-1]
+                yield stem + ending, polarity
 
     def _inflected(self, surface, depth=2):
         """Geniş zaman dışındaki çekimler — gövdeyi bularak.
