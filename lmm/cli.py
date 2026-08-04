@@ -167,6 +167,11 @@ class Session:
             # İkisi ayrı şeyler: birincisi bir insanın onayladığı bir okuma,
             # ikincisi sayımın önerdiği bir şekil.
             self.language.grammar.add(pattern, first=not pattern.fallback)
+        # Öğrenilen söyleyişin GERİ OKUMA sınavını yapacak organ. Kalıplar
+        # yüklendikten SONRA bağlanıyor: sınav, oturumun gerçekten okuyabildiği
+        # dilbilgisiyle yapılmalı, çıplak bir çekirdekle değil. Bellekteki
+        # söyleyiş sözlüğü boşken bu bağ hiçbir cümleyi değiştirmiyor.
+        self.gate.exposition.language = self.language
         self.learning = LearningLoop(self.memory, reasoning)
         self.curiosity = Curiosity(self.memory, reasoning)
         self.pursuit = Pursuit(self.memory, reasoning)

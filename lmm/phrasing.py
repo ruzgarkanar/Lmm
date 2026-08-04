@@ -1170,9 +1170,15 @@ def inherited_clause(clause, concept, ancestor=None):
     return f"{clause}, çünkü {concept} bir {ancestor}."
 
 
-def definition_answer(concept, target, source, sure=True):
-    """Tanım, künyesiyle. Güven düşükse cümlenin kendisi bunu söylüyor."""
-    answer = f"{is_a_clause(concept, target)} ({attribution(source)})."
+def definition_answer(concept, target, source, sure=True, clause=None):
+    """Tanım, künyesiyle. Güven düşükse cümlenin kendisi bunu söylüyor.
+
+    `clause` verilirse tanım cümlesi DIŞARIDAN geliyor demektir — metinden
+    öğrenilmiş bir söyleyiş (`lmm/saying.py`) geri okuma sınavını geçmiş.
+    Verilmezse elle yazılmış söyleyiş kuruluyor. Künye ve "emin değilim"
+    kaydı bir GÜVEN kararı, söyleyişten bağımsız ve her iki yolda da aynı.
+    """
+    answer = f"{clause or is_a_clause(concept, target)} ({attribution(source)})."
     return answer if sure else "emin değilim ama " + answer
 
 
