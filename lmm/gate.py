@@ -388,7 +388,45 @@ class EpistemicGate:
                 return True
         return False
 
-    def _sense(self, concept, focus=()):
+    def _chosen(self, concept, focus):
+        """Sorunun GERÇEKTEN seçtiği anlam — seçmediyse None.
+
+        `_sense` seçim yapamadığında güvene düşüyor ve bu, sıralama için
+        yeterli bir dayanak değil: hangi anlamın "etkin" olduğu keyfî olur ve
+        o keyfî seçim, kavramın kendi olgularını cevabın sonuna atar.
+        Ölçüldü, 252 binlik grafta —
+        #
+            soru : ibrahimağa nasıldır
+            cevap: küçük, büyük, uzun, sıcak, soğuk, yüksek, geniş ve boş
+            kayıt: ibrahimağa --property--> kadıköy   (kendi kaydı, sona atıldı)
+
+        Cevabın tamamı atadan miras genel niteliklerdi; kavram hakkında bir
+        şey söyleyen tek kayıt, "başka anlama ait" sayıldığı için geride
+        kaldı. Dayanaksız bir ayrım, ayrım yapmamaktan kötüdür.
+        """
+        found = self._sense(concept, focus, chosen_only=False)
+        if not focus:
+            return None
+        vectors = getattr(self.memory, "vectors", None)
+        if vectors is None:
+            return None
+        groups = self._sense_groups(concept)
+        if len(groups) < 2:
+            return None
+        best, mark = 0.0, None
+        for context, targets in groups.items():
+            score = 0.0
+            for word in focus:
+                if word == concept:
+                    continue
+                close = vectors.nearest(word, targets, 1)
+                if close:
+                    score = max(score, close[0][1])
+            if score > best:
+                best, mark = score, context
+        return mark if best >= SENSE_MARGIN else None
+
+    def _sense(self, concept, focus=(), chosen_only=False):
         """Kavramın ETKİN anlamı — sorunun işaret ettiği cümle.
 
         Aynı cümleden çıkan olgular aynı anlama aittir ve bu, künyede duran
@@ -409,6 +447,9 @@ class EpistemicGate:
         strongest = max(edges, key=lambda edge: edge.confidence).context
         if not focus:
             return strongest
+        if chosen_only:
+            chosen = self._chosen(concept, focus)
+            return chosen
         # SORUNUN KENDİSİ ANLAMI SEÇER. Güvene bakmak sabit bir seçimdir:
         # `sos` her zaman oyun, `maya` her zaman paket çıkıyordu, cümlede ne
         # yazarsa yazsın. Ölçüldü, 29 cevabın 8'i tam buradan bozuluyordu:
@@ -631,7 +672,12 @@ class EpistemicGate:
         """Etkin anlama AİT OLMAYAN hedefler — çok anlamlı kavramlarda."""
         if not self._many_senses(concept):
             return frozenset()
-        sense = self._sense(concept, self.focus_words)
+        # Soru bir anlam SEÇMEDİYSE hiçbir şey geriye atılmıyor. Seçimsiz
+        # ayrım, kavramın kendi kayıtlarını miras genel niteliklerin arkasına
+        # atıyordu ve cevap hiçbir şey söylemez oluyordu.
+        sense = self._chosen(concept, self.focus_words)
+        if sense is None:
+            return frozenset()
         return frozenset(edge.target for edge in self.memory.query(concept)
                          if edge.target is not None
                          and edge.context is not None
