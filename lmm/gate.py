@@ -731,8 +731,24 @@ class EpistemicGate:
             settled.append(edge)
         edges = settled or edges
         best = max(edges, key=lambda e: e.confidence)
+        # RAKİP AYNI BASAMAKTAN OLMALI. Güven farkına bakmak yetmiyordu:
+        # elle derlenmiş bir belge 0,60, bir web okuması 0,50 veriyor ve fark
+        # eşiğin altında kalıyor. Ölçüldü — graf 252 bine çıkınca "kartal
+        # nedir" sorusunun cevabı şu oldu:
+        #
+        #   "birden fazla şeye işaret ediyor: bir kuş, bir ilçe, bir banliyö,
+        #    bir amerikan ve bir binbaşı olabilir. hangisini soruyorsun?"
+        #
+        # `kuş` doğrulanmış bir belgeden, ötekiler tek bir web cümlesinden.
+        # Bunları eşit saymak, belirsizlik olmayan yerde belirsizlik
+        # bildirmektir — ve kullanıcı için cevapsızlıktan farkı yok.
+        #
+        # Basamak `lmm/trust.py`de zaten tanımlı ve `reasoning._resolve`
+        # onu okuyor; burada okunmuyordu.
+        top = level(best.source)
         rivals = [edge for edge in edges
                   if edge.target != best.target
+                  and level(edge.source) >= top
                   and best.confidence - edge.confidence <= AMBIGUITY_MARGIN]
         if rivals:
             readings = [best.target] + [edge.target for edge in rivals]
