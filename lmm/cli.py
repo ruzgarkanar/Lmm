@@ -633,7 +633,14 @@ class Session:
                                       or self._asked_to_tell(line)):
                 said = self._question(self._typed(Intent(ASK_DESCRIBE, about)))
                 if not is_a_refusal(said):
+                    # Konu sohbete de yazılıyor VE `last`e de: eksiltili
+                    # takip ("ne yapar peki") buna dayanıyor. Yalnız `thread`
+                    # yazılırken ölçüldü — "kalp ... anlat" bu yoldan
+                    # cevaplandıktan sonra "ne yapar peki" hâlâ kartalı
+                    # anlatıyordu.
                     self.thread.note(about)
+                    self.last = self._typed(Intent(ASK_DESCRIBE, about))
+                    self.focus = about
                     return about_instead(about, said)
             return not_understood(resembles, self.memory, spotted,
                                   long=len(tokens) > 3)

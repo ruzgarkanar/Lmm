@@ -33,6 +33,19 @@ DISTILLED_PREFIX = "llm:"
 DISTILLED_PREFIXES = (DISTILLED_PREFIX, "okuyucu:", "web:", "merak:",
                       "pilot:", "gpt", "azure:")
 
+# Önek listesi KIRILGAN çıktı ve bir koşuda kırıldı: `web2:gpt-4.1` etiketli
+# 123.864 olgu listede olmadığı için BELGE sayıldı ve elle derlenmiş
+# `hayvanlar.txt` ile aynı basamağa oturdu. Sonucu ölçüldü — "kartal nedir"
+# sorusunun cevabı "bir kuş, bir amerikan ve bir binbaşı olabilir, hangisi?"
+# oldu, çünkü tek bir web cümlesi doğrulanmış bir belgeyle eşit sayıldı.
+#
+# Kural artık YAPISAL: iki nokta taşıyan bir kaynak adı bir HATTIN ürünüdür
+# (`okuyucu:`, `web2:`, `merak:`), çıplak ad ise elle konmuş bir belgedir
+# (`hayvanlar.txt`). Yeni bir hat eklemek artık bu listeyi güncellemeyi
+# gerektirmiyor — unutulabilecek bir adım, unutulduğunda sessizce terfi
+# ettiriyordu.
+PIPELINE_MARK = ":"
+
 # Sohbetten gelen ve kimsenin kefil olmadığı kaynak. Sistem insanlara
 # açıldığında yazılacak her şey bu öneki taşımalı: bir yabancının tek cümlesi,
 # doğrulanmış bir belgeyi ezmemeli. Ölçüldü ve ezebiliyordu —
@@ -69,6 +82,8 @@ def level(source):
     if source.startswith(STRANGER_PREFIX):
         return STRANGER
     if any(source.startswith(mark) for mark in DISTILLED_PREFIXES):
+        return DISTILLED
+    if PIPELINE_MARK in source:
         return DISTILLED
     if source == TEACHER:
         return OPERATOR
