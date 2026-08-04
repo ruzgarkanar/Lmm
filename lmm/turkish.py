@@ -572,6 +572,23 @@ PATTERNS = [
     # kalpten bahsederken cevap "kartal, kaplan, kurt, geyik..." oluyordu.
     # Eksiltili soru, evrensel soru değildir.
     Pattern(["ne", "yapar"], ASK_ABILITIES, None, None, None, "çıplak ne yapar"),
+    # Gerçek sohbette ölçülen eksiltili biçimler. Üçü de konusu sohbetten
+    # gelen sorular ve üçü de "bilmiyorum" alıyordu — biri niteliği, ikisi
+    # kelimeyi tanımadığı için:
+    #
+    #     > kalp nedir      -> kalp bir organdır
+    #     > ne işe yarar    -> "'işe yarar' diye bir niteliği hiç duymadım"
+    #     > peki nesi var   -> "'var' kelimesini bilmiyorum"
+    #
+    # Kapalı sınıf: bir dilin eksiltili soru kalıpları sayılıdır.
+    Pattern(["ne", "işe", "yarar"], ASK_ABILITIES, None, None, None,
+            "çıplak ne işe yarar"),
+    Pattern([KAVRAM, "ne", "işe", "yarar"], ASK_ABILITIES, None, 0, None,
+            "ne işe yarar"),
+    Pattern(["nesi", "var"], ASK_DESCRIBE, None, None, None, "çıplak nesi var"),
+    Pattern([KAVRAM, "nesi", "var"], ASK_DESCRIBE, None, 0, None, "nesi var"),
+    Pattern(["neler", "yapar"], ASK_ABILITIES, None, None, None,
+            "çıplak neler yapar"),
 
     Pattern([KIM, FIIL], ASK_WHO, FROM_VERB, None, 1, "kimler uçar"),
     Pattern([KAVRAM, "ne", "yapabilir"], ASK_ABILITIES, None, 0, None, "ne yapabilir"),
