@@ -95,13 +95,30 @@ def main(argv):
     config = Config(vocabulary=len(letters) + 1, dimensions=width,
                     layers=4, heads=8, context=LONGEST)
 
-    class Tagger(nn.Module):
-        """Çekirdek + harf başına üç sınıf. Yeni mimari yok, var olanın başlığı."""
+    # İLİŞKİ de öğreniliyor. Etiketleyici kavramı ve hedefi buluyordu ama
+    # "bu bir tür bildirimi mi, yetenek mi" demiyordu; o yüzden cevap hep
+    # anlatmaya düşüyor ve `nasıldır` gibi belirli bir ilişki soran sorular
+    # cevapsız kalıyordu. Ölçüldü: kalıplar kapatıldığında olcut %82,5'ten
+    # %64,2'ye düşüyor ve kaybın çoğu tam burada.
+    #
+    # Veri zaten var: her örnek bir ilişki etiketi taşıyor.
+    kinds = sorted({relation for _, _, relation in rows + exam})
+    kind_at = {name: at for at, name in enumerate(kinds)}
+    print(f"  ilişki sınıfı: {len(kinds)} · {kinds}")
 
-        def __init__(self, config):
+    class Tagger(nn.Module):
+        """Çekirdek + iki başlık: harf etiketi ve cümlenin ilişkisi.
+
+        Aynı gövde iki işi birden öğreniyor. Ayrı iki ağ eğitmek yerine tek
+        gövde: cümlenin neresi kavram sorusuyla hangi ilişki sorusu aynı
+        temsili paylaşıyor — biri ötekini besliyor.
+        """
+
+        def __init__(self, config, kinds):
             super().__init__()
             self.core = Core(config)
             self.head = nn.Linear(config.dimensions, 3)
+            self.kind_head = nn.Linear(config.dimensions, kinds)
 
         def forward(self, ids):
             x = self.core.token(ids)
@@ -109,9 +126,11 @@ def main(argv):
                 # ÇİFT YÖNLÜ: bir cümleyi anlamak için sondaki eki görmek
                 # gerekiyor. Üretimde nedensellik şart, anlamada tersi.
                 x = block(x, causal=False)
-            return self.head(self.core.final(x))
+            x = self.core.final(x)
+            # İlişki cümlenin tamamına ait: harflerin ortalaması alınıyor.
+            return self.head(x), self.kind_head(x.mean(dim=1))
 
-    model = Tagger(config).to(device)
+    model = Tagger(config, len(kinds)).to(device)
     total = sum(p.numel() for p in model.parameters())
     print(f"  {total / 1e6:.1f}M parametre · {device}")
 
@@ -133,8 +152,11 @@ def main(argv):
                 tags.append(two)
             ids = torch.tensor(ids, device=device)
             tags = torch.tensor(tags, device=device)
-            logits = model(ids)
-            loss = loss_of(logits.reshape(-1, 3), tags.reshape(-1))
+            wants = torch.tensor([kind_at[r] for _, _, r in chunk],
+                                 device=device)
+            logits, kind_logits = model(ids)
+            loss = (loss_of(logits.reshape(-1, 3), tags.reshape(-1))
+                    + loss_of(kind_logits, wants))
             optimiser.zero_grad()
             loss.backward()
             optimiser.step()
@@ -147,15 +169,20 @@ def main(argv):
                       f"{time.time() - started:.0f} sn", flush=True)
         # Sınav: etiket doğruluğu değil, ÇIKARILAN OLGU doğruluğu.
         model.eval()
-        right = both = 0
+        right = both = kind_right = 0
         with torch.no_grad():
             for at in range(0, len(exam), 128):
                 chunk = exam[at:at + 128]
                 width = min(LONGEST, max(len(s) for s, _, _ in chunk))
                 ids = torch.tensor([encode(s, m, letters, width)[0]
                                     for s, m, _ in chunk], device=device)
-                guess = model(ids).argmax(-1).tolist()
-                for (sentence, marks, _), line in zip(chunk, guess):
+                spans, kinds_out = model(ids)
+                guess = spans.argmax(-1).tolist()
+                kind_guess = kinds_out.argmax(-1).tolist()
+                for (sentence, marks, relation), line, kg in zip(
+                        chunk, guess, kind_guess):
+                    if kinds[kg] == relation:
+                        kind_right += 1
                     want_c, want_t = spans_from(sentence, marks)
                     got_c, got_t = spans_from(sentence, line[:len(sentence)])
                     if got_c.lower() == want_c.lower():
@@ -165,13 +192,14 @@ def main(argv):
                         both += 1
         print(f"  tur {turn + 1} · kayıp {running / max(seen, 1):.4f} · "
               f"KAVRAM %{right / len(exam) * 100:.1f} · "
-              f"KAVRAM+HEDEF %{both / len(exam) * 100:.1f}", flush=True)
+              f"KAVRAM+HEDEF %{both / len(exam) * 100:.1f} · "
+              f"İLİŞKİ %{kind_right / len(exam) * 100:.1f}", flush=True)
         score = both / len(exam)
         if score >= best:
             best = score
             os.makedirs(out, exist_ok=True)
             torch.save({"model": model.state_dict(),
-                        "config": config.to_dict(),
+                        "config": config.to_dict(), "kinds": kinds,
                         "letters": letters, "tur": turn + 1, "isabet": score},
                        os.path.join(out, "etiketci.pt"))
             print("      (en iyi, saklandı)", flush=True)

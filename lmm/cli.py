@@ -1,4 +1,5 @@
 """LMM v0 chat interface. Usage: python3 -m lmm.cli [memory_file]"""
+import os
 import sys
 
 from lmm.memory import Memory
@@ -202,6 +203,17 @@ class Session:
             self.tagger = _tagger()
         except Exception:                                   # noqa: BLE001
             self.tagger = None
+        # TAMAMI ÖĞRENİLMİŞ OKUMA. Kavramı, ilişkiyi ve hedefi tek ağ veriyor;
+        # kalıp, ek ve şablon hiç kullanılmıyor. `LMM_OGRENILMIS=1` ile
+        # kalıpların ÖNÜNE geçiyor — varsayılan kapalı, çünkü açıkken ölçüm
+        # düşüyor ve düşüşün ne kadar olduğu her koşuda görünür kalmalı.
+        self.learned = None
+        if os.environ.get("LMM_OGRENILMIS") == "1":
+            try:
+                from core.ogrenilmis import load as _learned
+                self.learned = _learned()
+            except Exception:                               # noqa: BLE001
+                self.learned = None
         # Akıcı ağız: grafın cevabını çekirdeğe söyletir, ama üretilen cümle
         # geri okunup grafla karşılaştırılır. Verilmezse şablonlar kullanılır —
         # akıcılık isteğe bağlı, doğruluk değil.
@@ -717,6 +729,27 @@ class Session:
             # şeyi uzun uzun anlat" ile "anlat" aynı cevabı alıyordu.
             self.gate.told_most = phrasing.told_most(
                 self._asked_length(line) or self.directives.get("length"))
+            # ÖĞRENİLMİŞ OKUMA ÖNCE. Açıkken kalıpların okuduğu şey bir
+            # kenara bırakılıyor ve cümle yalnız ağdan geçiyor: kavram,
+            # ilişki ve hedef üçü de eğitilmiş. Denetim aynı — grafta cevap
+            # üretmeyen okuma atılıyor.
+            if self.learned is not None:
+                concept, relation, target = self.learned.read(line)
+                concept = (concept or "").lower().strip()
+                if concept and self.memory.query(concept):
+                    aimed = Intent(intent.kind, concept, relation or None,
+                                   (target or "").lower().strip() or None)
+                    tried = self._question(self._typed(aimed))
+                    if is_a_refusal(tried):
+                        aimed = Intent(ASK_DESCRIBE, concept)
+                        tried = self._question(self._typed(aimed))
+                    if not is_a_refusal(tried):
+                        intent = self._typed(aimed)
+                        self.last = intent
+                        self.focus = concept
+                        self.thread.note(concept)
+                        self._remember_grounds(intent)
+                        return self._fluent(intent, line, tried)
             said = self._fluent(intent, line, self._question(intent))
             # ETİKETLEYİCİ ADAYLARIN BAŞINDA. Ölçüldü: 200 gerçek soruda
             # kurallı yol 15, ağ 70 soruda kavramı buluyor — ve o 70'i kural
