@@ -379,7 +379,7 @@ class Session:
         morphology = self.language.grammar.morphology
         concept = at = None
         if self.tagger is not None:
-            guessed, guessed_target = self.tagger.read(line)
+            guessed, guessed_target, _ = self.tagger.read(line)
             if guessed and self.memory.query(guessed.lower()):
                 concept = guessed.lower()
                 at = 0
@@ -760,7 +760,7 @@ class Session:
             # Denetim değişmiyor: ağın verdiği kavram grafta cevap
             # üretmiyorsa atılıyor ve eski cevap kalıyor.
             if is_a_refusal(said) and self.tagger is not None:
-                guessed, _ = self.tagger.read(line)
+                guessed, _, _ = self.tagger.read(line)
                 guessed = (guessed or "").lower().strip()
                 if (guessed and guessed != intent.concept
                         and self.memory.query(guessed)):
