@@ -195,6 +195,13 @@ class Session:
         # her istekte yeniden gönderilir; yönerge bir kez söylenir ve oturum
         # hatırlar. Boşken hiçbir şey değişmiyor.
         self.directives = {}
+        # Eğitilmiş etiketleyici. Yoksa None ve okuma kurallı yoldan sürer —
+        # kolaylık, bağımlılık değil. `lmm/` torch'a muhtaç olmamalı.
+        try:
+            from core.reader import load as _tagger
+            self.tagger = _tagger()
+        except Exception:                                   # noqa: BLE001
+            self.tagger = None
         # Akıcı ağız: grafın cevabını çekirdeğe söyletir, ama üretilen cümle
         # geri okunup grafla karşılaştırılır. Verilmezse şablonlar kullanılır —
         # akıcılık isteğe bağlı, doğruluk değil.
@@ -342,9 +349,35 @@ class Session:
         collapsed = kind != aimed[0]
         if collapsed:
             target = None       # çoğula düşüldü: hedef artık anlamsız
+        # KAVRAMI ÖNCE EĞİTİLMİŞ ETİKETLEYİCİ SÖYLER. Kurallı yol yedek.
+        #
+        # Buraya kadar niyet TÜRÜ zaten ağdan geliyordu, ama kavram kurallı
+        # yoldan bulunuyordu — ek soyarak, `lmm/turkish.py`'deki 484 elle
+        # yazılmış ögeye bakarak. O dosyanın yaşamasının tek sebebi buydu.
+        #
+        # Etiketleyici 166.392 örnekle eğitildi ve içinde tek bir ek, kelime
+        # ya da kalıp yok; alfabesi bile sayılarak bulundu. Ölçüldü, aynı
+        # 3.000 tutulmuş cümlede:
+        #
+        #     kurallı      kavram %1,1 · kavram+hedef %0,0
+        #     öğrenilmiş   kavram %69,7 · kavram+hedef %49,9
+        #
+        # Denetim değişmiyor: aşağıda okuma yine grafta sınanıyor ve cevap
+        # üretemiyorsa atılıyor. Öğrenilmiş okuma, denetimsiz okuma değil.
         morphology = self.language.grammar.morphology
-        at, concept = wording.concept_in(tokens, self.memory, morphology,
-                                         self.focus)
+        concept = at = None
+        if self.tagger is not None:
+            guessed, guessed_target = self.tagger.read(line)
+            if guessed and self.memory.query(guessed.lower()):
+                concept = guessed.lower()
+                at = 0
+                if target is None and guessed_target:
+                    aimed_target = guessed_target.lower()
+                    if self.memory.query(aimed_target):
+                        target = aimed_target
+        if concept is None:
+            at, concept = wording.concept_in(tokens, self.memory, morphology,
+                                             self.focus)
         if concept is None:
             return None
         # Çoğula düşmek, SORULANDAN BAŞKA bir soruyu cevaplamaktır ve bu ancak
@@ -685,6 +718,26 @@ class Session:
             self.gate.told_most = phrasing.told_most(
                 self._asked_length(line) or self.directives.get("length"))
             said = self._fluent(intent, line, self._question(intent))
+            # ETİKETLEYİCİ ADAYLARIN BAŞINDA. Ölçüldü: 200 gerçek soruda
+            # kurallı yol 15, ağ 70 soruda kavramı buluyor — ve o 70'i kural
+            # hiç bulamıyor. Ağ bugüne kadar yalnız kalıplar TAMAMEN
+            # çöktüğünde çağrılıyordu; oysa kalıp YANLIŞ okuduğunda da
+            # devreye girmeli, çünkü yanlış okuma da cevapsızlıkla bitiyor.
+            #
+            # Denetim değişmiyor: ağın verdiği kavram grafta cevap
+            # üretmiyorsa atılıyor ve eski cevap kalıyor.
+            if is_a_refusal(said) and self.tagger is not None:
+                guessed, _ = self.tagger.read(line)
+                guessed = (guessed or "").lower().strip()
+                if (guessed and guessed != intent.concept
+                        and self.memory.query(guessed)):
+                    other = self._typed(Intent(ASK_DESCRIBE, guessed))
+                    tried = self._fluent(other, line, self._question(other))
+                    if not is_a_refusal(tried):
+                        intent, said = other, tried
+                        self.last = intent
+                        self.focus = guessed
+                        self.thread.note(guessed)
             # ÇOKLU HİPOTEZ. İlk okuma cevap üretmediyse ve kavram grafta
             # yoksa, adaylar sırayla deneniyor. Bu, sistemin tek sert kararını
             # geri alınabilir yapıyor: ayrıştırıcının yanılması artık yolun
