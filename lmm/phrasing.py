@@ -432,20 +432,10 @@ def ability_question(concept, action, object=None, role=None):
 
 
 # One sample sentence per shape, used to guess at what a teacher meant.
-SHAPE_EXAMPLES = {
-    "TEACH_TYPE": "penguen bir kuştur",
-    "TEACH_NOT_TYPE": "penguen bir memeli değildir",
-    "TEACH_ABILITY": "kuşlar uçar",
-    "TEACH_PROPERTY": "kuşlar tüylüdür",
-    "TEACH_NOT_PROPERTY": "penguen tüylü değildir",
-    "ASK_DEFINITION": "penguen nedir",
-    "ASK_ABILITY": "penguen uçar mı",
-    "ASK_PROPERTY": "penguen tüylü mü",
-    "ASK_WHO": "kimler uçar",
-    "ASK_ABILITIES": "penguen ne yapabilir",
-    "ASK_PROPERTIES": "penguen nasıldır",
-    "ASK_WHY": "penguen neden uçamaz",
-}
+# Elle yazılmış sekiz penguen cümlesi SİLİNDİ. Örnek cümle grafın gerçekten
+# bildiği bir kavramdan üretiliyor (`_example`, hemen aşağıda) ve graf boşsa
+# örnek de yok — sistem kendini olduğundan bilgili gösteremez.
+SHAPE_EXAMPLES = {}
 
 # Örnek cümleler GRAFTAN kuruluyor, elle yazılmıyor. Eskiden sabit sekiz
 # penguen cümlesi vardı ve sistem 486 kavram bilirken hep onları gösteriyordu —
