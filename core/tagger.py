@@ -173,5 +173,22 @@ def spans_from(text, marks):
                 if start is not None and run > best[1] - best[0]:
                     best = (start, at)
                 start, run = None, 0
-        found[mark] = text[best[0]:best[1]].strip(" ,.;:!?'\"") if best[1] else ""
+        if not best[1]:
+            found[mark] = ""
+            continue
+        # KELİME SINIRINA UZAT. Ağ doğru bölgeyi buluyor ama kelimenin
+        # ortasında kesiyor — ölçüldü: "Kartal nedir?" için `rta`, "kartal
+        # nedir" için `kart`. Harf düzeyinde çalışan bir ağın "kelime nerede
+        # biter" diye bir kavramı yok ve onu da öğrenmesi gerekiyor; 20 tur
+        # yetmedi.
+        #
+        # Bu bir DİL KURALI değil, çıktının okunma biçimi: boşluğa kadar
+        # uzatmak Türkçe hakkında bir şey bilmeyi gerektirmiyor. Ek listesi,
+        # kelime listesi, kalıp yok — yalnız "boşluk kelimeleri ayırır".
+        start, end = best
+        while start > 0 and not text[start - 1].isspace():
+            start -= 1
+        while end < len(text) and not text[end].isspace():
+            end += 1
+        found[mark] = text[start:end].strip(" ,.;:!?'\"")
     return found[CONCEPT], found[TARGET]
