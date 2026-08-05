@@ -128,7 +128,7 @@ COPULA_ENDINGS = tuple(getattr(TurkishMorphology, "copula_on_tense", ()))
 WORD = re.compile("[" + getattr(TurkishMorphology, "letters", "a-z") + "]+")
 
 SHORTEST_NAME = 2       # harf — tek harf bir kavram değil, bir işarettir
-SHORTEST_KIND = 3       # harf — bkz. `definitions.MINIMUM`, aynı derlemde ölçüldü
+SHORTEST_KIND = 3       # harf — 40.000 tanım satırında ölçüldü
 
 
 def definition_in(text, title=None):
@@ -151,7 +151,7 @@ def definition_in(text, title=None):
             if kind.endswith(ending) and len(kind) > len(ending) + 2:
                 kind = kind[: -len(ending)]
                 break
-        # Aynı soru `lmm/definitions.py`'de ölçüldü (40.000 tanım satırı): üç
+        # Aynı soru tanım çıkarımında ölçüldü (40.000 tanım satırı): üç
         # harfin altındaki türlerin çoğu ek kırıntısı ya da çöp ("si", "ß"),
         # bedeli %0,35. Buradaki sınır o ölçümün karşılığı; iki organ aynı
         # derlemden aynı cevabı aldığı için ayrıca ölçülmedi.
