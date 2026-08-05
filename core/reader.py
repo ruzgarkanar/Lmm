@@ -31,8 +31,11 @@ class Tagged:
     def __init__(self, folder="models/etiketci"):
         self.ready = False
         self.model = None
-        path = os.path.join(folder, "etiketci.pt")
-        if not os.path.exists(path):
+        # A100 koşusundan gelen dosya varsa o; yoksa yerel eğitimin çıktısı.
+        path = next((os.path.join(folder, name)
+                     for name in ("etiketci-a100.pt", "etiketci.pt")
+                     if os.path.exists(os.path.join(folder, name))), None)
+        if path is None:
             return
         try:
             self._load(path)
@@ -95,6 +98,73 @@ class Tagged:
                 kind = self.kinds[int(kind_out.argmax())]
         concept, target = spans_from(sentence, marks[:len(sentence)])
         return concept, target, kind
+
+
+class IntentNet:
+    """A100'de eğitilen niyet okuyucusu — TEACH sınıflarını bilen ilk ağ.
+
+    Eski okuyucu (`core/intent.py`) yalnız soru sınıflarını biliyordu; öğretme
+    cümlesi gösterilince en yakın soruya zorluyordu. Bu ağ 178.644 gerçek
+    cümleyle, 14 sınıfla eğitildi — 9 soru + 5 öğretme. Harf düzeyinde:
+    parçalayıcı da yok, alfabe sayılarak bulundu.
+    """
+
+    def __init__(self, folder="models/intent"):
+        self.ready = False
+        path = os.path.join(folder, "niyet-a100.pt")
+        if not os.path.exists(path):
+            return
+        try:
+            self._load(path)
+        except Exception:                                   # noqa: BLE001
+            self.ready = False
+
+    def _load(self, path):
+        import torch
+        from torch import nn
+        from core.model import Config, Core
+
+        held = torch.load(path, map_location="cpu", weights_only=False)
+        config = Config(**held["config"])
+        self.letters = held["letters"]
+        self.labels = held["labels"]
+        self.torch = torch
+
+        class Net(nn.Module):
+            def __init__(self, config, classes):
+                super().__init__()
+                self.core = Core(config)
+                self.head = nn.Linear(config.dimensions, classes)
+
+            def forward(self, ids):
+                x = self.core.token(ids)
+                for block in self.core.blocks:
+                    x = block(x, causal=False)
+                return self.head(self.core.final(x).mean(dim=1))
+
+        self.model = Net(config, len(self.labels))
+        self.model.load_state_dict(held["model"])
+        self.model.eval()
+        self.score = held.get("isabet", 0.0)
+        self.ready = True
+
+    def read(self, sentence):
+        """(sınıf, güven) — hazır değilse (None, 0.0)."""
+        if not self.ready or not sentence:
+            return None, 0.0
+        torch = self.torch
+        ids = torch.tensor([[self.letters.get(ch, 0)
+                             for ch in sentence[:256]]])
+        with torch.no_grad():
+            shares = torch.softmax(self.model(ids), dim=-1)[0]
+        best = int(shares.argmax())
+        return self.labels[best], float(shares[best])
+
+
+def load_intent(folder="models/intent"):
+    """Niyet ağını kurar. Yoksa None — kolaylık, bağımlılık değil."""
+    found = IntentNet(folder)
+    return found if found.ready else None
 
 
 def load(folder="models/etiketci"):
