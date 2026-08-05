@@ -47,13 +47,20 @@ class Tagged:
         held = torch.load(path, map_location="cpu", weights_only=False)
         config = Config(**held["config"])
         self.letters = held["letters"]
+        # İlişki sınıfları eğitim verisinden geldi, elle yazılmadı: okuma
+        # çıktısında hangi ilişkiler varsa onlar. İkinci sürüm modeli bunları
+        # da veriyor; eski model dosyasında alan yoksa boş kalır ve `read`
+        # ilişkisiz döner — geriye uyum, sessiz kırılma değil.
+        self.kinds = held.get("kinds") or []
         self.torch = torch
 
         class Tagger(nn.Module):
-            def __init__(self, config):
+            def __init__(self, config, kinds):
                 super().__init__()
                 self.core = Core(config)
                 self.head = nn.Linear(config.dimensions, 3)
+                if kinds:
+                    self.kind_head = nn.Linear(config.dimensions, kinds)
 
             def forward(self, ids):
                 x = self.core.token(ids)
@@ -61,9 +68,13 @@ class Tagged:
                     # Çift yönlü: bir cümleyi anlamak için sondaki eki görmek
                     # gerekiyor. Üretimde nedensellik şart, anlamada tersi.
                     x = block(x, causal=False)
-                return self.head(self.core.final(x))
+                x = self.core.final(x)
+                spans = self.head(x)
+                if hasattr(self, "kind_head"):
+                    return spans, self.kind_head(x.mean(dim=1))
+                return spans, None
 
-        self.model = Tagger(config)
+        self.model = Tagger(config, len(self.kinds))
         self.model.load_state_dict(held["model"])
         self.model.eval()
         self.round = held.get("tur")
@@ -71,14 +82,19 @@ class Tagged:
         self.ready = True
 
     def read(self, sentence):
-        """(kavram, hedef) — bulamazsa ("", "")."""
+        """(kavram, hedef, ilişki) — bulamazsa ("", "", None)."""
         if not self.ready or not sentence:
-            return "", ""
+            return "", "", None
         torch = self.torch
         ids = torch.tensor([[self.letters.get(ch, 0) for ch in sentence]])
         with torch.no_grad():
-            marks = self.model(ids).argmax(-1)[0].tolist()
-        return spans_from(sentence, marks[:len(sentence)])
+            spans, kind_out = self.model(ids)
+            marks = spans.argmax(-1)[0].tolist()
+            kind = None
+            if kind_out is not None and self.kinds:
+                kind = self.kinds[int(kind_out.argmax())]
+        concept, target = spans_from(sentence, marks[:len(sentence)])
+        return concept, target, kind
 
 
 def load(folder="models/etiketci"):
