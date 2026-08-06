@@ -95,7 +95,8 @@ class Session:
         records = self._gather(operation, line)
         said = self._speak(records, line)
         self._live(line, said, records)
-        return said
+        # Boş cevap sessizlik değil, açık RET imidir.
+        return said or "[?]"
 
     # --- yazma ----------------------------------------------------------
 
@@ -128,7 +129,21 @@ class Session:
         """Soruya ilgili kayıtları toplar — geometri bulur, yayılım getirir."""
         labels = [one for one in (operation.subject, operation.value) if one]
         if not labels and self.focus:
+            # Bağlam düşüşü yalnız TANIDIK cümlede: içinde ne derlemde ne
+            # bellekte olan bir kelime varsa ("zzzq nedir") son konuya
+            # düşmek, bilinmeyene bilinenle cevap vermektir — kapatıldı.
+            from v3.dataset import fold
+            for word in line.split():
+                piece = fold("".join(ch for ch in word if ch.isalnum()))
+                if (piece and piece not in self.vectors
+                        and not self.memory.candidates(piece)):
+                    return []
             return self._focused()          # özne yoksa son konudan devam
+        # Özne SÖYLENMİŞ ama hiçbir kimliğe çözülemiyorsa cevap RET olmalı.
+        # Ölçüldü: "zzzq nedir" saf vektör çağrışımıyla kartal kaydını
+        # getiriyordu — bilinmeyene bilinen şeyle cevap vermek uydurmadır.
+        if labels and not any(self.memory.candidates(one) for one in labels):
+            return []
         weights = geometry.recall(self.memory, vector=self._vector_of(line),
                                   labels=labels, most=MOST * 3)
         if not weights:
