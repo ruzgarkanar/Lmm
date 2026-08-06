@@ -38,8 +38,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-from lmm import registry                                    # noqa: E402
-CORE_CHECKPOINT = registry.where("core")
+from core.intent import _where                              # noqa: E402
+CORE_CHECKPOINT = _where("core")
 PIECES = os.path.join(ROOT, "data", "tr-parcalayici.model")
 READY = os.path.join(ROOT, "core", "turkce-cekirdek")
 OUTPUT = os.path.join(ROOT, "core", "niyet")

@@ -33,7 +33,31 @@ READY = os.path.join(HERE, "turkce-cekirdek")
 # Yollar künyeden geliyor, elle yazılmıyor: hangi sürümün güncel olduğu tek
 # bir yerde duruyor (`models/registry.json`) ve yeni bir sürüme geçmek o
 # dosyadaki tek satır. Bkz. `lmm/registry.py`.
-from lmm import registry                                    # noqa: E402
+_FOLDER = os.path.join(ROOT, "models")
+_FALLBACK = {
+    "core": os.path.join(_FOLDER, "core", "16m-8k.pt"),
+    "intent": os.path.join(_FOLDER, "intent", "16m.pt"),
+    "classes": os.path.join(_FOLDER, "intent", "classes.json"),
+    "graph": os.path.join(_FOLDER, "graph", "base.lmm"),
+}
+
+
+def _where(kind, name=None):
+    """`models/registry.json` künyesinden yol; künye yoksa yedek yol."""
+    try:
+        with open(os.path.join(_FOLDER, "registry.json"),
+                  encoding="utf-8") as handle:
+            manifest = json.load(handle)
+    except Exception:                                       # noqa: BLE001
+        manifest = {}
+    found = manifest.get(kind, {})
+    chosen = name or found.get("current")
+    path = found.get("versions", {}).get(chosen, {}).get("path") if chosen else None
+    if path:
+        path = path if os.path.isabs(path) else os.path.join(_FOLDER, path)
+    else:
+        path = _FALLBACK.get(kind)
+    return path if path and os.path.exists(path) else None
 
 # Kaç parça okunur. Kesme SONDAN değil baştan yapılırsa Türkçe'de taşıyıcı
 # bilgi gider: soru eki ve çekimli yüklem cümlenin sonundadır. Ölçüldü —
@@ -68,8 +92,8 @@ class Reader:
         self.ready = False
         self.backbone = backbone
         name = {"hazir": "ready-355m"}.get(backbone)
-        path = registry.where("intent", name)
-        labels = registry.where("classes")
+        path = _where("intent", name)
+        labels = _where("classes")
         if not (path and labels):
             return
         try:
@@ -107,7 +131,7 @@ class Reader:
             # taşıyor, sorulması yeterliydi.
             ayar = saved.get("config")
             if ayar is None:
-                core_at = registry.where("core")
+                core_at = _where("core")
                 core_saved = torch.load(core_at, map_location="cpu",
                                         weights_only=False)
                 ayar = core_saved["config"]

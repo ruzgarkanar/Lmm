@@ -31,10 +31,10 @@ from core.model import Core, Config                     # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-from lmm import registry                                    # noqa: E402
+from core.intent import _where                              # noqa: E402
 TOKENS = os.path.join(ROOT, "data", "tr-parcalar.bin")
 TOKENIZER = os.path.join(ROOT, "data", "tr-parcalayici.model")
-CHECKPOINT = registry.where("core") or os.path.join(ROOT, "models", "core", "yeni.pt")
+CHECKPOINT = _where("core") or os.path.join(ROOT, "models", "core", "yeni.pt")
 
 VALIDATION_SHARE = 0.005        # doğrulama için ayrılan pay
 REPORT_EVERY = 100

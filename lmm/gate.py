@@ -18,12 +18,10 @@ def case_form(word, role):
     return word
 
 from lmm.relations import CANNOT, MOST, SOME, NO
-from lmm.similarity import nearest
 from lmm.intuition import (ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES,
                            ASK_DESCRIBE, ASK_HOW_MANY, ASK_WHERE,
                            ASK_COMPARE, ASK_WHICH_MORE,
                            ASK_REQUIREMENT)
-from lmm.exposition import Exposition
 from lmm.trust import STRANGER, level
 
 import collections
@@ -319,7 +317,6 @@ class EpistemicGate:
     def __init__(self, memory, reasoning):
         self.memory = memory
         self.reasoning = reasoning
-        self.exposition = Exposition(memory, reasoning)
         # O ANKİ CÜMLENİN kelimeleri. Anlam seçimi buna bakıyor; boşken kapı
         # eski davranışına düşüyor, yani bir oturum bunu hiç kurmasa da
         # çalışır. Kolaylık, bağımlılık değil.
@@ -341,12 +338,9 @@ class EpistemicGate:
             # sistemin varsayımını her zaman yener.
             # ANLAT geniş konuşur — ama istenen kısaysa istenen kazanır.
             # Kullanıcının söylediği, sistemin varsayımını her zaman yener.
-            self.exposition.told_most = (max(self.told_most, DESCRIBING)
-                                         if self.told_most >= MOST_TOLD
-                                         else self.told_most)
-            return self.exposition.describe(
-                intent.concept, self._sense(intent.concept, self.focus_words),
-                self._focus_rank)
+            most = (max(self.told_most, DESCRIBING)
+                    if self.told_most >= MOST_TOLD else self.told_most)
+            return self._describe(intent.concept, most)
         if intent.kind == ASK_COMPARE:
             return self._compare(intent.concept, intent.target)
         if intent.kind == ASK_REQUIREMENT:
@@ -385,7 +379,6 @@ class EpistemicGate:
         Ayrım, ortak atadan gelmeyen kayıtlar: "kuş uçar ama penguen uçamaz"
         cümlesindeki asıl bilgi budur. Hiçbiri bulunamazsa uydurulmuyor.
         """
-        from lmm import spreading
         if not first or not second:
             return self._dont_know(first or second)
         for concept in (first, second):
@@ -408,9 +401,6 @@ class EpistemicGate:
         mine = self.reasoning.ancestors(first)
         theirs = set(self.reasoning.ancestors(second))
         shared = [step for step in mine if step in theirs][:CLOSEST_SHARED]
-        if not shared:
-            links = spreading.neighbours(self.memory)
-            shared = spreading.bridge(self.memory, first, second, links)
         mine = self._traits(first)
         theirs = self._traits(second)
         only_mine = [t for t in mine if t not in theirs]
@@ -1052,10 +1042,8 @@ class EpistemicGate:
         # anlatı yolunu (`Exposition._identity`) bağlamak yetmiyordu, çünkü
         # tanım sorusu buradan çıkıyor. `learned_clause` boş söyleyiş
         # sözlüğünde None döner ve cevap bugünküyle bire bir aynı kalır.
-        learned = self.exposition.learned_clause(concept, IS_A, best.target)
         return definition_answer(concept, best.target, best.source,
-                                 sure=best.confidence >= HEDGE_THRESHOLD,
-                                 clause=learned.rstrip(" .") if learned else None)
+                                 sure=best.confidence >= HEDGE_THRESHOLD)
 
     def _ability(self, concept, action, object=None, role=None):
         known, chain = self.reasoning.can_do(concept, action, object, role)
@@ -1063,11 +1051,33 @@ class EpistemicGate:
             return self._dont_know(concept)
         return because(known, chain)
 
+    def _describe(self, concept, most):
+        """Anlatı organı (`lmm/exposition.py`) silindi: kavramın kayıtları
+        ham serim olarak dökülür — her satır graftan, künyesiyle. Sıralama
+        anlam ve soru yakınlığıyla (`_in_sense`, `_focus_rank`); kesme
+        `most` ile. Kapının denetimi değişmiyor: burada hiçbir şey
+        üretilmiyor, yalnız kayıt okunuyor."""
+        edges = list(self.memory.query(concept))
+        if not edges:
+            return self._dont_know(concept)
+        sense = self._sense(concept, self.focus_words)
+        if sense:
+            edges.sort(key=lambda edge: (edge.context is not None
+                                         and edge.context != sense))
+        focus = self._focus_rank(concept, [edge.target for edge in edges
+                                           if edge.target is not None])
+        if focus:
+            edges.sort(key=lambda edge: -focus.get(edge.target, 0.0))
+        said = []
+        for edge in edges[:most]:
+            line = serialize.fact(concept, edge.relation, edge.target,
+                                  True, edge.object)
+            said.append(f"{line} {serialize.cite(edge.source)}")
+        return serialize.SEP.join(said)
+
     def _dont_know(self, concept):
-        known = self.memory.concepts()
-        close = nearest(concept, known) if concept else ()
-        if close:
-            return dont_know(concept, close)
+        """Yazım komşusu organı (`lmm/similarity.py`) silindi: yalnız
+        anlam komşusu (vektör) gösterilir, o da yoksa çıplak ret."""
         # Yazım komşusu yoksa ANLAM komşusuna bakılır. İkisi ayrı şey: "kus"
         # ile "kuş" harf komşusu, "glokom" ile "katarakt" anlam komşusu ve
         # ikincisini yalnız dağılım verebilir.
