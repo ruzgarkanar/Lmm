@@ -552,7 +552,7 @@ class Reasoning:
                 and self._only_partial(candidate, affirms, denies)):
             return None
         if known is not None and known != claimed:
-            return "şu an bildiğim: " + " çünkü ".join(chain)
+            return "= " + " çünkü ".join(chain)
         return None
 
     def _only_partial(self, candidate, affirms, denies):

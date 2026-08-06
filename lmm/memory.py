@@ -281,24 +281,6 @@ class Memory:
             self.patterns.append(entry)
         return entry
 
-    def learn_saying(self, relation, template, witnesses=1):
-        """Bir olguyu söylemenin öğrenilmiş bir yolunu sakla.
-
-        Tanık sayısı TOPLANIYOR, üzerine yazılmıyor: aynı şablonu iki ayrı
-        derlemde görmek, bir derlemde iki kez görmekten daha güçlü bir
-        kanıttır ve sıra da buna göre kuruluyor (çoktan aza) — konuşurken
-        önce en çok görülen deneniyor.
-        """
-        held = self.sayings.setdefault(relation, [])
-        for entry in held:
-            if entry[0] == template:
-                entry[1] += witnesses
-                break
-        else:
-            held.append([template, witnesses])
-        held.sort(key=lambda entry: -entry[1])
-        return held
-
     def mark_asked(self, key):
         self.asked.add(key)
 
