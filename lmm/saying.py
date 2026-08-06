@@ -293,3 +293,64 @@ def verified(templates, relation, concept, target, language, kind):
                 and str(read.target or "").startswith(str(target or "")[:4])):
             return said
     return None
+
+
+def unmake(word, label, rules=None):
+    """Ekli yüzeyden çıplak ada — söyleyiş şablonunun tersi.
+
+    "kuştur" + "-DIr" -> "kuş". Üretimin tersi ve DOĞRULAMALI: bulunan ad
+    yeniden ek giydirilip yüzeyle karşılaştırılıyor; tutmuyorsa None. Böylece
+    ters çevirme de üretim kadar denetimli.
+    """
+    word = (word or "").strip(",.;:!?\"'()").lower()
+    if not word:
+        return None
+    if not label:
+        return word
+    from lmm import phrasing, frequency
+    if label == "-DIr":
+        base = phrasing.strip_word_copula(word) if hasattr(phrasing, "strip_word_copula") else None
+        if base is None:
+            for cut in range(3, 5):
+                candidate = word[:-cut] if len(word) > cut + 1 else None
+                if candidate and candidate + phrasing.copula(candidate) == word:
+                    base = candidate
+                    break
+        return base
+    if label in ("-Ar", "-mAz"):
+        held = frequency.verbs().get(word)
+        if held and held[1] is (label == "-Ar"):
+            return held[0]
+        return None
+    return None
+
+
+def match(template, sentence, rules=None):
+    """Cümleyi şablona oturt: tutarsa (kavram, hedef), tutmazsa None.
+
+    Söyleyişler KONUŞMAK için öğrenildi ve iki yönlüler: "{kavram} bir
+    {hedef}-DIr" şablonu "kartal bir kuştur" cümlesine oturunca okuma da
+    çıkıyor. Elle kalıp değil — bu şablonlar gerçek cümlelerden çıkarıldı ve
+    graftan 30 rastgele olguyla geri okunarak doğrulandı.
+
+    Eşleşme sıkı: kelime sayısı aynı olacak, yuva dışı her kelime birebir
+    tutacak, yuvadaki ek TERSİNE çevrilip yeniden giydirildiğinde yüzeyle
+    aynı çıkacak.
+    """
+    t_words = template.split()
+    s_words = sentence.strip(" .!?").split()
+    if len(t_words) != len(s_words):
+        return None
+    concept = target = None
+    for t_word, s_word in zip(t_words, s_words):
+        if t_word.startswith(MARK_CONCEPT):
+            ending = t_word[len(MARK_CONCEPT):].rstrip(".")
+            concept = unmake(s_word, ending) if ending else s_word.lower()
+        elif t_word.startswith(MARK_TARGET):
+            ending = t_word[len(MARK_TARGET):].rstrip(".")
+            target = unmake(s_word, ending) if ending else s_word.lower()
+        elif t_word.lower() != s_word.lower():
+            return None
+    if not concept:
+        return None
+    return concept, target

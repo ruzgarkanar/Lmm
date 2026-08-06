@@ -196,6 +196,20 @@ class Session:
         # her istekte yeniden gönderilir; yönerge bir kez söylenir ve oturum
         # hatırlar. Boşken hiçbir şey değişmiyor.
         self.directives = {}
+        # Öğrenilmiş söyleyişler dilin parçası: boş bir beyin de dili bilir.
+        # Model dosyasında söyleyiş yoksa paketten yüklenir (kolaylık,
+        # bağımlılık değil) — graf boş kalır, yalnız dil taşınır.
+        if not self.memory.sayings:
+            try:
+                import json as _json
+                import os as _os
+                _pack = _os.path.join(_os.path.dirname(_os.path.dirname(
+                    _os.path.abspath(__file__))), "models", "soyleyisler.json")
+                if _os.path.exists(_pack):
+                    self.memory.sayings = _json.load(open(_pack,
+                                                          encoding="utf-8"))
+            except Exception:                               # noqa: BLE001
+                pass
         # Eğitilmiş etiketleyici. Yoksa None ve okuma kurallı yoldan sürer —
         # kolaylık, bağımlılık değil. `lmm/` torch'a muhtaç olmamalı.
         try:
@@ -203,6 +217,7 @@ class Session:
             self.tagger = _tagger()
         except Exception:                                   # noqa: BLE001
             self.tagger = None
+
         # TAMAMI ÖĞRENİLMİŞ OKUMA. Kavramı, ilişkiyi ve hedefi tek ağ veriyor;
         # kalıp, ek ve şablon hiç kullanılmıyor. `LMM_OGRENILMIS=1` ile
         # kalıpların ÖNÜNE geçiyor — varsayılan kapalı, çünkü açıkken ölçüm
@@ -235,6 +250,15 @@ class Session:
         # Eğitilmiş niyet okuyucusu: kalıpların YEDEĞİ, yerine geçeni değil.
         # Kalıp eşleşirse buraya hiç gelinmiyor.
         self.intent = intent
+        # Niyet de öğrenilmiş: 14 sınıf, öğretme dahil. Verilen `intent`
+        # (eski okuyucu) yoksa gece koşusunun ağı kullanılır.
+        if self.intent is None:
+            try:
+                from core.reader import load_a100_intent
+                found = load_a100_intent()
+                self.intent = found.read if found else None
+            except Exception:                               # noqa: BLE001
+                pass
 
     def _meanings(self, word):
         """Bu kelimenin grafta kayıtlı eş anlamlıları.
@@ -328,6 +352,58 @@ class Session:
                 continue
             return True
         return False
+
+    # Ağın sınıf adından ilişkiye. Sınıf adları görev sözlüğü (eğitim
+    # verisini kuran betikle aynı), dil değil.
+    TAUGHT_KINDS = {"TEACH_TYPE": IS_A, "TEACH_PROPERTY": HAS_PROPERTY,
+                    "TEACH_ABILITY": "can", "TEACH_NOT_ABILITY": "cannot",
+                    "TEACH_PART": "has"}
+
+    def _neural_teaching(self, line):
+        """Öğretme cümlesini ağla tanı, etiketleyiciyle çöz, kapıdan geçir.
+
+        Güven eşiği ölçümden: doğru TEACH okumaları %97-99,9 bandında,
+        yanlışlar (soruyu TEACH sanma) %58-91'de. 0,95 ikisini ayırıyor.
+        """
+        if self.intent is None or self.tagger is None:
+            return None
+        try:
+            name, confidence = self.intent(line)
+        except Exception:                                   # noqa: BLE001
+            return None
+        relation = self.TAUGHT_KINDS.get(name or "")
+        if relation is None or confidence < 0.95:
+            return None
+        # Kavram ve hedef, ÖĞRENİLMİŞ SÖYLEYİŞİN TERSİNDEN. Etiketleyici
+        # kısa cümlede boş dönüyordu (ölçüldü: dört öğretme cümlesinin
+        # dördünde de hiçbir işaret yok) — oysa söyleyiş şablonları iki
+        # yönlü: "{kavram} bir {hedef}-DIr" konuşmak için öğrenildi ve
+        # "kartal bir kuştur" cümlesine oturunca okumayı da veriyor.
+        # Eşleşme sıkı ve doğrulamalı (`saying.match`): ek tersine çevrilip
+        # yeniden giydiriliyor, tutmuyorsa eşleşme yok sayılıyor.
+        from lmm import saying as saying_organ
+        relation_name = {IS_A: "type", HAS_PROPERTY: "property"}.get(
+            relation, relation)
+        pair = None
+        for template, _ in self.memory.sayings.get(relation_name, ()):
+            pair = saying_organ.match(template, line)
+            if pair:
+                break
+        if not pair:
+            read = self.tagger.read(line)
+            concept = (read[0] or "").lower().strip()
+            target = (read[1] or "").lower().strip()
+            if not concept or not target:
+                return None
+        else:
+            concept, target = pair
+        if not target:
+            return None
+        made = Intent(TEACH, concept, relation, target)
+        status, message, edge = self.learning.teach(made, self.speaker)
+        if status == CONFLICT:
+            self.pending = edge
+        return message
 
     def _neural_reading(self, line):
         """Kalıplar yetmediğinde eğitilmiş ağa sorar — ve denetler.
@@ -655,6 +731,14 @@ class Session:
                     return learned
             return teach_me_the_word(intent.target)
         if intent.kind == UNKNOWN or intent.confidence < CONFIDENCE_THRESHOLD:
+            # ÖĞRETME artık öğrenilmiş yoldan. Elle kalıplar silindiğinde
+            # öğretme 4/4'ten 0/4'e düşmüştü; niyet ağı TEACH sınıflarını
+            # öğrenince geri geliyor. Denetim üç katlı: ağ %90+ güvenle
+            # TEACH diyecek, etiketleyici kavramı VE hedefi cümlede
+            # bulacak, ve yazım yine öğrenme döngüsünün kapısından geçecek.
+            taught = self._neural_teaching(line)
+            if taught is not None:
+                return taught
             # Anlamadıysa öğrenmeyi dener: önce eğitilmiş ağ (bedava, yerel),
             # sonra dil modeli (ağ gerektirir, ücretli). İkisi de aynı denetimden
             # geçiyor — okuma grafta cevaplanmıyorsa kalıp yazılmıyor.
