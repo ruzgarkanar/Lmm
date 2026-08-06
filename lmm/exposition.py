@@ -19,7 +19,7 @@ from lmm.relations import (IS_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
                            HAS_PART, LACKS_PART)
 from lmm.trust import INFERENCE, STRANGER, level
 from lmm.turkish import TEACH
-from lmm import phrasing, saying
+from lmm import phrasing
 
 OPPOSITES = {CAN: CANNOT, CANNOT: CAN,
              HAS_PROPERTY: LACKS_PROPERTY, LACKS_PROPERTY: HAS_PROPERTY}
@@ -52,26 +52,10 @@ class Exposition:
         self.language = None
 
     def learned_clause(self, concept, relation, target):
-        """Bu olguyu METİNDEN öğrenilmiş bir söyleyişle kur — sınavı geçerse.
-
-        Elle yazılmış söyleyişler (`{kavram} bir {hedef}dır` gibi) programcının
-        kararıydı. Buradan geçen cümlenin her kelimesini derlem seçti; sıra da
-        derlemden geldi. Yine de körlemesine güvenilmiyor: kurulan cümle
-        sistemin kendi dilbilgisiyle geri okunuyor ve başladığı olguya
-        dönmüyorsa atılıyor (`saying.verified`).
-
-        None dönmesi normal ve ucuz: çağıran elle yazılmış söyleyişine düşer.
-        Yani öğrenilen BİRİNCİL, elle yazılan YEDEK — ve öğrenilen boşken
-        (henüz hiçbir şablon çıkarılmamışken) sistem bugünküyle bire bir aynı
-        cümleleri kuruyor.
-        """
-        if self.language is None or target is None:
-            return None
-        sayings = getattr(self.memory, "sayings", None)
-        if not sayings:
-            return None
-        return saying.verified(sayings, relation, concept, target,
-                               self.language, TEACH)
+        """SİLİNDİ: söyleyiş şablonları kaldırıldı — sahibin kuralı, öğrenme
+        yolunda ayrık şablon olmayacak. Konuşma, üretici eğitilene kadar
+        `phrasing`ten sürüyor; o eğitim ayrıca konuşulacak."""
+        return None
 
     def describe(self, concept, sense=None, focus_rank=None):
         """Everything worth saying about a concept, as connected prose.
