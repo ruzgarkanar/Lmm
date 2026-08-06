@@ -18,7 +18,7 @@ TEK YÖNLÜ KURAL — mutlak: geometri kayıt yazamaz. Sürekli katman aday
 üretir, ayrık katman karar verir. Bu kural bir kez gevşetildiğinde sistem
 uydurmaya açılır ve o zaman elde LLM'in kötü bir kopyası kalır.
 """
-from v3.bellek import CONTRA, INFERRED, STRANGER
+from v3.memory import CONTRA, INFERRED, STRANGER
 
 # Bir iddianın söylenebilmesi için gereken en az güven. Altındakiler bellekte
 # durur — atılmazlar, çünkü kaynağı vardır — ama konuşurken sayılmazlar.
