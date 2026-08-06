@@ -162,6 +162,16 @@ def spans(text, roles):
             low -= 1
         while high < len(text) and not text[high].isspace():
             high += 1
-        piece = text[low:high].strip(" ,.;:!?'\"()")
-        found[role] = piece.lower() or None
+        piece = text[low:high]
+        # Elle noktalama kümesi yerine Unicode'un kendisi: baştan ve sondan,
+        # harf/rakam olmayan her şey kırpılır. Küme yazmak, alfabe saymış
+        # bir hattın içine ASCII varsayımı sokmaktı.
+        start, stop = 0, len(piece)
+        while start < stop and not piece[start].isalnum():
+            start += 1
+        while stop > start and not piece[stop - 1].isalnum():
+            stop -= 1
+        piece = piece[start:stop]
+        from v3.dataset import fold
+        found[role] = fold(piece) if piece else None
     return found[1], found[2], found[3]

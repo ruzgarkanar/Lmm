@@ -65,7 +65,8 @@ class Record:
     """
 
     __slots__ = ("key", "subject", "predicate", "value", "source", "level",
-                 "trust", "at", "witnesses", "last_seen", "links", "episodic")
+                 "trust", "at", "witnesses", "last_seen", "links", "episodic",
+                 "sources")
 
     def __init__(self, key, subject, predicate, value, source, level=None,
                  trust=0.5, at=None, episodic=True):
@@ -83,6 +84,9 @@ class Record:
         self.trust = trust
         self.at = at if at is not None else time.time()
         self.witnesses = 1
+        # Tanık KÜMESİ: aynı kaynağın üçüncü tekrarı üçüncü tanık değildir.
+        # Denetim ölçtü — küme yokken iki kaynak dokuz tanık sayılmıştı.
+        self.sources = {self.source}
         self.last_seen = self.at
         self.links = []                 # [(bağ türü, kayıt anahtarı)]
         # Episodik: tek bir olaydan geldi ("Ali dedi ki"). Damıtma turunda
@@ -96,7 +100,26 @@ class Record:
                 "source": self.source, "level": self.level,
                 "trust": self.trust, "at": self.at,
                 "witnesses": self.witnesses, "last_seen": self.last_seen,
-                "links": self.links, "episodic": self.episodic}
+                "links": self.links, "episodic": self.episodic,
+                "sources": sorted(self.sources)}
+
+    def strengthen(self, source):
+        """YENİ bağımsız tanık: kalan kuşkunun sabit bir payı kapanır.
+
+        Hesap TEK burada durur ve kendi korumasını taşır: aynı kaynak
+        ikinci kez sayılmaz. Denetim ölçtü — koruma yokken tek öğretme iki
+        tanık, aynı adamın üç tekrarı dokuz tanık oluyordu.
+        """
+        source = str(source)
+        if source in self.sources:
+            self.last_seen = time.time()
+            return self
+        self.sources.add(source)
+        self.witnesses += 1
+        self.trust += (1.0 - self.trust) * 0.15
+        self.trust = min(self.trust, 0.98)
+        self.last_seen = time.time()
+        return self
 
     @classmethod
     def from_dict(cls, held):
@@ -107,6 +130,7 @@ class Record:
         found.witnesses = held.get("witnesses", 1)
         found.last_seen = held.get("last_seen", found.at)
         found.links = [tuple(one) for one in held.get("links", ())]
+        found.sources = set(held.get("sources", (found.source,)))
         return found
 
 
@@ -211,12 +235,7 @@ class Memory:
         for key in self.by_subject.get(subject, ()):
             held = self.records[key]
             if held.predicate == predicate and held.value == value:
-                if str(source) != held.source:
-                    held.witnesses += 1
-                    held.trust += (1.0 - held.trust) * 0.15
-                    held.trust = min(held.trust, 0.98)
-                held.last_seen = time.time()
-                return held
+                return held.strengthen(source)
         key = self._key()
         found = Record(key, subject, predicate, value, source, level,
                        trust, episodic=episodic)
@@ -231,10 +250,16 @@ class Memory:
             held.links.append((kind, other))
         return held
 
-    def about(self, subject):
-        """Bir kimlik hakkındaki kayıtlar; erişim SOLMAYI geciktirir."""
+    def about(self, subject, touch=True):
+        """Bir kimlik hakkındaki kayıtlar.
+
+        `touch=False`: graf yürüyüşü ve iç denetimler için. Denetim ölçtü —
+        her yayılım `seen` sayacını artırıyordu ve "erişim" sayacı "graf
+        komşuluğu" sayacına dönüşmüştü; on sorguda üç kimlik 11'er erişim
+        görünüyordu, hiçbiri kullanıcıdan gelmeden.
+        """
         found = self.identities.get(subject)
-        if found is not None:
+        if touch and found is not None:
             found.seen += 1
         return [self.records[key] for key in self.by_subject.get(subject, ())]
 

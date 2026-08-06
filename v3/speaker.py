@@ -62,7 +62,12 @@ class Speaker:
         size = held.get("size", 256)
         layers = held.get("layers", 6)
         heads = held.get("heads", 8)
-        self.stop = held.get("stop", 0)
+        # Bitiş işareti kayıttan gelir ve 0 OLAMAZ: 0 dolgu/bilinmeyen-harf
+        # kimliği — bitişle çakışırsa üretim ilk tanınmayan harfte kesilir.
+        # Eğitim betiği bitişi len(letters)+1 olarak ayırmak zorunda.
+        self.stop = held.get("stop")
+        width = held.get("width", 2048)
+        self.width = width
 
         class Net(nn.Module):
             """Kayıt dizisi + şu ana kadarki harfler -> sonraki harf.
@@ -74,7 +79,7 @@ class Speaker:
             def __init__(self):
                 super().__init__()
                 self.token = nn.Embedding(len(held["letters"]) + 1, size)
-                self.place = nn.Embedding(4096, size)
+                self.place = nn.Embedding(width + 1, size)
                 block = nn.TransformerEncoderLayer(
                     size, heads, size * 4, batch_first=True,
                     norm_first=True, dropout=0.1)
@@ -112,7 +117,7 @@ class Speaker:
             made = []
             with torch.no_grad():
                 for step in range(LONGEST):
-                    window = torch.tensor([ids[-2048:]])
+                    window = torch.tensor([ids[-self.width:]])
                     mask = torch.nn.Transformer.generate_square_subsequent_mask(
                         window.shape[1])
                     logits = self.model(window, mask)[0, -1]
@@ -126,7 +131,7 @@ class Speaker:
                             torch.softmax(logits, dim=-1), 1))
                     else:
                         pick = int(logits.argmax())
-                    if pick == self.stop:
+                    if self.stop is not None and pick == self.stop:
                         break
                     ids.append(pick)
                     made.append(self.inverse.get(pick, ""))

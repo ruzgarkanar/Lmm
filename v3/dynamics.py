@@ -49,14 +49,7 @@ def reinforce(memory, record, source):
     deliyordu. Her tanık kalan kuşkunun sabit bir payını kapatır, tavana
     yaklaşılır ama ulaşılmaz.
     """
-    if str(source) in str(record.source):
-        record.last_seen = time.time()
-        return record
-    record.witnesses += 1
-    record.trust += (1.0 - record.trust) * 0.15
-    record.trust = min(record.trust, 0.98)
-    record.last_seen = time.time()
-    return record
+    return record.strengthen(source)    # koruma ve hesap tek yerde
 
 
 def settle(memory, record):

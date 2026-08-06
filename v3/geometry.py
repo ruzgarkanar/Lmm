@@ -127,7 +127,7 @@ def spread(memory, seeds, steps=STEPS, decay=DECAY, most=40):
     for step in range(steps):
         following = {}
         for key, weight in frontier.items():
-            for record in memory.about(key):
+            for record in memory.about(key, touch=False):
                 held = reached.get(record.key, 0.0)
                 if weight > held:
                     reached[record.key] = weight

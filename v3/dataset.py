@@ -22,6 +22,23 @@ import json
 import os
 import random
 
+
+def fold(text):
+    """Uzunluk KORUYAN harf katlaması — eşleştirme için.
+
+    `lower()` dil-bağımlı ve Türkçe'de uzunluk değiştiriyor: 'İ'.lower()
+    iki kod noktası ('i̇') üretiyor. Ölçüldü — 'İstanbul büyük bir şehirdir'
+    27 harften 28'e çıkıyor, indeksler kayıyor ve `span_of` None dönüyor:
+    İ'li özneli HER örnek eğitim kümesinden sessizce düşüyordu. Kendi
+    dilimizde kırıktık ve fark eden, dil-bağımsızlık taramasıydı.
+
+    Katlama harf harf: her harfin Unicode casefold'unun İLK kod noktası.
+    Uzunluk hiç değişmez, indeksler orijinal metinde geçerli kalır. Bu bir
+    dil kuralı değil, Unicode'un kendi tablosu — Almanca ß, Yunanca Σ dahil
+    her yazıya aynı davranır.
+    """
+    return "".join(ch.casefold()[0] for ch in text)
+
 OUT, SUBJECT, PREDICATE, VALUE = 0, 1, 2, 3
 PASS, ASK, WRITE = 0, 1, 2
 
@@ -35,12 +52,16 @@ def span_of(text, name):
     """
     if not name:
         return None
-    lowered, name = text.lower(), name.lower()
-    at = lowered.find(name)
+    folded, name = fold(text), fold(name)
+    at = folded.find(name)
     if at < 0:
         return None
     end = at + len(name)
-    while end < len(text) and (text[end].isalpha() or text[end] == "'"):
+    # Kelime sonuna uzatma yalnız HARFLE: kesme işareti özel durumu
+    # (`== "'"`) Türkçe özel-ad eki için konmuş bir karakter kuralıydı ve
+    # söküldü. "ankara'da" öznesinde artık yalnız "ankara" işaretlenir —
+    # kök zaten eşleşiyor, eki işaretlemek kural istiyordu.
+    while end < len(text) and text[end].isalpha():
         end += 1
     return at, min(end, len(text))
 
@@ -148,6 +169,35 @@ def _open(path):
     return open(path, encoding="utf-8", errors="ignore")
 
 
+def from_questions(paths, longest=256, most=None):
+    """Gerçek sorulardan ASK örnekleri.
+
+    Denetimin en kritik bulgusu: ASK üreticisi YOKTU. Okuyucu üç sınıflıydı
+    ama iki sınıfla eğitiliyordu; soru gelince WRITE diyor, oturum yazacak
+    şey bulamayınca boş dönüyordu — soru-cevap yolu uçtan uca kopuktu.
+
+    Girdi: satır başına bir gerçek soru (arşivdeki niyet dosyaları: sekmeli
+    ise ikinci sütun alınır). Roller işaretlenmez — None döner ve eğitim o
+    örnekte rol başlığına kayıp yazmaz: soru, işlem türünü öğretir; rolleri
+    olgu cümleleri öğretir.
+    """
+    found = []
+    for path in paths:
+        if not os.path.exists(path):
+            continue
+        for line in _open(path):
+            text = line.rstrip("\n")
+            if "\t" in text:
+                text = text.split("\t", 1)[1]
+            text = text.strip()
+            if not (4 < len(text) <= longest):
+                continue
+            found.append((text, ASK, None))
+            if most and len(found) >= most:
+                return found
+    return found
+
+
 def alphabet(rows):
     """Derlemin kendi harfleri — hiçbir yerde bildirilmiyor, sayılıyor."""
     seen = set()
@@ -156,12 +206,15 @@ def alphabet(rows):
     return {letter: at + 1 for at, letter in enumerate(sorted(seen))}
 
 
-def build(fact_paths, dialogue_paths=(), most_facts=None, most_dialogue=None,
-          seed=7):
-    """Karışık, dengeli, karıştırılmış eğitim kümesi."""
+def build(fact_paths, dialogue_paths=(), question_paths=(), most_facts=None,
+          most_dialogue=None, most_questions=None, seed=7):
+    """Karışık, dengeli, karıştırılmış eğitim kümesi — ÜÇ sınıf birden."""
     rows = from_facts(fact_paths, most=most_facts)
     if dialogue_paths:
         share = most_dialogue or max(1, len(rows) // 3)
         rows += from_dialogue(dialogue_paths, most=share)
+    if question_paths:
+        share = most_questions or max(1, len(rows) // 4)
+        rows += from_questions(question_paths, most=share)
     random.Random(seed).shuffle(rows)
     return rows

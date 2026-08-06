@@ -54,15 +54,18 @@ class Gate:
         clash = self._contradiction(subject, predicate, value)
         if clash is not None:
             trust = self.memory.trust_of(level)
-            if clash.trust >= trust:
-                # Yerleşik kayıt daha güçlü: yeni iddia yazılmaz ama
-                # ÇELİŞKİ olarak bağlanır — bastırmak değil, kaydetmek.
-                held = self.memory.write(subject, predicate, value, source,
-                                         level, trust=trust * 0.5,
-                                         episodic=True)
-                self.memory.link(held.key, clash.key, CONTRA)
-                self.memory.link(clash.key, held.key, CONTRA)
-                return held, 1
+            # Çelişki bağı HER DURUMDA kurulur. Denetim yakaladı: yeni iddia
+            # güçlüyken bağ kurulmuyordu ve `arbitrate`/`pressure` o
+            # çelişkiyi hiç göremiyordu — sistemin rahatsız olması gereken
+            # yer, kayıtsız kalıyordu.
+            weaker = clash.trust >= trust
+            held = self.memory.write(subject, predicate, value, source,
+                                     level,
+                                     trust=trust * 0.5 if weaker else None,
+                                     episodic=True)
+            self.memory.link(held.key, clash.key, CONTRA)
+            self.memory.link(clash.key, held.key, CONTRA)
+            return held, (1 if weaker else 0)
         return self.memory.write(subject, predicate, value, source, level,
                                  episodic=episodic), 0
 
@@ -72,7 +75,7 @@ class Gate:
         Yüklemin tekil olup olmadığını bellek bilmez; bu yüzden çelişki
         burada mutlak sayılmaz, yalnız işaretlenir ve güvenle hakemlenir.
         """
-        for held in self.memory.about(subject):
+        for held in self.memory.about(subject, touch=False):
             if held.predicate == predicate and held.value != value:
                 return held
         return None
@@ -103,7 +106,7 @@ class Gate:
         "Bunu neden söyledin" sorusunun cevabı budur ve hesaplanabilir
         olması bu mimarinin ayırt edici yanıdır.
         """
-        for held in self.memory.about(subject):
+        for held in self.memory.about(subject, touch=False):
             if held.predicate == predicate and held.value == value:
                 return held
         return None
