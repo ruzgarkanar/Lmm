@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from lmm.cli import Session                                 # noqa: E402
 from lmm.intuition import UNKNOWN, UNKNOWN_WORD, AMBIGUOUS, tokenize  # noqa: E402
-from lmm.phrasing import is_a_refusal                       # noqa: E402
+from lmm.serialize import is_refusal as is_a_refusal                       # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

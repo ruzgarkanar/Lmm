@@ -25,12 +25,7 @@ from core.gated import GatedVoice, GLUE
 # Reddetme biçimleri TEK KAYNAKTAN. Burada altı kelime ayrıca yazılıydı ve
 # `lmm/phrasing.REFUSALS` ile birebir aynıydı — iki kopya er geç ayrışır ve
 # ayrıştığında biri sessizce yanlış olur.
-def _refusals():
-    from lmm import phrasing
-    return tuple(getattr(phrasing, "REFUSALS", ()))
-
-
-REFUSALS = _refusals()
+REFUSALS = ("[?]", "[")
 
 
 # İstemi kuran kelimeler. Modelin ürettiği değil, bizim yazdığımız — bu yüzden

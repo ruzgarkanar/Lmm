@@ -21,7 +21,6 @@ yoldan, kapıdan geçerek cevaplanıyor — birleştirme yalnızca söyleyişte.
 "ikisi de", "her ikisi" gibi sözcükler atılabilir: bilgi taşımıyorlar, zaten
 iki özne olduğunu bağlaç söylüyor.
 """
-from lmm import phrasing
 
 # Cümlede iki özne olduğunu bağlaç zaten söylüyor; bu sözcükler onu tekrar
 # ediyor ve ayrıştırmayı bozuyorlar. Kapalı sınıf, birkaç tane.
@@ -68,4 +67,9 @@ def combine(answers):
         return None
     if len(answers) == 1:
         return answers[0]
-    return phrasing.combined(answers)
+    first, second = answers[0], answers[1]
+    if first.startswith("✓") and second.startswith("✓"):
+        return f"✓² · {first} · {second}"
+    if first.startswith("✗") and second.startswith("✗"):
+        return f"✗² · {first} · {second}"
+    return f"{first} ⊥ {second}"

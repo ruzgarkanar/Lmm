@@ -163,14 +163,14 @@ def _a_concept(name, counts, verbs, morphology):
 
 def _said(concept, relation, target, object=None, role=None):
     """Olguyu sistemin kendi ağzından bir cümleye çevirir."""
+    from lmm import serialize
     if relation == IS_A:
-        return phrasing.is_a_clause(concept, target)
+        return serialize.fact(concept, IS_A, target)
     if relation == HAS_PROPERTY:
-        return phrasing.property_clause(concept, target, True, object, role)
+        return serialize.fact(concept, HAS_PROPERTY, target, True, object)
     if relation == HAS_PART:
-        return phrasing.part_clause(concept, target, True)
-    return phrasing.ability_clause(concept, target, relation == CAN,
-                                   object, role)
+        return serialize.fact(concept, HAS_PART, target)
+    return serialize.fact(concept, CAN, target, relation == CAN, object)
 
 
 def _an_infinitive(word, morphology):
@@ -327,7 +327,7 @@ def _screen(chunk):
             continue
         if relation == HAS_PART and not _round_trip(concept, relation,
                                                     target, language):
-            target = phrasing.possessed(target)
+            target = possessed(target)
         # BİLMEDİĞİ FİİLİ OKUYAMIYOR. Ölçüldü: 306 eylem olgusunun 77'si
         # "epinefrin dilde uygular" gibi kusursuz bir cümle üretti ve
         # ayrıştırıcı UNKNOWN dedi — `uygular` derlemde geçmiyor, sözlükte
@@ -343,8 +343,8 @@ def _screen(chunk):
         # denetiminden geçecek ve ancak öyle yazılacak.
         if (relation in (CAN, CANNOT) and _an_infinitive(target, morphology)
                 and not _verb_known(target, memory.lexicon)):
-            memory.learn_word(target, phrasing.aorist(target, True),
-                              phrasing.aorist(target, False))
+            memory.learn_word(target, aorist(target, True),
+                              aorist(target, False))
         # Nesne AYRI bir iddia ve ayrı sınanıyor. Geri okunmuyorsa olgu
         # atılmıyor, nesnesi düşürülüyor: "kalp pompalar" hâlâ doğru ve
         # kaynağı var. Sınanamayanı yazmak ile sınananı atmak arasındaki
@@ -473,7 +473,7 @@ def take(rows, memory, source, write=False, language=None):
         # veriyor. Sistemin KONUŞTUĞU biçime çevrilip öyle sınanıyor.
         if relation == HAS_PART and not _round_trip(concept, relation,
                                                     target, language):
-            target = phrasing.possessed(target)
+            target = possessed(target)
         # BİLMEDİĞİ FİİLİ OKUYAMIYOR. Ölçüldü: 306 eylem olgusunun 77'si
         # "epinefrin dilde uygular" gibi kusursuz bir cümle üretti ve
         # ayrıştırıcı UNKNOWN dedi — `uygular` derlemde geçmiyor, sözlükte
@@ -489,8 +489,8 @@ def take(rows, memory, source, write=False, language=None):
         # denetiminden geçecek ve ancak öyle yazılacak.
         if (relation in (CAN, CANNOT) and _an_infinitive(target, morphology)
                 and not _verb_known(target, memory.lexicon)):
-            memory.learn_word(target, phrasing.aorist(target, True),
-                              phrasing.aorist(target, False))
+            memory.learn_word(target, aorist(target, True),
+                              aorist(target, False))
         # Nesne AYRI bir iddia ve ayrı sınanıyor. Geri okunmuyorsa olgu
         # atılmıyor, nesnesi düşürülüyor: "kalp pompalar" hâlâ doğru ve
         # kaynağı var. Sınanamayanı yazmak ile sınananı atmak arasındaki

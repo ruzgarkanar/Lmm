@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lmm.cli import Session                                 # noqa: E402
 from lmm.harvest import _config, HarvestError               # noqa: E402
 from lmm.memory import Memory                               # noqa: E402
-from lmm.phrasing import is_a_refusal                       # noqa: E402
+from lmm.serialize import is_refusal as is_a_refusal                       # noqa: E402
 
 # Karşı tarafa ne söyleniyor. İki şey isteniyor ve ikisi de bilerek: ÖĞRETMEK
 # ve SORMAK. Yalnız soru sorsa graf büyümez; yalnız öğretse LMM'in neyi

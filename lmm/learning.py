@@ -4,7 +4,11 @@ Nothing is written blindly. When a fact clashes with what is already known the
 system says so and asks, and only a confirmed clash becomes an exception.
 """
 from lmm.memory import Edge, CycleError, CAN, ALL
-from lmm.phrasing import describe, corrected, disagreement, branch_frozen
+from lmm import serialize
+
+
+def describe(concept, relation, target, object=None, role=None, kinds=None):
+    return serialize.fact(concept, relation, target, object=object)
 from lmm.drift import may_write, branch_of, record
 from lmm.trust import (TEACHER, HUMAN, confidence_for, outranks, level,
                        arbitrate, note, CANDIDATE, DISPUTED)
@@ -32,7 +36,7 @@ class LearningLoop:
                          source=source, confidence=confidence_for(source))
         if not may_write(self.memory, self.reasoning, candidate.concept, source):
             branch = branch_of(self.reasoning, candidate.concept)
-            return FROZEN, branch_frozen(branch), candidate
+            return FROZEN, f"❄ {serialize.cite(branch)}", candidate
         conflict = self.reasoning.find_conflict(candidate)
         basis = self.reasoning.basis(candidate)
         statement = describe(candidate.concept, candidate.relation,
@@ -47,7 +51,7 @@ class LearningLoop:
                     note(self.memory.reputation, voice, False)
                 written = self.memory.write(candidate)
                 written.disputed = False    # arbitration settled it
-                return CORRECTED, corrected(statement, basis.source), candidate
+                return CORRECTED, f"{serialize.cite(basis.source)} ⇐ {statement}", candidate
             if verdict == DISPUTED and level(candidate.source) < HUMAN:
                 record(self.memory, branch_of(self.reasoning, candidate.concept),
                        False)
@@ -57,13 +61,11 @@ class LearningLoop:
                 self.memory.write(candidate)
                 for voice in list(basis.sources) + list(candidate.sources):
                     note(self.memory.reputation, voice, False)
-                return DISPUTE, disagreement(statement, basis.sources), candidate
+                return DISPUTE, f"⚡ {serialize.cite(', '.join(list(basis.sources)))} ⊥ {statement}", candidate
         if conflict is not None:
             record(self.memory, branch_of(self.reasoning, candidate.concept),
                    False)
-            question = (f"bir çelişki fark ettim: {conflict}. yine de "
-                        f"'{statement}' olarak öğreneyim mi? (evet/hayır)")
-            return CONFLICT, question, candidate
+            return CONFLICT, f"⚡ {conflict} ⊥ {statement} ? [+/−]", candidate
         # Nicelik de sorulmalı. Sorulmayınca `direct()` yuvadaki EN GENİŞ
         # iddiayı döndürüyor ve yeni bir kayıt yazıldığı hâlde "zaten
         # biliyordum" deniyordu: "bazı kuşlar uçmaz" üzerine "hiçbir kuş
@@ -76,13 +78,13 @@ class LearningLoop:
                                       quantifier=candidate.quantifier)
         if existing is not None:
             self.memory.write(candidate)
-            return REINFORCED, "bunu zaten biliyordum, güvenim arttı.", existing
+            return REINFORCED, f"= {statement}", existing
         try:
             self.memory.write(candidate)
         except CycleError:
-            return REJECTED, "bu tür ilişkisi döngü oluşturur, kabul edemem.", None
+            return REJECTED, "✗ ⟳", None
         record(self.memory, branch_of(self.reasoning, candidate.concept), True)
-        return LEARNED, f"öğrendim: {statement}.", candidate
+        return LEARNED, f"+ {statement}", candidate
 
     def confirm_exception(self, edge):
         """A conflict the teacher stands behind becomes a permanent exception."""

@@ -53,7 +53,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from lmm import phrasing, registry                          # noqa: E402
+from lmm import serialize, registry                         # noqa: E402
+from lmm.relations import IS_A, CAN, HAS_PROPERTY           # noqa: E402
+from lmm.inflect import verb_form, case_form                # noqa: E402
 from lmm.cli import Session                                 # noqa: E402
 from lmm.memory import Memory                               # noqa: E402
 from lmm.relations import CAN, CANNOT, HAS_PROPERTY, IS_A   # noqa: E402
@@ -74,13 +76,13 @@ def _asked(edge, lexicon):
     söyleyişini okuyamaması demek olur ki bu gerçek bir kusurdur.
     """
     if edge.relation == IS_A:
-        return phrasing.definition_question(edge.concept)
+        return f"{edge.concept} → {serialize.label(IS_A)} → ?"
     if edge.relation in (CAN, CANNOT):
-        return phrasing.ability_question(edge.concept, edge.target,
-                                         edge.object, edge.role)
+        obj = case_form(edge.object, edge.role) if edge.object else None
+        return f"{serialize.fact(edge.concept, CAN, verb_form(edge.target, True), True, obj)} ?"
     if edge.relation == HAS_PROPERTY:
-        return phrasing.property_question(edge.concept, edge.target,
-                                          edge.object, edge.role)
+        obj = case_form(edge.object, edge.role) if edge.object else None
+        return f"{serialize.fact(edge.concept, HAS_PROPERTY, edge.target, True, obj)} ?"
     return None
 
 
@@ -174,7 +176,7 @@ def judge(said, edge):
     lowered = said.lower()
     if any(mark in lowered for mark in UNPARSED_MARKS):
         return "ANLAMADI"
-    if phrasing.is_a_refusal(said):
+    if serialize.is_refusal(said):
         return "BİLMİYOR"
     if edge.target and _stem(edge.target)[:4] not in lowered:
         return "YANLIŞ"
@@ -197,7 +199,7 @@ def carried(said, edge, first_answer):
     ölçtüğü şey değil.
     """
     lowered = said.lower()
-    if phrasing.is_a_refusal(said):
+    if serialize.is_refusal(said):
         return None                 # sayılmıyor, dürüst reddediş
     if edge.concept.lower() in lowered:
         return True

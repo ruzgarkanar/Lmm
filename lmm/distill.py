@@ -28,7 +28,12 @@ from lmm.memory import Memory
 from lmm.reasoning import Reasoning
 from lmm.reading import read_text
 from lmm.induction import Induction
-from lmm.phrasing import describe, listing
+from lmm import serialize
+from lmm.inflect import listing
+
+
+def describe(concept, relation, target, object=None, role=None, kinds=None):
+    return serialize.fact(concept, relation, target, object=object)
 from lmm.trust import distilled_source
 from lmm.intuition import lower
 
