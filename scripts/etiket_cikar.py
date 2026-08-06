@@ -43,9 +43,9 @@ from lmm.serialize import is_refusal as is_a_refusal                       # noq
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-from lmm import registry                                    # noqa: E402
+from core.intent import _where                              # noqa: E402
 OUTPUT = os.path.join(ROOT, "data", "tr-kelime-etiketi.txt")
-GRAPH = registry.where("graph", "wikipedia")
+GRAPH = _where("graph", "wikipedia")
 
 OUTSIDE = "DIS"
 LABELS = ("KAVRAM", "HEDEF", "NESNE", OUTSIDE)

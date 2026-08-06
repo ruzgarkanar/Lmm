@@ -13,22 +13,41 @@ from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
                            ASK_INVENTORY, ASK_CERTAINTY, ASK_SOURCE,
                            ASK_OPINION, ASK_DESCRIBE, ASK_COMPARE, lower,
                            tokenize)
-from lmm import coordination
 from lmm.thread import Thread
 try:
     from core.intent import reading_of
 except Exception:                                           # noqa: BLE001
     def reading_of(name, has_target=True):   # torch yoksa: kalıplarla çalışır
         return None
-from lmm.distill import split_words
+
+
+WORD_PREFIX = "kelime:"
+
+
+def split_words(text):
+    """Kelime bildirimi satırları: "kelime: uçmak = uçar / uçamaz".
+
+    `lmm/distill.py` silindi; bildirim sözdizimi veridir ve burada okunur.
+    (kelimeler, kalan_metin) döner."""
+    words, lines = [], []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not lower(stripped).startswith(WORD_PREFIX):
+            lines.append(line)
+            continue
+        body = stripped[len(WORD_PREFIX):]
+        if "=" not in body or "/" not in body:
+            continue                    # bozuk bildirim sessizce atlanır
+        infinitive, forms = body.split("=", 1)
+        positive, negative = forms.split("/", 1)
+        words.append((infinitive.strip(), positive.strip(), negative.strip()))
+    return words, "\n".join(lines)
+
 from lmm.trust import TEACHER, stranger_source
 from lmm.verbs import is_structural
 from lmm import frequency
 from lmm.learning import (LearningLoop, CONFLICT, LEARNED, CORRECTED,
                           DISPUTE, FROZEN)
-from lmm.induction import Induction
-from lmm.curiosity import Curiosity
-from lmm.pursuit import Pursuit
 from lmm import serialize
 from lmm.gate import MOST_TOLD, TOLD_BY_LENGTH
 from lmm.serialize import is_refusal as is_a_refusal
@@ -240,11 +259,7 @@ class Session:
         # yüklendikten SONRA bağlanıyor: sınav, oturumun gerçekten okuyabildiği
         # dilbilgisiyle yapılmalı, çıplak bir çekirdekle değil. Bellekteki
         # söyleyiş sözlüğü boşken bu bağ hiçbir cümleyi değiştirmiyor.
-        self.gate.exposition.language = self.language
         self.learning = LearningLoop(self.memory, reasoning)
-        self.curiosity = Curiosity(self.memory, reasoning)
-        self.pursuit = Pursuit(self.memory, reasoning)
-        self.induction = Induction(self.memory, reasoning)
         self.pending = None   # an edge awaiting the teacher's confirmation
         self.last = None      # son soru — "peki ya kartal" onu tekrarlar
         self.goal = None      # a question it is still trying to earn the answer to
@@ -539,16 +554,7 @@ class Session:
 
         Ölçülmüş bir kısıt: aynı kelime için ikinci kez ağa çıkılmıyor.
         """
-        if self.dictionary is None or word in self.looked_up:
-            return False
-        self.looked_up.add(word)
-        try:
-            from lmm import synonyms
-            written = synonyms.into(self.memory, [word] + list(self._pattern_words()),
-                                    self.dictionary)
-        except Exception:                                   # noqa: BLE001
-            return False
-        return written > 0
+        return False    # `lmm/synonyms.py` silindi: sözlük yolu kapalı
 
     def _pattern_words(self):
         """Kalıplar silindi: eş anlamlı aranacak sabit sözcük kalmadı."""
@@ -1176,6 +1182,7 @@ class Session:
                           for mark in marks)), None)
         if at is None:
             return None
+        return None      # `lmm/coordination.py` silindi: çoğul gönderme kapalı
         tail = [token for token in tokens[at + 1:]
                 if token not in marks
                 and token not in getattr(morphology, "clitics", ())]
@@ -1215,7 +1222,7 @@ class Session:
                 return None
             answers.append(said)
             self._kept(found, topic)
-        return coordination.combine(answers)
+        return serialize.SEP.join(answers)
 
     def _coordinated(self, line):
         """"penguen ve kartal kuş mu" — iki özne, iki soru, tek cevap.
@@ -1224,16 +1231,7 @@ class Session:
         cevaplanıyor; birleştirme yalnızca söyleyişte. Yani bu yol hiçbir
         denetimi atlamıyor.
         """
-        grammar = getattr(self.language, "grammar", None)
-        morphology = getattr(grammar, "morphology", None)
-        joiners = set(getattr(morphology, "joiners", ()) or ())
-        if not joiners:
-            return None         # başka bir dil organı: bağlaçlarını bilmiyoruz
-        tokens = tokenize(line)
-        subjects, tail = coordination.split_subjects(tokens, joiners,
-                                                     grammar.known())
-        if not subjects:
-            return None
+        return None     # `lmm/coordination.py` silindi: iki özneli yol kapalı
         answers = []
         for subject in subjects:
             # Kuyruk iki türlü kurulabiliyor: "penguen kuş mu" ve "penguen BİR
@@ -1263,7 +1261,7 @@ class Session:
             # aynı soruyu farklı ilişkiyle okuyordu: "ikisi de kuş mu" tür
             # sorusu, "penguen ve kartal kuş mu" nitelik sorusu sayılıyordu.
             self._kept(found, subject)
-        return coordination.combine(answers)
+        return serialize.SEP.join(answers)
 
     def _fluent(self, intent, line, said):
         """Cevabı akıcı söyletmeyi dener. Denetimi geçmezse şablon kalır.
@@ -1310,25 +1308,10 @@ class Session:
         Dil organı takılabilir olduğu için biçimbilim garanti değil; yoksa
         denetim yapılmıyor ve davranış eskisi gibi kalıyor.
         """
-        from lmm import asking
-        grammar = getattr(self.language, "grammar", None)
-        morphology = getattr(grammar, "morphology", None)
-        if morphology is None:
-            return False
-        # Soru İŞARETİ en açık kanıt ve hiç bakılmıyordu — `tokenize`
-        # noktalamayı attığı için görünmez. Ölçüldü: 400 gerçek Türkçe cümlede
-        # grafa yazılan 10 kaydın 10'u soru işaretiyle bitiyordu.
-        # İşaretin kendisi dilden soruluyor: İspanyolca "¿", Yunanca ";"
-        # kullanır ve kod hangisi olduğunu bilmemeli.
-        if line.rstrip().endswith(tuple(getattr(morphology,
-                                                "question_marks", ()))):
-            return True
-        for token in tokenize(line):
-            if asking.interrogative_of(token, morphology) is not None:
-                return True
-            if asking.particle_of(token, morphology) is not None:
-                return True
-        return False
+        # Soru sözcüğü tablosu (`lmm/asking.py`) silindi: kalan tek kanıt
+        # noktalamanın kendisi — soru İŞARETİ. Alfabe gibi harf düzeyinde
+        # bir olgu, kalıp değil.
+        return line.rstrip().endswith("?")
 
     def _bare_follow_up(self, line):
         """Tek kelimelik eksiltili soru: "neden", "nasıl", "kim".
@@ -1345,17 +1328,9 @@ class Session:
         words = tokenize(line)
         if len(words) != 1:
             return None
-        from lmm import asking
-        morphology = self.language.grammar.morphology
-        bare = asking.interrogative_of(words[0], morphology)
-        if bare is None:
-            return None
-        kind = getattr(morphology, "bare_questions", {}).get(bare)
-        if kind is None:
-            return None
-        return Intent(kind, self.last.concept, self.last.relation,
-                      self.last.target, self.last.object, self.last.role,
-                      self.last.quantifier)
+        # Soru sözcüğü tablosu (`lmm/asking.py`) silindi: çıplak takip
+        # sorusu tanınamıyor — okuma eğitilmiş yola kalır.
+        return None
 
     def _carried(self, line):
         """Eksiltili soru: önceki sorunun aynısı, yeni bir özneyle.
@@ -1452,73 +1427,17 @@ class Session:
         return said + (f" ✗{refused}" if refused else "")
 
     def _question(self, intent):
+        """Takip organı (`lmm/pursuit.py`) silindi: soru doğrudan kapıya
+        gider; plan kurulmaz, cevapsızlık ham imle döner."""
         read = self._investigate(intent)
-        if read:
-            # Okuduktan sonra soru yeniden değerlendirilir: cevap artık grafta
-            # olabilir ve öyleyse insana sormaya gerek yok.
-            answer = (self.gate.answer(intent)
-                      if self.pursuit.resolved(intent)
-                      else self.pursuit.opening(intent))
-            self.goal = None if self.pursuit.resolved(intent) else intent
-            return f"{read} {answer}".strip()
-        if intent.kind == ASK and not self.pursuit.resolved(intent):
-            self.goal = intent          # hold it; a plan beats a shrug
-            self.goal_steps = set()
-            opening = self.pursuit.opening(intent)
-            step = self.pursuit.next_step(intent)
-            if step is not None:
-                self.goal_steps.add(step.key)
-            return opening
         self.goal = None
-        return self.gate.answer(intent)
+        answer = self.gate.answer(intent)
+        return f"{read} {answer}".strip() if read else answer
 
     def _after_learning(self):
-        """A goal in hand outranks idle wondering."""
-        if self.goal is not None:
-            if self.pursuit.resolved(self.goal):
-                answer = self.gate.answer(self.goal)
-                self.goal = None
-                return f"⇒ {answer}"
-            step = self.pursuit.next_step(self.goal)
-            if step is not None and step.key not in self.goal_steps:
-                self.goal_steps.add(step.key)
-                return step.text
-            return ""
-        # Çıkarım SÖYLENİYOR ama YAZILMIYOR. Ölçüldü: 128 binlik grafta her
-        # öğretme turu grafa bir uydurma olgu yazıyordu —
-        #
-        #   > glorp bir kuştur
-        #   öğrendim ... sanırım ÜÇOBALAR BİR KILIÇTIR
-        #   yazılan: üçobalar --type--> kılıç  kaynak=çıkarım
-        #
-        # Öğretilenle ilgisi yok: `propose` bütün grafı tarayıp ilk sahipsizi
-        # döndürüyor. Üç ayrı sıkılaştırma denendi (bilgi değeri eşiği, ortak
-        # sahip sayısı, tek raf şartı) ve hiçbiri yetmedi; yalnız saçmalığın
-        # türü değişti ("mençeler bir kaplandır", çünkü ikisi de `ankara` ve
-        # `beypazarı` taşıyor).
-        #
-        # Mekanizmanın ÖNCÜLÜ bu veride geçersiz: "aynı davranışı paylaşıyor,
-        # öyleyse aynı şeydir" ancak davranış o türü TANIMLIYORSA geçerli, ve
-        # Vikipedi'den gelen konum olguları hiçbir şey tanımlamıyor.
-        #
-        # Yazmayı durdurmak yeteneği kapatmak değil, hafızayı korumak: tahmin
-        # söyleniyor, insan onaylarsa öğretebiliyor. Uydurmamak bu mimarinin
-        # tek şartı ve bir tahmin, kalıcı hafızaya kendi başına giremez.
-        # Öğretilen kavramın ailesi taranıyor, tüm graf değil.
-        hypothesis = self.induction.propose(getattr(self.last, "concept", None)
-                                            or self.focus)
-        if hypothesis is not None:
-            # GENELLEME yazılıyor, YERLEŞTİRME yazılmıyor. İkisi ayrı türden:
-            # genelleme sayıma dayanıyor ("bu ailenin şu kadar üyesi bunu
-            # yapıyor") ve `support` taşıyor; yerleştirme şekle dayanıyor
-            # ("bu şey şuna benziyor") ve hiçbir kanıt taşımıyor.
-            if not getattr(hypothesis, "guessed", False):
-                self.induction.learn(hypothesis)
-            statement = describe(hypothesis.concept, hypothesis.relation,
-                                 hypothesis.target)
-            return f"{', '.join(hypothesis.examples)} ⇒ {statement} [~]"
-        question = self.curiosity.next_question()
-        return f"∗ {question.text}" if question is not None else ""
+        """Genelleme (`induction`), merak (`curiosity`) ve takip (`pursuit`)
+        organları silindi: öğrenmeden sonra ek söz yok."""
+        return ""
 
     def _resolve_pending(self, line):
         """Bekleyen onayın cevabı — ya da cevap değilse None.
@@ -1586,36 +1505,17 @@ def _reader(backbone="cekirdek"):
 
 def _dictionary():
     """Vikisözlük getiricisi. Ağa nazik davranmak için araya bekleme koyar."""
-    import time
-    from lmm import synonyms
-
-    def polite(word):
-        found = synonyms.fetch(word)
-        time.sleep(1.1)
-        return found
-    return polite
+    return None     # `lmm/synonyms.py` silindi
 
 
 def _wording():
     """Söyleyiş öğrenici. Dil modeli yoksa None — sistem kalıplarla sürer."""
-    try:
-        from lmm.compiler import model_reader
-        from lmm import wording as _w
-        return model_reader(temperature=0.0, brief=_w.BRIEF)
-    except Exception:                                       # noqa: BLE001
-        return None
+    return None     # `lmm/compiler.py` silindi
 
 
 def _voice():
     """Akıcı ağız. Yüklenemezse None — sistem şablonlarla sürer."""
-    try:
-        from core.bridge import load
-        from lmm import registry
-        bridge, _ = load(registry.where("core"))
-    except Exception:                                       # noqa: BLE001
-        return None
-    return lambda said, line, memory, reasoning, concepts: bridge.express(
-        said, line, memory, reasoning, concepts=concepts)
+    return None     # `core/bridge.py` silindi: akıcı ağız üretici ağa devrolacak
 
 
 def main():

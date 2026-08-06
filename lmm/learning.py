@@ -9,7 +9,20 @@ from lmm import serialize
 
 def describe(concept, relation, target, object=None, role=None, kinds=None):
     return serialize.fact(concept, relation, target, object=object)
-from lmm.drift import may_write, branch_of, record
+
+
+def may_write(memory, reasoning, concept, source):
+    """Dal koruması (`lmm/drift.py`) silindi: yazma her zaman açık."""
+    return True
+
+
+def branch_of(reasoning, concept):
+    return concept
+
+
+def record(memory, branch, good):
+    """Dal sicili silindi: kayıt tutulmuyor."""
+    return None
 from lmm.trust import (TEACHER, HUMAN, confidence_for, outranks, level,
                        arbitrate, note, CANDIDATE, DISPUTED)
 

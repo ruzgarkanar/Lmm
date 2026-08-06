@@ -35,7 +35,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from lmm import registry                                    # noqa: E402
+from core.intent import _where                              # noqa: E402
 from lmm.cli import Session                                 # noqa: E402
 from lmm.memory import Memory                               # noqa: E402
 from lmm.relations import CAN, CANNOT, HAS_PROPERTY, IS_A, SAME_AS  # noqa: E402
@@ -113,7 +113,7 @@ def judge(said, concept, relation, target, positive):
 
 def main(argv):
     graph = (argv[argv.index("--graf") + 1] if "--graf" in argv
-             else registry.where("graph"))
+             else _where("graph"))
     count = int(argv[argv.index("--sayi") + 1]) if "--sayi" in argv else 200
     seed = int(argv[argv.index("--tohum") + 1]) if "--tohum" in argv else None
     if seed is None:

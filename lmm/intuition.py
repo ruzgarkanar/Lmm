@@ -8,7 +8,6 @@ kendisi okumuyor; her cümleye UNKNOWN der ve okuma `lmm/cli.py`'deki ağ
 yollarından geçer.
 """
 from lmm.relations import ALL
-from lmm.language import LanguageOrgan
 
 # Niyet türleri: görev sözlüğü, dil değil. Eğitim verisini kuran betiklerle
 # ve ağın sınıf adlarıyla aynı.
@@ -127,7 +126,7 @@ class _Grammar:
         return frozenset()
 
 
-class Intuition(LanguageOrgan):
+class Intuition:
     """Okumayan okuyucu: her cümleye UNKNOWN.
 
     Cümleyi anlamak `lmm/cli.py`'deki eğitilmiş yolların işi
