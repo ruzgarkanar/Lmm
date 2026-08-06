@@ -18,7 +18,11 @@ from lmm.memory import Memory
 from lmm import lexicon
 from lmm.clauses import readable
 from lmm.compiler import usable
-from lmm.discovered import words_of
+
+
+def words_of(memory):
+    """Keşfedilen biçimbilim silindi: okuyucuya kelime tablosu verilmiyor."""
+    return set()
 from lmm.trust import level, DOCUMENT
 from lmm.reasoning import Reasoning
 from lmm.learning import LearningLoop, LEARNED, REINFORCED, CONFLICT, REJECTED

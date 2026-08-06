@@ -29,7 +29,6 @@ from lmm.reasoning import Reasoning
 from lmm.reading import read_text
 from lmm.induction import Induction
 from lmm import serialize
-from lmm.inflect import listing
 
 
 def describe(concept, relation, target, object=None, role=None, kinds=None):
@@ -124,7 +123,7 @@ def main(argv):
         for hypothesis in formed[:3]:
             statement = describe(hypothesis.concept, hypothesis.relation,
                                  hypothesis.target)
-            print(f"    {statement}  ({listing(hypothesis.examples)})")
+            print(f"    {statement}  ({', '.join(hypothesis.examples)})")
     return 0
 
 

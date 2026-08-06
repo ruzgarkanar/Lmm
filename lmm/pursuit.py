@@ -11,7 +11,6 @@ dictates.
 """
 from lmm.relations import IS_A, CAN, HAS_PROPERTY, HAS_PART, LACKS_PART
 from lmm import serialize
-from lmm.inflect import verb_form, case_form
 from lmm.similarity import nearest
 
 
@@ -146,9 +145,8 @@ class Pursuit:
     def _question(self, concept, goal):
         obj = getattr(goal, "object", None)
         role = getattr(goal, "role", None)
-        obj = case_form(obj, role) if obj else None
         if goal.relation in (HAS_PART, LACKS_PART):
             return f"{serialize.fact(concept, HAS_PART, goal.target)} ?"
         if goal.relation == HAS_PROPERTY:
             return f"{serialize.fact(concept, HAS_PROPERTY, goal.target, True, obj)} ?"
-        return f"{serialize.fact(concept, CAN, verb_form(goal.target, True), True, obj)} ?"
+        return f"{serialize.fact(concept, CAN, goal.target, True, obj)} ?"

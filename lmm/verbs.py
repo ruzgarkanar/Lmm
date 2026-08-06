@@ -44,11 +44,8 @@ def _language():
     bulamaz ve keşif sessizce boş döner — yanlış fiil uydurmaktansa hiç
     bulmamak, bu dosyanın zaten savunduğu duruş.
     """
-    global _MORPHOLOGY
-    if _MORPHOLOGY is None:
-        from lmm.turkish import TurkishMorphology
-        _MORPHOLOGY = TurkishMorphology()
-    return _MORPHOLOGY
+    # Biçimbilim silindi: keşif boş tabloyla sessizce boş döner.
+    return None
 
 
 def _of(name, fallback=()):

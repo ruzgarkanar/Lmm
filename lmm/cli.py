@@ -15,7 +15,6 @@ from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
                            tokenize)
 from lmm import coordination
 from lmm.thread import Thread
-from lmm import frames
 try:
     from core.intent import reading_of
 except Exception:                                           # noqa: BLE001
@@ -25,8 +24,6 @@ from lmm.distill import split_words
 from lmm.trust import TEACHER, stranger_source
 from lmm.verbs import is_structural
 from lmm import frequency
-from lmm.grammar import Pattern
-from lmm.discovered import words_of
 from lmm import arithmetic
 from lmm.learning import (LearningLoop, CONFLICT, LEARNED, CORRECTED,
                           DISPUTE, FROZEN)
@@ -236,7 +233,6 @@ class Session:
         # akışta yanlış seçiyor. Bağlamadan önce düzeltilmeli.
         self.language = language or Intuition(network=MiniNetwork.default(),
                                               lexicon=self.memory.lexicon,
-                                              words=words_of(self.memory),
                                               known=self._concepts,
                                               meanings=self._meanings)
         # AYRIK KALIP YÜKLEME SİLİNDİ. Model dosyasındaki 103 öğrenilmiş
@@ -376,18 +372,17 @@ class Session:
         davranışa düşülüyor — genişletme, daraltma değil.
         """
         if relation == "can":
+            verbs = frequency.verbs()
             for token in reversed(tokens):
-                stem, tense = frames.predicate_of(token, self.memory.lexicon)
-                if stem:
-                    return stem
+                found = verbs.get(token)
+                if found:
+                    return found[0]
             return None
         if relation == "property":
-            morphology = self.language.grammar.morphology
             heard = set(self.memory.properties())
             for token in reversed(tokens):
-                for form in (token, morphology.strip_copula(token)):
-                    if form in heard:
-                        return form
+                if token in heard:
+                    return token
         return None
 
     def _unplaced(self, tokens, at):
@@ -558,14 +553,8 @@ class Session:
         return written > 0
 
     def _pattern_words(self):
-        """Kalıplarda geçen sabit sözcükler — eş anlamlısı aranacak hedefler."""
-        from lmm.grammar import SLOTS
-        found = set()
-        for pattern in self.language.grammar.patterns:
-            for token in pattern.tokens:
-                if token not in SLOTS and len(token) > 2:
-                    found.add(token)
-        return sorted(found)[:12]
+        """Kalıplar silindi: eş anlamlı aranacak sabit sözcük kalmadı."""
+        return []
 
     def _learn_wording(self, line):
         """SİLİNDİ: dil modeliyle ayrık kalıp çıkarma yolu kaldırıldı —
@@ -1584,14 +1573,9 @@ def _inquirer():
     Ağ ve bir okuyucu gerektiriyor, o yüzden isteğe bağlı ve kapalı gelir.
     Kurulamıyorsa sohbet soruşturmasız sürer — bilmemek de bir cevaptır.
     """
-    from lmm import inquiry
-    from lmm.compiler import CompileError, model_reader
-    try:
-        reader = model_reader(temperature=0.0)
-    except CompileError:
-        reader = None       # okuyucu yoksa kendi çerçeve okuyucumuz devreye girer
-    return lambda memory, concept: inquiry.investigate(memory, concept,
-                                                       reader=reader)
+    # `lmm/inquiry.py` silindi (biçimbilime yaslanıyordu). Soruşturma
+    # eğitilmiş bir okuyucuyla geri gelene kadar kapalı.
+    return None
 
 
 def _reader(backbone="cekirdek"):

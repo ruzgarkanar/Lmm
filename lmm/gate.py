@@ -6,7 +6,17 @@ hallucination is not filtered out — it is unreachable.
 from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
                            HAS_PART, LACKS_PART, PLACE, REQUIRES, ALL)
 from lmm import serialize
-from lmm.inflect import verb_form, case_form
+
+
+def verb_form(action, positive=True):
+    """Çekim organı silindi: eylem eksiz serilir, olumsuz ¬ imiyle."""
+    return action if positive else f"¬{action}"
+
+
+def case_form(word, role):
+    """Durum eki artık takılmıyor: rol kenarda veridir, yüzey ham."""
+    return word
+
 from lmm.relations import CANNOT, MOST, SOME, NO
 from lmm.similarity import nearest
 from lmm.intuition import (ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES,
