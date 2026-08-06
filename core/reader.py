@@ -161,6 +161,78 @@ class IntentNet:
         return self.labels[best], float(shares[best])
 
 
+class A100Intent:
+    """Gece koşusundan gelen niyet okuyucusu — 97M omurga + 14 sınıf.
+
+    Sıfırdan harf modeli kısa cümlede çökmüştü (ölçüldü ve DENEMELER'de);
+    bu, önceden eğitilmiş çekirdek üstüne sınıflandırma ve kısa cümlede
+    dört öğretme sınıfının dördünü %97+ güvenle tanıyor. Sınıf dengesi
+    kök-ters ağırlıkla kuruldu — DISARIDA artık küçük sınıfları ezmiyor.
+    """
+
+    def __init__(self, folder="models/intent"):
+        self.ready = False
+        path = os.path.join(folder, "niyet-a100.pt")
+        if not os.path.exists(path):
+            return
+        try:
+            self._load(path)
+        except Exception:                                   # noqa: BLE001
+            self.ready = False
+
+    def _load(self, path):
+        import torch
+        import sentencepiece as spm
+        from torch import nn
+        from core.model import Config, Core
+        from core.intent import PIECES
+
+        held = torch.load(path, map_location="cpu", weights_only=False)
+        config = Config(**held["config"])
+        self.labels = held["labels"]
+        self.pieces = spm.SentencePieceProcessor(model_file=PIECES)
+        self.torch = torch
+
+        class Classifier(nn.Module):
+            def __init__(self, core, classes):
+                super().__init__()
+                self.core = core
+                self.drop = nn.Dropout(0.1)
+                self.head = nn.Linear(core.config.dimensions, classes)
+
+            def forward(self, tokens, mask):
+                x = self.core.drop(self.core.token(tokens))
+                for block in self.core.blocks:
+                    x = block(x)
+                x = self.core.final(x)
+                weight = mask.unsqueeze(-1).float()
+                pooled = (x * weight).sum(1) / weight.sum(1).clamp(min=1)
+                return self.head(self.drop(pooled))
+
+        self.model = Classifier(Core(config), len(self.labels))
+        self.model.load_state_dict(held["model"])
+        self.model.eval()
+        self.score = held.get("isabet", 0.0)
+        self.ready = True
+
+    def read(self, sentence):
+        if not self.ready or not sentence:
+            return None, 0.0
+        torch = self.torch
+        piece = self.pieces.encode(sentence)[-64:]
+        pad = 64 - len(piece)
+        ids = torch.tensor([piece + [0] * pad])
+        mask = torch.tensor([[1] * len(piece) + [0] * pad])
+        with torch.no_grad():
+            shares = torch.softmax(self.model(ids, mask), dim=-1)[0]
+        return self.labels[int(shares.argmax())], float(shares.max())
+
+
+def load_a100_intent(folder="models/intent"):
+    found = A100Intent(folder)
+    return found if found.ready else None
+
+
 def load_intent(folder="models/intent"):
     """Niyet ağını kurar. Yoksa None — kolaylık, bağımlılık değil."""
     found = IntentNet(folder)
