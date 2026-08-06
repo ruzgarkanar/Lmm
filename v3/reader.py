@@ -60,7 +60,10 @@ class Reader:
     def __init__(self, folder="models/v3", name="reader.pt"):
         self.ready = False
         self.model = None
-        path = os.path.join(folder, name)
+        # Yol depo köküne göre: cwd'ye göre olunca kök dışından açılan
+        # oturum ağı SESSİZCE bulamıyordu (3. tur gözlemi) — hatasız ama kör.
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(root, folder, name)
         if not os.path.exists(path):
             return
         try:
