@@ -75,7 +75,7 @@ class Reader:
         held = torch.load(path, map_location="cpu", weights_only=False)
         self.torch = torch
         self.letters = held["letters"]
-        self.width = held.get("width", 512)
+        width = self.width = held.get("width", 256)
         size = held.get("size", 256)
         layers = held.get("layers", 6)
         heads = held.get("heads", 8)
@@ -86,12 +86,17 @@ class Reader:
             İki başlık tek gövdeyi paylaşır: biri cümlenin ne yapmak
             istediğini, öteki hangi harflerin özne/yüklem/değer olduğunu
             söyler. Tek gövde, çünkü ikisi aynı okumanın iki yüzü.
+
+            Konum tablosunun boyu KAYITTAN okunur, burada varsayılmaz. İlk
+            yazışta 4096 sabitti ve eğitim 257 ile kaydetmişti; model
+            yüklenemedi ve okuyucu sessizce hazır değil kaldı. Bir sayıyı iki
+            yerde yazmak, er geç iki farklı sayı yazmaktır.
             """
 
             def __init__(self):
                 super().__init__()
                 self.token = nn.Embedding(len(held["letters"]) + 1, size)
-                self.place = nn.Embedding(4096, size)
+                self.place = nn.Embedding(width + 1, size)
                 block = nn.TransformerEncoderLayer(
                     size, heads, size * 4, batch_first=True,
                     norm_first=True, dropout=0.1)
@@ -101,16 +106,11 @@ class Reader:
                 self.role_head = nn.Linear(size, 4)
 
             def forward(self, ids):
-                steps = self.torch_arange(ids)
+                steps = torch.arange(ids.shape[1],
+                                     device=ids.device).unsqueeze(0)
                 x = self.token(ids) + self.place(steps)
                 x = self.final(self.body(x))
                 return self.kind_head(x.mean(dim=1)), self.role_head(x)
-
-            @staticmethod
-            def torch_arange(ids):
-                import torch as _torch
-                return _torch.arange(ids.shape[1],
-                                     device=ids.device).unsqueeze(0)
 
         self.model = Net()
         self.model.load_state_dict(held["model"])
