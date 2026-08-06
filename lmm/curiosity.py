@@ -11,7 +11,6 @@ any more than it invents answers.
 """
 from lmm.relations import IS_A, CAN, HAS_PROPERTY
 from lmm import serialize
-from lmm.inflect import verb_form
 
 
 class Question:
@@ -53,7 +52,7 @@ class Curiosity:
             for action in self.memory.actions():
                 if self.reasoning.can_do(concept, action)[0] is None:
                     yield Question(f"can:{concept}:{action}",
-                                   f"{serialize.fact(concept, CAN, verb_form(action, True))} ?")
+                                   f"{serialize.fact(concept, CAN, action)} ?")
         for concept in concepts:            # the world is like this — is it?
             for prop in self.memory.properties():
                 if self.reasoning.has_property(concept, prop)[0] is None:

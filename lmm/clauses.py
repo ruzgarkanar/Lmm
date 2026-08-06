@@ -31,15 +31,12 @@ _MORPHOLOGY = None
 
 
 def _language():
-    global _MORPHOLOGY
-    if _MORPHOLOGY is None:
-        from lmm.turkish import TurkishMorphology
-        _MORPHOLOGY = TurkishMorphology()
-    return _MORPHOLOGY
+    # Biçimbilim silindi: bölme yalnız noktalama ile.
+    return None
 
 
 def _of(name):
-    return tuple(getattr(_language(), name, ()))
+    return ()
 
 
 _BOUNDARY = None

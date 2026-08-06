@@ -48,9 +48,7 @@ def split_subjects(tokens, joiners, known):
     if not rest or rest[0] not in known:
         return None, None
     second, tail = rest[0], rest[1:]
-    from lmm.turkish import TurkishMorphology
-    echoes = getattr(TurkishMorphology, "echoes", ())
-    tail = [token for token in tail if token not in echoes]
+    # Yankı sözcük listesi dille birlikte silindi; kuyruk olduğu gibi kalır.
     if not tail:
         return None, None
     return [first[0], second], tail

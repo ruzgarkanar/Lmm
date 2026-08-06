@@ -83,9 +83,10 @@ def _contradicts(said, memory):
     Okunamayan cümle çelişki sayılmıyor: bilmemek, yanlış bilmek değildir.
     Zaten kelime kapısı onu ayrıca deniyor.
     """
+    # Çerçeve okuyucu (`lmm/frames.py`) silindi: geri okuma denetimi
+    # eğitilmiş bir okuyucu bağlanana kadar kapalı — çelişki bulunamaz.
+    return False
     from lmm.clauses import readable
-    from lmm.frames import read, to_fact
-    from lmm.intuition import tokenize
     # Burada bölme eşiği SIFIR: `readable` normalde kısa cümleyi bölmüyor
     # ("bölmek bedava değil, parçalar özne taşırken hata yapılabilir") ama bu
     # bir ÜRETİM değil bir DENETİM yolu. Denetimde kaçırmak, fazladan bölmekten

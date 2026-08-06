@@ -16,7 +16,7 @@ from lmm.memory import Memory, Edge, CAN, CANNOT, IS_A
 from lmm.reasoning import Reasoning
 from lmm.learning import LearningLoop, CORRECTED, DISPUTE, CONFLICT
 from lmm.intuition import Intent
-from lmm.turkish import TEACH
+from lmm.intuition import TEACH
 from lmm.trust import (arbitrate, reputation_of, note, CANDIDATE, INCUMBENT,
                        DISPUTED, TEACHER)
 from lmm.cli import Session

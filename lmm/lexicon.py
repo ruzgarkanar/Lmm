@@ -37,15 +37,12 @@ def _language():
     """İthal tembel: `turkish` modülü `grammar`'ı, o da bu modülü çekiyor.
     İlk soruda kuruluyor ve saklanıyor — `reading()` kelime başına çağrılıyor
     ve her seferinde modül aramak ölçülebilir bir masraf."""
-    global _MORPHOLOGY
-    if _MORPHOLOGY is None:
-        from lmm.turkish import TurkishMorphology
-        _MORPHOLOGY = TurkishMorphology()
-    return _MORPHOLOGY
+    # Biçimbilim silindi: dil ek bildirmiyor, katman soyulmuyor.
+    return None
 
 
 def _of(name):
-    return tuple(getattr(_language(), name, ()))
+    return ()
 
 
 def _without(word, suffixes):
@@ -86,18 +83,7 @@ def _bare_ability():
     olur ve iki kopya er geç ayrışır — bu projede bir kez ölçüldü, `openers`
     iki yerde tutulunca üç eksiltili takip sessizce anlaşılmıyordu.
     """
-    from lmm.frames import AORIST
-    aorist = ()
-    for suffixes, tense in _of("predicate_suffixes"):
-        if tense == AORIST:
-            aorist = suffixes
-    found = []
-    for suffix in _of("ability_suffixes"):
-        for ending in sorted(aorist, key=len, reverse=True):
-            if suffix.endswith(ending) and len(suffix) > len(ending) + 1:
-                found.append(suffix[: -len(ending)])
-                break
-    return tuple(found)
+    return ()      # ek listeleri dille birlikte silindi
 
 
 class Lexicon:
@@ -158,19 +144,18 @@ class Lexicon:
         `x in verbs` çağrısı bir metoda düşüyor. İki organ aynı nesnede aynı
         adı kullanırsa biri diğerini görmeden ezer.
         """
-        from lmm.turkish import TurkishMorphology
-        endings = getattr(TurkishMorphology, "infinitive_suffixes", ())
+        endings = ()    # biçimbilim silindi: mastar üretimi kapalı
         # Ünlüler dilden okunuyor, burada YEDEĞİ tutulmuyordu ama tutuluyormuş
         # gibi duruyordu: iki harf dizisi de Türkçe'ye aitti. Bildirmeyen bir
         # dil boş küme veriyor, o zaman hiçbir harf ünlü sayılmıyor ve döngü
         # sessizce hiçbir mastar üretmiyor — dosyanın geri kalanındaki desenin
         # aynısı.
-        back = getattr(TurkishMorphology, "back_vowels", "")
-        vowels = getattr(TurkishMorphology, "vowels", "")
+        back = ""
+        vowels = ""
         if not endings:
             return
-        aorist = getattr(TurkishMorphology, "aorist_suffixes", ())
-        negative = getattr(TurkishMorphology, "aorist_negative_suffixes", ())
+        aorist = ()
+        negative = ()
         for suffixes, polarity in ((negative, False), (aorist, True)):
             for suffix in sorted(suffixes, key=len, reverse=True):
                 if not surface.endswith(suffix):
@@ -296,8 +281,7 @@ class Lexicon:
         # ("karakter tırmanmak") ve bozuk cümle geri okunamıyor — sistemin
         # kendi ağzı, kendi bilgisini eliyor. Yanlış bir çekim bile mastardan
         # iyidir, çünkü mastar cümleyi hiç kurdurmuyor.
-        from lmm.inflect import aorist
-        return aorist(infinitive, positive)
+        return infinitive     # çekim organı silindi: mastar ham serilir
 
     def learn_verb(self, infinitive, positive, negative, plain_negative=None):
         """Teach one verb in both polarities. Idempotent.

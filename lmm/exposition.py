@@ -18,9 +18,7 @@ import collections
 from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
                            LACKS_PROPERTY, HAS_PART, LACKS_PART)
 from lmm.trust import INFERENCE, STRANGER, level
-from lmm.turkish import TEACH
 from lmm import serialize
-from lmm.inflect import capitalize, clitic_da, listing
 
 # Olumsuz ilişki -> (temel ilişki, kutup): serimde ": ✗" olarak görünür.
 _BASES = {NOT_A: (IS_A, False), CANNOT: (CAN, False),
@@ -28,10 +26,8 @@ _BASES = {NOT_A: (IS_A, False), CANNOT: (CAN, False),
 
 
 def _predicate(relation, target, object=None, role=None):
-    from lmm.inflect import case_form
     base, positive = _BASES.get(relation, (relation, True))
-    return serialize.predicate(base, target, positive,
-                               case_form(object, role) if object else None)
+    return serialize.predicate(base, target, positive, object)
 
 OPPOSITES = {CAN: CANNOT, CANNOT: CAN,
              HAS_PROPERTY: LACKS_PROPERTY, LACKS_PROPERTY: HAS_PROPERTY}
@@ -132,13 +128,11 @@ class Exposition:
         # yazılmış `is_a_clause`. Nokta burada atılıyor çünkü cümlenin sonu
         # aşağıda kuruluyor; derlemden gelen şablon kendi noktasını taşıyor.
         learned = self.learned_clause(concept, IS_A, best.target)
-        sentence = capitalize(
-            learned.rstrip(" .") if learned
-            else serialize.fact(concept, IS_A, best.target))
+        sentence = (learned.rstrip(" .") if learned
+                    else serialize.fact(concept, IS_A, best.target))
         ancestors = self.reasoning.ancestors(concept)
         if len(ancestors) > 1:
-            sentence += (f", {best.target} {clitic_da(best.target)} "
-                         f"{_predicate(IS_A, ancestors[-1])}")
+            sentence += f", {best.target} {_predicate(IS_A, ancestors[-1])}"
         return sentence + "."
 
     def _exceptions(self, concept):
@@ -176,10 +170,10 @@ class Exposition:
         # yazılıydı. Kaç cümleye bölüneceği burada kalıyor (o bir okunurluk
         # kararı), cümlenin kendisi dile gitti.
         said = [f"∵ → {serialize.label(IS_A)} → {parent} ⇒ "
-                f"{listing(clauses[:MOST_IN_A_SENTENCE])}"]
+                f"{', '.join(clauses[:MOST_IN_A_SENTENCE])}"]
         for at in range(MOST_IN_A_SENTENCE, len(clauses), MOST_IN_A_SENTENCE):
             said.append(f"∵ → {serialize.label(IS_A)} → {parent} ⇒ "
-                        f"{listing(clauses[at:at + MOST_IN_A_SENTENCE])}")
+                        f"{', '.join(clauses[at:at + MOST_IN_A_SENTENCE])}")
         return " ".join(said)
 
     def _own(self, concept, sense=None, focus_rank=None):
@@ -249,7 +243,7 @@ class Exposition:
             for at in range(0, min(len(items), share), MOST_IN_A_SENTENCE):
                 piece = items[at:at + MOST_IN_A_SENTENCE]
                 opening = f"∘{name}" if at == 0 else "∘"
-                said.append(f"{opening} {listing(piece)}.")
+                said.append(f"{opening} {', '.join(piece)}.")
         return " ".join(said)
 
     def _speaks_for_itself(self, concept, relation, target):

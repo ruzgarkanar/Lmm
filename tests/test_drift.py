@@ -16,7 +16,7 @@ from lmm.memory import Memory, IS_A, CAN, CANNOT
 from lmm.reasoning import Reasoning
 from lmm.learning import LearningLoop, FROZEN, LEARNED
 from lmm.intuition import Intent
-from lmm.turkish import TEACH
+from lmm.intuition import TEACH
 from lmm.drift import (branch_of, record, refusal_rate, frozen, frozen_branches,
                        thaw, may_write, MINIMUM)
 from lmm.trust import TEACHER
