@@ -51,6 +51,11 @@ LOWERCASE_PAIRS = (("İ", "i"), ("I", "ı"))
 
 
 class _Morphology:
+    def __getattr__(self, name):
+        # Silinen morfoloji tablolarını arayan her organ boş bulur ve
+        # sessizce kapanır — dil bilgisi artık hiçbir tabloda değil.
+        return ()
+
     """Biçimbilim yokken çağıranların düşeceği yumuşak zemin."""
 
     def has_copula(self, word):
