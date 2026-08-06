@@ -34,7 +34,9 @@ LONGEST = 256
 
 def encode(text, roles, letters, width):
     ids = [letters.get(ch, 0) for ch in text[:width]]
-    tags = list(roles[:width])
+    # roles=None: rol denetimi YOK (soru örnekleri) — hepsi -100, kayıp
+    # yazılmaz. Soru işlem türünü öğretir, rolleri olgu cümleleri.
+    tags = ([-100] * len(ids) if roles is None else list(roles[:width]))
     pad = width - len(ids)
     return ids + [0] * pad, tags + [-100] * pad
 
@@ -50,8 +52,10 @@ def main(argv):
 
     facts = sorted(glob.glob("data/train/facts/*.jsonl"))
     dialogue = sorted(glob.glob("data/raw/dialogue/*.gz"))
-    rows = ds.build(facts, dialogue, most_facts=count,
-                    most_dialogue=max(1, count // 3))
+    questions = sorted(glob.glob("data/arsiv/tr-niyet-tumu.txt"))
+    rows = ds.build(facts, dialogue, questions, most_facts=count,
+                    most_dialogue=max(1, count // 3),
+                    most_questions=max(1, count // 3))
 
     # DENETİM 1 — veri
     kinds = {}
@@ -59,12 +63,12 @@ def main(argv):
         kinds[kind] = kinds.get(kind, 0) + 1
     print(f"  {len(rows):,} rows · classes {kinds}")
     assert len(rows) > 1000, "DATA MISSING"
-    assert len(kinds) >= 2, "SINGLE CLASS"
+    assert len(kinds) >= 3, "MISSING CLASS: reader needs PASS+ASK+WRITE"
     print("  CHECK 1 OK")
 
     # DENETİM 2 — hizalama
     marked = sum(1 for _, kind, roles in rows
-                 if kind == ds.WRITE and ds.SUBJECT in roles)
+                 if kind == ds.WRITE and roles and ds.SUBJECT in roles)
     writes = kinds.get(ds.WRITE, 0)
     share = marked / max(writes, 1)
     print(f"  subject-marked WRITE: {marked:,}/{writes:,}  %{share*100:.0f}")

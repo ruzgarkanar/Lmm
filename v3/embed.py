@@ -48,9 +48,16 @@ def sentences(paths, most=None):
     for path in paths:
         opener = _open(path)
         for line in opener:
-            words = [one.strip(".,;:!?\"'()[]").lower()
-                     for one in line.split()]
-            words = [one for one in words if one]
+            words = []
+            for one in line.split():
+                start, stop = 0, len(one)
+                while start < stop and not one[start].isalnum():
+                    start += 1
+                while stop > start and not one[stop - 1].isalnum():
+                    stop -= 1
+                piece = one[start:stop]
+                if piece:
+                    words.append("".join(ch.casefold()[0] for ch in piece))
             if len(words) < 2:
                 continue
             yield words
@@ -86,7 +93,7 @@ def counts(rows):
     return kept, seen, pairs
 
 
-def vectors_of(kept, seen, pairs, dimensions=DIMENSIONS, rounds=10):
+def vectors_of(kept, pairs, dimensions=DIMENSIONS, rounds=10):
     """PPMI matrisinin baş yönleri — altuzay yinelemesiyle.
 
     İlk yazış seyrek rastgele izdüşümdü ve ölçüm çürüttü: "kuş" kelimesinin
@@ -163,7 +170,7 @@ def main(argv):
         return 1
     kept, seen, pairs = counts(sentences(paths, most))
     print(f"  {len(kept):,} words · {len(pairs):,} pairs")
-    held = vectors_of(kept, seen, pairs)
+    held = vectors_of(kept, pairs)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as handle:
         json.dump(held, handle, ensure_ascii=False)

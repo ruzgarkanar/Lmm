@@ -26,7 +26,7 @@ söylemez. Dördüncü şart her durumda geçerlidir.
 Dile ait hiçbir şey yoktur.
 """
 from v3 import dynamics, geometry
-from v3.gate import Gate
+from v3.gate import Gate, SPEAK
 from v3.memory import Memory, OPERATOR, STRANGER
 from v3.reader import ASK, PASS, Reader, WRITE
 from v3.speaker import Speaker, prompt_of
@@ -76,7 +76,13 @@ class Session:
     def respond(self, line):
         """Bir cümleye cevap. Dönen daima metin, asla desteksiz iddia."""
         operation = self.reader.read(line)
-        if operation.kind == WRITE and operation.confidence >= CERTAIN:
+        # YAZIM yolu ancak yazacak bir şey VARSA açılır. Denetim yakaladı:
+        # okuyucu soruyu WRITE sanınca (ASK verisi olmadan eğitilmişti)
+        # `_write` boş özne/değerle boş dizgi dönüyordu ve kullanıcı soruya
+        # hiç cevap alamıyordu. Eksik parçalı WRITE artık toplama yoluna
+        # düşer — yanlış okumanın bedeli sessizlik değil, deneme olur.
+        if (operation.kind == WRITE and operation.confidence >= CERTAIN
+                and operation.subject and operation.value):
             return self._write(operation, line)
         # PASS + özne yok = sohbeti süren söz ("hmm", "selam"). Olgu dökmek
         # yanlış davranış: kayıt istenmedi. Konuşucu eğitilince buradan
@@ -102,14 +108,16 @@ class Session:
                                       self.who, self.level)
         if record is None:
             return ""
-        # Aynı olguyu ikinci bir kaynak söylediyse pekiştir: kuşkunun bir payı
-        # kapanır ve kayıt zamanla episodikten semantiğe yükselir.
-        if why == 0 and record.source != self.who:
-            dynamics.reinforce(self.memory, record, self.who)
+        # Pekiştirme BURADA YOK: `memory.write` yinelenen olguyu zaten
+        # `strengthen(source)` ile karşılıyor ve o koruma kaynak kümesine
+        # bakıyor. Buradaki ikinci çağrı, tek öğretmeyi iki tanık sayıyordu
+        # — denetim ölçtü ve kaldırıldı.
         self.focus = [subject]
         # Yazmak bir yaşantıdır: ne öğrendiğini de hatırlar (#BEN'in içeriği).
-        self.memory.lived(line, outcome=1.0, surprise=0.0,
-                          about=[subject, self.memory.self_key])
+        # `self.last` da güncellenir — yoksa öğretmeden sonra gelen tepki bir
+        # ÖNCEKİ cevabın yaşantısını değiştiriyordu (denetim yakaladı).
+        self.last = self.memory.lived(line, outcome=1.0, surprise=0.0,
+                                      about=[subject, self.memory.self_key])
         return self._render([record])
 
     # --- okuma ----------------------------------------------------------
@@ -119,7 +127,8 @@ class Session:
         labels = [one for one in (operation.subject, operation.value) if one]
         if not labels and self.focus:
             return self._focused()          # özne yoksa son konudan devam
-        weights = geometry.recall(self.memory, labels=labels, most=MOST * 3)
+        weights = geometry.recall(self.memory, vector=self._vector_of(line),
+                                  labels=labels, most=MOST * 3)
         if not weights:
             return []
         records = [self.memory.records[key] for key in weights
@@ -140,7 +149,7 @@ class Session:
 
     def _speak(self, records, line):
         """Adayları üretir, tartar, kapıdan geçirir. Hiçbiri geçmezse ham."""
-        supported = [one for one in records if one.trust >= 0.4]
+        supported = [one for one in records if one.trust >= SPEAK]
         if not supported:
             return ""
         if not self.speaker.ready:
@@ -224,11 +233,34 @@ class Session:
 
     # --- yardımcılar ----------------------------------------------------
 
+    def _vector_of(self, text):
+        """Cümlenin kaba vektörü: kelimelerinin ortalaması.
+
+        Denetim yakaladı: `resolve` ve `recall` oturumdan hiç vektörsüz
+        çağrılıyordu — sürekli katman çalışma anında ulaşılamaz koddu ve
+        çokanlamlılık yine popülerliğe düşüyordu. Bağlam vektörü buradan
+        gelir; sıra kaybeder, ilk eleme için yeter (yerini okuyucu ağının
+        temsili alacak).
+        """
+        from v3.dataset import fold
+        held = []
+        for word in text.split():
+            start, stop = 0, len(word)
+            while start < stop and not word[start].isalnum():
+                start += 1
+            while stop > start and not word[stop - 1].isalnum():
+                stop -= 1
+            piece = fold(word[start:stop]) if stop > start else ""
+            if piece and piece in self.vectors:
+                held.append(self.vectors[piece])
+        return geometry.mean(held)
+
     def _identity(self, label):
         """Etiketi kimliğe çevirir; yoksa açar. Bağlam hangisi olduğunu seçer."""
         if not label:
             return None
-        key, score = geometry.resolve(self.memory, label)
+        key, score = geometry.resolve(self.memory, label,
+                                      self.vectors.get(label))
         if key is not None:
             return key
         return self.memory.identify(label, vector=self.vectors.get(label))
@@ -241,7 +273,8 @@ class Session:
         """
         if not label:
             return None
-        key, _ = geometry.resolve(self.memory, label)
+        key, _ = geometry.resolve(self.memory, label,
+                                   self.vectors.get(label))
         return key
 
     def _render(self, records):
