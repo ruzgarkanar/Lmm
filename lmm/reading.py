@@ -27,7 +27,6 @@ from lmm.trust import level, DOCUMENT
 from lmm.reasoning import Reasoning
 from lmm.learning import LearningLoop, LEARNED, REINFORCED, CONFLICT, REJECTED
 from lmm.intuition import Intuition, TEACH, UNKNOWN
-from lmm.network import MiniNetwork
 
 SENTENCE_ENDINGS = ".!?\n;"
 

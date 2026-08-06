@@ -28,7 +28,6 @@ from lmm import arithmetic
 from lmm.learning import (LearningLoop, CONFLICT, LEARNED, CORRECTED,
                           DISPUTE, FROZEN)
 from lmm.induction import Induction
-from lmm.network import MiniNetwork
 from lmm.curiosity import Curiosity
 from lmm.pursuit import Pursuit
 from lmm import serialize
