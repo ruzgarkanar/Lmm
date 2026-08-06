@@ -196,20 +196,6 @@ class Session:
         # her istekte yeniden gönderilir; yönerge bir kez söylenir ve oturum
         # hatırlar. Boşken hiçbir şey değişmiyor.
         self.directives = {}
-        # Öğrenilmiş söyleyişler dilin parçası: boş bir beyin de dili bilir.
-        # Model dosyasında söyleyiş yoksa paketten yüklenir (kolaylık,
-        # bağımlılık değil) — graf boş kalır, yalnız dil taşınır.
-        if not self.memory.sayings:
-            try:
-                import json as _json
-                import os as _os
-                _pack = _os.path.join(_os.path.dirname(_os.path.dirname(
-                    _os.path.abspath(__file__))), "models", "soyleyisler.json")
-                if _os.path.exists(_pack):
-                    self.memory.sayings = _json.load(open(_pack,
-                                                          encoding="utf-8"))
-            except Exception:                               # noqa: BLE001
-                pass
         # Eğitilmiş etiketleyici. Yoksa None ve okuma kurallı yoldan sürer —
         # kolaylık, bağımlılık değil. `lmm/` torch'a muhtaç olmamalı.
         try:
@@ -374,29 +360,14 @@ class Session:
         relation = self.TAUGHT_KINDS.get(name or "")
         if relation is None or confidence < 0.95:
             return None
-        # Kavram ve hedef, ÖĞRENİLMİŞ SÖYLEYİŞİN TERSİNDEN. Etiketleyici
-        # kısa cümlede boş dönüyordu (ölçüldü: dört öğretme cümlesinin
-        # dördünde de hiçbir işaret yok) — oysa söyleyiş şablonları iki
-        # yönlü: "{kavram} bir {hedef}-DIr" konuşmak için öğrenildi ve
-        # "kartal bir kuştur" cümlesine oturunca okumayı da veriyor.
-        # Eşleşme sıkı ve doğrulamalı (`saying.match`): ek tersine çevrilip
-        # yeniden giydiriliyor, tutmuyorsa eşleşme yok sayılıyor.
-        from lmm import saying as saying_organ
-        relation_name = {IS_A: "type", HAS_PROPERTY: "property"}.get(
-            relation, relation)
-        pair = None
-        for template, _ in self.memory.sayings.get(relation_name, ()):
-            pair = saying_organ.match(template, line)
-            if pair:
-                break
-        if not pair:
-            read = self.tagger.read(line)
-            concept = (read[0] or "").lower().strip()
-            target = (read[1] or "").lower().strip()
-            if not concept or not target:
-                return None
-        else:
-            concept, target = pair
+        # Kavram ve hedef etiketleyiciden. Şablon eşleşmesi SİLİNDİ —
+        # sahibin kuralı: öğrenme yolunda ayrık şablon olmayacak, öğrenilmiş
+        # olsa bile. Etiketleyici kısa cümlede zayıf ve öğretme bununla
+        # düşecek; ölçüldü ve kabul edildi — doğru çözüm daha iyi ağ, şablon
+        # değil.
+        read = self.tagger.read(line)
+        concept = (read[0] or "").lower().strip()
+        target = (read[1] or "").lower().strip()
         if not target:
             return None
         made = Intent(TEACH, concept, relation, target)
