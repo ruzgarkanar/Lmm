@@ -31,3 +31,4 @@ models/
 # İndirilmiş hazır Türkçe çekirdek (1,35 GB). Kaynağı künyede yazılı:
 # ytu-ce-cosmos/turkish-gpt2-medium-350m-instruct-v0.1
 core/turkce-cekirdek/
+.claude/
