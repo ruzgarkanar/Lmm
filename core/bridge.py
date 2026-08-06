@@ -30,8 +30,7 @@ REFUSALS = ("[?]", "[")
 
 # İstemi kuran kelimeler. Modelin ürettiği değil, bizim yazdığımız — bu yüzden
 # kaçak sayılmamalılar.
-SCAFFOLD = ("cevap", "soru", "bilgi", "aşağıdaki", "kullanarak", "yanıtla",
-            "dışına", "çıkma")
+SCAFFOLD = ()
 
 # Üretimin bittiği yer. Model istemin devamını da yazıyor ("Soru: ... Cevap: ...")
 # ve o tekrarlar cümlenin parçası değil.

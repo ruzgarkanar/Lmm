@@ -275,9 +275,7 @@ def usable(node):
 # yazışta sonrasına bakılıyordu ve sessizce açık kalıyordu: "uçamamak" ile
 # "uçar" ortak kökü "uça" olarak buluyor, olumsuzluk eki önekin içinde kalıyor
 # ve iki taraf da "olumsuz değil" görünüyordu.
-NEGATIVE = ("maz", "mez", "amaz", "emez", "mıyor", "miyor", "muyor", "müyor",
-            "madı", "medi", "mamış", "memiş", "mayan", "meyen",
-            "mamak", "memek", "mama", "meme", "masın", "mesin")
+NEGATIVE = ()   # olumsuzluk eki listesi SİLİNDİ — morfoloji yok
 SHORTEST_ROOT = 2       # Türkçe kökleri kısadır: "uç", "ev", "el", "su"
 
 # İddia tarafında kaç harflik ek farkına izin verilir. Sayı gerekçesiz duruyordu
