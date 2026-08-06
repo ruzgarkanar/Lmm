@@ -3,7 +3,7 @@
 Bu betik iki şeyi birden öğretir çünkü ikisi aynı okumanın iki yüzüdür:
 
     işlem türü      cümle ne yapmak istiyor (PASS · ASK · WRITE)
-    harf rolleri    hangi harfler özne, yüklem, değer
+    harf rolleri     hangi harfler özne, yüklem, değer
 
 Eğitimden ÖNCE üç denetim var ve üçü de geçmeden eğitim başlamaz. Sebebi
 ölçülmüş: bir gece, veri eksikken saatlerce koşan bir eğitim ve sonunda
@@ -57,23 +57,23 @@ def main(argv):
     kinds = {}
     for _, kind, _ in rows:
         kinds[kind] = kinds.get(kind, 0) + 1
-    print(f"  {len(rows):,} örnek · dağılım {kinds}")
-    assert len(rows) > 1000, "VERİ EKSİK"
-    assert len(kinds) >= 2, "TEK SINIF — okuyucu ayrım öğrenemez"
-    print("  DENETİM 1 GEÇTİ")
+    print(f"  {len(rows):,} rows · classes {kinds}")
+    assert len(rows) > 1000, "DATA MISSING"
+    assert len(kinds) >= 2, "SINGLE CLASS"
+    print("  CHECK 1 OK")
 
     # DENETİM 2 — hizalama
     marked = sum(1 for _, kind, roles in rows
                  if kind == ds.WRITE and ds.SUBJECT in roles)
     writes = kinds.get(ds.WRITE, 0)
     share = marked / max(writes, 1)
-    print(f"  öznesi işaretli WRITE: {marked:,}/{writes:,}  %{share*100:.0f}")
-    assert share > 0.9, "HİZALAMA BOZUK"
-    print("  DENETİM 2 GEÇTİ")
+    print(f"  subject-marked WRITE: {marked:,}/{writes:,}  %{share*100:.0f}")
+    assert share > 0.9, "ALIGNMENT BROKEN"
+    print("  CHECK 2 OK")
 
     letters = ds.alphabet(rows)
     exam, rows = rows[:HELD_OUT], rows[HELD_OUT:]
-    print(f"  {len(rows):,} eğitim · {len(exam):,} sınav · {len(letters)} harf")
+    print(f"  {len(rows):,} train · {len(exam):,} held-out · {len(letters)} letters")
 
     device = ("mps" if torch.backends.mps.is_available()
               else "cuda" if torch.cuda.is_available() else "cpu")
@@ -131,9 +131,9 @@ def main(argv):
             first = float(loss)
         last = float(loss)
     ok = last < first * 0.6
-    print(f"  DENETİM 3: kayıp {first:.3f} -> {last:.3f}  "
-          f"{'GEÇTİ' if ok else 'BAŞARISIZ'}")
-    assert ok, "HAT BOZUK — tek yığın ezberlenemedi"
+    print(f"  CHECK 3: loss {first:.3f} -> {last:.3f}  "
+          f"{'OK' if ok else 'FAILED'}")
+    assert ok, "RIG BROKEN: single batch not memorised"
 
     model = Net().to(device)       # denetim ezberi eğitime taşınmasın
     optimiser = torch.optim.AdamW(model.parameters(), lr=3e-4)
@@ -175,8 +175,8 @@ def main(argv):
         writes_in_exam = sum(1 for _, kind, _ in exam if kind == ds.WRITE)
         kind_score = right_kind / len(exam)
         span_score = right_span / max(writes_in_exam, 1)
-        print(f"  tur {turn+1} · İŞLEM %{kind_score*100:.1f} · "
-              f"ÖZNE %{span_score*100:.1f} · {time.time()-started:.0f} sn",
+        print(f"  tur {turn+1} · OP %{kind_score*100:.1f} · "
+              f"SUBJ %{span_score*100:.1f} · {time.time()-started:.0f} sn",
               flush=True)
 
         score = (kind_score + span_score) / 2
@@ -188,11 +188,11 @@ def main(argv):
                         "width": LONGEST, "score": score,
                         "round": turn + 1},
                        os.path.join(out, "reader.pt"))
-            print("     (en iyi, saklandı)", flush=True)
+            print("     (best, saved)", flush=True)
         else:
             since += 1
             if since >= 4:
-                print("  SABIR doldu.")
+                print("  Patience exhausted.")
                 break
 
     print(f"\n  -> {out}/reader.pt  ({time.time()-started:.0f} sn)")

@@ -38,7 +38,8 @@ class Gate:
 
     # --- giriş ----------------------------------------------------------
 
-    def admit(self, subject, predicate, value, source, episodic=True):
+    def admit(self, subject, predicate, value, source, level=None,
+              episodic=True):
         """Bir iddiayı belleğe koymayı dener.
 
         Dönen: (kayıt | None, sebep). Sebep bir SAYIDIR — dil değil:
@@ -48,18 +49,21 @@ class Gate:
         """
         if source is None:
             return None, 2
+        from v3.memory import DOCUMENT
+        level = DOCUMENT if level is None else level
         clash = self._contradiction(subject, predicate, value)
         if clash is not None:
-            trust = self.memory.trust_of(source)
+            trust = self.memory.trust_of(level)
             if clash.trust >= trust:
                 # Yerleşik kayıt daha güçlü: yeni iddia yazılmaz ama
                 # ÇELİŞKİ olarak bağlanır — bastırmak değil, kaydetmek.
                 held = self.memory.write(subject, predicate, value, source,
-                                         trust=trust * 0.5, episodic=True)
+                                         level, trust=trust * 0.5,
+                                         episodic=True)
                 self.memory.link(held.key, clash.key, CONTRA)
                 self.memory.link(clash.key, held.key, CONTRA)
                 return held, 1
-        return self.memory.write(subject, predicate, value, source,
+        return self.memory.write(subject, predicate, value, source, level,
                                  episodic=episodic), 0
 
     def _contradiction(self, subject, predicate, value):
@@ -114,7 +118,7 @@ class Gate:
         # `trust_of(source) <= STRANGER` yazmıştım: 0,6 <= 1 her zaman doğru
         # çıkıyor ve belge kayıtları da kuşkulu görünüyordu. Basamak ile
         # değer aynı ölçekte değil; karşılaştırılmaları da bir hataydı.
-        return record.witnesses <= UNVERIFIED and record.source == STRANGER
+        return record.witnesses <= UNVERIFIED and record.level == STRANGER
 
     def inferred(self, subject, predicate, value, because):
         """Çıkarımla türetilen kayıt — düşük güvenle, gerekçesine bağlı.
@@ -123,8 +127,8 @@ class Gate:
         geçen her kayıt kaynağını "çıkarım" olarak taşır: sonradan hangi
         bilginin gözlemden hangisinin akıl yürütmeden geldiği ayrılabilir.
         """
-        held = self.memory.write(subject, predicate, value, INFERRED,
-                                 episodic=False)
+        held = self.memory.write(subject, predicate, value, "#inference",
+                                 INFERRED, episodic=False)
         for key in because:
             self.memory.link(held.key, key, 3)      # koşul bağı
         return held
