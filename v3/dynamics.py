@@ -105,7 +105,7 @@ def arbitrate(memory, record):
     if not rivals:
         return record
     field = [record] + rivals
-    field.sort(key=lambda one: (-one.source, -one.witnesses, -one.trust))
+    field.sort(key=lambda one: (-one.level, -one.witnesses, -one.trust))
     winner = field[0]
     for other in field[1:]:
         if other.trust >= winner.trust:

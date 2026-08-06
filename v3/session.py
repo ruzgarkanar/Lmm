@@ -50,9 +50,24 @@ class Session:
         self.speaker = Speaker()
         # Kim konuşuyor: işletmeci mi, tanınmayan biri mi. Yazılan her kaydın
         # basamağı buradan gelir ve bir yabancı, doğrulanmış bilgiyi ezemez.
-        self.source = STRANGER if speaker_name else OPERATOR
-        self.who = speaker_name
+        # AD ile BASAMAK ayrı: ad kayda yazılır ("ali", "#operator"),
+        # basamak hakemliğe girer. Duman testi ‹4› basana kadar tek alandaydı.
+        self.level = STRANGER if speaker_name else OPERATOR
+        self.who = speaker_name or "#operator"
         self.focus = []             # son konuşulan kimlikler — bağlam
+        # Geometri tablosu: varsa her kimlik doğarken vektörünü alır. Yoksa
+        # sistem çalışır ama çokanlamlılık çözümü zayıflar — kolaylık,
+        # bağımlılık değil.
+        self.vectors = {}
+        table = "models/v3/vectors.json"
+        try:
+            import json, os
+            if os.path.exists(table):
+                self.vectors = json.load(open(table, encoding="utf-8"))
+                from v3 import embed
+                embed.attach(self.memory, self.vectors)
+        except Exception:                                   # noqa: BLE001
+            self.vectors = {}
         if self.memory.self_key is None:
             self.memory.self_key = self.memory.identify("#self")
 
@@ -63,6 +78,12 @@ class Session:
         operation = self.reader.read(line)
         if operation.kind == WRITE and operation.confidence >= CERTAIN:
             return self._write(operation, line)
+        # PASS + özne yok = sohbeti süren söz ("hmm", "selam"). Olgu dökmek
+        # yanlış davranış: kayıt istenmedi. Konuşucu eğitilince buradan
+        # diyalog cevabı çıkacak; o yokken sessiz onay imi dönüyor.
+        if operation.kind == PASS and not operation.subject:
+            self._live(line, "", [])
+            return "[·]"
         records = self._gather(operation, line)
         said = self._speak(records, line)
         self._live(line, said, records)
@@ -77,13 +98,14 @@ class Session:
         subject = self._identity(operation.subject)
         predicate = self._identity(operation.predicate or "")
         value = self._identity(operation.value)
-        record, why = self.gate.admit(subject, predicate, value, self.source)
+        record, why = self.gate.admit(subject, predicate, value,
+                                      self.who, self.level)
         if record is None:
             return ""
         # Aynı olguyu ikinci bir kaynak söylediyse pekiştir: kuşkunun bir payı
         # kapanır ve kayıt zamanla episodikten semantiğe yükselir.
-        if why == 0 and record.source != self.source:
-            dynamics.reinforce(self.memory, record, self.source)
+        if why == 0 and record.source != self.who:
+            dynamics.reinforce(self.memory, record, self.who)
         self.focus = [subject]
         # Yazmak bir yaşantıdır: ne öğrendiğini de hatırlar (#BEN'in içeriği).
         self.memory.lived(line, outcome=1.0, surprise=0.0,
@@ -134,20 +156,39 @@ class Session:
         return best
 
     def _weigh(self, candidate, records):
-        """İç tartım: destek · yaşantı · kapsam. Negatifse aday düşer."""
-        operation = self.reader.read(candidate)
+        """İç tartım: destek · yaşantı · kapsam. Negatifse aday düşer.
+
+        İki düzeltme, ikisi de satır satır kıyas denetiminden:
+
+        ÇOK İDDİA — aday cümle cümle bölünüp HER parçası okunur. Tek okuma,
+        çok cümleli adayın yalnız ilk iddiasını denetliyordu; kapı çıkışı
+        vaat edilenden zayıftı.
+
+        KAPSAM — eski ölçü `len(aday) / (40 · kayıt)` idi: 40 ölçülmemiş bir
+        sabitti ve UZUNLUĞU ödüllendiriyordu — uzun saçmalayan aday, kısa
+        doğru adayı geçebilirdi. Yeni ölçü desteklenen iddia sayısının
+        istenen kayıtlara oranı: kapsama, harfle değil İDDİAYLA ölçülür.
+        """
         claims = []
-        if operation.subject and operation.value:
-            claims.append((self._known(operation.subject),
-                           self._known(operation.predicate or ""),
-                           self._known(operation.value)))
-        passed, dropped = self.gate.supported(
-            [one for one in claims if all(part is not None for part in one)])
+        for piece in candidate.replace("!", ".").replace("?", ".").split("."):
+            piece = piece.strip()
+            if not piece:
+                continue
+            operation = self.reader.read(piece)
+            if operation.subject and operation.value:
+                claim = (self._known(operation.subject),
+                         self._known(operation.predicate or ""),
+                         self._known(operation.value))
+                if all(part is not None for part in claim):
+                    claims.append(claim)
+                else:
+                    return -1.0     # bilinmeyen ada iddia: uydurma şüphesi
+        passed, dropped = self.gate.supported(claims)
         if dropped:
-            return -1.0                     # desteksiz iddia: cümle düşer
-        support = len(passed) / max(len(claims), 1)
+            return -1.0             # desteksiz iddia: cümle düşer
+        support = len(passed) / max(len(claims), 1) if claims else 0.0
         history = self._history(records)
-        covered = min(1.0, len(candidate) / max(40 * len(records), 1))
+        covered = len(passed) / max(len(records), 1)
         return support + history + covered
 
     def _history(self, records):
@@ -190,7 +231,7 @@ class Session:
         key, score = geometry.resolve(self.memory, label)
         if key is not None:
             return key
-        return self.memory.identify(label)
+        return self.memory.identify(label, vector=self.vectors.get(label))
 
     def _known(self, label):
         """Etiketi VAR OLAN bir kimliğe çevirir — yenisini AÇMAZ.

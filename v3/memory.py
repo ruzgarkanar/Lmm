@@ -64,16 +64,22 @@ class Record:
     yağdı" kaydı, "toprak ıslandı" kaydına NEDEN bağıyla bağlanır.
     """
 
-    __slots__ = ("key", "subject", "predicate", "value", "source", "trust",
-                 "at", "witnesses", "last_seen", "links", "episodic")
+    __slots__ = ("key", "subject", "predicate", "value", "source", "level",
+                 "trust", "at", "witnesses", "last_seen", "links", "episodic")
 
-    def __init__(self, key, subject, predicate, value, source,
+    def __init__(self, key, subject, predicate, value, source, level=None,
                  trust=0.5, at=None, episodic=True):
         self.key = key
         self.subject = subject          # kimlik anahtarı
         self.predicate = predicate      # yüklem kimliği — dağarcık AÇIK
         self.value = value              # kimlik anahtarı ya da düz değer
-        self.source = source
+        # AD ile BASAMAK ayrı: `source` kimin söylediği ("hayvanlar.txt",
+        # "ali"), `level` ne kadar sayıldığı (OPERATOR..STRANGER). İlk yazışta
+        # tek alandaydı ve duman testi ele verdi — çıktıda kaynak ‹4› diye
+        # basılıyordu: sayı, adın yerini yemişti. "Her cevapta kaynak" iddiası
+        # adı ister; hakemlik basamağı ister; ikisi ayrı alan olmak zorunda.
+        self.source = str(source)
+        self.level = level if level is not None else DOCUMENT
         self.trust = trust
         self.at = at if at is not None else time.time()
         self.witnesses = 1
@@ -87,15 +93,17 @@ class Record:
     def to_dict(self):
         return {"key": self.key, "subject": self.subject,
                 "predicate": self.predicate, "value": self.value,
-                "source": self.source, "trust": self.trust, "at": self.at,
+                "source": self.source, "level": self.level,
+                "trust": self.trust, "at": self.at,
                 "witnesses": self.witnesses, "last_seen": self.last_seen,
                 "links": self.links, "episodic": self.episodic}
 
     @classmethod
     def from_dict(cls, held):
         found = cls(held["key"], held["subject"], held["predicate"],
-                    held["value"], held["source"], held.get("trust", 0.5),
-                    held.get("at"), held.get("episodic", True))
+                    held["value"], held["source"], held.get("level"),
+                    held.get("trust", 0.5), held.get("at"),
+                    held.get("episodic", True))
         found.witnesses = held.get("witnesses", 1)
         found.last_seen = held.get("last_seen", found.at)
         found.links = [tuple(one) for one in held.get("links", ())]
@@ -190,27 +198,28 @@ class Memory:
 
     # --- kayıt ----------------------------------------------------------
 
-    def write(self, subject, predicate, value, source, trust=None,
-              episodic=True):
+    def write(self, subject, predicate, value, source, level=None,
+              trust=None, episodic=True):
         """Bir olguyu belleğe koyar; aynısı varsa PEKİŞTİRİR.
 
         Pekişme, ikinci bağımsız kaynağın kalan kuşkunun bir payını
         kapatmasıdır — toplamsal değil, çünkü toplamsalken birkaç belge
         tavanı deliyordu (eski bellekte ölçüldü).
         """
-        trust = self.trust_of(source) if trust is None else trust
+        level = DOCUMENT if level is None else level
+        trust = self.trust_of(level) if trust is None else trust
         for key in self.by_subject.get(subject, ()):
             held = self.records[key]
             if held.predicate == predicate and held.value == value:
-                if source not in str(held.source):
+                if str(source) != held.source:
                     held.witnesses += 1
                     held.trust += (1.0 - held.trust) * 0.15
                     held.trust = min(held.trust, 0.98)
                 held.last_seen = time.time()
                 return held
         key = self._key()
-        found = Record(key, subject, predicate, value, source, trust,
-                       episodic=episodic)
+        found = Record(key, subject, predicate, value, source, level,
+                       trust, episodic=episodic)
         self.records[key] = found
         self.by_subject.setdefault(subject, []).append(key)
         return found
@@ -230,10 +239,10 @@ class Memory:
         return [self.records[key] for key in self.by_subject.get(subject, ())]
 
     @staticmethod
-    def trust_of(source):
-        """Kaynağın basamağından başlangıç güveni. Şeritler örtüşmez."""
+    def trust_of(level):
+        """BASAMAKTAN başlangıç güveni. Şeritler örtüşmez."""
         return {OPERATOR: 0.75, DOCUMENT: 0.6, DISTILLED: 0.5,
-                INFERRED: 0.45, STRANGER: 0.3}.get(source, 0.3)
+                INFERRED: 0.45, STRANGER: 0.3}.get(level, 0.3)
 
     # --- yaşantı --------------------------------------------------------
 
