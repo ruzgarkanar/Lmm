@@ -230,7 +230,7 @@ class Session:
         #
         # Yani eksik olan kablo değil, organın kendisi: maliyet işlevi gerçek
         # akışta yanlış seçiyor. Bağlamadan önce düzeltilmeli.
-        self.language = language or Intuition(network=MiniNetwork.default(),
+        self.language = language or Intuition(network=None,
                                               lexicon=self.memory.lexicon,
                                               known=self._concepts,
                                               meanings=self._meanings)
