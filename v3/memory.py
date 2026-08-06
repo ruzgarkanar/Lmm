@@ -22,6 +22,7 @@ Kayıt da düğümdür: kaynağı, güveni, zamanı, tanık sayısı ve YAŞANTI
 yapamadığı ve uzun anlatının iskeletini veren şey budur.
 """
 import json
+import os
 import time
 
 # Bağ türleri. Bunlar İLİŞKİ KİMLİĞİDİR, dil değil: hangi cümlenin hangi bağı
@@ -103,7 +104,7 @@ class Record:
                 "links": self.links, "episodic": self.episodic,
                 "sources": sorted(self.sources)}
 
-    def strengthen(self, source):
+    def strengthen(self, source, level=None):
         """YENİ bağımsız tanık: kalan kuşkunun sabit bir payı kapanır.
 
         Hesap TEK burada durur ve kendi korumasını taşır: aynı kaynak
@@ -116,6 +117,13 @@ class Record:
             return self
         self.sources.add(source)
         self.witnesses += 1
+        # TERFİ: sonradan gelen daha yüksek basamak, kaydın basamağını
+        # yükseltir. 3. tur ölçtü — yabancı önce söylerse kayıt STRANGER
+        # açılıyor ve işletmecinin onayı bunu asla yükseltemiyordu: yabancı,
+        # ilk konuşan olarak olgu yuvasını ucuza kapatabiliyordu.
+        if level is not None and level > self.level:
+            self.level = level
+            self.trust = max(self.trust, Memory.trust_of(level))
         self.trust += (1.0 - self.trust) * 0.15
         self.trust = min(self.trust, 0.98)
         self.last_seen = time.time()
@@ -235,7 +243,7 @@ class Memory:
         for key in self.by_subject.get(subject, ()):
             held = self.records[key]
             if held.predicate == predicate and held.value == value:
-                return held.strengthen(source)
+                return held.strengthen(source, level)
         key = self._key()
         found = Record(key, subject, predicate, value, source, level,
                        trust, episodic=episodic)
@@ -302,10 +310,12 @@ class Memory:
     @classmethod
     def load(cls, path):
         found = cls()
-        try:
-            held = json.load(open(path, encoding="utf-8"))
-        except (OSError, ValueError):
-            return found
+        if not os.path.exists(path):
+            return found            # yeni dosya: boş bellek meşru
+        # BOZUK dosya boş bellek DEĞİLDİR. 3. tur denetimi ölçtü: bozuk JSON
+        # sessizce boş dönüyor ve bir sonraki save() kurtarılabilir dosyayı
+        # eziyordu — hatasız toplam veri kaybı. Bozuksa gürültüyle dur.
+        held = json.load(open(path, encoding="utf-8"))
         found._next = held.get("next", 1)
         found.self_key = held.get("self")
         for one in held.get("identities", ()):

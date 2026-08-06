@@ -59,7 +59,9 @@ class Session:
         # sistem çalışır ama çokanlamlılık çözümü zayıflar — kolaylık,
         # bağımlılık değil.
         self.vectors = {}
-        table = "models/v3/vectors.json"
+        root = __import__("os").path.dirname(
+            __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
+        table = __import__("os").path.join(root, "models/v3/vectors.json")
         try:
             import json, os
             if os.path.exists(table):

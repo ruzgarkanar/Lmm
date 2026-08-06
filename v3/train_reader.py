@@ -106,7 +106,20 @@ def main(argv):
 
     optimiser = torch.optim.AdamW(model.parameters(), lr=3e-4)
     kind_loss = nn.CrossEntropyLoss()
-    role_loss = nn.CrossEntropyLoss(ignore_index=-100)
+    # Rol sınıfları AĞIR dengesiz: harflerin ~%91'i OUT. Ölçüldü — düz kayıpla
+    # eğitilen model 332 harfte V ve P'yi SIFIR kez seçti; argmax hep OUT/S.
+    # Değer üretilmeyince yazma yolu çalışma anında ölüydü (3. tur denetimi).
+    # Kök-ters frekans ağırlığı: az görünen rol, kaybettiğinde daha çok acıtır.
+    role_count = [1, 1, 1, 1]
+    for _, _, roles in rows:
+        if roles:
+            for one in roles:
+                role_count[one] += 1
+    total_roles = sum(role_count)
+    role_weight = torch.tensor([(total_roles / one) ** 0.5
+                                for one in role_count], device=device)
+    role_weight = role_weight / role_weight.mean()
+    role_loss = nn.CrossEntropyLoss(ignore_index=-100, weight=role_weight)
 
     def batch_of(chunk):
         width = min(LONGEST, max(len(one[0]) for one in chunk))

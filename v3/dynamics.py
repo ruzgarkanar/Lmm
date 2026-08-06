@@ -42,14 +42,14 @@ FLOOR = 0.1
 FRESH = 3600.0
 
 
-def reinforce(memory, record, source):
+def reinforce(memory, record, source, level=None):
     """Aynı olguyu başka bir kaynak da söyledi — kuşkunun bir payı kapanır.
 
     Toplamsal değil: eski bellekte toplamsalken dördüncü belge tavanı
     deliyordu. Her tanık kalan kuşkunun sabit bir payını kapatır, tavana
     yaklaşılır ama ulaşılmaz.
     """
-    return record.strengthen(source)    # koruma ve hesap tek yerde
+    return record.strengthen(source, level)   # koruma ve hesap tek yerde
 
 
 def settle(memory, record):
@@ -78,6 +78,9 @@ def fade(memory, record, now=None):
         return False
     if record.witnesses > 1 or not record.episodic:
         return False        # tanıklı ya da yerleşmiş kayıt solmaz
+    from v3.memory import OPERATOR
+    if record.level >= OPERATOR:
+        return False        # işletmecinin öğrettiği sessizce çürümez
     before = record.trust
     record.trust = max(FLOOR, record.trust - FADE)
     return record.trust < before
@@ -106,6 +109,12 @@ def arbitrate(memory, record):
     return winner
 
 
+# Uyku turunda tutulacak en çok yaşantı. Şaşırtan kalır, sıradan gider —
+# 3. tur denetimi ölçtü: 1000 cevap 1000 yaşantıydı ve hiçbir bakım
+# dokunmuyordu; her "hmm" sonsuza dek dosyada büyüyordu.
+MOST_EXPERIENCES = 2000
+
+
 def sleep(memory, now=None):
     """Uyku turu: damıt, sönümle, hakemle.
 
@@ -126,6 +135,14 @@ def sleep(memory, now=None):
         if any(kind == CONTRA for kind, _ in record.links):
             arbitrate(memory, record)
             counted["judged"] += 1
+    # Yaşantı budaması: sıradan (sonuçsuz, şaşırtmamış) eskiler gider.
+    if len(memory.experiences) > MOST_EXPERIENCES:
+        ranked = sorted(memory.experiences.values(),
+                        key=lambda one: (abs(one.outcome) + one.surprise,
+                                         one.at))
+        for stale in ranked[:len(ranked) - MOST_EXPERIENCES]:
+            del memory.experiences[stale.key]
+            counted["pruned"] = counted.get("pruned", 0) + 1
     return counted
 
 
