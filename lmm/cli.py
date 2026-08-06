@@ -17,7 +17,6 @@ from lmm import social
 from lmm import coordination
 from lmm.thread import Thread
 from lmm import frames
-from lmm import wording
 try:
     from core.intent import reading_of
 except Exception:                                           # noqa: BLE001
@@ -162,12 +161,9 @@ class Session:
                                               words=words_of(self.memory),
                                               known=self._concepts,
                                               meanings=self._meanings)
-        for entry in self.memory.patterns:      # ways of speaking it was taught
-            pattern = Pattern.from_dict(entry)
-            # Sohbette tek tek öğrenilen kalıp öne, toplu çıkarılan sona.
-            # İkisi ayrı şeyler: birincisi bir insanın onayladığı bir okuma,
-            # ikincisi sayımın önerdiği bir şekil.
-            self.language.grammar.add(pattern, first=not pattern.fallback)
+        # AYRIK KALIP YÜKLEME SİLİNDİ. Model dosyasındaki 103 öğrenilmiş
+        # kalıp artık okunmuyor: sahibin kuralı — öğrenilmiş de olsa ayrık
+        # şablon, öğrenme yolunda durmayacak. Okuma eğitilmiş ağlarda.
         # Öğrenilen söyleyişin GERİ OKUMA sınavını yapacak organ. Kalıplar
         # yüklendikten SONRA bağlanıyor: sınav, oturumun gerçekten okuyabildiği
         # dilbilgisiyle yapılmalı, çıplak bir çekirdekle değil. Bellekteki
@@ -435,9 +431,6 @@ class Session:
                     if self.memory.query(aimed_target):
                         target = aimed_target
         if concept is None:
-            at, concept = wording.concept_in(tokens, self.memory, morphology,
-                                             self.focus)
-        if concept is None:
             return None
         # Çoğula düşmek, SORULANDAN BAŞKA bir soruyu cevaplamaktır ve bu ancak
         # cümlede yeri doldurulamamış bir içerik sözcüğü YOKSA kabul edilebilir.
@@ -459,27 +452,12 @@ class Session:
         said = self.gate.answer(Intent(kind, concept, relation, target))
         if is_a_refusal(said):
             return None
-        # Cevap üretebilmek yetmiyor: okuma cümleye de uymalı. Bu kapı olmadan
-        # "bir kuşun uçabilmesi için ne gerekir" cümlesi "kuş ne yapabilir"
-        # diye okunuyor, graf cevaplıyor ve YANLIŞ kalıp kalıcı yazılıyordu.
-        # Okumanın kendi kullandığı kelimeler kapıya sorulmaz: kavram ve
-        # hedef tanım gereği açıklanmıştır.
-        used = {at} | ({tokens.index(target)} if target in tokens else set())
-        if not wording.accounted_for(kind, tokens, self.memory.lexicon,
-                                     self.language.grammar.patterns,
-                                     self._meanings, consumed=used):
-            return None
+        # Kalıp yazımı ve uygunluk kapısı SİLİNDİ: ağın okuması artık
+        # kalıcı ayrık şablona çevrilmiyor, o kapı da yazım kapısıydı. Ağ
+        # her cümlede yeniden okur — bedeli hız, kazancı sistemde tek bir
+        # ayrık şablonun bile birikmemesi.
         self.asked_about.add(line)
-        reading = wording.Reading(kind, relation, at,
-                                  tokens.index(target) if target in tokens
-                                  else None)
-        pattern = wording.learn(line, reading, self.memory.lexicon, morphology)
-        if pattern is None:
-            return said
-        pattern.name = f"ağdan öğrenildi: {line}"
-        self.language.grammar.add(pattern, first=True)
-        self.memory.patterns.append(pattern.to_dict())
-        return f"{said} {learned_wording(line)}"
+        return said
 
     def _look_up(self, word):
         """Tanımadığı bir sözcüğün eş anlamlısını sözlükten arar ve grafa yazar.
@@ -512,37 +490,9 @@ class Session:
         return sorted(found)[:12]
 
     def _learn_wording(self, line):
-        """Anlaşılmayan cümleden kalıcı bir kalıp çıkarmayı dener.
-
-        Üç kapı, üçü de olgular için kurulmuş olanların aynısı: dil modeli
-        okur ama karar vermez; çıkan okuma grafta gerçekten cevaplanmıyorsa
-        kalıp YAZILMAZ; yazılan kalıp hangi cümleden geldiğini taşır.
-
-        Uydurma bir okuma cevap üretemez — denetim tam da bu yüzden işliyor.
-        """
-        if self.wording is None or line in self.asked_about:
-            return None
-        self.asked_about.add(line)
-        try:
-            reading = wording.ask_model(line, self.wording)
-        except Exception:                                   # noqa: BLE001
-            return None       # model yoksa sohbet durmaz
-        if reading is None:
-            return None
-        tokens = tokenize(line)
-        morphology = self.language.grammar.morphology
-        works, said = wording.answerable(reading, tokens, self.memory,
-                                         self.gate, morphology)
-        if not works:
-            return None       # işe yaramayan okuma kalıp olmaz
-        pattern = wording.learn(line, reading, self.memory.lexicon,
-                                self.language.grammar.morphology)
-        if pattern is None:
-            return said       # cevabı ver ama kalıbı saklama (cümle çok uzun)
-        pattern.name = f"öğrenildi: {line}"
-        self.language.grammar.add(pattern, first=True)
-        self.memory.patterns.append(pattern.to_dict())
-        return f"{said} {learned_wording(line)}"
+        """SİLİNDİ: dil modeliyle ayrık kalıp çıkarma yolu kaldırıldı —
+        sahibin kuralı. Okuma eğitilmiş ağlarda; kalıcı şablon üretilmez."""
+        return None
 
     def respond(self, line):
         said = self._respond(line)
