@@ -6,14 +6,48 @@ says is unexplainable.
 from lmm.memory import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
                         HAS_PART, LACKS_PART, TYPE_RELATIONS, ABILITY_RELATIONS,
                         PROPERTY_RELATIONS, PART_RELATIONS, INHERITING)
-from lmm.phrasing import (ability_clause, property_clause, part_clause,
-                          is_a_clause, is_not_a_clause, attribution,
-                          disputed_note, is_a_step, own_inference)
+from lmm import serialize
 from lmm.trust import INFERENCE, level
 
 
+def ability_clause(concept, target, positive=True, object=None, role=None):
+    return serialize.fact(concept, CAN, target, positive, object)
+
+
+def property_clause(concept, target, positive=True, object=None, role=None):
+    return serialize.fact(concept, HAS_PROPERTY, target, positive, object)
+
+
+def part_clause(concept, target, positive=True, object=None, role=None):
+    return serialize.fact(concept, HAS_PART, target, positive)
+
+
+def is_a_clause(concept, target):
+    return serialize.fact(concept, IS_A, target)
+
+
+def is_not_a_clause(concept, target):
+    return serialize.fact(concept, IS_A, target, positive=False)
+
+
+def attribution(source):
+    return serialize.cite(source)
+
+
+def disputed_note():
+    return "⚡"
+
+
+def is_a_step(concept, ancestor):
+    return f"{concept} → {ancestor}"
+
+
+def own_inference(said):
+    return f"{said} {serialize.cite(INFERENCE)}"
+
+
 def _clause_for(relation):
-    """How a relation reads as a sentence. Language, kept out of the reasoning."""
+    """How a relation reads as raw data. Kept out of the reasoning proper."""
     if relation in (HAS_PROPERTY, LACKS_PROPERTY):
         return property_clause
     if relation in (HAS_PART, LACKS_PART):
@@ -540,10 +574,9 @@ class Reasoning:
         edge = self.memory.direct(candidate.concept, opposite, candidate.target)
         if edge is not None:
             clause = (is_a_clause if opposite == IS_A else is_not_a_clause)
-            return (f"şu an bildiğim: {clause(candidate.concept, candidate.target)} "
-                    f"(kaynak: {edge.source})")
+            return (f"⊢ {clause(candidate.concept, candidate.target)} "
+                    f"{serialize.cite(edge.source)}")
         if (candidate.relation == NOT_A
                 and candidate.target in self.ancestors(candidate.concept)):
-            return ("şu an bildiğim: "
-                    + is_a_clause(candidate.concept, candidate.target))
+            return "⊢ " + is_a_clause(candidate.concept, candidate.target)
         return None

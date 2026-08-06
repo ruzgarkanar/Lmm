@@ -5,18 +5,9 @@ hallucination is not filtered out — it is unreachable.
 """
 from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
                            HAS_PART, LACKS_PART, PLACE, REQUIRES, ALL)
-from lmm.phrasing import (related_instead, likely_traits,
-                          is_a_clause, is_not_a_clause, denied, ability_clause,
-                          property_clause,
-                          dont_know, how_many, which_meaning, compared,
-                          because, because_chain, actually, affirmed,
-                          inherited_clause, definition_answer, requirements,
-                          unknown_requirement, more_so, both_but_unranked,
-                          only_one_has, no_comparison, never_learned_properties,
-                          properties_answer, never_learned_abilities,
-                          abilities_answer, never_heard_action, nobody_does,
-                          who_answer, never_heard_property, nobody_is,
-                          who_is_answer)
+from lmm import serialize
+from lmm.inflect import verb_form, case_form
+from lmm.relations import CANNOT, MOST, SOME, NO
 from lmm.similarity import nearest
 from lmm.intuition import (ASK_WHO, ASK_ABILITIES, ASK_WHY, ASK_PROPERTIES,
                            ASK_DESCRIBE, ASK_HOW_MANY, ASK_WHERE,
@@ -64,6 +55,254 @@ FOCUS_MARGIN = 0.35
 CLOSEST_SHARED = 2
 # Bu kadar yakın iki karşılık arasında seçim yapmak, bilmediğini uydurmaktır.
 AMBIGUITY_MARGIN = 0.1
+
+# --- Ham serim: kapının kararları dil-bağımsız imlerle serilir. -------------
+# Karar imleri: ✓ olumlama, ✗ ret, [?] cevapsızlık, ⊢ kanıt, [~] tahmin.
+
+# Bir nicelik cevabında kaç üye sayılır; kalan sayıyla söylenir.
+MOST_LISTED = 5
+
+
+def is_a_clause(concept, target):
+    return serialize.fact(concept, IS_A, target)
+
+
+def is_not_a_clause(concept, target):
+    return serialize.fact(concept, IS_A, target, positive=False)
+
+
+def ability_clause(concept, action, positive, object=None, role=None):
+    return serialize.fact(concept, CAN, action, positive,
+                          case_form(object, role) if object else None)
+
+
+def property_clause(concept, prop, positive=True, object=None, role=None):
+    return serialize.fact(concept, HAS_PROPERTY, prop, positive,
+                          case_form(object, role) if object else None)
+
+
+def denied(concept, target, reasons=()):
+    clause = is_not_a_clause(concept, target)
+    if not reasons:
+        return clause
+    return f"{clause} ⊢ {' ∧ '.join(reasons)}"
+
+
+def dont_know(concept, suggestions=()):
+    plain = f"[?] {concept}"
+    if not suggestions:
+        return plain
+    return f"{plain} ≈ {', '.join(list(suggestions))} ?"
+
+
+def related_instead(concept, neighbours):
+    return f"[?] {concept} · ≈ {', '.join(neighbours)}"
+
+
+def likely_traits(concept, guesses, family):
+    return f"[?] {concept} ≈ {', '.join(guesses)} [~] ∵ {family}"
+
+
+def which_meaning(name, readings):
+    return f"{name} ∈ {{{', '.join(readings)}}} ?"
+
+
+def because(known, chain):
+    return f"{'✓' if known else '✗'} ⊢ {' ∧ '.join(chain)}"
+
+
+def because_chain(chain):
+    return "⊢ " + " ∧ ".join(chain)
+
+
+def actually(clause):
+    return f"⊥ {clause}"
+
+
+def affirmed(clause):
+    return f"✓ ⊢ {clause}"
+
+
+def inherited_clause(clause, concept, ancestor=None):
+    if ancestor is None:
+        return clause
+    return f"{clause} ⊢ {is_a_clause(concept, ancestor)}"
+
+
+def definition_answer(concept, target, source, sure=True, clause=None):
+    answer = f"{clause or is_a_clause(concept, target)} {serialize.cite(source)}"
+    return answer if sure else answer + " [~]"
+
+
+def requirements(concept, needed):
+    return f"{concept} → {serialize.label(REQUIRES)} → {', '.join(list(needed))}"
+
+
+def unknown_requirement(concept):
+    return f"[?] {concept} → {serialize.label(REQUIRES)} → ?"
+
+
+def more_so(winner, loser, trait):
+    return f"{winner} ⊢ {winner} > {loser} @ {trait}"
+
+
+def both_but_unranked(trait):
+    return f"[?] > @ {trait}"
+
+
+def only_one_has(known_one, other, trait):
+    return f"{known_one} → {trait} · {other} → ?"
+
+
+def no_comparison(first, second, trait):
+    return f"[?] {first} >?< {second} @ {trait}"
+
+
+def never_learned_properties(concept):
+    return f"[?] {concept} → {serialize.label(HAS_PROPERTY)} → ∅"
+
+
+def properties_answer(concept, properties):
+    listed = ", ".join(p if is_so else f"¬{p}" for p, is_so in properties)
+    return f"{concept} → {serialize.label(HAS_PROPERTY)} → {listed}"
+
+
+def never_learned_abilities(concept):
+    return f"[?] {concept} → {serialize.label(CAN)} → ∅"
+
+
+def abilities_answer(concept, abilities):
+    clauses = []
+    for ability in abilities:
+        action, positive = ability[0], ability[1]
+        object = ability[2] if len(ability) > 2 else None
+        role = ability[3] if len(ability) > 3 else None
+        doubtful = ability[4] if len(ability) > 4 else False
+        said = verb_form(action, True)
+        if object:
+            said += f" @ {case_form(object, role)}"
+        if not positive:
+            said = f"¬{said}"
+        if doubtful:
+            said += " [~1]"
+        clauses.append(said)
+    return f"{concept} → {serialize.label(CAN)} → {', '.join(clauses)}"
+
+
+def never_heard_action(action):
+    return f"[?] {verb_form(action, True)} ∉"
+
+
+def nobody_does(action, positive):
+    return f"[?] ? → {serialize.label(CAN if positive else CANNOT)} → {action} : ∅"
+
+
+def who_answer(concepts, action, positive):
+    return (f"{', '.join(concepts)} → {serialize.label(CAN if positive else CANNOT)}"
+            f" → {verb_form(action, positive)}")
+
+
+def never_heard_property(prop):
+    return f"[?] {prop} ∉"
+
+
+def nobody_is(prop):
+    return f"[?] ? → {serialize.label(HAS_PROPERTY)} → {prop} : ∅"
+
+
+def who_is_answer(concepts, prop):
+    return f"{', '.join(concepts)} → {serialize.label(HAS_PROPERTY)} → {prop}"
+
+
+def compared(first, second, shared, only_first, only_second, kinds=None):
+    parts = []
+    if shared:
+        parts.append(f"∩ {', '.join(shared)}")
+    for concept, traits in ((first, only_first), (second, only_second)):
+        if traits:
+            parts.append(f"{concept}: " + ", ".join(
+                _trait(relation, target, kinds)
+                for relation, target in traits))
+    if not parts:
+        return f"{first} ⇄ {second} → ∅"
+    return "; ".join(parts)
+
+
+def _trait(relation, target, kinds=None):
+    if relation == HAS_PROPERTY:
+        return target
+    label = None
+    if kinds is not None:
+        kind = kinds.by_name.get(relation)
+        label = kind.label if kind else None
+    return f"{target} {label}" if label else f"{target} ({relation})"
+
+
+def _some_of(items):
+    items = list(items)
+    if len(items) <= MOST_LISTED:
+        return ", ".join(items)
+    return ", ".join(items[:MOST_LISTED]) + f" +{len(items) - MOST_LISTED}"
+
+
+def _members(counted, verb, others, contrast):
+    if not counted:
+        return f"{_some_of(others)} → {contrast}"
+    if others:
+        return (f"{_some_of(counted)} → {verb}"
+                f" ⊥ {_some_of(others)} → {contrast}")
+    return f"{_some_of(counted)} → {verb}"
+
+
+def _unknown(concept, counted, verb, others, contrast):
+    if not counted and not others:
+        return f"[?] {concept}"
+    return f"[?] ∈ {_members(counted, verb, others, contrast)}"
+
+
+def how_many(concept, target, positive, yes, no, rule, quantifier=ALL):
+    """Sorulan niceliği bulunan kanıtla karşılaştırır — mantık, kalıp değil."""
+    verb = verb_form(target, positive)
+    contrast = verb_form(target, not positive)
+    counted = list(yes if positive else no)
+    others = list(no if positive else yes)
+    ruled = None if rule is None else bool(rule) == positive
+    body = _members(counted, verb, others, contrast)
+    if quantifier == SOME:
+        if counted:
+            return f"✓ ⊢ {body}"
+        if ruled is True:
+            return f"✓ ⊢ ∀{concept} → {verb}"
+        if ruled is False:
+            return f"✗ ⊢ ∀{concept} → {contrast}"
+        return _unknown(concept, counted, verb, others, contrast)
+    if quantifier == NO:
+        if counted:
+            return f"✗ ⊢ {body}"
+        if ruled is True:
+            return f"✗ ⊢ ∀{concept} → {verb}"
+        if ruled is False:
+            return f"✓ ⊢ ∀{concept} → {contrast}"
+        return _unknown(concept, counted, verb, others, contrast)
+    if quantifier == MOST:
+        if ruled is True:
+            return f"✓ ⊢ ∀{concept} → {verb}" + (
+                f" ⊥ {', '.join(others)} → {contrast}" if others else "")
+        if ruled is False:
+            return f"✗ ⊢ ∀{concept} → {contrast}" + (
+                f" ⊥ {', '.join(counted)} → {verb}" if counted else "")
+        if counted and len(counted) > len(others):
+            return f"✓ [~] ⊢ {body}"
+        return _unknown(concept, counted, verb, others, contrast)
+    if others:            # "her": tek karşı örnek yeter
+        return f"✗ ⊢ {_members(others, contrast, counted, verb)}"
+    if ruled is True:
+        return f"✓ ⊢ ∀{concept} → {verb}"
+    if ruled is False:
+        return f"✗ ⊢ ∀{concept} → {contrast}"
+    if counted:
+        return f"[?] ∀ · ∈ {', '.join(counted)} → {verb}"
+    return f"[?] {concept}"
 
 
 class EpistemicGate:

@@ -84,7 +84,7 @@ GROUNDED = tuple(_EXAM["temellendirme"])
 # Tek kaynak: aynı imza iki yerde kopyalanmıştı ve biri eksik kalmıştı.
 # Söyleyiş öğrenen organ bu imzaya güveniyor — eksik bir madde, yanlış bir
 # kalıbın kalıcı olarak yazılması demek.
-from lmm.phrasing import REFUSALS as DECLINED
+from lmm.serialize import is_refusal
 
 
 class Result:
@@ -124,7 +124,7 @@ def retrieval(session):
 def scope(session):
     """Silence in memory must produce a refusal, never a guess."""
     passed = sum(1 for question in UNKNOWN
-                 if any(mark in session.respond(question) for mark in DECLINED))
+                 if is_refusal(session.respond(question)))
     return Result("sınır", passed, len(UNKNOWN), "bilinmeyende çekimserlik")
 
 

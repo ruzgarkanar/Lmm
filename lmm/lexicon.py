@@ -296,7 +296,7 @@ class Lexicon:
         # ("karakter tırmanmak") ve bozuk cümle geri okunamıyor — sistemin
         # kendi ağzı, kendi bilgisini eliyor. Yanlış bir çekim bile mastardan
         # iyidir, çünkü mastar cümleyi hiç kurdurmuyor.
-        from lmm.phrasing import aorist
+        from lmm.inflect import aorist
         return aorist(infinitive, positive)
 
     def learn_verb(self, infinitive, positive, negative, plain_negative=None):

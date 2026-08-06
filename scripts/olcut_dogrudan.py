@@ -31,7 +31,9 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from lmm import phrasing                                    # noqa: E402
+from lmm import serialize                                   # noqa: E402
+from lmm.relations import CAN, HAS_PROPERTY                 # noqa: E402
+from lmm.inflect import verb_form                           # noqa: E402
 from lmm.cli import Session                                 # noqa: E402
 from lmm.memory import Memory                               # noqa: E402
 from lmm.relations import CAN, CANNOT, HAS_PROPERTY, IS_A   # noqa: E402
@@ -42,8 +44,8 @@ def question_for(edge):
     if edge.relation == IS_A:
         return f"{edge.concept} bir {edge.target} mıdır"
     if edge.relation in (CAN, CANNOT):
-        return phrasing.ability_question(edge.concept, edge.target)
-    return phrasing.property_question(edge.concept, edge.target)
+        return f"{serialize.fact(edge.concept, CAN, verb_form(edge.target, True))} ?"
+    return f"{serialize.fact(edge.concept, HAS_PROPERTY, edge.target)} ?"
 
 
 def run(graph, count, seed):

@@ -15,11 +15,23 @@ that cannot make things up.
 """
 import collections
 
-from lmm.relations import (IS_A, CAN, CANNOT, HAS_PROPERTY, LACKS_PROPERTY,
-                           HAS_PART, LACKS_PART)
+from lmm.relations import (IS_A, NOT_A, CAN, CANNOT, HAS_PROPERTY,
+                           LACKS_PROPERTY, HAS_PART, LACKS_PART)
 from lmm.trust import INFERENCE, STRANGER, level
 from lmm.turkish import TEACH
-from lmm import phrasing
+from lmm import serialize
+from lmm.inflect import capitalize, clitic_da, listing
+
+# Olumsuz ilişki -> (temel ilişki, kutup): serimde ": ✗" olarak görünür.
+_BASES = {NOT_A: (IS_A, False), CANNOT: (CAN, False),
+          LACKS_PROPERTY: (HAS_PROPERTY, False), LACKS_PART: (HAS_PART, False)}
+
+
+def _predicate(relation, target, object=None, role=None):
+    from lmm.inflect import case_form
+    base, positive = _BASES.get(relation, (relation, True))
+    return serialize.predicate(base, target, positive,
+                               case_form(object, role) if object else None)
 
 OPPOSITES = {CAN: CANNOT, CANNOT: CAN,
              HAS_PROPERTY: LACKS_PROPERTY, LACKS_PROPERTY: HAS_PROPERTY}
@@ -76,7 +88,7 @@ class Exposition:
                  self._own(concept, sense, focus_rank)]
         said = [part for part in parts if part]
         if not said:
-            return phrasing.dont_know(concept)
+            return f"[?] {concept}"
         return " ".join(said)
 
     def _sense_speaks(self, concept, sense):
@@ -120,13 +132,13 @@ class Exposition:
         # yazılmış `is_a_clause`. Nokta burada atılıyor çünkü cümlenin sonu
         # aşağıda kuruluyor; derlemden gelen şablon kendi noktasını taşıyor.
         learned = self.learned_clause(concept, IS_A, best.target)
-        sentence = phrasing.capitalize(
+        sentence = capitalize(
             learned.rstrip(" .") if learned
-            else phrasing.is_a_clause(concept, best.target))
+            else serialize.fact(concept, IS_A, best.target))
         ancestors = self.reasoning.ancestors(concept)
         if len(ancestors) > 1:
-            sentence += (f", {best.target} {phrasing.clitic_da(best.target)} "
-                         f"{phrasing.predicate(IS_A, ancestors[-1])}")
+            sentence += (f", {best.target} {clitic_da(best.target)} "
+                         f"{_predicate(IS_A, ancestors[-1])}")
         return sentence + "."
 
     def _exceptions(self, concept):
@@ -136,10 +148,10 @@ class Exposition:
             if not self._contradicts_family(edge):
                 continue
             family = self._family_clause(edge)
-            own = phrasing.predicate(edge.relation, edge.target, edge.object, edge.role)
+            own = _predicate(edge.relation, edge.target, edge.object, edge.role)
             # "ama" bir bağlaçtı ve motorun ortasında duruyordu; istisnayı
             # kuran mantık burada, söyleyişi `lmm/phrasing.py`'de.
-            said.append(phrasing.exception_clause(family, concept, own))
+            said.append(f"{family} ⊥ {concept} {own}")
         return " ".join(said)
 
     def _inherited(self, concept):
@@ -151,7 +163,7 @@ class Exposition:
         for target, relation, obj, role in self._traits_of(parent):
             if self._speaks_for_itself(concept, relation, target):
                 continue        # already told, either as its own or as an exception
-            clauses.append(phrasing.predicate(relation, target, obj, role))
+            clauses.append(_predicate(relation, target, obj, role))
         if not clauses:
             return ""
         # Kalıtım da bölünüyor. On sekiz öge tek cümlede sayıldığında
@@ -163,12 +175,11 @@ class Exposition:
         # "... olduğu için ..." ve onu sürdüren "Yine" birer bağlaçtı ve burada
         # yazılıydı. Kaç cümleye bölüneceği burada kalıyor (o bir okunurluk
         # kararı), cümlenin kendisi dile gitti.
-        said = [phrasing.because_it_is(
-            parent, phrasing.listing(clauses[:MOST_IN_A_SENTENCE]))]
+        said = [f"∵ → {serialize.label(IS_A)} → {parent} ⇒ "
+                f"{listing(clauses[:MOST_IN_A_SENTENCE])}"]
         for at in range(MOST_IN_A_SENTENCE, len(clauses), MOST_IN_A_SENTENCE):
-            said.append(phrasing.because_it_is(
-                parent, phrasing.listing(clauses[at:at + MOST_IN_A_SENTENCE]),
-                again=True))
+            said.append(f"∵ → {serialize.label(IS_A)} → {parent} ⇒ "
+                        f"{listing(clauses[at:at + MOST_IN_A_SENTENCE])}")
         return " ".join(said)
 
     def _own(self, concept, sense=None, focus_rank=None):
@@ -210,20 +221,20 @@ class Exposition:
         for edge in edges:
             if edge.relation == IS_A or self._contradicts_family(edge):
                 continue
-            clause = phrasing.predicate(edge.relation, edge.target,
-                                        edge.object, edge.role)
+            clause = _predicate(edge.relation, edge.target,
+                                edge.object, edge.role)
             # Künyeler (`(sanırım)`, `(birinin söylediği...)`) dile taşındı:
             # hangi olgunun künye alacağı bir GÜVEN kararı ve burada kalıyor,
             # künyenin nasıl söyleneceği ise söyleyişe ait.
             if edge.source == INFERENCE:
-                clause = phrasing.guessed(clause)
+                clause = f"{clause} [~]"
             elif level(edge.source) <= STRANGER and not edge.sources[1:]:
                 # Bir yabancının, başka kimsenin doğrulamadığı sözü. Atılmıyor
                 # — kaynağı yazılı ve kapıdan geçti — ama aynı sesle
                 # söylenmiyor. Ölçüldü: "kediler uçar" diyen biri, cevabı
                 # "kedi uçar, koşar, tırmanır" hâline getirebiliyordu ve
                 # okuyan hangisinin nereden geldiğini göremiyordu.
-                clause = phrasing.unconfirmed(clause)
+                clause = f"{clause} [~1]"
             held.setdefault(GROUPS.get(edge.relation, OTHER),
                             []).append(clause)
         total = sum(len(items) for items in held.values())
@@ -237,8 +248,8 @@ class Exposition:
             share = max(1, round(budget * len(items) / total))
             for at in range(0, min(len(items), share), MOST_IN_A_SENTENCE):
                 piece = items[at:at + MOST_IN_A_SENTENCE]
-                opening = phrasing.group_opening(name if at == 0 else None)
-                said.append(f"{opening} {phrasing.listing(piece)}.")
+                opening = f"∘{name}" if at == 0 else "∘"
+                said.append(f"{opening} {listing(piece)}.")
         return " ".join(said)
 
     def _speaks_for_itself(self, concept, relation, target):
@@ -261,7 +272,7 @@ class Exposition:
                 # Aile kuralı da bir olgu: önce öğrenilen söyleyişle denenir.
                 learned = self.learned_clause(ancestor, opposite, edge.target)
                 return (learned.rstrip(" .") if learned
-                        else phrasing.describe(ancestor, opposite, edge.target))
+                        else serialize.fact(ancestor, opposite, edge.target))
         return ""
 
     def _nearest_parent(self, concept):

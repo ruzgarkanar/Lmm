@@ -13,7 +13,6 @@ from lmm.intuition import (Intuition, Intent, TEACH, ASK, ASK_WHO, UNKNOWN,
                            ASK_INVENTORY, ASK_CERTAINTY, ASK_SOURCE,
                            ASK_OPINION, ASK_DESCRIBE, ASK_COMPARE, lower,
                            tokenize)
-from lmm import social
 from lmm import coordination
 from lmm.thread import Thread
 from lmm import frames
@@ -35,18 +34,97 @@ from lmm.induction import Induction
 from lmm.network import MiniNetwork
 from lmm.curiosity import Curiosity
 from lmm.pursuit import Pursuit
-from lmm import phrasing
-from lmm.phrasing import about_instead
-from lmm.phrasing import (forgotten, wondering, not_understood, now_i_can, generalising,
-                          describe, teach_me_the_word, learned_word, computed,
-                          cannot_compute, which_reading, went_and_read,
-                          learned_wording, is_a_refusal, talked_about,
-                          nothing_more, sentences, inventory,
-                          certainty, whence, no_opinion,
-                          exception_learned, not_learned, help_text, status,
-                          opened, inquiry_open, intent_network, wording_open,
-                          dictionary_open, voice_state, help_hint,
-                          saved_and_gone)
+from lmm import serialize
+from lmm.gate import MOST_TOLD, TOLD_BY_LENGTH
+from lmm.serialize import is_refusal as is_a_refusal
+
+import re as _re
+
+_CITATION = _re.compile(r"\s*‹[^›]*›")
+
+
+def _directed(said, directives):
+    """Oturum yönergelerini serilmiş cevaba uygular: kaynak imi ve kesme."""
+    if not said or not directives:
+        return said
+    if directives.get("sources") is False:
+        said = _CITATION.sub("", said)
+    if directives.get("length") == "short":
+        pieces = said.split(serialize.SEP)
+        if len(pieces) > 2:
+            said = serialize.SEP.join(pieces[:2])
+    return said
+
+
+def about_instead(concept, said):
+    return f"≈ {concept} :: {said}"
+
+
+def describe(concept, relation, target, object=None, role=None, kinds=None):
+    return serialize.fact(concept, relation, target, object=object)
+
+
+def _not_understood(resembles=None, spotted=()):
+    said = "[?]"
+    if spotted:
+        said += " ∋ " + ", ".join(spotted)
+    if resembles:
+        said += f" ≈ {resembles}"
+    return said
+
+
+def _inventory(memory, count=8):
+    import collections
+    kinds = collections.Counter(
+        e.target for e in memory.edges if e.relation == IS_A)
+    sources = collections.Counter(
+        e.source for e in memory.edges if e.relation != SAME_AS)
+    concepts = memory.concepts()
+    if not concepts:
+        return "[?] ∅"
+    parts = [f"{len(memory.edges)} ⋄ {len(concepts)}"]
+    if kinds:
+        parts.append(", ".join(
+            f"{t}×{n}" for t, n in kinds.most_common(count // 2)))
+    if sources:
+        parts.append("‹" + ", ".join(
+            f"{s}×{n}" for s, n in sources.most_common(3)) + "›")
+    return serialize.SEP.join(parts)
+
+
+def _certainty(edges, kinds=None):
+    if not edges:
+        return "∅"
+    edge = edges[0]
+    witnesses = len(getattr(edge, "sources", None) or [edge.source])
+    parts = [f"%{edge.confidence * 100:.0f}"]
+    if witnesses > 1:
+        parts.append(f"×{witnesses}")
+    else:
+        parts.append(serialize.cite(edge.source))
+    if edge.is_exception:
+        parts.append("⊥")
+    if getattr(edge, "disputed", False):
+        parts.append("⚡")
+    return serialize.SEP.join(parts)
+
+
+def _whence(edges):
+    if not edges:
+        return "∅"
+    seen = []
+    for edge in edges:
+        for source in (getattr(edge, "sources", None) or [edge.source]):
+            if source not in seen:
+                seen.append(source)
+    return serialize.cite("; ".join(seen))
+
+
+HELP = """
+TEACH_TYPE · TEACH_ABILITY · TEACH_PROPERTY · TEACH_PART · TEACH_WORD
+ASK_DEFINITION · ASK_TYPE · ASK_ABILITY · ASK_PROPERTY · ASK_PART
+ASK_ABILITIES · ASK_PROPERTIES · ASK_DESCRIBE · ASK_WHY · ASK_WHO
+"""
 
 # A custom LanguageOrgan may report graded confidence; ours parses or does not.
 CONFIDENCE_THRESHOLD = 0.35
@@ -499,7 +577,7 @@ class Session:
         # Yönergeler söyleyişe EN SONDA uygulanır — hangi yoldan çıkarsa
         # çıksın. İçerik graftan gelmiş ve kapıdan geçmiş durumda; burada
         # değişen yalnız uzunluk ve kaynak gösterimi.
-        return phrasing.directed(said, self.directives)
+        return _directed(said, self.directives)
 
     def _sole_topic(self, tokens, least=5):
         """Cümledeki TEK baskın kavram — yoksa None.
@@ -569,7 +647,7 @@ class Session:
                 self.directives["sources"] = False
             elif directive == "cited":
                 self.directives["sources"] = True
-            return phrasing.directive_set(directive)
+            return f"⚙ {directive}"
         if self.pending is not None:
             settled = self._resolve_pending(line)
             if settled is not None:
@@ -578,23 +656,20 @@ class Session:
             # Computed, not recalled: a sum has no place in memory and no
             # business being guessed at.
             try:
-                return computed(arithmetic.normalise(line),
-                                arithmetic.evaluate(line))
+                return (f"{arithmetic.normalise(line)}"
+                        f" = {arithmetic.evaluate(line)}")
             except arithmetic.Undecidable as reason:
-                return cannot_compute(reason)
+                return f"✗ {reason}"
         words, rest = split_words(line)
         if words:                       # "kelime: uçmak = uçar / uçamaz"
             for infinitive, positive, negative in words:
                 self.memory.learn_word(infinitive, positive, negative)
             infinitive, positive, negative = words[-1]
-            return learned_word(infinitive, positive, negative)
+            return f"+ {infinitive}: {positive} / {negative}"
         # Sosyal alışveriş, bilgi sorusu değildir: "nasılsın" sorusuna cevap
         # vermek için hiçbir şey bilmek gerekmez. Bunlar grafta aranınca
         # bulunamıyor ve reddediliyordu; sekiz turluk bir sohbette üç tur
         # böyle kayboldu.
-        exchange = social.recognise(line)
-        if exchange is not None:
-            return social.reply(exchange, self.memory)
         # "peki ya kartal" — soru tekrar edilmiyor, yalnızca öznesi değişiyor.
         # Ayrıştırıcı bu cümleyi hiç tanımıyordu, dolayısıyla zaten var olan
         # bağlam mekanizmasına ulaşamıyordu.
@@ -610,7 +685,7 @@ class Session:
         # "sence penguenler mutlu mu" grafta aranıp bulunamıyordu. Oysa
         # cevabı graf değil, mimarinin kendisi veriyor: görüşüm yok.
         if self._an_opinion(line):
-            return no_opinion(self.focus)
+            return f"⊘ {self.focus}" if self.focus else "⊘"
 
         forgotten_now = self._forget(line)
         if forgotten_now is not None:
@@ -630,7 +705,7 @@ class Session:
         intent = self._in_context(
             self._typed(carried or self.language.understand(line)))
         if intent.kind == AMBIGUOUS:
-            return which_reading(intent.concept, intent.readings)
+            return f"{intent.concept} ∈ {{{', '.join(intent.readings)}}} ?"
         if intent.kind == UNKNOWN_WORD:
             # Tanımadığı sözcük için önce SÖZLÜĞE bak: "bahseder" ile "anlat"
             # aynı şeyi istiyorsa kalıp eklemeye gerek yok, grafta o kayıt
@@ -650,7 +725,7 @@ class Session:
                 learned = attempt(line)
                 if learned is not None:
                     return learned
-            return teach_me_the_word(intent.target)
+            return f"[?] {intent.target}"
         if intent.kind == UNKNOWN or intent.confidence < CONFIDENCE_THRESHOLD:
             # ÖĞRETME artık öğrenilmiş yoldan. Elle kalıplar silindiğinde
             # öğretme 4/4'ten 0/4'e düşmüştü; niyet ağı TEACH sınıflarını
@@ -701,20 +776,21 @@ class Session:
                     self.last = self._typed(Intent(ASK_DESCRIBE, about))
                     self.focus = about
                     return about_instead(about, said)
-            return not_understood(resembles, self.memory, spotted,
-                                  long=len(tokens) > 3)
+            return _not_understood(resembles, spotted)
         if intent.kind == ASK_THREAD:
-            return talked_about(self.thread.recent())
+            topics = self.thread.recent()
+            return ("⟨" + ", ".join(topics) + "⟩") if topics else "∅"
         if intent.kind == ASK_MORE:
             return self._more()
         if intent.kind == ASK_INVENTORY:
-            return inventory(self.memory)
+            return _inventory(self.memory)
         if intent.kind == ASK_CERTAINTY:
-            return certainty(self.grounds, self.memory.kinds)
+            return _certainty(self.grounds, self.memory.kinds)
         if intent.kind == ASK_SOURCE:
-            return whence(self.grounds)
+            return _whence(self.grounds)
         if intent.kind == ASK_OPINION:
-            return no_opinion(intent.concept or self.focus)
+            held = intent.concept or self.focus
+            return f"⊘ {held}" if held else "⊘"
         # Yalnızca grafın tanıdığı kavramlar konu sayılıyor. Başarısız bir
         # ayrıştırma "sence penguen" gibi bir şey üretebiliyor ve o sohbet
         # geçmişine sızıyordu — geçici bir kayıt bile olsa, olmayan bir şeyi
@@ -732,8 +808,9 @@ class Session:
             # Uzunluk üç yerden gelebilir, sonuncusu kazanır: varsayılan,
             # oturum yönergesi, ve CÜMLENİN KENDİSİ. Üçüncüsü olmadan "her
             # şeyi uzun uzun anlat" ile "anlat" aynı cevabı alıyordu.
-            self.gate.told_most = phrasing.told_most(
-                self._asked_length(line) or self.directives.get("length"))
+            self.gate.told_most = TOLD_BY_LENGTH.get(
+                self._asked_length(line) or self.directives.get("length"),
+                MOST_TOLD)
             # ÖĞRENİLMİŞ OKUMA ÖNCE. Açıkken kalıpların okuduğu şey bir
             # kenara bırakılıyor ve cümle yalnız ağdan geçiyor: kavram,
             # ilişki ve hedef üçü de eğitilmiş. Denetim aynı — grafta cevap
@@ -871,8 +948,7 @@ class Session:
         if self._asks_something(line):
             spotted = [word for word in tokenize(line)
                        if len(self.memory.query(word)) >= 3][:2]
-            return not_understood(None, self.memory, spotted,
-                                  long=len(tokenize(line)) > 3)
+            return _not_understood(None, spotted)
         status, message, edge = self.learning.teach(intent, self.speaker)
         if status == CONFLICT:
             self.pending = edge
@@ -1036,7 +1112,7 @@ class Session:
             for at in range(len(tokens) - size):
                 name = " ".join(tokens[at:at + size])
                 if name in known:
-                    return forgotten(name, self.memory.forget(name))
+                    return f"−{self.memory.forget(name) or 0} {name}"
         return None
 
     def _an_opinion(self, line):
@@ -1231,7 +1307,7 @@ class Session:
         insan sohbeti en çok bununla ilerliyor.
         """
         if not self.focus:
-            return nothing_more(None)
+            return "∅"
         said = self.told.setdefault(self.focus, set())
         fresh = []
         for edge in self.memory.query(self.focus):
@@ -1244,8 +1320,8 @@ class Session:
             if len(fresh) >= 3:
                 break
         if not fresh:
-            return nothing_more(self.focus)
-        return sentences(fresh)
+            return f"{self.focus} → ∅"
+        return serialize.SEP.join(fresh)
 
     def _asks_something(self, line):
         """Cümlede soru sözcüğü var mı — varsa bildirme sayılamaz.
@@ -1390,8 +1466,9 @@ class Session:
             return ""       # ağ yoksa sohbet durmaz; bilmemek bir cevaptır
         if not report.get("kaynak"):
             return ""
-        return went_and_read(report["kaynak"], report.get("yazılan", 0),
-                             report.get("çelişen", 0) + report.get("uydurma", 0))
+        refused = report.get("çelişen", 0) + report.get("uydurma", 0)
+        said = f"⤓{serialize.cite(report['kaynak'])} +{report.get('yazılan', 0)}"
+        return said + (f" ✗{refused}" if refused else "")
 
     def _question(self, intent):
         read = self._investigate(intent)
@@ -1420,7 +1497,7 @@ class Session:
             if self.pursuit.resolved(self.goal):
                 answer = self.gate.answer(self.goal)
                 self.goal = None
-                return now_i_can(answer)
+                return f"⇒ {answer}"
             step = self.pursuit.next_step(self.goal)
             if step is not None and step.key not in self.goal_steps:
                 self.goal_steps.add(step.key)
@@ -1456,11 +1533,11 @@ class Session:
             # ("bu şey şuna benziyor") ve hiçbir kanıt taşımıyor.
             if not getattr(hypothesis, "guessed", False):
                 self.induction.learn(hypothesis)
-            return generalising(hypothesis.examples,
-                                describe(hypothesis.concept, hypothesis.relation,
-                                         hypothesis.target))
+            statement = describe(hypothesis.concept, hypothesis.relation,
+                                 hypothesis.target)
+            return f"{', '.join(hypothesis.examples)} ⇒ {statement} [~]"
         question = self.curiosity.next_question()
-        return wondering(question.text) if question is not None else ""
+        return f"∗ {question.text}" if question is not None else ""
 
     def _resolve_pending(self, line):
         """Bekleyen onayın cevabı — ya da cevap değilse None.
@@ -1484,10 +1561,10 @@ class Session:
         if spoken in getattr(morphology, "affirmations", ()):
             edge, self.pending = self.pending, None
             self.learning.confirm_exception(edge)
-            return exception_learned()
+            return "+⊥"
         if spoken in getattr(morphology, "refusals", ()):
             self.pending = None
-            return not_learned()
+            return "✗"
         return None
 
     def save(self):
@@ -1497,8 +1574,8 @@ class Session:
 def _status(session):
     """Sayıları oturumdan okur, söylemeyi söyleyişe bırakır."""
     memory = session.memory
-    return status(len(memory.edges), len(memory.concepts()),
-                  len(memory.vocabulary), len(memory.kinds.known()))
+    return (f"{len(memory.edges)} ⋄ {len(memory.concepts())}"
+            f" ⋄ {len(memory.vocabulary)} ⋄ {len(memory.kinds.known())}")
 
 
 def _inquirer():
@@ -1597,19 +1674,19 @@ def main():
                       intent=reader, voice=_voice() if fluent else None,
                       wording=_wording() if teaching else None,
                       dictionary=_dictionary() if looking_up else None)
-    print(opened(path))
+    print(f"LMM ⋄ {path}")
     print(f"  {_status(session)}")
     if asking:
-        print(inquiry_open())
+        print("  ⤓ +")
     if understanding:
-        print(intent_network(backbone, reader))
+        print(f"  ⌁ {backbone if reader else '∅'}")
         if session.wording:
-            print(wording_open())
+            print("  ≡ +")
     if looking_up:
-        print(dictionary_open())
+        print("  ⤓ ≡ +")
     if fluent:
-        print(voice_state(session.voice))
-    print(help_hint())
+        print(f"  ⌁ {'+' if session.voice else '∅'}")
+    print("  ?")
     while True:
         try:
             line = input("> ").strip()
@@ -1617,11 +1694,11 @@ def main():
             break
         if not line:
             continue
-        morphology = self.language.grammar.morphology
+        morphology = session.language.grammar.morphology
         if lower(line) in getattr(morphology, "exit_words", ()):
             break
         if lower(line) in getattr(morphology, "help_words", ()):
-            print(help_text())
+            print(HELP)
             continue
         if lower(line) in getattr(morphology, "status_words", ()):
             print("  " + _status(session))
@@ -1629,7 +1706,7 @@ def main():
         print(session.respond(line))
         session.save()
     session.save()
-    print(saved_and_gone())
+    print("⏻ +")
 
 
 if __name__ == "__main__":

@@ -10,7 +10,8 @@ but I know a penguin is a bird — do birds fly?" is a step the memory itself
 dictates.
 """
 from lmm.relations import IS_A, CAN, HAS_PROPERTY, HAS_PART, LACKS_PART
-from lmm import phrasing
+from lmm import serialize
+from lmm.inflect import verb_form, case_form
 from lmm.similarity import nearest
 
 
@@ -40,7 +41,7 @@ class Pursuit:
         if goal.relation == IS_A or not self.memory.query(goal.concept, IS_A):
             # Without a place in the hierarchy there is nothing to reason from.
             return Step(f"type:{goal.concept}",
-                        phrasing.definition_question(goal.concept))
+                        f"{goal.concept} → {serialize.label(IS_A)} → ?")
         # Hedefsiz bir amacın ARA SORUSU olamaz: "kartal nasıldır" belirli bir
         # nitelik sormuyor, dolayısıyla "atası o niteliği taşıyor mu" diye
         # sorulacak bir şey de yok. Denetim yoktu ve hedefsiz amaç
@@ -65,7 +66,7 @@ class Pursuit:
         """What to say when a question arrives that cannot be answered yet."""
         step = self.next_step(goal)
         if step is None:
-            return phrasing.dont_know(goal.concept)
+            return f"[?] {goal.concept}"
         if step.key.startswith("type:"):
             # A concept with nothing at all behind it might be a word the person
             # spelled differently from the one we know.
@@ -80,7 +81,7 @@ class Pursuit:
                 # bir kavram varsa o söylenir.
                 related = self._related_known(goal.concept)
                 if related:
-                    return phrasing.related_instead(goal.concept, related)
+                    return f"[?] {goal.concept} · ≈ {', '.join(related)}"
                 if not suggestions:
                     # Yazım komşusu yoksa ANLAM komşusu. İkisi ayrı şey: "kus"
                     # ile "kuş" harf komşusu, "glokom" ile "katarakt" anlam
@@ -95,10 +96,13 @@ class Pursuit:
                     # hiçbir zaman olgu üretmiyor.
                     related = self._related_known(goal.concept)
                     if related:
-                        return phrasing.related_instead(goal.concept, related)
-            return phrasing.need_first(step.text, suggestions)
+                        return f"[?] {goal.concept} · ≈ {', '.join(related)}"
+            plain = f"[?] ⊢ {step.text}"
+            if suggestions:
+                plain += f" ≈ {', '.join(list(suggestions))} ?"
+            return plain
         ancestors = self.reasoning.ancestors(goal.concept)
-        return phrasing.climbing(goal.concept, ancestors[0], step.text)
+        return f"[?] {serialize.fact(goal.concept, IS_A, ancestors[0])} · {step.text}"
 
     def _related_known(self, concept, count=3):
         """Anlamca yakın ve grafın BİLDİĞİ kavramlar — vektör varsa."""
@@ -140,12 +144,11 @@ class Pursuit:
                                     obj, role)[0]
 
     def _question(self, concept, goal):
+        obj = getattr(goal, "object", None)
+        role = getattr(goal, "role", None)
+        obj = case_form(obj, role) if obj else None
         if goal.relation in (HAS_PART, LACKS_PART):
-            return phrasing.part_question(concept, goal.target)
+            return f"{serialize.fact(concept, HAS_PART, goal.target)} ?"
         if goal.relation == HAS_PROPERTY:
-            return phrasing.property_question(concept, goal.target,
-                                              getattr(goal, "object", None),
-                                              getattr(goal, "role", None))
-        return phrasing.ability_question(concept, goal.target,
-                                         getattr(goal, "object", None),
-                                         getattr(goal, "role", None))
+            return f"{serialize.fact(concept, HAS_PROPERTY, goal.target, True, obj)} ?"
+        return f"{serialize.fact(concept, CAN, verb_form(goal.target, True), True, obj)} ?"
