@@ -24,7 +24,6 @@ from lmm.distill import split_words
 from lmm.trust import TEACHER, stranger_source
 from lmm.verbs import is_structural
 from lmm import frequency
-from lmm import arithmetic
 from lmm.learning import (LearningLoop, CONFLICT, LEARNED, CORRECTED,
                           DISPUTE, FROZEN)
 from lmm.induction import Induction
@@ -640,14 +639,8 @@ class Session:
             settled = self._resolve_pending(line)
             if settled is not None:
                 return settled
-        if arithmetic.looks_like_a_sum(line):
-            # Computed, not recalled: a sum has no place in memory and no
-            # business being guessed at.
-            try:
-                return (f"{arithmetic.normalise(line)}"
-                        f" = {arithmetic.evaluate(line)}")
-            except arithmetic.Undecidable as reason:
-                return f"✗ {reason}"
+        # Aritmetik SİLİNDİ: Türkçe sayı/işlem kelimeleriyle çalışan elle
+        # ayrıştırıcıydı. Hesap da dile ait ve dil yalnız eğitimle girecek.
         words, rest = split_words(line)
         if words:                       # "kelime: uçmak = uçar / uçamaz"
             for infinitive, positive, negative in words:
