@@ -132,12 +132,46 @@ class Session:
         # bakıyor. Buradaki ikinci çağrı, tek öğretmeyi iki tanık sayıyordu
         # — denetim ölçtü ve kaldırıldı.
         self.focus = [subject]
-        # Yazmak bir yaşantıdır: ne öğrendiğini de hatırlar (#BEN'in içeriği).
-        # `self.last` da güncellenir — yoksa öğretmeden sonra gelen tepki bir
-        # ÖNCEKİ cevabın yaşantısını değiştiriyordu (denetim yakaladı).
+        # TÜRETME: yeni olgu, bilinenlerle ZİNCİRLENİR — dümdüz ezber değil,
+        # çıkarım. "kartal→kuş" + "kuş→hayvan" ⊢ "kartal→hayvan". Türetilen
+        # kayıt `#inference` kaynağıyla, DÜŞÜK güvenle yazılır ve gerekçesine
+        # bağlanır; söylenirken açıkça çıkarım olduğu belli olur, uydurma
+        # değil. Bu, mimarinin 5. maddesi — geometri/zincir önerir, kapı
+        # doğrular. Kendi yorumunu katması buradan.
+        self._derive(subject, predicate, value)
         self.last = self.memory.lived(line, outcome=1.0, surprise=0.0,
                                       about=[subject, self.memory.self_key])
         return self._render([record])
+
+    def _derive(self, subject, predicate, value):
+        """Yeni olgu (özne→değer) çevresinde İKİ YÖNLÜ zincirleme çıkarım.
+
+        Geçişli bir yüklemde (A tür B, B tür C ⊢ A tür C) yeni bir kenar iki
+        yönde zincir açar:
+
+            İLERİ    değer→W varsa  ⊢ özne→W    (kuş→hayvan biliniyorsa
+                                                 kartal→kuş yazınca kartal→hayvan)
+            GERİ     X→özne varsa   ⊢ X→değer   (kartal→kuş biliniyorsa
+                                                 kuş→hayvan yazınca kartal→hayvan)
+
+        Tek yön yetmiyordu — hangi olgunun önce öğretildiğine göre zincir
+        kopuyordu. Türetilen kayıt `#inference`, düşük güven, gerekçeye bağlı;
+        yanlış zincir görünür ve olgu diye söylenmez.
+        """
+        forward = [(subject, r.value, [r.key])
+                   for r in self.memory.about(value, touch=False)
+                   if r.predicate == predicate]
+        # GERİ: değeri ÖZNE olan kayıtlar (X → özne) ⊢ X → değer.
+        # İlk yazışta `r.value == value` yazmıştım — değere işaret edeni
+        # arıyordu, oysa ÖZNEYE işaret edeni aramak gerekiyor.
+        incoming = [(r.subject, value, [r.key])
+                    for records in self.memory.by_subject.values()
+                    for r in (self.memory.records[k] for k in records)
+                    if r.predicate == predicate and r.value == subject
+                    and r.subject != value]
+        for who, what, because in forward + incoming:
+            if who != what and not self.gate.behind(who, predicate, what):
+                self.gate.inferred(who, predicate, what, because)
 
     # --- okuma ----------------------------------------------------------
 
