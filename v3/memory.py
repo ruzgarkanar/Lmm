@@ -195,6 +195,10 @@ class Memory:
         self.by_label = {}              # etiket -> [kimlik anahtarı]
         self.by_subject = {}            # kimlik anahtarı -> [kayıt anahtarı]
         self.self_key = None            # #BEN — özyaşam öyküsünün düğümü
+        # Geçişli olduğu VERİYLE kanıtlanmış yüklemler. Elle liste değil:
+        # graf kapalı bir üçgen (A→B, B→C, A→C hepsi TANIK) gördüğünde o
+        # yüklem buraya girer. "tür" bir örnekten öğrenir, "sever" hiç.
+        self.transitive = set()
         self._next = 1
 
     # --- kimlik ---------------------------------------------------------
@@ -299,6 +303,7 @@ class Memory:
     def save(self, path):
         held = {"format": self.FORMAT, "next": self._next,
                 "self": self.self_key,
+                "transitive": sorted(self.transitive),
                 "identities": [one.to_dict()
                                for one in self.identities.values()],
                 "records": [one.to_dict() for one in self.records.values()],
@@ -318,6 +323,7 @@ class Memory:
         held = json.load(open(path, encoding="utf-8"))
         found._next = held.get("next", 1)
         found.self_key = held.get("self")
+        found.transitive = set(held.get("transitive", ()))
         for one in held.get("identities", ()):
             made = Identity.from_dict(one)
             found.identities[made.key] = made
