@@ -81,14 +81,16 @@ class Speaker:
 
             def __init__(self):
                 super().__init__()
-                self.token = nn.Embedding(len(held["letters"]) + 1, size)
+                # +2: dolgu (0) ve BİTİŞ kimliği (len+1). Defter böyle eğitti;
+                # +1 kuran yükleyici boyut uyuşmazlığıyla sessizce düşüyordu.
+                self.token = nn.Embedding(len(held["letters"]) + 2, size)
                 self.place = nn.Embedding(width + 1, size)
                 block = nn.TransformerEncoderLayer(
                     size, heads, size * 4, batch_first=True,
                     norm_first=True, dropout=0.1)
                 self.body = nn.TransformerEncoder(block, layers)
                 self.final = nn.LayerNorm(size)
-                self.head = nn.Linear(size, len(held["letters"]) + 1)
+                self.head = nn.Linear(size, len(held["letters"]) + 2)
 
             def forward(self, ids, mask):
                 import torch as _torch
