@@ -55,6 +55,7 @@ class Session:
         self.level = STRANGER if speaker_name else OPERATOR
         self.who = speaker_name or "#operator"
         self.focus = []             # son konuşulan kimlikler — bağlam
+        self.turns = 0              # auto-uyku sayacı
         # Geometri tablosu: varsa her kimlik doğarken vektörünü alır. Yoksa
         # sistem çalışır ama çokanlamlılık çözümü zayıflar — kolaylık,
         # bağımlılık değil.
@@ -77,6 +78,12 @@ class Session:
 
     def respond(self, line):
         """Bir cümleye cevap. Dönen daima metin, asla desteksiz iddia."""
+        # AUTO-UYKU: belge §117 uyku turunu canlıya bağlar. Denetim yakaladı —
+        # solma/damıtma/hakemlik yalnız elle çağrılıyordu, sistem hiç
+        # "uyumuyordu". Her 50 turda bir damıtır, sönümler, hakemler.
+        self.turns += 1
+        if self.turns % 50 == 0:
+            dynamics.sleep(self.memory)
         operation = self.reader.read(line)
         # YAZIM yolu ancak yazacak bir şey VARSA açılır. Denetim yakaladı:
         # okuyucu soruyu WRITE sanınca (ASK verisi olmadan eğitilmişti)
@@ -123,10 +130,17 @@ class Session:
         subject = self._identity(operation.subject)
         predicate = self._identity(operation.predicate or "")
         value = self._identity(operation.value)
+        # Yazmadan ÖNCE bellekte ne olduğunu bil — tahmin. Yeni olgu onunla
+        # çelişirse ŞAŞKINLIK. Belge §110: tahmin tutmadıysa yaşantı pahalı.
+        # Kullanıcı tepkisini beklemeden, çelişkinin kendisi tahmin hatasıdır
+        # ve otomatik girer (denetim: reacted hiç çağrılmıyordu, surprise hep
+        # 0'dı).
+        expected = self.gate._contradiction(subject, predicate, value)
         record, why = self.gate.admit(subject, predicate, value,
                                       self.who, self.level)
         if record is None:
             return ""
+        surprise = 1.0 if (why == 1 or expected is not None) else 0.0
         # Pekiştirme BURADA YOK: `memory.write` yinelenen olguyu zaten
         # `strengthen(source)` ile karşılıyor ve o koruma kaynak kümesine
         # bakıyor. Buradaki ikinci çağrı, tek öğretmeyi iki tanık sayıyordu
@@ -138,10 +152,37 @@ class Session:
         # bağlanır; söylenirken açıkça çıkarım olduğu belli olur, uydurma
         # değil. Bu, mimarinin 5. maddesi — geometri/zincir önerir, kapı
         # doğrular. Kendi yorumunu katması buradan.
-        self._derive(subject, predicate, value)
-        self.last = self.memory.lived(line, outcome=1.0, surprise=0.0,
+        self._learn_transitive(predicate)
+        if predicate in self.memory.transitive:
+            self._derive(subject, predicate, value)
+        # #BEN: öğrenilen her olgu #self'e de bağlanır — sistem "ne öğrendim"
+        # sorusuna kendi geçmişinden cevap verebilsin (belge §98).
+        self.last = self.memory.lived(line, outcome=1.0, surprise=surprise,
                                       about=[subject, self.memory.self_key])
         return self._render([record])
+
+    def _learn_transitive(self, predicate):
+        """Bu yüklem geçişli mi — graf kapalı bir ÜÇGEN gördü mü.
+
+        Geçişlilik elle bildirilmez, veriden öğrenilir: aynı yüklemle
+        A→B, B→C VE A→C üçü de TANIKsa (öğretilen/okunan, çıkarım değil), o
+        yüklem geçişlidir. "tür" bir is-a örneğinden öğrenir; "sever" asla —
+        çünkü sevgi zinciri grafta kapanmaz. Kural, verinin kendisinden.
+        """
+        if predicate in self.memory.transitive:
+            return
+        edges = [r for records in self.memory.by_subject.values()
+                 for r in (self.memory.records[k] for k in records)
+                 if r.predicate == predicate and r.source != "#inference"]
+        forward = {}
+        for r in edges:
+            forward.setdefault(r.subject, set()).add(r.value)
+        for a, bs in forward.items():
+            for b in bs:
+                for c in forward.get(b, ()):
+                    if c in bs:                 # A→B, B→C ve A→C hepsi tanık
+                        self.memory.transitive.add(predicate)
+                        return
 
     def _derive(self, subject, predicate, value):
         """Yeni olgu (özne→değer) çevresinde İKİ YÖNLÜ zincirleme çıkarım.
