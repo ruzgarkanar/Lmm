@@ -83,13 +83,18 @@ class Session:
         # `_write` boş özne/değerle boş dizgi dönüyordu ve kullanıcı soruya
         # hiç cevap alamıyordu. Eksik parçalı WRITE artık toplama yoluna
         # düşer — yanlış okumanın bedeli sessizlik değil, deneme olur.
-        # Yazım için üç parça da ŞART: özne, YÜKLEM, değer. Denetim yakaladı:
-        # "penguen nedir" WRITE okunup belleğe "penguen → None → nedir"
-        # yazılıyordu — yüklemsiz olgu, sorunun olgu diye yazılması. Yüklemi
-        # olmayan bir üçlü, olgu değildir.
+        # Yazım için özne + değer ŞART (ikisi de metinde, hizalanabilir).
+        # YÜKLEM şart DEĞİL: ölçüldü, yüklem cümlede yalnız %0,5 geçiyor
+        # ("tür", "özellik" birer çıkarım, metinde yok) — yüklemi şart koşmak
+        # öğretmenin %99,5'ini düşürüyordu. Yüklem, değerin türünden graf
+        # tarafında belirlenecek; okuyucudan metinde olmayan bir şey istemek
+        # yanlıştı.
+        #
+        # "penguen nedir" olgu diye yazılmasın diye asıl kapı GERİ OKUMA:
+        # kurulacak kayıt serimlenip geri okunuyor, aynı WRITE çıkmıyorsa
+        # yazılmıyor. Bu dil bilmez — okuyucunun kendi tutarlılığına bakar.
         if (operation.kind == WRITE and operation.confidence >= CERTAIN
-                and operation.subject and operation.predicate
-                and operation.value):
+                and operation.subject and operation.value):
             return self._write(operation, line)
         # PASS + özne yok = sohbeti süren söz ("selam", "naber"). Cevabı
         # KONUŞUCU üretir — girdiyi diyalog bağlamı olarak alıp karşılığını
