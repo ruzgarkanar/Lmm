@@ -83,15 +83,26 @@ class Session:
         # `_write` boş özne/değerle boş dizgi dönüyordu ve kullanıcı soruya
         # hiç cevap alamıyordu. Eksik parçalı WRITE artık toplama yoluna
         # düşer — yanlış okumanın bedeli sessizlik değil, deneme olur.
+        # Yazım için üç parça da ŞART: özne, YÜKLEM, değer. Denetim yakaladı:
+        # "penguen nedir" WRITE okunup belleğe "penguen → None → nedir"
+        # yazılıyordu — yüklemsiz olgu, sorunun olgu diye yazılması. Yüklemi
+        # olmayan bir üçlü, olgu değildir.
         if (operation.kind == WRITE and operation.confidence >= CERTAIN
-                and operation.subject and operation.value):
+                and operation.subject and operation.predicate
+                and operation.value):
             return self._write(operation, line)
-        # PASS + özne yok = sohbeti süren söz ("hmm", "selam"). Olgu dökmek
-        # yanlış davranış: kayıt istenmedi. Konuşucu eğitilince buradan
-        # diyalog cevabı çıkacak; o yokken sessiz onay imi dönüyor.
+        # PASS + özne yok = sohbeti süren söz ("selam", "naber"). Cevabı
+        # KONUŞUCU üretir — girdiyi diyalog bağlamı olarak alıp karşılığını
+        # kurar. Denetim yakaladı: buradan konuşucuya HİÇ yol yoktu, sabit
+        # "[·]" dönüyordu; konuşucu diyaloğu öğrense bile çağrılmıyordu.
+        #
+        # Kapı yine önünde: sohbet cevabı bir OLGU iddiası taşımamalı. İçinde
+        # belleğe yazılabilir bir üçlü varsa (uydurma) düşer; taşımıyorsa
+        # (selamlaşma, tepki) geçer — çünkü doğru/yanlış olamaz.
         if operation.kind == PASS and not operation.subject:
-            self._live(line, "", [])
-            return "[·]"
+            said = self._chat(line)
+            self._live(line, said, [])
+            return said or "[·]"
         records = self._gather(operation, line)
         said = self._speak(records, line)
         self._live(line, said, records)
@@ -163,6 +174,28 @@ class Session:
         return records[:MOST]
 
     # --- konuşma --------------------------------------------------------
+
+    def _chat(self, line):
+        """Sohbet cümlesine karşılık — konuşucudan, kapıdan geçerek.
+
+        Girdi diyalog bağlamı olarak veriliyor ("önceki söz\n\n"); konuşucu
+        eğitiminde diyalog çiftleri tam bu biçimde. Üretilen aday, olgu
+        iddiası taşıyorsa reddedilir: sohbet karşılığı bilgi ÜRETMEZ, yalnız
+        konuşmayı sürdürür.
+        """
+        if not self.speaker.ready:
+            return ""
+        for candidate in self.speaker.say(line + "\n\n", count=3):
+            claim = self.reader.read(candidate)
+            # Aday bir OLGU yazmaya kalkıyorsa (özne+değer) kapı reddeder:
+            # sohbet cevabı graf iddiası olamaz, kaydı olmayan iddia söylenmez.
+            if claim.subject and claim.value and self._known(claim.value):
+                if not self.gate.behind(self._known(claim.subject),
+                                        self._known(claim.predicate or ""),
+                                        self._known(claim.value)):
+                    continue
+            return candidate
+        return ""
 
     def _speak(self, records, line):
         """Adayları üretir, tartar, kapıdan geçirir. Hiçbiri geçmezse ham."""
