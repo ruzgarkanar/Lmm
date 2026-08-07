@@ -128,6 +128,20 @@ def from_facts(paths, longest=256, most=None):
         roles = label(text, *chosen)
         if roles is None:
             continue
+        # TEMİZLİK SÜZGECİ: etiket ancak özne VE değer cümlede düzgün
+        # hizalanıyorsa öğretilir. Ölçüldü — olguların %66'sı gürültülü
+        # (eski okuma hattı %57 doğrulukla çıkarmıştı): "beşiktaş/sempatik"
+        # gibi cümlede geçmeyen etiketler. Gürültülü etiket, modele YANLIŞ
+        # öğretir ve VAL'i ~%42'de tavana vurdurur. Az ama doğru > çok ama
+        # gürültülü.
+        from v3.reader import spans as _spans
+        gs, _, gv = _spans(text, roles)
+        if not (gs and gv):
+            continue
+        fs = fold(chosen[0])
+        fv = fold(chosen[2]) if chosen[2] else ""
+        if not (gs == fs[:len(gs)] and fv and fv.startswith(gv[:min(4, len(gv))])):
+            continue        # hizalama gürültülü — atla
         found.append((text, WRITE, roles))
         if most and len(found) >= most:
             return found
