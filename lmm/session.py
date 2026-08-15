@@ -40,6 +40,19 @@ class Session:
         self.turns = 0
         if self.memory.self_key is None:
             self.memory.self_key = self.memory.identify("#self")
+        self._identity = self._seed_identity()
+
+    def _seed_identity(self):
+        """KİMLİK grafa olgu olarak: (lmm → üretici → rüzgar). Böylece kimlik
+        de 'bilinen bilgi'dir — kapıdan geçer, dil-bağımsız söylenir. Persona
+        (prompts.CHAT_SYSTEM) Qwen'e adını verir; bu tohum onu grafta tutar."""
+        lmm = link.resolve(self.memory, "lmm", self.vectors, create=True)
+        ruzgar = link.resolve(self.memory, "rüzgar", self.vectors, create=True)
+        maker = link.resolve(self.memory, "üretici", self.vectors, create=True)
+        if self.gate.behind(lmm, maker, ruzgar) is None:
+            self.gate.admit(lmm, maker, ruzgar, "#operator", OPERATOR)
+        self._lmm_key = lmm    # kimlik öznesi — _chat gather bunu kullanır
+        return {lmm, ruzgar, maker, self.memory.self_key}
 
     def respond(self, message):
         """Bir mesaja cevap. Dönen daima metin; asla desteksiz olgu.
@@ -60,7 +73,7 @@ class Session:
         try:
             op = extract.extract(message)
             if op["kind"] == extract.WRITE and op["triples"]:
-                return self._write(op["triples"])
+                return self._write(op["triples"], message)
             if op["kind"] == extract.ASK:
                 # ASK ama özne çıkmadıysa: boş özneyle dene → BILMIYORUM'a düşer
                 subject = op["triples"][0][0] if op["triples"] else None
@@ -70,7 +83,7 @@ class Session:
             return BILMIYORUM
 
     # --- yazma ---------------------------------------------------------
-    def _write(self, triples):
+    def _write(self, triples, message):
         """Öğretileni grafa koyar — kapıdan geçerek (Qwen yazamaz, kapı yazar).
 
         Kod-denetimi: değersiz yarım üçlü atlanır (None değer gate'e gitmesin);
@@ -112,14 +125,11 @@ class Session:
             return ""
         self.memory.lived(str(wrote), outcome=1.0,
                           about=[self.memory.self_key])
-        parts = ", ".join(f"{s} → {v}" for s, v in wrote)
-        message = f"Öğrendim: {parts}"
-        if conflicts:
-            notes = "; ".join(
-                f"{s} için '{old}' biliyordum, '{new}' ile çelişiyor"
-                for s, old, new in conflicts)
-            message += f"\n(Çelişki fark ettim: {notes})"
-        return message
+        # DİNAMİK DİL: teyit cümlesi ELLE Türkçe değil — Qwen kullanıcının
+        # dilinde üretir (öğrenilen olgu + varsa çelişki). Olgular grafa
+        # yazıldığı için teyit güvenli.
+        said = generate.confirm(wrote, conflicts, message)
+        return said or "OK"
 
     # --- türetme (geçişli akıl — v3'ten) -------------------------------
     def _learn_transitive(self, predicate):
@@ -173,7 +183,8 @@ class Session:
         raw = generate.answer(question, block)
         allowed = verify.allowed_of(self.memory, records)
         safe = verify.verify(self.memory, raw, allowed, self.mode)
-        return safe or BILMIYORUM
+        # DİNAMİK DİL: cevap düştüyse "bilmiyorum"u da kullanıcının dilinde söyle
+        return safe or generate.refusal(question) or BILMIYORUM
 
     # --- sohbet --------------------------------------------------------
     def _chat(self, message):
@@ -183,11 +194,25 @@ class Session:
         desteksiz bulup düşürürse HAM (denetimsiz) çıktı dönüyordu, kapı komple
         atlanıyordu. Artık boşsa güvenli tarafa düşer, ham uydurma dönmez.
         """
-        raw = generate.chat(message)
-        # Sohbette allowed=∅ → cevap OLGU iddiası taşırsa (özne+değer) düşer,
-        # taşımazsa (selam/tepki) geçer. Sızan uydurma olgu böyle elenir.
-        safe = verify.verify(self.memory, raw, set(), self.mode)
-        return safe or BILMIYORUM
+        # KİMLİK olgularını graftan getir ve üretime ENJEKTE et — böylece
+        # "seni kim yaptı" personaya değil grafa dayanır (dil-bağımsız).
+        # Kimlik bloğu YÜKLEMLİ kurulur: facts_block yüklemi (üretici) gizler,
+        # model ilişkiyi bilmeden "lmm → rüzgar" görüp "kim yaptı"yı yanıtlayamaz.
+        id_records = retrieve.gather(self.memory, self._lmm_key)
+        id_block = "\n".join(
+            f"{link.label_of(self.memory, r.subject)} "
+            f"{link.label_of(self.memory, r.predicate)} → "
+            f"{link.label_of(self.memory, r.value)}" for r in id_records)
+        raw = generate.chat(message, id_block)
+        # Sohbette allowed = yalnız KİMLİK olguları (lmm/rüzgar/self). Böylece
+        # "ben LMM'im, beni Rüzgar yaptı" gibi kimlik cümlesi geçer ama DIŞ
+        # dünya olgu iddiası (grafta yoksa) yine düşer — uydurma sızmaz.
+        # anchor="value": kimlik cevabında özne öz-referanslı zamir (ben/beni),
+        # güvenilir çözülemez; iddia edilen NESNE'nin (rüzgar) allowed'da olması
+        # yeter. Dış uydurma (Google) yine bloklanır. Bkz. verify.verify.
+        safe = verify.verify(self.memory, raw, self._identity, self.mode,
+                             anchor="value")
+        return safe or generate.refusal(message) or BILMIYORUM
 
     # --- bakım ---------------------------------------------------------
     def save(self):
