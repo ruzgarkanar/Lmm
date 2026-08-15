@@ -88,6 +88,24 @@ def hedge_note(source_label, message):
     return runtime.generate(message, system=system, max_tokens=32, temperature=0.3)
 
 
+def is_affirmative(message):
+    """Kullanıcı mesajı ONAY/evet/'devam et' mi? (araştırma teklifine yanıt).
+    Dil-bağımsız (Qwen). Dönen: True=onay."""
+    system = ("Does the user's message mean YES / go ahead / approval, as opposed "
+              "to no or a different request? Answer exactly ONE word: YES or NO.")
+    out = runtime.generate(message, system=system, max_tokens=3, temperature=0.0)
+    return "YES" in out.upper()
+
+
+def offer_research(subject, message):
+    """Kullanıcının dilinde: 'bunu bilmiyorum, araştırayım mı?' (önce-sor)."""
+    system = (f"You do NOT have information about '{subject}' in your memory. In "
+              "the SAME LANGUAGE as the user's message, briefly say you don't know "
+              "it yet and ASK whether you should look it up. One short sentence, "
+              "phrased as an offer/question. Invent no facts.")
+    return runtime.generate(message, system=system, max_tokens=40, temperature=0.3)
+
+
 def refusal(message):
     """Kullanıcının dilinde: 'bu bilgi bende yok'. Uydurma yasak, kısa."""
     system = ("The user asked about something that is NOT in your memory. Reply "

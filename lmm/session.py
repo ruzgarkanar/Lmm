@@ -17,8 +17,8 @@ import os
 
 from v3 import dynamics
 from v3.gate import Gate
-from v3.memory import Memory, OPERATOR, STRANGER
-from lmm import extract, generate, link, retrieve, verify
+from v3.memory import Memory, OPERATOR, STRANGER, DOCUMENT
+from lmm import extract, generate, link, research, retrieve, verify
 
 SLEEP_EVERY = 50   # kaç turda bir uyku (damıt/sol/hakemle) — v3 §117
 
@@ -42,6 +42,7 @@ class Session:
         # durumda "kuş/yırtıcı" bir arada, "kuş/balık" çelişki. Bkz. _are_rivals.
         self._rival_cache = {}
         self.gate.rival = self._are_rivals
+        self._pending = None    # araştırma teklif edilen özne (önce-sor akışı)
         self.who = who
         self.level = OPERATOR if who == "#operator" else STRANGER
         self.mode = mode
@@ -86,6 +87,16 @@ class Session:
         (tek bozuk üretim konuşmayı çökertmesin — güvenli cevaba düşer)."""
         if not message or not message.strip():
             return ""
+        # ARAŞTIRMA ONAYI (önce-sor): geçen turda "araştırayım mı?" teklif
+        # edildiyse, bu mesaj ONAY mı diye bak. Onaysa çek+öğren; değilse teklifi
+        # bırak ve mesajı olağan işle (yeni soru olabilir).
+        if self._pending is not None:
+            (subj, orig_q), self._pending = self._pending, None
+            try:
+                if generate.is_affirmative(message):
+                    return self._research(subj, orig_q)
+            except Exception:                               # noqa: BLE001
+                pass
         # AUTO-UYKU: her SLEEP_EVERY turda bir damıt/sönümle/hakemle. v3'te
         # ölçüldü — bu mekanizmalar yalnız elle çağrılıyordu, sistem hiç
         # "uyumuyordu"; sarmalandı. Hata olursa konuşmayı çökertmesin.
@@ -218,7 +229,13 @@ class Session:
         safe = verify.verify(self.memory, raw, allowed, self.mode,
                              anchor="edge", edges=edges)
         if not safe:
-            # DİNAMİK DİL: cevap düştüyse "bilmiyorum"u da kullanıcının dilinde
+            # BİLMİYORUM → körlemesine reddetme: ARAŞTIRMAYI TEKLİF ET (önce-sor).
+            # Özne varsa teklifi kur; kullanıcı onaylarsa sonraki tur çekilir.
+            if subject_label:
+                self._pending = (subject_label, question)   # özne + ORİJİNAL soru
+                offer = generate.offer_research(subject_label, question)
+                if offer:
+                    return offer
             return generate.refusal(question) or BILMIYORUM
         # KAYNAK-GÜVEN (en sıkı): cevabı temellendiren en zayıf olgu CERTAIN
         # altındaysa kesinlik düşür + kaynağı belirt. Operatör olguları etiketsiz.
@@ -235,6 +252,34 @@ class Session:
         label = source[5:] if source.startswith("#web:") else "a stored source"
         note = generate.hedge_note(label, message)
         return f"{answer} {note}".strip() if note else answer
+
+    # --- agentic araştırma (onayla, webden öğren) ----------------------
+    def _research(self, subject_label, question):
+        """Kullanıcı onayladı → Wikipedia'dan çek, üçlü çıkar, #web+düşük güvenle
+        grafa yaz, sonra ORİJİNAL soruyu normal cevapla (kaynak-etiketli). Web
+        GÜVENİLMEZ: olgu 'biliyorum' diye değil kaynak damgalı+düşük güvenle
+        girer (condition-4)."""
+        text, url = research.wiki_summary(subject_label)
+        if not text:
+            return generate.refusal(question) or BILMIYORUM
+        # Özetin ilk cümlesi genelde "X, bir Y'dir" — Qwen üçlüyü çıkarır.
+        first = text.split(".")[0][:240]
+        wrote = False
+        for _s, _p, value in (extract.extract(first).get("triples") or []):
+            if not value:
+                continue
+            sk = link.resolve(self.memory, subject_label, self.vectors, create=True)
+            vk = link.resolve(self.memory, value, self.vectors, create=True)
+            if sk is None or vk is None:
+                continue
+            # #web damgası + DOCUMENT (0.6 < CERTAIN) → cevapta kaynak-etiketli.
+            self.gate.admit(sk, None, vk, f"#web:{url}", DOCUMENT)
+            wrote = True
+        if not wrote:
+            return generate.refusal(message) or BILMIYORUM
+        self.memory.lived(f"web:{subject_label}", outcome=1.0,
+                          about=[self.memory.self_key])
+        return self._answer(message, subject_label)     # artık grafta → cevap+hedge
 
     # --- sohbet --------------------------------------------------------
     def _chat(self, message):
