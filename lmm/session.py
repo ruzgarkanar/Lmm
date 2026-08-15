@@ -212,6 +212,12 @@ class Session:
                     self._derive(sk, pk, vk)
         if not wrote:
             return ""
+        # YAŞANTI (tasarım notu — denetim "recall/weigh kullanılmıyor" dedi):
+        # lmm'de yaşantı BİLEREK yaz-only. v3'te deneyim, aday cevapları sürprizle
+        # TARTIYORDU; lmm'de cevap olgudan+kapıdan gelir, aday-tartma YOK — o
+        # yüzden recall/weigh burada anlamsız. lived() bir "ne yaptım" günlüğüdür:
+        # uyku/damıtım onu budar, provenans için durur. Zorla bağlamak kullanılmayan
+        # karmaşa ekler (sulandırır), sağlamlaştırmaz.
         self.memory.lived(str(wrote), outcome=1.0,
                           about=[self.memory.self_key])
         # DİNAMİK DİL: teyit cümlesi ELLE Türkçe değil — Qwen kullanıcının
