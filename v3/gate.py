@@ -78,16 +78,20 @@ class Gate:
     def _contradiction(self, subject, predicate, value):
         """Aynı özne + aynı yüklemde BAŞKA değer taşıyan RAKİP kayıt.
 
-        Açık yüklem eşleşirse (nadir) doğrudan çelişki. Yüklem bilinmiyorsa
-        (predicate=None, olağan durum) iki değer ancak `rival` — anlamsal olarak
-        birbirini dışlayan alternatif — ise çelişki sayılır; `rival` bağlı
-        değilse GÜVENLİ davranır (çelişki sayma, meşru bir-arada olguyu bozma)."""
+        İki farklı değer ÇELİŞKİ mi — YÜKLEMDEN BAĞIMSIZ, değerlerin RAKİP olup
+        olmadığına bakılır. `rival` bağlıysa (LMM): hiyerarşik bağlı değerler
+        (kedigil/memel — kedigil bir memelidir) rakip DEĞİL → çelişki değil, bir
+        arada var olurlar; bağsız/dışlayan değerler (paris/berlin, kuş/balık) →
+        çelişki. `rival` bağlı değilse (v3) yüklem eşleşmesi çelişki sayılır (eski).
+
+        DÜZELTME (test-kanıtı): rakip kontrolü eskiden yalnız predicate=None
+        dalındaydı; açık yüklem ("tür", is-a) o kontrolü atlayıp aslan
+        kedigil/memel'i sahte çelişki sayıyordu. Artık tüm yüklemlerde uygulanır."""
         for held in self.memory.about(subject, touch=False):
             if held.predicate != predicate or held.value == value:
                 continue
-            if predicate is None:
-                if self.rival is None or not self.rival(held.value, value):
-                    continue          # yüklemsiz + rakip değil → bir arada var
+            if self.rival is not None and not self.rival(held.value, value):
+                continue          # bağlı/hiyerarşik değerler → çelişki değil
             return held
         return None
 
