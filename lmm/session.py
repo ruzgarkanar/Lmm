@@ -33,6 +33,10 @@ class Session:
         self.memory = (Memory.load(path) if path and os.path.exists(path)
                        else Memory())
         self.gate = Gate(self.memory)
+        # Çelişki için anlamsal RAKİP kontrolünü Qwen'e bağla (cache'li) — yüklemsiz
+        # durumda "kuş/yırtıcı" bir arada, "kuş/balık" çelişki. Bkz. _are_rivals.
+        self._rival_cache = {}
+        self.gate.rival = self._are_rivals
         self.who = who
         self.level = OPERATOR if who == "#operator" else STRANGER
         self.mode = mode
@@ -53,6 +57,22 @@ class Session:
             self.gate.admit(lmm, maker, ruzgar, "#operator", OPERATOR)
         self._lmm_key = lmm    # kimlik öznesi — _chat gather bunu kullanır
         return {lmm, ruzgar, maker, self.memory.self_key}
+
+    def _are_rivals(self, old_key, new_key):
+        """İki değer anlamsal RAKİP mi (aynı yuva, birbirini dışlayan)? Qwen
+        yargılar (dil-bağımsız), sonuç cache'lenir — aynı çift bir daha model
+        çağırmaz. gate._contradiction bunu yüklemsiz çelişki kararında kullanır."""
+        ck = frozenset((old_key, new_key))
+        if ck in self._rival_cache:
+            return self._rival_cache[ck]
+        old = link.label_of(self.memory, old_key)
+        new = link.label_of(self.memory, new_key)
+        try:
+            verdict = bool(old and new and generate.are_rivals(old, new))
+        except Exception:                                   # noqa: BLE001
+            verdict = False        # emin değilsek çelişki sayma (bozma)
+        self._rival_cache[ck] = verdict
+        return verdict
 
     def respond(self, message):
         """Bir mesaja cevap. Dönen daima metin; asla desteksiz olgu.

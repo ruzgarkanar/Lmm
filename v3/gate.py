@@ -35,6 +35,12 @@ class Gate:
 
     def __init__(self, memory):
         self.memory = memory
+        # Opsiyonel anlamsal RAKİP kontrolü: (eski_değer_key, yeni_değer_key)->bool.
+        # LMM'de session bunu Qwen'e bağlar. Yüklem bilinmediğinde (predicate=None)
+        # iki farklı değer ancak RAKİP (aynı yuva, birbirini dışlayan) ise çelişki
+        # sayılır — yoksa "kartal→kuş, kartal→yırtıcı" gibi bir arada var olan
+        # olgular yanlışlıkla çelişki sanılıp arbitrate ile bozuluyordu.
+        self.rival = None
 
     # --- giriş ----------------------------------------------------------
 
@@ -70,14 +76,19 @@ class Gate:
                                  episodic=episodic), 0
 
     def _contradiction(self, subject, predicate, value):
-        """Aynı özne ve yüklemde BAŞKA değer taşıyan kayıt.
+        """Aynı özne + aynı yüklemde BAŞKA değer taşıyan RAKİP kayıt.
 
-        Yüklemin tekil olup olmadığını bellek bilmez; bu yüzden çelişki
-        burada mutlak sayılmaz, yalnız işaretlenir ve güvenle hakemlenir.
-        """
+        Açık yüklem eşleşirse (nadir) doğrudan çelişki. Yüklem bilinmiyorsa
+        (predicate=None, olağan durum) iki değer ancak `rival` — anlamsal olarak
+        birbirini dışlayan alternatif — ise çelişki sayılır; `rival` bağlı
+        değilse GÜVENLİ davranır (çelişki sayma, meşru bir-arada olguyu bozma)."""
         for held in self.memory.about(subject, touch=False):
-            if held.predicate == predicate and held.value != value:
-                return held
+            if held.predicate != predicate or held.value == value:
+                continue
+            if predicate is None:
+                if self.rival is None or not self.rival(held.value, value):
+                    continue          # yüklemsiz + rakip değil → bir arada var
+            return held
         return None
 
     # --- çıkış ----------------------------------------------------------
