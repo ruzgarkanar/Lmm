@@ -43,16 +43,6 @@ def allowed_of(memory, records):
     return keys
 
 
-def edges_of(records):
-    """Enjekte edilen kayıtların YÖNSÜZ kenar çiftleri (geriye-uyum için tutulur;
-    verify artık grafın tamamına `_has_edge` ile bakıyor)."""
-    pairs = set()
-    for r in records:
-        if isinstance(r.subject, int) and isinstance(r.value, int):
-            pairs.add(frozenset((r.subject, r.value)))
-    return pairs
-
-
 def _has_edge(memory, sk, vk, v_label=None):
     """Grafta sk—vk arasında GERÇEK bir kenar var mı (YÖNSÜZ). Türetilmiş
     (#inference) kenarları da görür — `about` güven süzmez — böylece is-a gibi
@@ -84,20 +74,20 @@ def _has_edge(memory, sk, vk, v_label=None):
     return False
 
 
-def verify(memory, answer, allowed, mode="STRICT", anchor="edge", edges=None):
+def verify(memory, answer, allowed, mode="STRICT", anchor="edge"):
     """Cevabı cümle cümle denetle. Olgu taşımayan cümle (selam/görüş) geçer.
+    Kenar denetimi grafın tamamına `_has_edge` ile bakar (türetilmiş kenarlar
+    dahil), enjekte kümeye değil.
 
     `anchor`:
-      "edge"  (VARSAYILAN, ASK yolu) — iddianın (özne,değer)'i enjekte edilen
-              GERÇEK bir kenar olmalı (`edges`). Düğüm-üyeliği yetmez → yeniden
-              birleşim uydurması bloklanır. `edges` verilmezse güvenli düşüş:
-              eski düğüm-üyeliği (allowed) denetimi.
+      "edge"  (VARSAYILAN, ASK yolu) — iddianın (özne,değer)'i grafta GERÇEK bir
+              kenar olmalı. Düğüm-üyeliği yetmez → yeniden-birleşim uydurması
+              bloklanır ("Fransa→Eyfel").
       "value" (sohbet-KİMLİK yolu) — nesne allowed'da olmalı; özne öz-referanslı
               zamir (ben/beni/I) çözülemediğinden anchor DEĞİL, AMA özne gerçek
               bir düğüme çözülüyorsa ya izinli olmalı ya da kenar bulunmalı —
               "Python'u Rüzgar yazdı" (python≠izinli, {python,rüzgar} kenarı yok)
               böylece düşer; "Beni Rüzgar yaptı" (ben→None) geçer."""
-    edges = edges or set()
     kept = []
     for sentence in _sentences(answer):
         claims = extract.reextract(sentence)
