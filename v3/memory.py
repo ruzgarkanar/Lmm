@@ -273,9 +273,17 @@ class Memory:
         görünüyordu, hiçbiri kullanıcıdan gelmeden.
         """
         found = self.identities.get(subject)
+        records = [self.records[key] for key in self.by_subject.get(subject, ())]
         if touch and found is not None:
             found.seen += 1
-        return [self.records[key] for key in self.by_subject.get(subject, ())]
+            # C2: GERÇEK erişim, kaydın son-görülmesini de tazeler. Yoksa 1000
+            # kez sorulan bir olgu bile `fade` penceresinden sonra sönüyordu
+            # (erişim yalnız identity.seen'i artırıyor, record.last_seen'e
+            # dokunmuyordu) — "retrain'siz kalıcı bilgi" ile çelişiyordu.
+            now = time.time()
+            for r in records:
+                r.last_seen = now
+        return records
 
     @staticmethod
     def trust_of(level):
