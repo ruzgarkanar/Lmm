@@ -44,6 +44,31 @@ def chat(message, identity_block="", warmth=0.7):
                             max_tokens=120, temperature=warmth)
 
 
+def are_rivals(a, b):
+    """İki değer AYNI şey hakkında söylendi: bir arada var olabilir mi, yoksa
+    birbirini DIŞLAYAN alternatif mi? Çelişki tespiti için — dil-bağımsız (kuralı
+    biz yazmıyoruz, Qwen yargılar). Dönen: True = rakip (çelişki), False = bir arada.
+
+    "kuş"/"yırtıcı" → bir arada (kartal ikisi de) → False.
+    "kuş"/"balık"   → dışlayan → True.  "paris"/"berlin" (tek başkent) → True."""
+    system = (
+        "Two labels were each stated about the SAME single entity. Decide if "
+        "they can BOTH hold at once, or are mutually EXCLUSIVE.\n"
+        "Key idea: labels on DIFFERENT dimensions coexist (a category + a trait; "
+        "a color + a shape). Two labels filling the SAME dimension (two species, "
+        "two cities as the one capital, two opposite sizes) are exclusive.\n"
+        "Answer ONE word: COEXIST or EXCLUSIVE.\n"
+        "bird + predator -> COEXIST\n"
+        "organ + muscle -> COEXIST\n"
+        "red + round -> COEXIST\n"
+        "bird + fish -> EXCLUSIVE\n"
+        "big + small -> EXCLUSIVE\n"
+        "Paris + Berlin -> EXCLUSIVE")
+    out = runtime.generate(f"{a} + {b}", system=system,
+                           max_tokens=4, temperature=0.0)
+    return "EXCLUSIVE" in out.upper()
+
+
 # --- DİNAMİK SİSTEM SÖZLERİ (dil-bağımsız) --------------------------------
 # "Bunu bilmiyorum", "Öğrendim" gibi sistem cümleleri ELLE Türkçe yazılmaz —
 # Qwen kullanıcının dilinde üretir. Böylece tez (tüm diller, elle dil yok)
