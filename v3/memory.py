@@ -23,7 +23,9 @@ yapamadığı ve uzun anlatının iskeletini veren şey budur.
 """
 import json
 import os
+import struct
 import time
+import zlib
 
 # Bağ türleri. Bunlar İLİŞKİ KİMLİĞİDİR, dil değil: hangi cümlenin hangi bağı
 # taşıdığını okuyucu ağı öğrenir, burada yazılı bir liste eşleştirmez.
@@ -305,7 +307,13 @@ class Memory:
 
     # --- dosya ----------------------------------------------------------
 
+    MAGIC = b"LMM1"       # kapalı ikili .lmm başlığı
+
     def save(self, path):
+        """KAPALI ikili .lmm olarak yaz: magic + sürüm + ham-uzunluk + crc32 +
+        zlib(json). JSON gibi GÖRÜNMEZ, elle DEĞİŞTİRİLEMEZ; pickle/.pt DEĞİL
+        (yüklerken yalnız json.loads çalışır — kod-çalıştırma riski yok). Yazım
+        ATOMİK (.tmp + os.replace): yarı yazım kalıcı dosyayı bozmaz."""
         held = {"format": self.FORMAT, "next": self._next,
                 "self": self.self_key,
                 "transitive": sorted(self.transitive),
@@ -314,18 +322,38 @@ class Memory:
                 "records": [one.to_dict() for one in self.records.values()],
                 "experiences": [one.to_dict()
                                 for one in self.experiences.values()]}
-        with open(path, "w", encoding="utf-8") as handle:
-            json.dump(held, handle, ensure_ascii=False)
+        payload = json.dumps(held, ensure_ascii=False).encode("utf-8")
+        frame = (self.MAGIC
+                 + struct.pack(">BII", self.FORMAT, len(payload),
+                               zlib.crc32(payload) & 0xffffffff)
+                 + zlib.compress(payload, 9))
+        tmp = path + ".tmp"
+        with open(tmp, "wb") as handle:
+            handle.write(frame)
+        os.replace(tmp, path)               # atomik takas
 
     @classmethod
     def load(cls, path):
         found = cls()
         if not os.path.exists(path):
             return found            # yeni dosya: boş bellek meşru
-        # BOZUK dosya boş bellek DEĞİLDİR. 3. tur denetimi ölçtü: bozuk JSON
+        # BOZUK dosya boş bellek DEĞİLDİR. 3. tur denetimi ölçtü: bozuk dosya
         # sessizce boş dönüyor ve bir sonraki save() kurtarılabilir dosyayı
         # eziyordu — hatasız toplam veri kaybı. Bozuksa gürültüyle dur.
-        held = json.load(open(path, encoding="utf-8"))
+        with open(path, "rb") as handle:
+            raw = handle.read()
+        if raw[:4] == cls.MAGIC:
+            version, rawlen, crc = struct.unpack(">BII", raw[4:13])
+            payload = zlib.decompress(raw[13:])
+            if len(payload) != rawlen or (zlib.crc32(payload) & 0xffffffff) != crc:
+                raise ValueError(f"bozuk .lmm (crc/uzunluk uyuşmuyor): {path}")
+            held = json.loads(payload.decode("utf-8"))
+        else:
+            # ESKİ düz-JSON dosyası (geri-uyum) — sonraki save() ikiliye göçürür.
+            text = raw.decode("utf-8")
+            if not text.lstrip().startswith("{"):
+                raise ValueError(f"tanınmayan .lmm dosyası (ne ikili ne JSON): {path}")
+            held = json.loads(text)
         found._next = held.get("next", 1)
         found.self_key = held.get("self")
         found.transitive = set(held.get("transitive", ()))
