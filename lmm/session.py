@@ -73,8 +73,13 @@ class Session:
         try:
             op = extract.extract(message)
             if op["kind"] == extract.WRITE and op["triples"]:
-                return self._write(op["triples"], message)
-            if op["kind"] == extract.ASK:
+                said = self._write(op["triples"], message)
+                if said:
+                    return said
+                # Boş yazım (yanlış WRITE sınıflaması / değersiz üçlü — ör. "X
+                # nedir" yanlışlıkla WRITE geldi): uydurma yerine SORU gibi ele
+                # al → getir/reddet. Düşer.
+            if op["kind"] in (extract.WRITE, extract.ASK):
                 # ASK ama özne çıkmadıysa: boş özneyle dene → BILMIYORUM'a düşer
                 subject = op["triples"][0][0] if op["triples"] else None
                 return self._answer(message, subject)
@@ -178,11 +183,15 @@ class Session:
         dışına çıkan iddiayı düşürür."""
         subject = (link.resolve(self.memory, subject_label, self.vectors)
                    if subject_label else None)
-        records = retrieve.gather(self.memory, subject)
+        # associative=False: cevap YALNIZ doğrudan olgulardan kurulur (kenar-
+        # denetimiyle uyum — bkz. retrieve.gather / verify._has_edge).
+        records = retrieve.gather(self.memory, subject, associative=False)
         block = retrieve.facts_block(self.memory, records)
         raw = generate.answer(question, block)
         allowed = verify.allowed_of(self.memory, records)
-        safe = verify.verify(self.memory, raw, allowed, self.mode)
+        edges = verify.edges_of(records)          # KENAR denetimi (yeniden-birleşim uydurmasını bloklar)
+        safe = verify.verify(self.memory, raw, allowed, self.mode,
+                             anchor="edge", edges=edges)
         # DİNAMİK DİL: cevap düştüyse "bilmiyorum"u da kullanıcının dilinde söyle
         return safe or generate.refusal(question) or BILMIYORUM
 
@@ -209,9 +218,11 @@ class Session:
         # dünya olgu iddiası (grafta yoksa) yine düşer — uydurma sızmaz.
         # anchor="value": kimlik cevabında özne öz-referanslı zamir (ben/beni),
         # güvenilir çözülemez; iddia edilen NESNE'nin (rüzgar) allowed'da olması
-        # yeter. Dış uydurma (Google) yine bloklanır. Bkz. verify.verify.
+        # yeter. Özne gerçek düğüme çözülürse kenar/izin aranır → "Python'u Rüzgar
+        # yazdı" düşer. Dış uydurma (Google) yine bloklanır. Bkz. verify.verify.
+        id_edges = verify.edges_of(id_records)
         safe = verify.verify(self.memory, raw, self._identity, self.mode,
-                             anchor="value")
+                             anchor="value", edges=id_edges)
         return safe or generate.refusal(message) or BILMIYORUM
 
     # --- bakım ---------------------------------------------------------

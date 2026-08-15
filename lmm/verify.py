@@ -42,19 +42,43 @@ def allowed_of(memory, records):
     return keys
 
 
-def verify(memory, answer, allowed, mode="STRICT", anchor="both"):
+def edges_of(records):
+    """Enjekte edilen kayıtların YÖNSÜZ kenar çiftleri (geriye-uyum için tutulur;
+    verify artık grafın tamamına `_has_edge` ile bakıyor)."""
+    pairs = set()
+    for r in records:
+        if isinstance(r.subject, int) and isinstance(r.value, int):
+            pairs.add(frozenset((r.subject, r.value)))
+    return pairs
+
+
+def _has_edge(memory, sk, vk):
+    """Grafta sk—vk arasında GERÇEK bir kenar var mı (YÖNSÜZ). Türetilmiş
+    (#inference) kenarları da görür — `about` güven süzmez — böylece is-a gibi
+    GEÇİŞLİ yüklemlerde türetilmiş "kartal→hayvan" geçer, ama türetilMEYEN
+    "fransa→eyfel" (başkent geçişli değil) düşer. Yeniden-birleşim uydurmasını
+    bloklamanın doğru yolu: düğüm-üyeliği değil KENAR varlığı."""
+    if sk is None or vk is None:
+        return False
+    if any(r.value == vk for r in memory.about(sk, touch=False)):
+        return True
+    return any(r.value == sk for r in memory.about(vk, touch=False))
+
+
+def verify(memory, answer, allowed, mode="STRICT", anchor="edge", edges=None):
     """Cevabı cümle cümle denetle. Olgu taşımayan cümle (selam/görüş) geçer.
 
     `anchor`:
-      "both"  (VARSAYILAN, ASK yolu) — iddianın hem öznesi hem değeri allowed'da
-              olmalı. Değer-ikamesini ve parametrik sızıntıyı yakalar.
-      "value" (sohbet-KİMLİK yolu) — yalnız iddia edilen DEĞER (nesne) allowed'da
-              olmalı. "Beni Rüzgar yaptı" → değer rüzgar∈allowed geçer; "Beni
-              Google yaptı" → google∉allowed düşer. Özne çoğu dilde öz-referanslı
-              zamir (ben/beni/I) olup güvenilir çözülemez; onu ANCHOR yapmak iyi
-              kimlik cevabını yanlışlıkla düşürüyordu (refusal'a). Nesneyi anchor
-              yapmak dış uydurmayı yine bloklar — kayıp yalnız güvenli yönde
-              (fazla-tutucu = 'bilmiyorum'), asla uydurma sızmaz."""
+      "edge"  (VARSAYILAN, ASK yolu) — iddianın (özne,değer)'i enjekte edilen
+              GERÇEK bir kenar olmalı (`edges`). Düğüm-üyeliği yetmez → yeniden
+              birleşim uydurması bloklanır. `edges` verilmezse güvenli düşüş:
+              eski düğüm-üyeliği (allowed) denetimi.
+      "value" (sohbet-KİMLİK yolu) — nesne allowed'da olmalı; özne öz-referanslı
+              zamir (ben/beni/I) çözülemediğinden anchor DEĞİL, AMA özne gerçek
+              bir düğüme çözülüyorsa ya izinli olmalı ya da kenar bulunmalı —
+              "Python'u Rüzgar yazdı" (python≠izinli, {python,rüzgar} kenarı yok)
+              böylece düşer; "Beni Rüzgar yaptı" (ben→None) geçer."""
+    edges = edges or set()
     kept = []
     for sentence in _sentences(answer):
         claims = extract.reextract(sentence)
@@ -65,8 +89,11 @@ def verify(memory, answer, allowed, mode="STRICT", anchor="both"):
         for subject, _predicate, value in claims:
             sk = link.resolve(memory, subject)
             vk = link.resolve(memory, value)
-            ok = (vk in allowed) if anchor == "value" else (
-                sk in allowed and vk in allowed)
+            if anchor == "value":
+                ok = (vk in allowed) and (sk is None or sk in allowed
+                                          or _has_edge(memory, sk, vk))
+            else:                          # "edge": grafta gerçek kenar olmalı
+                ok = _has_edge(memory, sk, vk)
             if not ok:
                 grounded = False
                 break
