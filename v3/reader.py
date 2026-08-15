@@ -126,6 +126,14 @@ class Reader:
         if not self.ready or not sentence:
             return Operation(PASS)
         torch = self.torch
+        # KATLA: büyük/küçük harf işlem türünü DEĞİŞTİRMEMELİ. Ölçüldü —
+        # "kalp nedir" ASK okunurken "Kalp nedir" WRITE sanılıp grafa
+        # "kalp→nedir" çöpü yazılıyordu; eğitimdeki olgular hep büyük harfle
+        # başladığından ağ büyük-harf-başı'nı "olgu" işareti sanmış. Katlama
+        # uzunluk korur (indeksler geçerli kalır) ve dil-bağımsızdır; eğitim
+        # küçük harfleri de gördüğü için dağılım dışına düşmez.
+        from v3.dataset import fold
+        sentence = fold(sentence)
         ids = torch.tensor([[self.letters.get(ch, 0)
                              for ch in sentence[:self.width]]])
         with torch.no_grad():

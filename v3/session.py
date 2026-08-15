@@ -35,8 +35,14 @@ from v3.speaker import Speaker, prompt_of
 # okuma, okuma sayılmaz — emin olmadığını yazmak, uydurmanın kapısıdır.
 CERTAIN = 0.5
 
-# Bir cevapta en çok kaç kayıt konuşur. Fazlası cevap değil döküm olur.
+# Bir cevapta en çok kaç kayıt TOPLANIR (bağlam için geniş).
 MOST = 8
+
+# Konuşucuya fiilen VERİLEN en çok kayıt. MOST geniş toplar ama hepsini
+# konuşucuya vermek cevabı DÖKÜME çeviriyordu — ölçüldü: 8 gevşek çağrışımlı
+# kayıt → konuda kalamayan dağınık cümle. En ilgili birkaçı (geri-getirme
+# zaten ilgiye göre sıraladı) hem odaklı hem CPU'da hızlı.
+TELL = 3
 
 
 class Session:
@@ -117,8 +123,15 @@ class Session:
             return said or "[·]"
         records = self._gather(operation, line)
         said = self._speak(records, line)
+        # GETİRECEK ŞEY YOKSA SOHBETE DÜŞ: okuyucu kısa sözü ("selam", "naber")
+        # ASK sanabiliyor (kısa cümle yanlılığı) — o zaman bellekte cevap
+        # bulunmaz ve düz [?] dönmek selamı ret gibi gösterir. Boş kalınca
+        # konuşucuya sohbet karşılığı sordurulur; _chat'in kapısı adayın olgu
+        # UYDURMASINI engeller, yani bilinmeyene olgu iddiası yine sızmaz.
+        if not said:
+            said = self._chat(line)
         self._live(line, said, records)
-        # Boş cevap sessizlik değil, açık RET imidir.
+        # Sohbet de boşsa: açık RET.
         return said or "[?]"
 
     # --- yazma ----------------------------------------------------------
@@ -168,7 +181,15 @@ class Session:
         A→B, B→C VE A→C üçü de TANIKsa (öğretilen/okunan, çıkarım değil), o
         yüklem geçişlidir. "tür" bir is-a örneğinden öğrenir; "sever" asla —
         çünkü sevgi zinciri grafta kapanmaz. Kural, verinin kendisinden.
+
+        TEK üçgen YETMEZ: "sever/yakın/tanır" gibi geçişsiz bir ilişki, veride
+        tesadüfen bir kez üçgen kapatabilir (A sever B, B sever C, A sever C
+        ayrı ayrı öğretilmiş). Tek kazayla o yüklem ömür boyu geçişli sayılıp
+        HER yeni kenardan yanlış #inference üretiyordu (denetim yakaladı,
+        "uydurma yok" deliği). En az İKİ bağımsız tanıklı üçgen aranır —
+        gerçekten geçişli bir yüklemde bunlar boldur, tesadüfte nadir.
         """
+        WITNESSED_TRIANGLES = 2
         if predicate in self.memory.transitive:
             return
         edges = [r for records in self.memory.by_subject.values()
@@ -177,12 +198,15 @@ class Session:
         forward = {}
         for r in edges:
             forward.setdefault(r.subject, set()).add(r.value)
+        triangles = 0
         for a, bs in forward.items():
             for b in bs:
                 for c in forward.get(b, ()):
                     if c in bs:                 # A→B, B→C ve A→C hepsi tanık
-                        self.memory.transitive.add(predicate)
-                        return
+                        triangles += 1
+                        if triangles >= WITNESSED_TRIANGLES:
+                            self.memory.transitive.add(predicate)
+                            return
 
     def _derive(self, subject, predicate, value):
         """Yeni olgu (özne→değer) çevresinde İKİ YÖNLÜ zincirleme çıkarım.
@@ -219,6 +243,19 @@ class Session:
     def _gather(self, operation, line):
         """Soruya ilgili kayıtları toplar — geometri bulur, yayılım getirir."""
         labels = [one for one in (operation.subject, operation.value) if one]
+        # OKUYUCU SORUDA ÖZNEYİ İŞARETLEMEZ: soru örnekleri rolsüz eğitildi
+        # (soru işlem türünü öğretir, rolleri olgu cümleleri). Bu yüzden
+        # "kartal nedir" ASK okunur ama özne=None gelir ve soru cevapsız kalır.
+        # Özneyi OKUYUCU değil GRAF çözer: sorudaki kelimelerden bilinen bir
+        # kimliğe çözülen İLK kelime özne sayılır. Bu bir kelime listesi değil,
+        # zaten var olan `candidates` — grafın kendi tanıdığına bakar.
+        if not labels:
+            from v3.dataset import fold
+            for word in line.split():
+                piece = fold("".join(ch for ch in word if ch.isalnum()))
+                if piece and self.memory.candidates(piece):
+                    labels = [piece]
+                    break
         if not labels and self.focus:
             # Bağlam düşüşü yalnız TANIDIK cümlede: içinde ne derlemde ne
             # bellekte olan bir kelime varsa ("zzzq nedir") son konuya
@@ -269,17 +306,27 @@ class Session:
             claim = self.reader.read(candidate)
             # Aday bir OLGU yazmaya kalkıyorsa (özne+değer) kapı reddeder:
             # sohbet cevabı graf iddiası olamaz, kaydı olmayan iddia söylenmez.
-            if claim.subject and claim.value and self._known(claim.value):
-                if not self.gate.behind(self._known(claim.subject),
-                                        self._known(claim.predicate or ""),
-                                        self._known(claim.value)):
+            # DELİK KAPATILDI: eskiden koşulda `and self._known(claim.value)`
+            # vardı — değer bilinen bir kimliğe çözülemiyorsa denetim ATLANIP
+            # aday kabul ediliyordu. Yani "X bir Y'dir" gibi UYDURMA (Y hiç
+            # bilinmiyor) sohbet yolundan sızıyordu. Artık olgu-biçimli her
+            # aday, arkasında kayıt yoksa (değer bilinmese DE) düşer.
+            if claim.subject and claim.value:
+                subject = self._known(claim.subject)
+                value = self._known(claim.value)
+                predicate = (self._known(claim.predicate)
+                             if claim.predicate else None)
+                if not (subject and value
+                        and self.gate.behind(subject, predicate, value)):
                     continue
             return candidate
         return ""
 
     def _speak(self, records, line):
         """Adayları üretir, tartar, kapıdan geçirir. Hiçbiri geçmezse ham."""
-        supported = [one for one in records if one.trust >= SPEAK]
+        # En ilgili TELL kadarı: geri-getirme kayıtları ilgiye göre sıraladı,
+        # konuşucuya baştan birkaçını ver — döküm değil odaklı cevap.
+        supported = [one for one in records if one.trust >= SPEAK][:TELL]
         if not supported:
             return ""
         if not self.speaker.ready:
@@ -315,13 +362,18 @@ class Session:
                 continue
             operation = self.reader.read(piece)
             if operation.subject and operation.value:
-                claim = (self._known(operation.subject),
-                         self._known(operation.predicate or ""),
-                         self._known(operation.value))
-                if all(part is not None for part in claim):
-                    claims.append(claim)
-                else:
+                subject = self._known(operation.subject)
+                value = self._known(operation.value)
+                # ÖZNE + DEĞER bilinen kimliğe çözülmeli — uydurma engeli
+                # burada. YÜKLEM ŞART DEĞİL: yazma yolu da yüklemi None
+                # saklıyor (metinde ~%0,5 geçer). Yüklemi zorunlu tutmak
+                # "kartal bir kuştur" gibi doğal cümleyi uydurma sayıp -1.0
+                # ile eliyordu ve _speak ham döküme düşüyordu — ölçüldü.
+                if subject is None or value is None:
                     return -1.0     # bilinmeyen ada iddia: uydurma şüphesi
+                predicate = (self._known(operation.predicate)
+                             if operation.predicate else None)
+                claims.append((subject, predicate, value))
         passed, dropped = self.gate.supported(claims)
         if dropped:
             return -1.0             # desteksiz iddia: cümle düşer
@@ -420,6 +472,12 @@ class Session:
         return " · ".join(lines)
 
     def _label(self, key):
+        # None/boş yüklem "None" string'i olarak basılmamalı: yazma yolu
+        # yüklemi None saklıyor (metinde ~%0,5 geçer) ve `str(None)` hem ham
+        # dökümü hem konuşucunun girdisini "None" çöpüyle kirletiyordu —
+        # ölçüldü, çıktıya "none" sızıyordu. None -> boş.
+        if key is None:
+            return ""
         held = self.memory.identities.get(key) if isinstance(key, int) else None
         if held is not None and held.labels:
             return held.labels[0]
