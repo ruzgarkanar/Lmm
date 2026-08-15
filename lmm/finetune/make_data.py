@@ -30,6 +30,12 @@ import json
 import os
 import random
 import re
+import sys
+
+
+def _tick(kind, n, total):
+    """Canlı ilerleme (stderr) — izlenebilsin."""
+    print(f"  [{kind}] {n}/{total} üretildi", file=sys.stderr, flush=True)
 
 # DİL FİLTRESİ: self-distillation, sistemin şu anki OYNAK çıktılarını da yakalar
 # (Çince/İngilizce sızıntı). Bu örnekleri eğitim verisinden ATARIZ ki LoRA temiz
@@ -82,6 +88,8 @@ def _grounding_rows(limit):
             {"role": "user", "content": f"OLGULAR:\n{block}\n\nSORU: {question}"},
             {"role": "assistant", "content": target},
         ]})
+        if len(rows) % 25 == 0:
+            _tick("grounding", len(rows), limit)
     return rows
 
 
@@ -108,6 +116,8 @@ def _refusal_rows(limit):
              "Uydurma; bilmediğini söyle.)"},
             {"role": "assistant", "content": target},
         ]})
+        if len(rows) % 25 == 0:
+            _tick("refusal", len(rows), limit)
     return rows
 
 
