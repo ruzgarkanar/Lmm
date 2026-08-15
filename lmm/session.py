@@ -86,6 +86,14 @@ class Session:
         ck = frozenset((old_key, new_key))
         if ck in self._rival_cache:
             return self._rival_cache[ck]
+        # HİYERARŞİK BAĞ (GRAF — LMM'in gücü): iki değer is-a zinciriyle bağlıysa
+        # (kedigil→memel: kedigil bir memelidir) RAKİP DEĞİL, bir arada var olurlar
+        # — "aslan hem kedigil hem memeli" çelişki değil hiyerarşidir. Qwen'e
+        # sormadan grafla çöz (are_rivals fazla ateşliyordu). Yalnız BAĞSIZ
+        # değerlerde Qwen'e sor (kuş/balık gibi).
+        if self._connected(old_key, new_key):
+            self._rival_cache[ck] = False
+            return False
         old = link.label_of(self.memory, old_key)
         new = link.label_of(self.memory, new_key)
         try:
@@ -94,6 +102,26 @@ class Session:
             verdict = False        # emin değilsek çelişki sayma (bozma)
         self._rival_cache[ck] = verdict
         return verdict
+
+    def _connected(self, a, b, depth=4):
+        """a ile b graf'ta is-a zinciriyle bağlı mı (her iki yön). Bağlıysa
+        hiyerarşiktir → çelişki değil. Sınırlı BFS (döngü-korumalı)."""
+        for start, goal in ((a, b), (b, a)):
+            seen, frontier = {start}, [start]
+            for _ in range(depth):
+                nxt = []
+                for node in frontier:
+                    for k in self.memory.by_subject.get(node, ()):
+                        v = self.memory.records[k].value
+                        if v == goal:
+                            return True
+                        if v not in seen:
+                            seen.add(v)
+                            nxt.append(v)
+                if not nxt:
+                    break
+                frontier = nxt
+        return False
 
     def respond(self, message):
         """Bir mesaja cevap. Dönen daima metin; asla desteksiz olgu.
@@ -195,7 +223,9 @@ class Session:
                              # "birleşik"): soruyu WRITE sanma tuzağı, yazma
             sk = link.resolve(self.memory, subject, self.vectors, create=True)
             vk = link.resolve(self.memory, value, self.vectors, create=True)
-            if sk is None or vk is None or (sk, vk) in seen:
+            # sk == vk: ÖZ-DÖNGÜ ("almanya → almanya") — bir şey kendisi olamaz,
+            # anlamsız kayıt. extract ara sıra üretiyordu; kapıdan geçirme.
+            if sk is None or vk is None or sk == vk or (sk, vk) in seen:
                 continue
             seen.add((sk, vk))
             pk = (link.resolve(self.memory, predicate, self.vectors, create=True)
