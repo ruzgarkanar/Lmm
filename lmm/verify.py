@@ -42,9 +42,19 @@ def allowed_of(memory, records):
     return keys
 
 
-def verify(memory, answer, allowed, mode="STRICT"):
-    """Cevabı cümle cümle denetle. Her olgu iddiasının özne+değeri allowed'da
-    olmalı. Olgu taşımayan cümle (selam/görüş) geçer."""
+def verify(memory, answer, allowed, mode="STRICT", anchor="both"):
+    """Cevabı cümle cümle denetle. Olgu taşımayan cümle (selam/görüş) geçer.
+
+    `anchor`:
+      "both"  (VARSAYILAN, ASK yolu) — iddianın hem öznesi hem değeri allowed'da
+              olmalı. Değer-ikamesini ve parametrik sızıntıyı yakalar.
+      "value" (sohbet-KİMLİK yolu) — yalnız iddia edilen DEĞER (nesne) allowed'da
+              olmalı. "Beni Rüzgar yaptı" → değer rüzgar∈allowed geçer; "Beni
+              Google yaptı" → google∉allowed düşer. Özne çoğu dilde öz-referanslı
+              zamir (ben/beni/I) olup güvenilir çözülemez; onu ANCHOR yapmak iyi
+              kimlik cevabını yanlışlıkla düşürüyordu (refusal'a). Nesneyi anchor
+              yapmak dış uydurmayı yine bloklar — kayıp yalnız güvenli yönde
+              (fazla-tutucu = 'bilmiyorum'), asla uydurma sızmaz."""
     kept = []
     for sentence in _sentences(answer):
         claims = extract.reextract(sentence)
@@ -55,7 +65,9 @@ def verify(memory, answer, allowed, mode="STRICT"):
         for subject, _predicate, value in claims:
             sk = link.resolve(memory, subject)
             vk = link.resolve(memory, value)
-            if sk not in allowed or vk not in allowed:
+            ok = (vk in allowed) if anchor == "value" else (
+                sk in allowed and vk in allowed)
+            if not ok:
                 grounded = False
                 break
         if grounded:

@@ -32,3 +32,6 @@ models/
 # ytu-ce-cosmos/turkish-gpt2-medium-350m-instruct-v0.1
 core/turkce-cekirdek/
 .claude/
+
+# llama.cpp: GGUF dönüşüm/quantize aracı (klon, ~ büyük) — türetilir, commitlenmez
+llama.cpp/

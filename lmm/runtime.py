@@ -50,7 +50,14 @@ def device():
 
 def generate(messages, max_tokens=256, temperature=0.7, system=None):
     """Üretir. `messages`: str (tek kullanıcı sözü) ya da [{role,content}].
-    `system`: sistem talimatı (topraklama için). Dönen: düz metin."""
+    `system`: sistem talimatı (topraklama için). Dönen: düz metin.
+
+    Backend seçimi: LMM_BACKEND=gguf ise llama.cpp/int4 sürümüne delege eder
+    (ucuz/yerel donanımda hız). Aksi halde transformers. Sözleşme aynı."""
+    if os.environ.get("LMM_BACKEND") == "gguf":
+        from . import runtime_gguf
+        return runtime_gguf.generate(messages, max_tokens=max_tokens,
+                                     temperature=temperature, system=system)
     import torch
     _load()
     if isinstance(messages, str):
