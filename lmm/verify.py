@@ -24,6 +24,7 @@ Mod: STRICT (desteksiz cümle düşer) · ASSIST (‹doğrulanmamış› işaret
 import re
 
 from lmm import extract, link
+from v3.dataset import fold
 
 
 def _sentences(text):
@@ -52,17 +53,35 @@ def edges_of(records):
     return pairs
 
 
-def _has_edge(memory, sk, vk):
+def _has_edge(memory, sk, vk, v_label=None):
     """Grafta sk—vk arasında GERÇEK bir kenar var mı (YÖNSÜZ). Türetilmiş
     (#inference) kenarları da görür — `about` güven süzmez — böylece is-a gibi
     GEÇİŞLİ yüklemlerde türetilmiş "kartal→hayvan" geçer, ama türetilMEYEN
-    "fransa→eyfel" (başkent geçişli değil) düşer. Yeniden-birleşim uydurmasını
-    bloklamanın doğru yolu: düğüm-üyeliği değil KENAR varlığı."""
-    if sk is None or vk is None:
+    "fransa→eyfel" (başkent geçişli değil) düşer.
+
+    v_label verilirse (reextract'ın değer METNİ): anahtar eşleşmezse ÖZNENİN
+    KENDİ değer etiketleriyle KELİME düzeyinde eşleşme dener (çekim/çok-kelime
+    toleransı: "kuş" ~ "deniz kuşu"). GÜVENLİ: yalnız öznenin kendi değerlerine
+    bakar — farklı bir düğüme ilişki UYDURAMAZ, yeniden-birleşim deliğini açmaz
+    (web'den öğrenilen çok-kelimeli kavramların cevaplanabilmesi için)."""
+    if sk is None:
         return False
-    if any(r.value == vk for r in memory.about(sk, touch=False)):
-        return True
-    return any(r.value == sk for r in memory.about(vk, touch=False))
+    if vk is not None:
+        if any(r.value == vk for r in memory.about(sk, touch=False)):
+            return True
+        if any(r.value == sk for r in memory.about(vk, touch=False)):
+            return True
+    if v_label:
+        want = {fold(w) for w in v_label.split() if len(w) >= 3}
+        if want:
+            for r in memory.about(sk, touch=False):
+                have = {fold(w) for w in link.label_of(memory, r.value).split()
+                        if len(w) >= 3}
+                for a in want:
+                    for b in have:
+                        if a == b or a.startswith(b) or b.startswith(a):
+                            return True
+    return False
 
 
 def verify(memory, answer, allowed, mode="STRICT", anchor="edge", edges=None):
@@ -91,9 +110,9 @@ def verify(memory, answer, allowed, mode="STRICT", anchor="edge", edges=None):
             vk = link.resolve(memory, value)
             if anchor == "value":
                 ok = (vk in allowed) and (sk is None or sk in allowed
-                                          or _has_edge(memory, sk, vk))
+                                          or _has_edge(memory, sk, vk, value))
             else:                          # "edge": grafta gerçek kenar olmalı
-                ok = _has_edge(memory, sk, vk)
+                ok = _has_edge(memory, sk, vk, value)
             if not ok:
                 grounded = False
                 break

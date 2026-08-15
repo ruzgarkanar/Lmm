@@ -262,24 +262,19 @@ class Session:
         text, url = research.wiki_summary(subject_label)
         if not text:
             return generate.refusal(question) or BILMIYORUM
-        # Özetin ilk cümlesi genelde "X, bir Y'dir" — Qwen üçlüyü çıkarır.
-        first = text.split(".")[0][:240]
-        wrote = False
-        for _s, _p, value in (extract.extract(first).get("triples") or []):
-            if not value:
-                continue
-            sk = link.resolve(self.memory, subject_label, self.vectors, create=True)
-            vk = link.resolve(self.memory, value, self.vectors, create=True)
-            if sk is None or vk is None:
-                continue
-            # #web damgası + DOCUMENT (0.6 < CERTAIN) → cevapta kaynak-etiketli.
-            self.gate.admit(sk, None, vk, f"#web:{url}", DOCUMENT)
-            wrote = True
-        if not wrote:
-            return generate.refusal(message) or BILMIYORUM
+        # TEK sade kategori çıkar (taksonomi karmaşası değil özü) → temiz olgu,
+        # temiz cevap. Çok değerli/latin terim küçük modeli boğuyordu.
+        value = generate.category_from(subject_label, text)
+        sk = link.resolve(self.memory, subject_label, self.vectors, create=True)
+        vk = (link.resolve(self.memory, value, self.vectors, create=True)
+              if value else None)
+        if not value or sk is None or vk is None:
+            return generate.refusal(question) or BILMIYORUM
+        # #web damgası + DOCUMENT (0.6 < CERTAIN) → cevapta kaynak-etiketli.
+        self.gate.admit(sk, None, vk, f"#web:{url}", DOCUMENT)
         self.memory.lived(f"web:{subject_label}", outcome=1.0,
                           about=[self.memory.self_key])
-        return self._answer(message, subject_label)     # artık grafta → cevap+hedge
+        return self._answer(question, subject_label)     # artık grafta → cevap+hedge
 
     # --- sohbet --------------------------------------------------------
     def _chat(self, message):
