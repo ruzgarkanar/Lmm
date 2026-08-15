@@ -105,13 +105,6 @@ class Session:
         # ARAŞTIRMA ONAYI (önce-sor): geçen turda "araştırayım mı?" teklif
         # edildiyse, bu mesaj ONAY mı diye bak. Onaysa çek+öğren; değilse teklifi
         # bırak ve mesajı olağan işle (yeni soru olabilir).
-        if self._pending is not None:
-            (subj, orig_q), self._pending = self._pending, None
-            try:
-                if generate.is_affirmative(message):
-                    return self._research(subj, orig_q)
-            except Exception:                               # noqa: BLE001
-                pass
         # AUTO-UYKU: her SLEEP_EVERY turda bir damıt/sönümle/hakemle. v3'te
         # ölçüldü — bu mekanizmalar yalnız elle çağrılıyordu, sistem hiç
         # "uyumuyordu"; sarmalandı. Hata olursa konuşmayı çökertmesin.
@@ -123,6 +116,22 @@ class Session:
                 pass
         try:
             op = extract.extract(message)
+            # ARAŞTIRMA ONAYI (mimari — içerik karar verir): geçen tur "araştırayım
+            # mı?" teklif edildiyse, bu mesaj YENİ İÇERİK mi (öğretme/soru) yoksa
+            # saf onay mı — EXTRACT söyler. Yeni içerik = yeni tur (pending düşer,
+            # aşağıda normal işlenir); yalnız içeriksiz-olumlama araştırmayı
+            # tetikler. Eskiden körlemesine is_affirmative çağrılıyordu; "biliyor
+            # musun balina da memelidir" yanlışlıkla "evet" sanılıp turu kaçırıyordu.
+            if self._pending is not None:
+                (subj, orig_q), self._pending = self._pending, None
+                new_content = bool(op["triples"] and op["triples"][0][0])
+                if not new_content:
+                    try:
+                        if generate.is_affirmative(message):
+                            return self._research(subj, orig_q)
+                    except Exception:                       # noqa: BLE001
+                        pass
+                # yeni içerik ya da onay değil → aşağıda normal işlenir
             if op["kind"] == extract.WRITE and op["triples"]:
                 said = self._write(op["triples"], message)
                 if said:
@@ -282,14 +291,24 @@ class Session:
         allowed = verify.allowed_of(self.memory, records)
         safe = verify.verify(self.memory, raw, allowed, self.mode, anchor="edge")
         if not safe:
-            # BİLMİYORUM → körlemesine reddetme: ARAŞTIRMAYI TEKLİF ET (önce-sor).
-            # Özne varsa teklifi kur; kullanıcı onaylarsa sonraki tur çekilir.
-            if subject_label:
-                self._pending = (subject_label, question)   # özne + ORİJİNAL soru
+            # MİMARİ AYRIM (gaps sinyaliyle aynı): araştırma teklifi YALNIZ gerçek
+            # BOŞLUKTA — grafta bu özne hakkında HİÇ olgu yoksa. Olgu VARSA ama
+            # üretim tökezlediyse bu boşluk değil ÜRETİM hatası: bir kez yeniden
+            # dene (MPS/örnekleme oynaklığı), yine düşerse bildiğini "araştırayım
+            # mı" diye SORMAZ, güvenli reddeder. ("aslan nedir"i bildiği halde
+            # teklif etmesi buydu — kaçış kapatıldı.)
+            if records:
+                safe = verify.verify(self.memory,
+                                     generate.answer(question, block),
+                                     allowed, self.mode, anchor="edge")
+                if not safe:
+                    return generate.refusal(question) or BILMIYORUM
+            elif subject_label:
+                self._pending = (subject_label, question)   # boşluk → önce-sor
                 offer = generate.offer_research(subject_label, question)
-                if offer:
-                    return offer
-            return generate.refusal(question) or BILMIYORUM
+                return offer or generate.refusal(question) or BILMIYORUM
+            else:
+                return generate.refusal(question) or BILMIYORUM
         # KAYNAK-GÜVEN (en sıkı): cevabı temellendiren en zayıf olgu CERTAIN
         # altındaysa kesinlik düşür + kaynağı belirt. Operatör olguları etiketsiz.
         if records:
