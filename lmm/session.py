@@ -22,6 +22,11 @@ from lmm import extract, generate, link, retrieve, verify
 
 SLEEP_EVERY = 50   # kaç turda bir uyku (damıt/sol/hakemle) — v3 §117
 
+# KAYNAK-GÜVEN eşiği: bunun ALTINDAKİ güvenle konuşulan olgu cevapta ETİKETLENİR
+# (çekince + kaynak). Operatör-öğretisi (0.75) kesin → etiketsiz; belge (0.6),
+# damıtım (0.5), web (düşük) → "emin değilim, ...'e göre". "en sıkı" yanlış-bilgi.
+CERTAIN = 0.7
+
 BILMIYORUM = "Bunu bilmiyorum."
 
 
@@ -212,8 +217,24 @@ class Session:
         edges = verify.edges_of(records)          # KENAR denetimi (yeniden-birleşim uydurmasını bloklar)
         safe = verify.verify(self.memory, raw, allowed, self.mode,
                              anchor="edge", edges=edges)
-        # DİNAMİK DİL: cevap düştüyse "bilmiyorum"u da kullanıcının dilinde söyle
-        return safe or generate.refusal(question) or BILMIYORUM
+        if not safe:
+            # DİNAMİK DİL: cevap düştüyse "bilmiyorum"u da kullanıcının dilinde
+            return generate.refusal(question) or BILMIYORUM
+        # KAYNAK-GÜVEN (en sıkı): cevabı temellendiren en zayıf olgu CERTAIN
+        # altındaysa kesinlik düşür + kaynağı belirt. Operatör olguları etiketsiz.
+        if records:
+            weakest = min(records, key=lambda r: r.trust)
+            if weakest.trust < CERTAIN:
+                safe = self._hedge(safe, weakest, question) or safe
+        return safe
+
+    def _hedge(self, answer, record, message):
+        """Düşük güvenli olguya dayanan DOĞRULANMIŞ cevaba çekince NOTU ekler.
+        Cevap metni değişmez (uydurma eklenemez), yalnız sonuna kaynak+çekince."""
+        source = record.source or ""
+        label = source[5:] if source.startswith("#web:") else "a stored source"
+        note = generate.hedge_note(label, message)
+        return f"{answer} {note}".strip() if note else answer
 
     # --- sohbet --------------------------------------------------------
     def _chat(self, message):

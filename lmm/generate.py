@@ -75,6 +75,19 @@ def are_rivals(a, b):
 # sistemin kendi ağzında da tutar; İngilizce derse İngilizce, Almanca derse
 # Almanca teyit/ret alır.
 
+def hedge_note(source_label, message):
+    """Kullanıcının dilinde KISA bir çekince NOTU üretir (olgu YOK; yalnız 'bu
+    bilgi şu kaynaktan, emin değilim' anlamı). Doğrulanmış cevaba EKLENİR; cevabın
+    kendisi DEĞİŞMEZ — böylece hedge adımı asla uydurma ekleyemez (yalnız not,
+    üstelik olgu taşımadığı için verify'dan da geçer). condition-5: notu Qwen
+    kurar, elle kalıp yok."""
+    system = ("In the SAME LANGUAGE as the user's message, write ONE very short "
+              "caveat, in parentheses, meaning: the statement is not certain and "
+              f"comes from this source: {source_label}. Contain NO facts — only "
+              "the caveat and the source. Keep it under 8 words.")
+    return runtime.generate(message, system=system, max_tokens=32, temperature=0.3)
+
+
 def refusal(message):
     """Kullanıcının dilinde: 'bu bilgi bende yok'. Uydurma yasak, kısa."""
     system = ("The user asked about something that is NOT in your memory. Reply "
