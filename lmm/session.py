@@ -344,6 +344,49 @@ class Session:
                              anchor="value")
         return safe or generate.refusal(message) or BILMIYORUM
 
+    # --- LMM gücü: öz-farkındalık (merak + çelişki basıncı) ------------
+    def curiosity(self, most=5):
+        """Sistem neyi BİLMEDİĞİNİ bilir: hakkında hiç/yalnız-episodik kaydı olan,
+        ama konuşmada geçmiş kavramların etiketleri. `dynamics.gaps`'i sarar (o
+        organ v3'te vardı, lmm akışına bağlı değildi). Proaktif araştırmanın
+        girdisi: 'şunu bilmiyorum, bakayım mı'. Kendi/kimlik düğümleri hariç."""
+        # Yüklem düğümlerini (tür/özellik gibi ilişki etiketleri) merak sayma —
+        # kavram değiller. Kendi/kimlik düğümleri de hariç.
+        predicates = {r.predicate for r in self.memory.records.values()
+                      if r.predicate is not None}
+        out = []
+        for key, _gap in dynamics.gaps(self.memory, most=most * 4):
+            if key in self._identity or key in predicates:
+                continue
+            label = link.label_of(self.memory, key)
+            if label and label not in out:
+                out.append(label)
+            if len(out) >= most:
+                break
+        return out
+
+    def tension(self, most=5):
+        """Sistem çelişkiden RAHATSIZ olur: en yüksek basınçlı çelişkiler
+        (özne, [rakip değerler]). `dynamics.pressure`'ı sarar. Kullanıcıya
+        'şu konuda çelişkili bilgim var' diye yüzeye çıkarılabilir."""
+        from v3.memory import CONTRA
+        out, seen = [], set()
+        for rkey, _p in dynamics.pressure(self.memory):
+            r = self.memory.records.get(rkey)
+            if r is None or rkey in seen:
+                continue
+            rivals = [self.memory.records[k] for kind, k in r.links
+                      if kind == CONTRA and k in self.memory.records]
+            seen.add(rkey)
+            seen.update(x.key for x in rivals)
+            subject = link.label_of(self.memory, r.subject)
+            values = [link.label_of(self.memory, r.value)] + [
+                link.label_of(self.memory, x.value) for x in rivals]
+            out.append((subject, values))
+            if len(out) >= most:
+                break
+        return out
+
     # --- bakım ---------------------------------------------------------
     def save(self):
         if self.path:
