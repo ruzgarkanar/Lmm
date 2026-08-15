@@ -165,7 +165,7 @@ class Session:
         name = link.label_of(self.memory, self._lmm_key)
         raw = generate.identity_answer(message, name, id_block)
         safe = verify.verify(self.memory, raw, self._identity, self.mode,
-                             anchor="value", edges=verify.edges_of(id_records))
+                             anchor="value")
         return safe or generate.refusal(message) or BILMIYORUM
 
     # --- yazma ---------------------------------------------------------
@@ -273,9 +273,7 @@ class Session:
         block = retrieve.facts_block(self.memory, records)
         raw = generate.answer(question, block)
         allowed = verify.allowed_of(self.memory, records)
-        edges = verify.edges_of(records)          # KENAR denetimi (yeniden-birleşim uydurmasını bloklar)
-        safe = verify.verify(self.memory, raw, allowed, self.mode,
-                             anchor="edge", edges=edges)
+        safe = verify.verify(self.memory, raw, allowed, self.mode, anchor="edge")
         if not safe:
             # BİLMİYORUM → körlemesine reddetme: ARAŞTIRMAYI TEKLİF ET (önce-sor).
             # Özne varsa teklifi kur; kullanıcı onaylarsa sonraki tur çekilir.
@@ -338,13 +336,12 @@ class Session:
             f"{link.label_of(self.memory, r.subject)} "
             f"{link.label_of(self.memory, r.predicate)} → "
             f"{link.label_of(self.memory, r.value)}" for r in id_records)
-        id_edges = verify.edges_of(id_records)
         raw = generate.chat(message, id_block)
         # Sohbette allowed = yalnız KİMLİK olguları. anchor="value": özne öz-
         # referanslı zamir (ben/beni) çözülemez, NESNE'nin (rüzgar) izinli olması
         # yeter; dış uydurma (Google) yine düşer. Bkz. verify.verify.
         safe = verify.verify(self.memory, raw, self._identity, self.mode,
-                             anchor="value", edges=id_edges)
+                             anchor="value")
         return safe or generate.refusal(message) or BILMIYORUM
 
     # --- bakım ---------------------------------------------------------
