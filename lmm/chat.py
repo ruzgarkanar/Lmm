@@ -39,6 +39,20 @@ def main():
                 break
             if not line:
                 continue
+            # LMM GÜCÜ — öz-farkındalık komutları (sistemin kendi bilgisi üstüne):
+            if line in ("?merak", "?curiosity"):
+                gaps = session.curiosity()
+                print("# merak ettiğim (az bildiğim): "
+                      + (", ".join(gaps) if gaps else "—"))
+                continue
+            if line in ("?çelişki", "?tension"):
+                tens = session.tension()
+                if tens:
+                    for subj, vals in tens:
+                        print(f"# çelişki: {subj} → {' ↔ '.join(vals)}")
+                else:
+                    print("# çelişki yok")
+                continue
             started = time.time()
             said = session.respond(line)
             print(said if said else "[…]")
