@@ -196,6 +196,12 @@ class Memory:
         self.experiences = {}           # anahtar -> Experience
         self.by_label = {}              # etiket -> [kimlik anahtarı]
         self.by_subject = {}            # kimlik anahtarı -> [kayıt anahtarı]
+        # TERS İNDEKSLER (optimizasyon): türetme/çıkarım her yazmada TÜM grafı
+        # taramasın diye. by_value: değer düğümü -> onu DEĞER alan kayıtlar
+        # (_derive incoming); by_predicate: yüklem -> o yüklemli kayıtlar
+        # (_learn_transitive). O(N)/yazma → O(derece)/yazma.
+        self.by_value = {}              # değer anahtarı -> [kayıt anahtarı]
+        self.by_predicate = {}          # yüklem anahtarı -> [kayıt anahtarı]
         self.self_key = None            # #BEN — özyaşam öyküsünün düğümü
         # Geçişli olduğu VERİYLE kanıtlanmış yüklemler. Elle liste değil:
         # graf kapalı bir üçgen (A→B, B→C, A→C hepsi TANIK) gördüğünde o
@@ -255,6 +261,10 @@ class Memory:
                        trust, episodic=episodic)
         self.records[key] = found
         self.by_subject.setdefault(subject, []).append(key)
+        if isinstance(value, int):
+            self.by_value.setdefault(value, []).append(key)
+        if predicate is not None:
+            self.by_predicate.setdefault(predicate, []).append(key)
         return found
 
     def link(self, one, other, kind):
@@ -374,6 +384,10 @@ class Memory:
             made = Record.from_dict(one)
             found.records[made.key] = made
             found.by_subject.setdefault(made.subject, []).append(made.key)
+            if isinstance(made.value, int):     # ters indeksleri de kur
+                found.by_value.setdefault(made.value, []).append(made.key)
+            if made.predicate is not None:
+                found.by_predicate.setdefault(made.predicate, []).append(made.key)
         for one in held.get("experiences", ()):
             made = Experience.from_dict(one)
             found.experiences[made.key] = made

@@ -229,9 +229,10 @@ class Session:
         WITNESSED = 2
         if predicate is None or predicate in self.memory.transitive:
             return
-        edges = [r for records in self.memory.by_subject.values()
-                 for r in (self.memory.records[k] for k in records)
-                 if r.predicate == predicate and r.source != "#inference"]
+        # TERS İNDEKS: tüm grafı değil, YALNIZ bu yüklemli kayıtları gez (O(N)→O(derece)).
+        edges = [r for r in (self.memory.records[k]
+                             for k in self.memory.by_predicate.get(predicate, ()))
+                 if r.source != "#inference"]
         forward = {}
         for r in edges:
             forward.setdefault(r.subject, set()).add(r.value)
@@ -252,11 +253,11 @@ class Session:
         forward = [(subject, r.value, [r.key])
                    for r in self.memory.about(value, touch=False)
                    if r.predicate == predicate]
+        # TERS İNDEKS: subject'i DEĞER alan kayıtları by_value'dan al (O(N)→O(derece)).
         incoming = [(r.subject, value, [r.key])
-                    for records in self.memory.by_subject.values()
-                    for r in (self.memory.records[k] for k in records)
-                    if r.predicate == predicate and r.value == subject
-                    and r.subject != value]
+                    for r in (self.memory.records[k]
+                              for k in self.memory.by_value.get(subject, ()))
+                    if r.predicate == predicate and r.subject != value]
         for who, what, because in forward + incoming:
             if who != what and not self.gate.behind(who, predicate, what):
                 self.gate.inferred(who, predicate, what, because)
