@@ -41,6 +41,16 @@ def _load():
     dtype = torch.float16 if _DEVICE in ("mps", "cuda") else torch.float32
     _MODEL = (AutoModelForCausalLM.from_pretrained(path(), dtype=dtype)
               .to(_DEVICE).eval())
+    # LoRA adapter (varsa) uygula — ince-ayarlı DAVRANIŞ (dil/kimlik/tutarlılık).
+    # Bilgi değil davranış; graf hâlâ retrain'siz büyür (condition-3). LMM_NO_LORA=1
+    # ile kapatılır (ham modele dön — A/B karşılaştırma).
+    adapter = os.path.join(_root(), "models/lmm/lora")
+    if os.path.isdir(adapter) and os.environ.get("LMM_NO_LORA") != "1":
+        try:
+            from peft import PeftModel
+            _MODEL = PeftModel.from_pretrained(_MODEL, adapter).eval()
+        except Exception:                                   # noqa: BLE001
+            pass        # peft yok / adapter bozuk → ham modelle devam et
 
 
 def device():
