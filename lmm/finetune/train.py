@@ -38,6 +38,10 @@ def main():
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--device", default=None, help="mps|cuda|cpu (boş=otomatik)")
     ap.add_argument("--max-len", type=int, default=512)
+    ap.add_argument("--mlp", action="store_true",
+                    help="MLP modüllerini de hedefle (A100 — daha çok kapasite)")
+    ap.add_argument("--resume", default=None,
+                    help="checkpoint yolundan devam (disconnect sonrası)")
     args = ap.parse_args()
 
     root = os.path.dirname(os.path.dirname(os.path.dirname(
@@ -61,11 +65,21 @@ def main():
              else torch.float16 if device in ("mps", "cuda") else torch.float32)
     model = AutoModelForCausalLM.from_pretrained(base, dtype=dtype).to(device)
 
+    # A100'de --mlp: attention + MLP (gate/up/down) → çok daha fazla kapasite.
+    # M5'te bayraksız: yalnız attention (hafif).
+    targets = ["q_proj", "k_proj", "v_proj", "o_proj"]
+    if args.mlp:
+        targets += ["gate_proj", "up_proj", "down_proj"]
     lora = LoraConfig(
         r=args.rank, lora_alpha=args.rank * 2, lora_dropout=0.05,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-        task_type="CAUSAL_LM")
+        target_modules=targets, task_type="CAUSAL_LM")
     model = get_peft_model(model, lora)
+    # Gradient checkpointing (uzun dizi + yüksek rank belleği). LoRA ile girdi
+    # gradyanı gerekir; use_cache eğitimde kapalı.
+    if device == "cuda":
+        model.gradient_checkpointing_enable()
+        model.enable_input_require_grads()
+        model.config.use_cache = False
     model.print_trainable_parameters()
 
     rows = load_rows(args.data)
@@ -86,10 +100,15 @@ def main():
         output_dir=args.out, num_train_epochs=args.epochs,
         per_device_train_batch_size=args.batch,
         gradient_accumulation_steps=args.grad_accum,
-        learning_rate=args.lr, logging_steps=10, save_strategy="epoch",
+        learning_rate=args.lr, logging_steps=20,
+        # Zamanlayıcı: warmup + cosine (düz LR'den kararlı/kaliteli).
+        warmup_ratio=0.03, lr_scheduler_type="cosine",
+        # Disconnect'e karşı: her 500 adımda checkpoint, son 2'yi tut (disk).
+        save_strategy="steps", save_steps=500, save_total_limit=2,
+        gradient_checkpointing=(device == "cuda"),
         report_to=[], bf16=bf16, fp16=(device == "cuda" and not bf16))
     Trainer(model=model, args=targs, train_dataset=ds,
-            data_collator=collator).train()
+            data_collator=collator).train(resume_from_checkpoint=args.resume)
     model.save_pretrained(args.out)
     tok.save_pretrained(args.out)
     print(f"LoRA adapter → {args.out}")
