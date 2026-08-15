@@ -55,7 +55,10 @@ def main():
                              else "cuda" if torch.cuda.is_available() else "cpu")
     base = os.path.join("models", "qwen-3b")
     tok = AutoTokenizer.from_pretrained(base)
-    dtype = torch.float16 if device in ("mps", "cuda") else torch.float32
+    # A100/CUDA: bf16 (daha kararlı, A100 native). MPS: fp16. CPU: fp32.
+    bf16 = device == "cuda" and torch.cuda.is_bf16_supported()
+    dtype = (torch.bfloat16 if bf16
+             else torch.float16 if device in ("mps", "cuda") else torch.float32)
     model = AutoModelForCausalLM.from_pretrained(base, dtype=dtype).to(device)
 
     lora = LoraConfig(
@@ -84,7 +87,7 @@ def main():
         per_device_train_batch_size=args.batch,
         gradient_accumulation_steps=args.grad_accum,
         learning_rate=args.lr, logging_steps=10, save_strategy="epoch",
-        report_to=[], fp16=(device == "cuda"))
+        report_to=[], bf16=bf16, fp16=(device == "cuda" and not bf16))
     Trainer(model=model, args=targs, train_dataset=ds,
             data_collator=collator).train()
     model.save_pretrained(args.out)
