@@ -14,8 +14,10 @@ Belleği taşır (`Memory.load/save`), yaşantıyı kaydeder. Uydurmama HER yold
 Mod: STRICT (uydurma 0 — desteksiz olgu düşer) · ASSIST (işaretlenir).
 """
 import os
+import re
 
 from v3 import dynamics
+from v3.dataset import fold
 from v3.gate import Gate
 from v3.memory import Memory, OPERATOR, STRANGER, DOCUMENT
 from lmm import extract, generate, link, research, retrieve, verify
@@ -28,6 +30,19 @@ SLEEP_EVERY = 50   # kaç turda bir uyku (damıt/sol/hakemle) — v3 §117
 CERTAIN = 0.7
 
 BILMIYORUM = "Bunu bilmiyorum."
+
+
+def _grounded_in(value, message):
+    """Öğretilecek DEĞER kullanıcının MESAJINDA gerçekten geçiyor mu — Qwen
+    uydurmadı mı? "söylemediğin şeyi öğretemezsin". Fold + kök eşleşmesi
+    (kuş~kuştur). Bu, extract'ın soruyu ("atom nedir") WRITE sanıp olmayan bir
+    değer ("birleşik") icat edip grafa yazmasını engeller — dil-bağımsız."""
+    want = {fold(w) for w in re.findall(r"\w+", value) if len(w) >= 3}
+    if not want:
+        return True        # kısa/tokensiz değer — engelleme (nadir)
+    have = {fold(w) for w in re.findall(r"\w+", message) if len(w) >= 3}
+    return any(a == b or a.startswith(b) or b.startswith(a)
+               for a in want for b in have)
 
 
 class Session:
@@ -136,6 +151,9 @@ class Session:
         for subject, predicate, value in triples:
             if not value:
                 continue                       # yarım üçlü — yazma
+            if not _grounded_in(value, message):
+                continue     # değer mesajda yok → Qwen uydurdu ("atom nedir"→
+                             # "birleşik"): soruyu WRITE sanma tuzağı, yazma
             sk = link.resolve(self.memory, subject, self.vectors, create=True)
             vk = link.resolve(self.memory, value, self.vectors, create=True)
             if sk is None or vk is None or (sk, vk) in seen:
