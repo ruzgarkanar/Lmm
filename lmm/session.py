@@ -316,35 +316,33 @@ class Session:
         # associative=False: cevap YALNIZ doğrudan olgulardan kurulur (kenar-
         # denetimiyle uyum — bkz. retrieve.gather / verify._has_edge).
         records = retrieve.gather(self.memory, subject, associative=False)
+        # GERÇEK BOŞLUK (gaps sinyali) — grafta bu özne hakkında HİÇ olgu YOKSA,
+        # araştırmayı ÜRETİMDEN ÖNCE teklif et. Böylece modelin nazik "bilmiyorum"u
+        # (verify'ı geçip safe'i doldurur) teklifi ENGELLEMEZ (Bug #2). Boşluk =
+        # merak = araştır. Olgu varken buraya girilmez → bildiğini araştırmaya
+        # kaçmaz.
+        if not records:
+            if subject_label:
+                self._pending = (subject_label, question)   # önce-sor
+                offer = generate.offer_research(subject_label, question)
+                return offer or generate.refusal(question) or BILMIYORUM
+            return generate.refusal(question) or BILMIYORUM
+        # Olgu VAR → grounded cevap + çıkış kapısı
         block = retrieve.facts_block(self.memory, records)
         raw = generate.answer(question, block)
         allowed = verify.allowed_of(self.memory, records)
         safe = verify.verify(self.memory, raw, allowed, self.mode, anchor="edge")
         if not safe:
-            # MİMARİ AYRIM (gaps sinyaliyle aynı): araştırma teklifi YALNIZ gerçek
-            # BOŞLUKTA — grafta bu özne hakkında HİÇ olgu yoksa. Olgu VARSA ama
-            # üretim tökezlediyse bu boşluk değil ÜRETİM hatası: bir kez yeniden
-            # dene (MPS/örnekleme oynaklığı), yine düşerse bildiğini "araştırayım
-            # mı" diye SORMAZ, güvenli reddeder. ("aslan nedir"i bildiği halde
-            # teklif etmesi buydu — kaçış kapatıldı.)
-            if records:
-                safe = verify.verify(self.memory,
-                                     generate.answer(question, block),
-                                     allowed, self.mode, anchor="edge")
-                if not safe:
-                    return generate.refusal(question) or BILMIYORUM
-            elif subject_label:
-                self._pending = (subject_label, question)   # boşluk → önce-sor
-                offer = generate.offer_research(subject_label, question)
-                return offer or generate.refusal(question) or BILMIYORUM
-            else:
+            # olgu var ama üretim tökezledi (MPS/örnekleme) → bir kez yeniden dene;
+            # yine düşerse bildiğini "araştırayım mı" diye SORMAZ, güvenli reddeder.
+            safe = verify.verify(self.memory, generate.answer(question, block),
+                                 allowed, self.mode, anchor="edge")
+            if not safe:
                 return generate.refusal(question) or BILMIYORUM
-        # KAYNAK-GÜVEN (en sıkı): cevabı temellendiren en zayıf olgu CERTAIN
-        # altındaysa kesinlik düşür + kaynağı belirt. Operatör olguları etiketsiz.
-        if records:
-            weakest = min(records, key=lambda r: r.trust)
-            if weakest.trust < CERTAIN:
-                safe = self._hedge(safe, weakest, question) or safe
+        # KAYNAK-GÜVEN (en sıkı): en zayıf olgu CERTAIN altındaysa kaynak+çekince.
+        weakest = min(records, key=lambda r: r.trust)
+        if weakest.trust < CERTAIN:
+            safe = self._hedge(safe, weakest, question) or safe
         return safe
 
     def _hedge(self, answer, record, message):
