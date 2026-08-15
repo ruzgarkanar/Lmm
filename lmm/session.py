@@ -130,13 +130,43 @@ class Session:
                 # Boş yazım (yanlış WRITE sınıflaması / değersiz üçlü — ör. "X
                 # nedir" yanlışlıkla WRITE geldi): uydurma yerine SORU gibi ele
                 # al → getir/reddet. Düşer.
+            subject = op["triples"][0][0] if op["triples"] else None
+            subject_key = (link.resolve(self.memory, subject, self.vectors)
+                           if subject else None)
+            # KİMLİK ROUTE (mimari köprü): özne ÇÖZÜLEMİYORSA (CHAT ya da "seni
+            # kim yaptı" gibi extract'ın "sen"i çözemediği durum) bu bir KİMLİK
+            # sorusu mu — deterministik sınıflandır. Öyleyse extract'ın kumarını
+            # ATLA, kimlik olgusunu _lmm_key'den GARANTİ getiren yola sok. Yalnız
+            # özne-çözülemeyende çağrılır (net "kartal nedir"de ekstra çağrı yok).
+            if subject_key is None:
+                try:
+                    if generate.is_identity_question(message):
+                        return self._identity_reply(message)
+                except Exception:                           # noqa: BLE001
+                    pass
             if op["kind"] in (extract.WRITE, extract.ASK):
-                # ASK ama özne çıkmadıysa: boş özneyle dene → BILMIYORUM'a düşer
-                subject = op["triples"][0][0] if op["triples"] else None
                 return self._answer(message, subject)
             return self._chat(message)
         except Exception:                                   # noqa: BLE001
             return BILMIYORUM
+
+    # --- kimlik (deterministik route) ----------------------------------
+    def _identity_reply(self, message):
+        """KİMLİK sorusunu deterministik cevapla. Kök sebep (denetim): kimlik
+        sorusu extract'ta ASK olup 'sen' çözülemeyince olgu HİÇ getirilmiyordu.
+        Burada olguyu _lmm_key'den GARANTİ getir; adı + olguları identity_answer'a
+        ver; verify anchor='value' (özne öz-referans zamir → None; edge yolu
+        kimliği düşürürdü, nesne 'rüzgar' allowed'da çapa)."""
+        id_records = retrieve.gather(self.memory, self._lmm_key)
+        id_block = "\n".join(
+            f"{link.label_of(self.memory, r.subject)} "
+            f"{link.label_of(self.memory, r.predicate)} → "
+            f"{link.label_of(self.memory, r.value)}" for r in id_records)
+        name = link.label_of(self.memory, self._lmm_key)
+        raw = generate.identity_answer(message, name, id_block)
+        safe = verify.verify(self.memory, raw, self._identity, self.mode,
+                             anchor="value", edges=verify.edges_of(id_records))
+        return safe or generate.refusal(message) or BILMIYORUM
 
     # --- yazma ---------------------------------------------------------
     def _write(self, triples, message):
@@ -302,24 +332,17 @@ class Session:
         desteksiz bulup düşürürse HAM (denetimsiz) çıktı dönüyordu, kapı komple
         atlanıyordu. Artık boşsa güvenli tarafa düşer, ham uydurma dönmez.
         """
-        # KİMLİK olgularını graftan getir ve üretime ENJEKTE et — böylece
-        # "seni kim yaptı" personaya değil grafa dayanır (dil-bağımsız).
-        # Kimlik bloğu YÜKLEMLİ kurulur: facts_block yüklemi (üretici) gizler,
-        # model ilişkiyi bilmeden "lmm → rüzgar" görüp "kim yaptı"yı yanıtlayamaz.
         id_records = retrieve.gather(self.memory, self._lmm_key)
+        # KİMLİK bloğu YÜKLEMLİ (üretici gizlenmesin) — "kim yaptı" yanıtlanabilsin.
         id_block = "\n".join(
             f"{link.label_of(self.memory, r.subject)} "
             f"{link.label_of(self.memory, r.predicate)} → "
             f"{link.label_of(self.memory, r.value)}" for r in id_records)
-        raw = generate.chat(message, id_block)
-        # Sohbette allowed = yalnız KİMLİK olguları (lmm/rüzgar/self). Böylece
-        # "ben LMM'im, beni Rüzgar yaptı" gibi kimlik cümlesi geçer ama DIŞ
-        # dünya olgu iddiası (grafta yoksa) yine düşer — uydurma sızmaz.
-        # anchor="value": kimlik cevabında özne öz-referanslı zamir (ben/beni),
-        # güvenilir çözülemez; iddia edilen NESNE'nin (rüzgar) allowed'da olması
-        # yeter. Özne gerçek düğüme çözülürse kenar/izin aranır → "Python'u Rüzgar
-        # yazdı" düşer. Dış uydurma (Google) yine bloklanır. Bkz. verify.verify.
         id_edges = verify.edges_of(id_records)
+        raw = generate.chat(message, id_block)
+        # Sohbette allowed = yalnız KİMLİK olguları. anchor="value": özne öz-
+        # referanslı zamir (ben/beni) çözülemez, NESNE'nin (rüzgar) izinli olması
+        # yeter; dış uydurma (Google) yine düşer. Bkz. verify.verify.
         safe = verify.verify(self.memory, raw, self._identity, self.mode,
                              anchor="value", edges=id_edges)
         return safe or generate.refusal(message) or BILMIYORUM

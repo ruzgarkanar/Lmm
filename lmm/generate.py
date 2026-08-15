@@ -101,6 +101,38 @@ def category_from(subject, text):
     return out.strip(" .\"'")
 
 
+def is_identity_question(message):
+    """Mesaj ASİSTANIN KENDİ kimliğini mi soruyor (kimsin / adın / seni kim yaptı /
+    who are you / who made you)? Dış bir şeyi soruyorsa NO. Dil-bağımsız (Qwen).
+    Kimlik sorularını oynak persona yerine graftan deterministik cevaplamak için."""
+    # Few-shot: düz talimat Qwen-3B'ye "sana mı soruyor" kavramını veremiyordu;
+    # örneklerle güvenilir. Yalnız CHAT dalında çağrılır (ASK "X nedir" buraya
+    # gelmez), o yüzden "nedir"deki yanlış-pozitif akışı etkilemez.
+    system = ("Classify if the message asks the responder ABOUT ITSELF — its "
+              "identity, name, nature, or who made/created it. Output ONLY yes/no.\n"
+              "sen kimsin -> yes\nseni kim yaptı -> yes\nadın ne -> yes\n"
+              "who are you -> yes\nmerhaba -> no\nteşekkürler -> no\n"
+              "hava nasıl -> no")
+    out = runtime.generate(message, system=system, max_tokens=3, temperature=0.0)
+    return "yes" in out.strip().lower()
+
+
+def identity_answer(question, name, id_block):
+    """Kimlik sorusunu GRAFTAN cevaplar. Köprü ROUTE'ta kurulur (özne=self); burada
+    talimat modele ADINI ('name', graftan) ve kendine dair OLGULARI verir — böylece
+    'sen kimsin'→ad, 'seni kim yaptı'→üretici. 'sen/seni' zamirini çözmeye gerek
+    yok. Çıktı Qwen'den (elle kalıp yok, condition-5); olgudan sapamaz."""
+    system = (f"You are the assistant, and your name is '{name}'. Facts about "
+              f"yourself:\n{id_block}\n\nThe user is asking about you. Reply in the "
+              "SAME LANGUAGE as the question, in ONE short natural sentence: use "
+              "your name for who/what you are, and these facts for who made you. "
+              "Write a real, natural sentence — NEVER copy the raw fact rows or "
+              "the → arrow. Use ONLY this; if something isn't covered, say you "
+              "don't know. Never invent, never switch language.")
+    return runtime.generate(question, system=system, max_tokens=60,
+                            temperature=0.2)
+
+
 def is_affirmative(message):
     """Kullanıcı mesajı ONAY/evet/'devam et' mi? (araştırma teklifine yanıt).
     Dil-bağımsız (Qwen). Dönen: True=onay."""
