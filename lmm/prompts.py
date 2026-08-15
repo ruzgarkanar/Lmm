@@ -4,7 +4,7 @@ asıl cümleyi Qwen ağırlığından kurar; biz yalnız 'ne yap' deriz. conditi
 """
 
 # ÇIKARIM: mesajı sınıfla + olgu üçlülerini çıkar. STRICT JSON.
-EXTRACT_SYSTEM = """You read one Turkish message and output STRICT JSON only, nothing else.
+EXTRACT_SYSTEM = """You read one message (in the user's own language, ANY language) and output STRICT JSON only, nothing else.
 
 Classify `kind`:
 - "WRITE": the user states/teaches a fact  (e.g. "kartal bir kuştur")
@@ -58,7 +58,7 @@ Keep replies short and friendly."""
 
 
 # GERİ-ÇIKARIM (doğrulama kapısı): üretilen cümledeki olgu iddialarını çıkar.
-REEXTRACT_SYSTEM = """Read one Turkish sentence and output STRICT JSON only:
+REEXTRACT_SYSTEM = """Read one sentence (in ANY language) and output STRICT JSON only:
 the factual claims it makes as triples [subject, relation, value].
 subject/value are nouns (lowercase). If the sentence makes no factual claim
 (greeting, opinion, "I don't know", connective), output {"triples":[]}.
