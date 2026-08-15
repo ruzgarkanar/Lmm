@@ -119,6 +119,7 @@ class Speaker:
         found = []
         for at in range(count):
             ids = [self.letters.get(ch, 0) for ch in prompt]
+            start = len(ids)
             made = []
             with torch.no_grad():
                 for step in range(LONGEST):
@@ -126,16 +127,20 @@ class Speaker:
                     mask = torch.nn.Transformer.generate_square_subsequent_mask(
                         window.shape[1])
                     logits = self.model(window, mask)[0, -1]
-                    # İlk aday en olası yolu izler; sonrakiler ısıtılır ki
-                    # gerçekten FARKLI adaylar çıksın, aynı cümlenin dört
-                    # kopyası değil.
-                    heat = 0.0 if at == 0 else warmth
-                    if heat:
-                        logits = logits / heat
-                        pick = int(torch.multinomial(
-                            torch.softmax(logits, dim=-1), 1))
-                    else:
-                        pick = int(logits.argmax())
+                    # DÖNGÜ ENGELİ (no-repeat n-gram): üretilen kısımda son n-1
+                    # harfle başlayan bir n-gram DAHA ÖNCE geçtiyse, onu
+                    # tamamlayacak harfi yasakla. Az eğitilmiş ağ açgözlü
+                    # üretimde "bir kaç tane bir kaç tane" gibi kilitleniyordu;
+                    # bu, model hatası değil çözümleme hatası — burada kırılır.
+                    for ban in self._loops(ids, start):
+                        logits[ban] = float("-inf")
+                    # İlk aday az ısıtılır (kararlı), sonrakiler çeşitlensin.
+                    heat = 0.5 if at == 0 else max(warmth, 0.6)
+                    probs = torch.softmax(logits / heat, dim=-1)
+                    # TOP-P (çekirdek örnekleme): olasılığı toplam p'yi geçen en
+                    # küçük kümeden seç. Greedy'nin döngüsünü de, düz ısıtmanın
+                    # gürültü kuyruğunu da atlar — akıcı ama takılmayan üretim.
+                    pick = self._nucleus(probs, 0.92)
                     if self.stop is not None and pick == self.stop:
                         break
                     ids.append(pick)
@@ -144,6 +149,34 @@ class Speaker:
             if text and text not in found:
                 found.append(text)
         return found
+
+    def _loops(self, ids, start, size=10):
+        """Üretilen dizide son (size-1) harfle başlayan bir n-gram tekrar
+        ediyorsa, onu tamamlayacak harfleri döndürür — birebir döngü engeli.
+        Yalnız ÜRETİLEN kısma bakar (girdi/prompt sayılmaz)."""
+        made = ids[start:]
+        if len(made) < size:
+            return set()
+        prefix = made[-(size - 1):]
+        banned = set()
+        for at in range(len(made) - (size - 1)):
+            if made[at:at + size - 1] == prefix:
+                banned.add(made[at + size - 1])
+        return banned
+
+    def _nucleus(self, probs, p):
+        """Çekirdek (top-p) örnekleme: en olasıdan başlayıp toplam olasılık
+        p'yi geçene dek biriktir, o kümeden örnekle."""
+        torch = self.torch
+        order = torch.argsort(probs, descending=True)
+        keep, cum = [], 0.0
+        for idx in order.tolist():
+            keep.append(idx)
+            cum += float(probs[idx])
+            if cum >= p:
+                break
+        weights = torch.tensor([float(probs[i]) for i in keep])
+        return keep[int(torch.multinomial(weights, 1))]
 
 
 def prompt_of(records, memory):
@@ -164,6 +197,10 @@ def prompt_of(records, memory):
 
 def _label(memory, key):
     """Kimlik anahtarından ilk etikete. Kimlik değilse değerin kendisi."""
+    # None yüklem "None" değil BOŞ olmalı: ağın girdisine "kalp\tNone\t..."
+    # gibi çöp girip çıktıya "none" sızıyordu (ölçüldü).
+    if key is None:
+        return ""
     held = memory.identities.get(key) if isinstance(key, int) else None
     if held is not None and held.labels:
         return held.labels[0]

@@ -107,7 +107,13 @@ class Gate:
         olması bu mimarinin ayırt edici yanıdır.
         """
         for held in self.memory.about(subject, touch=False):
-            if held.predicate == predicate and held.value == value:
+            # Yüklem None ise JOKER: değer eşleşmesi yeter. Sebep ölçüldü —
+            # okuyucu yüklemi cümlelerin ~%0,5'inde çıkarıyor; yüklem eşleşmesi
+            # zorunlu tutulunca özneli+değerli ama yüklemsiz doğal cümleler
+            # (kayıtları da yüklemsiz saklanır) desteksiz sayılıp düşüyordu.
+            # Özne+değer eşleşmesi uydurma engeli için zaten yeterli.
+            if held.value == value and (predicate is None
+                                        or held.predicate == predicate):
                 return held
         return None
 

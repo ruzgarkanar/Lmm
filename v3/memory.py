@@ -278,8 +278,13 @@ class Memory:
     @staticmethod
     def trust_of(level):
         """BASAMAKTAN başlangıç güveni. Şeritler örtüşmez."""
+        # INFERRED, SPEAK(0.4) eşiğinin ALTINDA: çıkarılmış (belki kırılgan
+        # zincirden) kayıt grafta durur ve "ne çıkardın" sorusuna işaretli
+        # gösterilir, ama olgu gibi SÖYLENMEZ. Denetim yakaladı — 0.45 iken
+        # kapıyı geçip kesin olgu gibi konuşuluyordu (kaynağı #inference
+        # kaybolarak). Gözlemle bağımsızca pekişirse trust yükselir ve söylenir.
         return {OPERATOR: 0.75, DOCUMENT: 0.6, DISTILLED: 0.5,
-                INFERRED: 0.45, STRANGER: 0.3}.get(level, 0.3)
+                INFERRED: 0.35, STRANGER: 0.3}.get(level, 0.3)
 
     # --- yaşantı --------------------------------------------------------
 

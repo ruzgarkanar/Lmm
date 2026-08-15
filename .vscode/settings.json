@@ -1,0 +1,21 @@
+{
+  "//": "Büyük veri/model klasörleri VS Code'un dosya-izleyici, arama ve Python analizinden ÇIKARILDI. data/ 43GB — bunu izlemek/indekslemek makineyi kasıyordu. Klasörler Explorer'da görünmeye devam eder, sadece arka planda taranmaz.",
+  "files.watcherExclude": {
+    "**/data/**": true,
+    "**/models/**": true,
+    "**/logs/**": true,
+    "**/.collab/**": true,
+    "**/__pycache__/**": true
+  },
+  "search.exclude": {
+    "**/data": true,
+    "**/models": true,
+    "**/logs": true,
+    "**/__pycache__": true
+  },
+  "python.analysis.exclude": [
+    "**/data/**",
+    "**/models/**",
+    "**/logs/**"
+  ]
+}
