@@ -111,8 +111,24 @@ def _refusal_rows(limit):
     return rows
 
 
-def _identity_rows():
-    """Kimlik olgusu graftan tohumlanır; birkaç kimlik sorusu öz-damıtılır."""
+# Kimlik soruları — ÇOK DİLLİ, ÇOK BİÇİMLİ. Kimlik gibi spesifik davranış az
+# örnekle oturmaz; geniş tut. Elle CEVAP değil, elle SORU listesi (kullanıcı
+# girdisi) — hedefi yine Qwen üretir (condition-5: cevap kalıbı yok).
+_IDENTITY_Q = [
+    "sen kimsin", "kimsin sen", "sen nesin", "adın ne", "kendini tanıt",
+    "sen kimsin?", "senin adın ne",
+    "seni kim yaptı", "seni kim üretti", "seni kim geliştirdi", "üreticin kim",
+    "kim yarattı seni", "seni kim yazdı", "seni kim yaptı?", "yapımcın kim",
+    "who are you", "what are you", "who made you", "who created you",
+    "who built you", "what is your name",
+    "wer bist du", "wer hat dich gemacht",
+]
+
+
+def _identity_rows(samples=2):
+    """Kimlik: graftan tohumla, SORULARI Qwen'e sor, yalnız DOĞRU cevapları hasat
+    et (üreticiyi/kimliği söyleyen; 'bilmiyorum' ya da yanlış olanları at). Böylece
+    az-ama-temiz kimlik verisi çıkar — 'seni kim yaptı' tutarlılığını bu çözer."""
     m = Memory()
     m.self_key = m.identify("#self")
     gate = Gate(m)
@@ -125,15 +141,21 @@ def _identity_rows():
                     f"{link.label_of(m, r.predicate)} → "
                     f"{link.label_of(m, r.value)}" for r in recs)
     rows = []
-    for q in ["sen kimsin", "seni kim yaptı", "who made you", "seni kim üretti"]:
-        target = generate.chat(q, idb)
-        if not _no_cjk(target):                         # CJK sızıntısını at
-            continue
-        rows.append({"messages": [
-            {"role": "system", "content": prompts.CHAT_SYSTEM},
-            {"role": "user", "content": q},
-            {"role": "assistant", "content": target},
-        ]})
+    for q in _IDENTITY_Q:
+        for _ in range(samples):
+            target = generate.chat(q, idb)
+            if not _no_cjk(target):
+                continue
+            low = target.lower()
+            # DOĞRULUK filtresi: cevap üreticiyi (rüzgar) ya da kimliği (lmm)
+            # anmalı — yoksa 'bilmiyorum'/yanlış, eğitime girmesin.
+            if "rüzgar" not in low and "lmm" not in low:
+                continue
+            rows.append({"messages": [
+                {"role": "system", "content": prompts.CHAT_SYSTEM},
+                {"role": "user", "content": q},
+                {"role": "assistant", "content": target},
+            ]})
     return rows
 
 
