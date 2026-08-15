@@ -29,6 +29,29 @@ import argparse
 import json
 import os
 import random
+import re
+
+# DİL FİLTRESİ: self-distillation, sistemin şu anki OYNAK çıktılarını da yakalar
+# (Çince/İngilizce sızıntı). Bu örnekleri eğitim verisinden ATARIZ ki LoRA temiz
+# hedef-dil davranışını öğrensin. Bu bir VERİ TEMİZLİĞİ süzgeci — çalışma-zamanı
+# dil üretimi değil (condition-5 ihlali değil).
+_CJK = re.compile(r"[　-鿿가-힯぀-ヿ]")
+_EN = re.compile(r"\b(the|and|is|are|was|were|of|to|this|that|with|not|for|"
+                 r"you|your|according|source)\b", re.I)
+
+
+def _tr_ok(text):
+    """Türkçe-girdi hedefi temiz mi (Çince yok, ağır İngilizce sızıntı yok)."""
+    if not text or not text.strip():
+        return False
+    if _CJK.search(text):
+        return False
+    return len(_EN.findall(text)) < 2
+
+
+def _no_cjk(text):
+    """Kimlik satırları TR ya da EN olabilir — yalnız CJK sızıntısını ele."""
+    return bool(text and text.strip()) and not _CJK.search(text)
 
 from lmm import prompts, retrieve, link, generate
 from v3.memory import Memory, OPERATOR
@@ -52,7 +75,7 @@ def _grounding_rows(limit):
         block = f"[1] {kavram.lower()} → {hedef.lower()}"
         question = f"{kavram} nedir"
         target = generate.answer(question, block)      # ÖZ-DAMITIM (Qwen üretir)
-        if not target.strip():
+        if not _tr_ok(target):                          # DİL FİLTRESİ
             continue
         rows.append({"messages": [
             {"role": "system", "content": prompts.ANSWER_SYSTEM},
@@ -76,7 +99,7 @@ def _refusal_rows(limit):
             continue
         question = f"{kavram} nedir"
         target = generate.refusal(question)
-        if not target.strip():
+        if not _tr_ok(target):                          # DİL FİLTRESİ
             continue
         rows.append({"messages": [
             {"role": "system", "content": prompts.ANSWER_SYSTEM},
@@ -104,6 +127,8 @@ def _identity_rows():
     rows = []
     for q in ["sen kimsin", "seni kim yaptı", "who made you", "seni kim üretti"]:
         target = generate.chat(q, idb)
+        if not _no_cjk(target):                         # CJK sızıntısını at
+            continue
         rows.append({"messages": [
             {"role": "system", "content": prompts.CHAT_SYSTEM},
             {"role": "user", "content": q},
