@@ -88,6 +88,19 @@ def hedge_note(source_label, message):
     return runtime.generate(message, system=system, max_tokens=32, temperature=0.3)
 
 
+def category_from(subject, text):
+    """Metinden `subject`'in NE OLDUĞUNU TEK sade kavramla (isim) çıkarır —
+    araştırma olgusu için. Latin/teknik terim değil, günlük kategori ister
+    (Wikipedia ilk cümlesi taksonomi karmaşasıyla dolu; onu değil özü al)."""
+    system = (f"From the text, what kind of thing is '{subject}'? Reply with ONE "
+              "short everyday common-noun category, a single word. Use the SAME "
+              "LANGUAGE as the text (do not translate to English). Not a "
+              "latin/scientific name, not a sentence — just the one noun.")
+    out = runtime.generate(text[:400], system=system, max_tokens=12,
+                           temperature=0.0).strip()
+    return out.strip(" .\"'")
+
+
 def is_affirmative(message):
     """Kullanıcı mesajı ONAY/evet/'devam et' mi? (araştırma teklifine yanıt).
     Dil-bağımsız (Qwen). Dönen: True=onay."""
