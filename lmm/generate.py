@@ -109,10 +109,12 @@ def is_identity_question(message):
     # örneklerle güvenilir. Yalnız CHAT dalında çağrılır (ASK "X nedir" buraya
     # gelmez), o yüzden "nedir"deki yanlış-pozitif akışı etkilemez.
     system = ("Classify if the message asks the responder ABOUT ITSELF — its "
-              "identity, name, nature, or who made/created it. Output ONLY yes/no.\n"
+              "identity, name, nature, or who made/created it. A question about "
+              "some OTHER thing ('what is X') is NO. Output ONLY yes/no.\n"
               "sen kimsin -> yes\nseni kim yaptı -> yes\nadın ne -> yes\n"
-              "who are you -> yes\nmerhaba -> no\nteşekkürler -> no\n"
-              "hava nasıl -> no")
+              "who are you -> yes\nwho made you -> yes\n"
+              "kartal nedir -> no\npangolin nedir -> no\nwhat is a dog -> no\n"
+              "merhaba -> no\nteşekkürler -> no\nhava nasıl -> no")
     out = runtime.generate(message, system=system, max_tokens=3, temperature=0.0)
     return "yes" in out.strip().lower()
 
