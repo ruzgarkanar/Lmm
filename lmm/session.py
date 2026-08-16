@@ -421,7 +421,7 @@ class Session:
         return said or "OK"
 
     # --- doküman yutma (RAG'siz öğrenme) --------------------------------
-    def learn_text(self, text, source="#document"):
+    def learn_text(self, text, source="#document", deep=True):
         """Bir METNİ (doküman/paragraf) grafa yut — embed/chunk-RAG'in yerine.
 
         RAG metni saklayıp sorguda benzerlikle PARÇA arar; LMM metni bir kez
@@ -475,6 +475,14 @@ class Session:
                             self.evidence.add(f"{header} — {row}" if i else row,
                                               source)
                 run = []
+
+        # ANINDA-HAZIR modu (deep=False): yalnız kanıt katmanı — model çağrısı
+        # SIFIR, 500 sayfa bile saniyeler içinde SORGULANABİLİR olur (cevaplar
+        # kanıt yolundan, kapsama+destek kapılarıyla). Graf çıkarımı sonra
+        # deep=True ile / uyku-konsolidasyonunda tamamlanır: "önce oku-hazır ol,
+        # sindirmeyi arkada yap" — beyindeki hızlı/yavaş öğrenmenin aynısı.
+        if not deep:
+            return 0, 0
 
         def _read(sent):
             """Bir cümlenin SAF-OKUMA aşaması (model çağrıları; graf'a dokunmaz
@@ -542,6 +550,55 @@ class Session:
             self.memory.lived(f"document:{source}:{wrote}", outcome=1.0,
                               about=[self.memory.self_key])
         return wrote, skipped
+
+    # --- yapılandırılmış yutma (tablo — extractor'SIZ) ------------------
+    def learn_cell(self, subject_label, predicate_label, value_label, source):
+        """TEK yapısal olgu — model çağrısı YOK, yine KAPIDAN. Tablo hücresi /
+        'Anahtar: Değer' üstbilgisi gibi zaten-yapılı verinin tek giriş yolu.
+        Dönen: yazılan kayıt sayısı (0|1)."""
+        sk = link.resolve(self.memory, subject_label, self.vectors, create=True)
+        vk = link.resolve(self.memory, value_label, self.vectors, create=True)
+        if sk is None or vk is None or sk == vk:
+            return 0
+        pk = (link.resolve(self.memory, predicate_label, self.vectors,
+                           create=True) if predicate_label else None)
+        record, _ = self.gate.admit(sk, pk, vk, source, DOCUMENT)
+        if record is None:
+            return 0
+        self._learn_transitive(pk)
+        if pk in self.memory.transitive:
+            self._derive(sk, pk, vk)
+        return 1
+
+    def learn_rows(self, rows, source="#table"):
+        """Tablo satırları → graf, extractor'SIZ (Excel dersinin kalıcı hali):
+        satır=varlık, sütun=yüklem, hücre=değer. Model çağrısı YOK →
+        deterministik ve ms; 500 sayfalık tablo saniyeler. Her üçlü yine
+        kapıdan (DOCUMENT güveni). Satır cümlesi kanıta da yazılır; satırın en
+        bilgi-yoğun hücresi satır-düğümüne ALIAS olur ki soru onu doğal adıyla
+        ("yangın ekipmanı tespiti...") bulabilsin. rows: [{sütun: değer}]."""
+        wrote = 0
+        for row in rows:
+            cells = [(str(k).strip(), str(v).strip()) for k, v in row.items()
+                     if str(v).strip()]
+            if not cells:
+                continue
+            self.evidence.add(" · ".join(f"{k}: {v}" if k else v
+                                         for k, v in cells), source)
+            anchor = cells[0][1]
+            sk = link.resolve(self.memory, anchor, self.vectors, create=True)
+            if sk is None:
+                continue
+            rich = max((kv for kv in cells[1:]), default=None,
+                       key=lambda kv: len(kv[1]))
+            if rich and len(rich[1]) >= 8:
+                self.memory.identify(fold(rich[1]), same_as=sk)
+            for col, val in cells[1:]:
+                wrote += self.learn_cell(anchor, col, val, source)
+        if wrote:
+            self.memory.lived(f"table:{source}:{wrote}", outcome=1.0,
+                              about=[self.memory.self_key])
+        return wrote
 
     # --- türetme (geçişli akıl — v3'ten) -------------------------------
     def _learn_transitive(self, predicate):
