@@ -29,6 +29,8 @@ def main():
                   if r.source == "#inference")
     print(f"ingest: {wrote} olgu, {skipped} atlandı, {derived} türetildi, "
           f"{ingest_ms}ms", flush=True)
+    for sent in getattr(s, "unread", []):
+        print(f"  ⚠ öğrenilemedi: {sent}", flush=True)
 
     questions = json.load(open(os.path.join(ROOT, "bench", "sorular.json"),
                                encoding="utf-8"))
