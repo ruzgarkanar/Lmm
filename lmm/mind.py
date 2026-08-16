@@ -16,6 +16,7 @@ Yavaş-dış araştırma + guardrail'lar (bütçe, #auto damgası, frontier dond
 tartışılıp eklenecek.
 """
 from v3 import dynamics
+from v3.gate import SPEAK
 from v3.memory import DOCUMENT
 from lmm import generate, link
 from lmm import research as web
@@ -86,11 +87,25 @@ class Mind:
 
     # --- yarı-otonom: merakını YÜZEYE çıkar, onayla doldur ------------
     def wonder(self, most=3):
-        """ms-loop doygunlaştıktan sonra mind'ın DOLDURAMADIĞI en büyük boşluklar
-        — 'araştırmak istediklerim'. Web'e DOKUNMAZ, yalnız öneri döner. Semi-
-        otonom güvenlik: döngü kendi başına web'e çıkmaz; insan onaylar (guardrail).
-        curiosity() zaten yüklem/self düğümlerini süzüyor."""
-        return self.session.curiosity(most=most)
+        """En DEĞERLİ merak: ÇOK atıfta bulunulan ama TANIMSIZ kavramlar — "bunu
+        sürekli kullanıyorum ama kendisini bilmiyorum" (ör. hayvan: aslan→hayvan,
+        kaplan→hayvan der ama hayvan NEDİR bilmez). Öncelik = atıf sayısı (by_value
+        in-derece) × tanımsızlık. Böylece yaprak-değil, GERÇEKTEN kullanılan boşluk
+        öne gelir. Web'e DOKUNMAZ — yalnız öneri; insan onaylar (semi-otonom)."""
+        scored = []
+        for key in self.memory.identities:
+            if key in self.session._identity:
+                continue
+            # tanımlı mı: bu kavram HAKKINDA (özne olarak) SPEAK-üstü olgu var mı
+            if any(self.memory.records[k].trust >= SPEAK
+                   for k in self.memory.by_subject.get(key, ())):
+                continue                    # tanımlı → merak değil
+            refs = len(self.memory.by_value.get(key, ()))   # kaç kez kullanılıyor
+            label = link.label_of(self.memory, key)
+            if label and refs > 0:          # en az bir atıf → anlamlı boşluk
+                scored.append((refs, label))
+        scored.sort(reverse=True)
+        return [label for _refs, label in scored[:most]]
 
     def research(self, subject_label):
         """İNSAN ONAYIYLA bir boşluğu web'den doldur — INGEST-ONLY, otonom-güvenli:
