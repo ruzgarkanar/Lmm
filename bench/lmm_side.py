@@ -20,7 +20,7 @@ def main():
     from lmm.session import Session
     from lmm.mind import Mind
 
-    corpus = open(sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "bench", "korpus.txt"),
+    corpus = open(sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "bench", "corpus.txt"),
                   encoding="utf-8").read()
     s = Session(None)               # fresh memory — no disk writes
     m = Mind(s)
@@ -35,7 +35,7 @@ def main():
     for sent in getattr(s, "unread", []):
         print(f"  ⚠ not learned: {sent}", flush=True)
 
-    questions = json.load(open(sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "bench", "sorular.json"),
+    questions = json.load(open(sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "bench", "questions.json"),
                                encoding="utf-8"))
     results = []
     for q in questions:
@@ -45,7 +45,7 @@ def main():
         results.append({"soru": q["soru"], "cevap": said, "ms": ms})
         print(f"> {q['soru']}\n  {said}   ({ms}ms)", flush=True)
 
-    out = sys.argv[3] if len(sys.argv) > 3 else os.path.join(ROOT, "bench", "sonuc_lmm.json")
+    out = sys.argv[3] if len(sys.argv) > 3 else os.path.join(ROOT, "bench", "result_lmm.json")
     json.dump({"ingest_ms": ingest_ms, "yazilan": wrote, "atlanan": skipped,
                "turetilen": derived, "cevaplar": results},
               open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)

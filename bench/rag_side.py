@@ -46,7 +46,7 @@ def main():
             return self.m.encode([text], normalize_embeddings=True)[0].tolist()
 
     import sys
-    corpus = open(sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "bench", "korpus.txt"),
+    corpus = open(sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "bench", "corpus.txt"),
                   encoding="utf-8").read()
     t0 = time.time()
     chunks = RecursiveCharacterTextSplitter(
@@ -62,7 +62,7 @@ def main():
         azure_deployment=os.environ["AZURE_OPENAI_DEPLOYMENT"],
         temperature=0)
 
-    questions = json.load(open(sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "bench", "sorular.json"),
+    questions = json.load(open(sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "bench", "questions.json"),
                                encoding="utf-8"))
     results = []
     for q in questions:
@@ -79,7 +79,7 @@ def main():
         results.append({"soru": q["soru"], "cevap": msg.content, "ms": ms})
         print(f"> {q['soru']}\n  {msg.content}   ({ms}ms)", flush=True)
 
-    out = sys.argv[3] if len(sys.argv) > 3 else os.path.join(ROOT, "bench", "sonuc_rag.json")
+    out = sys.argv[3] if len(sys.argv) > 3 else os.path.join(ROOT, "bench", "result_rag.json")
     json.dump({"ingest_ms": ingest_ms, "cevaplar": results},
               open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(f"→ {out}", flush=True)

@@ -1,7 +1,7 @@
 """LMM chat — interactive. Qwen (language) + graph/gate (truth & growth).
 
 Usage:
-    python3.11 -m lmm.chat            # memory: models/lmm/hafiza.lmm
+    python3.11 -m lmm.chat            # memory: models/lmm/memory.lmm
 
 Every turn is logged (logs/lmm-<time>.jsonl): input · answer · the operation
 the reader saw · duration. Memory is saved on exit — carried into the next
@@ -20,7 +20,10 @@ def main():
 
     from lmm.session import Session
 
-    memory_path = os.path.join("models", "lmm", "hafiza.lmm")
+    memory_path = os.path.join("models", "lmm", "memory.lmm")
+    legacy = os.path.join("models", "lmm", "hafiza.lmm")
+    if not os.path.exists(memory_path) and os.path.exists(legacy):
+        memory_path = legacy            # backward compat: old Turkish default
     stamp = time.strftime("%Y%m%d-%H%M%S")
     log_path = os.path.join("logs", f"lmm-{stamp}.jsonl")
 
