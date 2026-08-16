@@ -142,6 +142,50 @@ class Session:
                                     source or self.who, self.level)
         return record is not None
 
+    def _learn_causal(self, message):
+        """Nedensel cümleyi yakala → learn_cause. is_causal (Qwen, YÖNLÜ few-shot)
+        + _grounded_in (iki varlık da mesajda mı — uydurma varlık engeli). Değilse
+        None → normal is-a yazımına düşer. DÜRÜST SINIR: _grounded_in varlığı
+        doğrular ama YÖNÜ değil (3B ters çıkarabilir — tasarımın en büyük riski)."""
+        try:
+            pair = generate.is_causal(message)
+        except Exception:                                   # noqa: BLE001
+            return None
+        if not pair:
+            return None
+        cause, effect = pair
+        if not (_grounded_in(cause, message) and _grounded_in(effect, message)):
+            return None                    # varlık mesajda yok → Qwen uydurdu
+        if not self.learn_cause(cause, effect):
+            return None
+        self.memory.lived(f"cause:{cause}->{effect}", outcome=1.0,
+                          about=[self.memory.self_key])
+        return generate.confirm_cause(cause, effect, message) or "OK"
+
+    def _causal_answer(self, message, direction, subject):
+        """Nedensel soruyu cevapla: ms-traversal (sebep/sonuç) → Qwen cümleye
+        döker → verify denetler. Boşluksa reddet (uydurma yok). DÜRÜST SINIR:
+        verify._has_edge yüklem-körü (is-a/causes ayırmaz) — nedensel-farkında
+        anchor sonraki iş; şimdilik kenar VAR olduğu için desteksiz düşmez."""
+        if direction == "causes":
+            edges = [(c, subject) for c in self.causes_of(subject)]
+        else:
+            edges = [(subject, e) for e in self.effects_of(subject)]
+        if not edges:
+            return generate.refusal(message) or BILMIYORUM
+        # CAUSE/EFFECT etiketli blok (iç iskele) — "kanserin sebebi ne" gibi TERS
+        # yönlü soruda model oku çevirip sebebi bulabilsin (etiketsiz ok'ta
+        # takılıyordu). Etiket iç prompt yapısı, çıktı dili değil.
+        block = "\n".join(f"[{i}] CAUSE: {c}  EFFECT: {e}"
+                          for i, (c, e) in enumerate(edges, 1))
+        raw = generate.answer(message, block)
+        allowed = set()
+        for c, e in edges:
+            allowed.add(link.resolve(self.memory, c))
+            allowed.add(link.resolve(self.memory, e))
+        safe = verify.verify(self.memory, raw, allowed, self.mode, anchor="edge")
+        return safe or generate.refusal(message) or BILMIYORUM
+
     def causes_of(self, effect_label):
         """effect'in SEBEPLERİ (etiket). ms: by_value ters indeksi, O(gelen-derece).
         Saf graf yürüyüşü — sinirsel üretim yok."""
@@ -223,6 +267,11 @@ class Session:
                         pass
                 # yeni içerik ya da onay değil → aşağıda normal işlenir
             if op["kind"] == extract.WRITE and op["triples"]:
+                # NEDENSEL cümle mi ("X, Y'ye neden olur") — is-a'dan AYRI sakla
+                # (#causes yüklemi). Öyleyse learn_cause; değilse normal is-a yazımı.
+                caused = self._learn_causal(message)
+                if caused:
+                    return caused
                 said = self._write(op["triples"], message)
                 if said:
                     return said
@@ -243,6 +292,16 @@ class Session:
                         return self._identity_reply(message)
                 except Exception:                           # noqa: BLE001
                     pass
+            # NEDENSEL SORU mu — YALNIZ özne nedensel kenar taşıyorsa Qwen'e sor
+            # (ms ön-kontrol: causes_of/effects_of boş değilse). Boşuna model
+            # çağrısı yok; nedensel bilgisi olmayan özne için hiç sorulmaz.
+            if subject and (self.causes_of(subject) or self.effects_of(subject)):
+                try:
+                    cq = generate.is_causal_question(message)
+                except Exception:                           # noqa: BLE001
+                    cq = None
+                if cq:
+                    return self._causal_answer(message, cq[0], cq[1])
             if op["kind"] in (extract.WRITE, extract.ASK):
                 return self._answer(message, subject)
             return self._chat(message)

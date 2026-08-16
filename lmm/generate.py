@@ -2,6 +2,8 @@
 olgulardan konuş" der. Bu TEK BAŞINA kapı DEĞİL (LLM parametrik bilgiyi
 sızdırabilir) — asıl kapı verify.py'nin üretim-sonrası geri-okumasıdır.
 """
+import re
+
 from lmm import prompts, runtime
 
 
@@ -99,6 +101,60 @@ def category_from(subject, text):
     out = runtime.generate(text[:400], system=system, max_tokens=12,
                            temperature=0.0).strip()
     return out.strip(" .\"'")
+
+
+def is_causal(message):
+    """Mesaj NEDENSELLİK iddia ediyor mu (X, Y'ye neden olur)? Öyleyse (sebep,
+    sonuç) döner, değilse None. YÖN kritik — few-shot ile pekiştirilir; ayrıca
+    session tarafında _grounded_in ile iki varlık da mesajda mı denetlenir. Dil
+    kodda değil (Qwen yargılar); is-a/soru/sohbet → None."""
+    system = ("Decide if the message asserts a CAUSAL relation (X causes / leads "
+              "to / results in Y). If yes, output exactly 'CAUSE: <cause> -> "
+              "EFFECT: <effect>' using the head nouns, CAUSE first. If it is NOT "
+              "causal (a definition, a question, small talk), output 'NONE'.\n"
+              "sigara kansere neden olur -> CAUSE: sigara -> EFFECT: kanser\n"
+              "aşırı stres kalp krizine yol açar -> CAUSE: stres -> EFFECT: kalp krizi\n"
+              "smoking causes cancer -> CAUSE: smoking -> EFFECT: cancer\n"
+              "kartal bir kuştur -> NONE\n"
+              "kanser nedir -> NONE\n"
+              "merhaba -> NONE")
+    out = runtime.generate(message, system=system, max_tokens=30, temperature=0.0)
+    m = re.search(r"CAUSE:\s*(.+?)\s*->\s*EFFECT:\s*(.+)", out, re.I)
+    if not m:
+        return None
+    cause = m.group(1).strip(" .'\"\n")
+    effect = m.group(2).strip(" .'\"\n")
+    return (cause, effect) if cause and effect else None
+
+
+def is_causal_question(message):
+    """Nedensel soru mu, hangi YÖN? 'CAUSES: <konu>' (neyin sebebi) / 'EFFECTS:
+    <konu>' (neye yol açar) / None. few-shot, dil Qwen'de. Yalnız öznenin nedensel
+    kenarı varsa çağrılır (ms ön-kontrol) — boşuna model çağrısı olmasın."""
+    system = ("Is this asking about the CAUSES or the EFFECTS of something?\n"
+              "- what CAUSES X (why X, X'in sebebi ne, X neden olur) -> 'CAUSES: X'\n"
+              "- what X CAUSES (X neye yol açar, X'in sonucu, what happens if X) "
+              "-> 'EFFECTS: X'\n- otherwise -> 'NONE'\n"
+              "kanserin sebebi ne -> CAUSES: kanser\n"
+              "sigara neye yol açar -> EFFECTS: sigara\n"
+              "stresin sonucu nedir -> EFFECTS: stres\n"
+              "kanser nedir -> NONE\nmerhaba -> NONE")
+    out = runtime.generate(message, system=system, max_tokens=20, temperature=0.0)
+    m = re.search(r"(CAUSES|EFFECTS):\s*(.+)", out, re.I)
+    if not m:
+        return None
+    subject = m.group(2).strip(" .'\"\n")
+    return (m.group(1).lower(), subject) if subject else None
+
+
+def confirm_cause(cause, effect, message):
+    """Kullanıcının dilinde: nedensel olguyu öğrendiğini teyit et. Olgu grafa
+    (kaynaklı) yazıldı — teyit güvenli. condition-5: cümleyi Qwen kurar."""
+    system = (f"The user taught you a CAUSE→EFFECT fact and you stored it: "
+              f"'{cause}' causes '{effect}'. In the SAME LANGUAGE as their message, "
+              "give a short, positive acknowledgement that you learned this causal "
+              "relation. One short sentence, only in that language. No extra facts.")
+    return runtime.generate(message, system=system, max_tokens=50, temperature=0.3)
 
 
 def is_identity_question(message):
