@@ -33,6 +33,7 @@ def main():
     print("# çıkış: Ctrl+C ya da Ctrl+D · boş satır atlanır\n")
 
     log = open(log_path, "a", encoding="utf-8")
+    proposed = set()        # proaktif olarak ÖNERİLEN meraklar (tekrar etmemek için)
     try:
         while True:
             try:
@@ -74,6 +75,13 @@ def main():
                         if r.source == "#inference")
             if after > before:
                 print(f"  💭 (kendim türettim: {after - before} yeni bağ)")
+            # PROAKTİF MERAK: bir kavramı yeterince çok kullanıp da bilmiyorsa,
+            # kendi 'bunu öğrenmek istiyorum' der (bir kez, gürültü yapmadan).
+            cur = mind.top_curiosity()
+            if cur and cur[0] not in proposed:
+                proposed.add(cur[0])
+                print(f"  💭 '{cur[0]}' sürekli geçiyor ama ne olduğunu bilmiyorum"
+                      f" — ?araştır {cur[0]}")
             log.write(json.dumps({
                 "at": time.strftime("%H:%M:%S"),
                 "in": line,

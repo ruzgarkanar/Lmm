@@ -107,6 +107,23 @@ class Mind:
         scored.sort(reverse=True)
         return [label for _refs, label in scored[:most]]
 
+    def top_curiosity(self, min_refs=2):
+        """En BASKIN merak — en az `min_refs` kez atıfta bulunulan ama tanımsız TEK
+        kavram (label, atıf). Proaktif yüzeye çıkarma için: döngü, bir şeyi yeterince
+        çok kullanıp da bilmediğinde 'bunu öğrenmek istiyorum' der (dürtü eşiği).
+        Eşik = sık kullanılan boşluğu gürültüden ayırır."""
+        best = None
+        for key in self.memory.identities:
+            if key in self.session._identity:
+                continue
+            if any(self.memory.records[k].trust >= SPEAK
+                   for k in self.memory.by_subject.get(key, ())):
+                continue
+            refs = len(self.memory.by_value.get(key, ()))
+            if refs >= min_refs and (best is None or refs > best[1]):
+                best = (link.label_of(self.memory, key), refs)
+        return best
+
     def research(self, subject_label):
         """İNSAN ONAYIYLA bir boşluğu web'den doldur — INGEST-ONLY, otonom-güvenli:
         wiki_summary(başlık) → category_from → gate.admit(#web, DÜŞÜK güven). Sentetik
