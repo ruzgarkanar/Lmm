@@ -182,6 +182,18 @@ class Session:
         block = "\n".join(f"[{i}] CAUSE: {c}  EFFECT: {e}"
                           for i, (c, e) in enumerate(edges, 1))
         raw = generate.answer(message, block)
+        # SÖZCÜK-KAPSAMA kapısı (benchmark bulgusu): nedensel cümle is-a
+        # kalıbına uymaz — reextract "yağarsa"yı değer sanıp DOĞRU cevabı
+        # düşürüyordu. İlke: cevabın TÜM içerik-sözcükleri verilen blok+sorudan
+        # geliyorsa yeni iddia YOKTUR → uydurma yapısal olarak imkânsız, geç.
+        # Dışına çıkan sözcük varsa eski sıkı verify işler. Dil kuralı değil —
+        # küme kapsaması.
+        given = {fold(w) for w in re.findall(r"\w+", block + " " + message)
+                 if len(w) >= 3}
+        raw_words = {fold(w) for w in re.findall(r"\w+", raw or "")
+                     if len(w) >= 3}
+        if raw_words and raw_words <= given:
+            return raw
         allowed = set()
         for c, e in edges:
             allowed.add(link.resolve(self.memory, c))
