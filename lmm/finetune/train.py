@@ -89,12 +89,17 @@ def main():
         # diziyi ver, collator LM-loss uygular — küçük veri için yeterli.
         text = tok.apply_chat_template(ex["messages"], tokenize=False,
                                        add_generation_prompt=False)
-        out = tok(text, truncation=True, max_length=args.max_len,
-                  padding="max_length")
+        # DİNAMİK padding: burada DOLDURMA — sadece kes. Collator her batch'i o
+        # batch'in en uzun örneğine doldurur. Örnekler kısa (~400 tok) olduğundan
+        # sabit max_len'e (1024) doldurmak ~2.5x hesabı boşa harcıyordu; bu
+        # truncation kaybı olmadan onu keser.
+        out = tok(text, truncation=True, max_length=args.max_len)
         return out
 
     ds = Dataset.from_list(rows).map(render, remove_columns=["messages"])
-    collator = DataCollatorForLanguageModeling(tok, mlm=False)
+    # pad_to_multiple_of=8 → tensor çekirdekleri (bf16) için hizalı, hızlı.
+    collator = DataCollatorForLanguageModeling(tok, mlm=False,
+                                               pad_to_multiple_of=8)
 
     targs = TrainingArguments(
         output_dir=args.out, num_train_epochs=args.epochs,
