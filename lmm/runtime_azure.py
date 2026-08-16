@@ -6,8 +6,10 @@ Sözleşme runtime.generate ile AYNI: generate(messages, max_tokens, temperature
 system) → düz metin. Seçim: LMM_BACKEND=azure. Anahtarlar .env'den (git-dışı).
 """
 import os
+import threading
 
 _CLIENT = None
+_LOCK = threading.Lock()    # paralel yutmada çift client init'i engeller
 
 
 def _root():
@@ -28,12 +30,14 @@ def _env():
 def _load():
     global _CLIENT
     if _CLIENT is None:
-        _env()
-        from openai import AzureOpenAI
-        _CLIENT = AzureOpenAI(
-            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-            api_key=os.environ["AZURE_OPENAI_API_KEY"],
-            api_version=os.environ["AZURE_OPENAI_API_VERSION"])
+        with _LOCK:
+            if _CLIENT is None:     # double-checked: çağrılar thread-safe (httpx)
+                _env()
+                from openai import AzureOpenAI
+                _CLIENT = AzureOpenAI(
+                    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+                    api_key=os.environ["AZURE_OPENAI_API_KEY"],
+                    api_version=os.environ["AZURE_OPENAI_API_VERSION"])
     return _CLIENT
 
 

@@ -30,22 +30,50 @@ def _words(text):
             if len(w) >= 3 or w.isdigit()]
 
 
-def covered(answer, given_text):
-    """Cevabın TÜM içerik-sözcükleri verilen metinden mi geliyor — ÖNEK
-    toleranslı (çekim: "bandındadır"~"bandında"; tam-eşleşme kapıyı gereksiz
-    kapatıyordu). Yeni içerik-sözcük yok = yeni iddia yok = uydurma imkânsız.
-    Rakamlar aynen eşleşmeli (sayı değişimi = uydurma)."""
-    given = set(_words(given_text))
+def _tokens(text):
+    """Sıralı token dizisi (fold'lu, kısa dahil) — komşuluk denetimi için."""
+    text = unicodedata.normalize("NFC", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return [fold(w) for w in _WORD.findall(text)]
+
+
+def covered(answer, block, question=""):
+    """Cevabın TÜM içerik-sözcükleri verilen bloktan mı geliyor — önek
+    toleranslı (çekim: "bandındadır"~"bandında"). Yeni içerik-sözcük yok =
+    yeni iddia yok. RAKAM kuralları SIKI (code-review #1):
+      - rakam yalnız BLOK'tan sayılır (sorudaki rakam sayılmaz — "tier 1 mi?"
+        yanlış-öncül yankısı kapıdan geçmesin);
+      - cevaptaki her rakam, blokta EN AZ BİR aynı-komşulu ikilide geçmeli
+        ((önceki,rakam) ya da (rakam,sonraki)) — bloktaki başka satırın
+        rakamının başka özneye yapışması (Tier-karışması) zorlaşır.
+    Bilinen kalıntı: önek toleransı olumsuzluk ekini ayırt edemez
+    ("azalma"~"azalmaz") — dil-listesi yasak olduğundan sözcük-küme düzeyinde
+    kapatılamaz; motor-düzeyi denetim v-sonraki."""
+    given = set(_words(block + " " + question))
     words = set(_words(answer))
     if not words:
         return False
-    for w in words:
-        if w in given:
+    bt = _tokens(block)
+    bigrams = set(zip(bt, bt[1:]))
+    block_digits = {t for t in bt if t.isdigit()}
+    at = _tokens(answer)
+    for i, t in enumerate(at):
+        if not t.isdigit():
             continue
-        if w.isdigit():
-            return False                    # rakamda tolerans YOK
-        if not any((len(g) >= 4 and w.startswith(g))
-                   or (len(w) >= 4 and g.startswith(w)) for g in given):
+        if t not in block_digits:
+            return False
+        prev = at[i - 1] if i > 0 else None
+        nxt = at[i + 1] if i + 1 < len(at) else None
+        if prev is None and nxt is None:
+            continue
+        if (prev, t) not in bigrams and (t, nxt) not in bigrams:
+            return False
+    for w in words:
+        if w in given or w.isdigit():
+            continue
+        if not any((len(g) >= 5 and w.startswith(g) and len(w) - len(g) <= 3)
+                   or (len(w) >= 5 and g.startswith(w) and len(g) - len(w) <= 3)
+                   for g in given):
             return False
     return True
 
@@ -56,8 +84,14 @@ class SentenceStore:
     def __init__(self):
         self.sentences = []                 # id -> (cümle, kaynak)
         self.index = {}                     # fold'lu sözcük -> set(id)
+        self._seen = set()                  # fold'lu cümle — çift kanıt engeli
+        self.last_sources = []              # son find()'ın kaynakları (hedge)
 
     def add(self, sentence, source=""):
+        key = fold(sentence)
+        if key in self._seen:               # aynı doküman iki kez okunursa
+            return None                     # kanıt katlanmasın (review #2)
+        self._seen.add(key)
         sid = len(self.sentences)
         self.sentences.append((sentence, source))
         for w in set(_words(sentence)):
@@ -89,25 +123,40 @@ class SentenceStore:
             return []
         ranked = sorted(scores.items(),
                         key=lambda kv: (-kv[1], len(self.sentences[kv[0]][0])))
-        # tek-sözcük kesişimli gürültüyü ele: en iyi skorun yarısından azı düşer
+        # gürültü eşiği: en iyi skorun yarısından azı düşer. KISA sorgu istisnası
+        # (review #4): 1-2 içerik-sözcüklü soruda ("karvel nedir") skor 1 meşru —
+        # taban 2 olsaydı kanıt varken boş dönerdi. Pencere/tablo satırları best'i
+        # şişirebilir; taban, sorgu kısaldıkça iner.
         best = ranked[0][1]
-        keep = [sid for sid, sc in ranked if sc >= max(2, best // 2)][:most]
+        floor = max(1 if len(qwords) <= 2 else 2, best // 2)
+        keep = [sid for sid, sc in ranked if sc >= floor][:most]
+        self.last_sources = [self.sentences[sid][1] for sid in keep]
         return [self.sentences[sid][0] for sid in keep]
 
     # --- kalıcılık (JSON yan-dosya) ------------------------------------
     def save(self, memory_path):
         if not memory_path:
             return
-        with open(memory_path + ".kanit", "w", encoding="utf-8") as f:
+        # ATOMİK (review #2): tmp + os.replace — yarım .kanit dosyası load'u
+        # (dolayısıyla Session.__init__'i) çökertmesin.
+        path = memory_path + ".kanit"
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump([[s, src] for s, src in self.sentences], f,
                       ensure_ascii=False)
+        os.replace(tmp, path)
 
     @classmethod
     def load(cls, memory_path):
         store = cls()
         path = (memory_path + ".kanit") if memory_path else None
         if path and os.path.exists(path):
-            with open(path, encoding="utf-8") as f:
-                for sentence, source in json.load(f):
-                    store.add(sentence, source)
+            try:
+                with open(path, encoding="utf-8") as f:
+                    rows = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                return store        # bozuk yan-dosya → boş depo (graf sağlam;
+                #                     kanıt yeniden yutulabilir, uydurma riski yok)
+            for sentence, source in rows:
+                store.add(sentence, source)
         return store
