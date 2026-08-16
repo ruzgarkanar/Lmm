@@ -109,6 +109,13 @@ class Session:
         ck = frozenset((old_key, new_key))
         if ck in self._rival_cache:
             return self._rival_cache[ck]
+        # BULK STRUCTURAL INGESTION: no engine calls per cell — tables
+        # legitimately attach many values to one subject (a repeated 'Note:'
+        # key made EVERY cell an engine round-trip: minutes for one manual).
+        # Treat as coexisting now; contradiction arbitration for document data
+        # runs at sleep time (dynamics.arbitrate), not inline.
+        if getattr(self, "_bulk", False):
+            return False
         # HIERARCHICAL LINK (GRAPH — LMM's strength): if the two values are
         # connected by an is-a chain (kedigil→memeli: a felid is a mammal) they
         # are NOT rivals, they coexist — "a lion is both felid and mammal" is
@@ -631,6 +638,8 @@ class Session:
         ALIAS of the row node so a question can find it by its natural name
         ("yangın ekipmanı tespiti..."). rows: [{column: value}]."""
         wrote = 0
+        prev_bulk = getattr(self, "_bulk", False)
+        self._bulk = True       # no per-cell engine calls (see _are_rivals)
         for row in rows:
             cells = [(str(k).strip(), str(v).strip()) for k, v in row.items()
                      if str(v).strip()]
@@ -648,6 +657,7 @@ class Session:
                 self.memory.identify(fold(rich[1]), same_as=sk)
             for col, val in cells[1:]:
                 wrote += self.learn_cell(anchor, col, val, source)
+        self._bulk = prev_bulk
         if wrote:
             self.memory.lived(f"table:{source}:{wrote}", outcome=1.0,
                               about=[self.memory.self_key])

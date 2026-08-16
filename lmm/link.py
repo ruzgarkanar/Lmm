@@ -8,6 +8,35 @@ Case-independent (`fold`), no language rule.
 from v3 import geometry
 from v3.dataset import fold
 
+# INCREMENTAL LABEL INDEX — the tolerance scan below used to iterate ALL
+# identities per call: O(n) per new label, O(n²) per document. Invisible at
+# 22 spreadsheet cells, minutes at a manual's thousands of table cells. The
+# index maps folded label -> first key and buckets labels by their first 5
+# characters (for the reverse/prefix direction). Updated incrementally: only
+# identities added since the last call are indexed (dicts are ordered).
+import weakref
+
+_INDEX = weakref.WeakKeyDictionary()    # memory -> {"n", "map", "pre5"}
+
+
+def _index_add(state, folded, key):
+    state["map"].setdefault(folded, key)
+    state["pre5"].setdefault(folded[:5], []).append((folded, key))
+
+
+def _label_index(memory):
+    state = _INDEX.get(memory)
+    if state is None:
+        state = {"n": 0, "map": {}, "pre5": {}}
+        _INDEX[memory] = state
+    idents = memory.identities
+    if state["n"] < len(idents):
+        for key in list(idents.keys())[state["n"]:]:
+            for lab in idents[key].labels:
+                _index_add(state, fold(lab), key)
+        state["n"] = len(idents)
+    return state
+
 
 def resolve(memory, label, vectors=None, create=False):
     """Converts a label to an identity.
@@ -34,26 +63,31 @@ def resolve(memory, label, vectors=None, create=False):
     #     kart(4)→kartal      root 4<5           ✗ (mismatch closed)
     #     organ(5)→organizma  remainder "izma"=4 ✗ (mismatch closed)
     # The strict side of "fabrication 0": we don't loosen and take false positives.
-    for other, ident in memory.identities.items():
-        for lab in ident.labels:
-            root = fold(lab)
-            if len(root) >= 5 and label.startswith(root) \
-                    and 0 < len(label) - len(root) <= 3:
-                return other
-            # REVERSE DIRECTION — ONLY WHEN WRITING (create=True). An existing
-            # node may have been opened inflected ("metaldir" arrived first as a
-            # value), then the root arrives ("metal" as subject) — the one-way
-            # view opened two nodes and broke the transitive chain. BUT on the
-            # verification/read path (create=False) this mapping is CLOSED:
-            # with only "şekersiz" in the graph, Qwen's "şeker ..." claim would
-            # count as "supported" by the wrong node's edge — a fabrication-0
-            # hole (code-review finding #1). When matched while writing, the
-            # root is added to the identity as an ALIAS; later reads find it
-            # via legitimate label matching, not a blind scan. F5 protections
-            # unchanged.
-            if create and len(label) >= 5 and root.startswith(label) \
-                    and 0 < len(root) - len(label) <= 3:
-                return memory.identify(label, same_as=other)
+    # Both directions run over the INCREMENTAL INDEX in ~O(1) — the old full
+    # scan was O(n) per call and turned document ingestion quadratic.
+    index = _label_index(memory)
+    # forward: an existing ROOT is a prefix of the arriving label
+    # (root >=5, remainder 1..3) → the candidate roots are label[:cut].
+    for cut in range(max(5, len(label) - 3), len(label)):
+        other = index["map"].get(label[:cut])
+        if other is not None:
+            return other
+    # REVERSE DIRECTION — ONLY WHEN WRITING (create=True). An existing node may
+    # have been opened inflected ("metaldir" arrived first as a value), then
+    # the root arrives ("metal" as subject) — the one-way view opened two nodes
+    # and broke the transitive chain. BUT on the verification/read path
+    # (create=False) this mapping is CLOSED: with only "şekersiz" in the graph,
+    # Qwen's "şeker ..." claim would count as "supported" by the wrong node's
+    # edge — a fabrication-0 hole (code-review finding #1). When matched while
+    # writing, the root is added to the identity as an ALIAS; later reads find
+    # it via legitimate label matching. F5 protections unchanged.
+    if create and len(label) >= 5:
+        for folded, other in index["pre5"].get(label[:5], ()):
+            if folded.startswith(label) \
+                    and 0 < len(folded) - len(label) <= 3:
+                key = memory.identify(label, same_as=other)
+                _index_add(index, label, key)   # alias: count unchanged, index now
+                return key
     if create:
         return memory.identify(label, vector=vec)
     return None
