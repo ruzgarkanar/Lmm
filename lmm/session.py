@@ -31,7 +31,9 @@ SLEEP_EVERY = 50   # sleep every N turns (distill/fade/adjudicate) — v3 §117
 # ...". "Strictest" would be misinformation.
 CERTAIN = 0.7
 
-BILMIYORUM = "Bunu bilmiyorum."
+FALLBACK_DONT_KNOW = "I don't know."   # last-resort only: the normal
+# refusal is engine-generated in the USER'S language; this string is hit
+# only when generation itself fails.
 
 
 def _grounded_in(value, message):
@@ -192,7 +194,7 @@ class Session:
         else:
             edges = [(subject, e) for e in self.effects_of(subject)]
         if not edges:
-            return generate.refusal(message) or BILMIYORUM
+            return generate.refusal(message) or FALLBACK_DONT_KNOW
         # CAUSE/EFFECT-labeled block (internal scaffold) — so on a REVERSE-
         # direction question like "kanserin sebebi ne" the model can flip the
         # arrow and find the cause (it stumbled on unlabeled arrows). The label
@@ -213,7 +215,7 @@ class Session:
             allowed.add(link.resolve(self.memory, c))
             allowed.add(link.resolve(self.memory, e))
         safe = verify.verify(self.memory, raw, allowed, self.mode, anchor="edge")
-        return safe or generate.refusal(message) or BILMIYORUM
+        return safe or generate.refusal(message) or FALLBACK_DONT_KNOW
 
     def causes_of(self, effect_label):
         """The effect's CAUSES (labels). ms: by_value inverse index,
@@ -360,7 +362,7 @@ class Session:
                 return self._answer(message, subject)
             return self._chat(message)
         except Exception:                                   # noqa: BLE001
-            return BILMIYORUM
+            return FALLBACK_DONT_KNOW
 
     # --- identity (deterministic route) --------------------------------
     def _identity_reply(self, message):
@@ -380,7 +382,7 @@ class Session:
         raw = generate.identity_answer(message, name, id_block)
         safe = verify.verify(self.memory, raw, self._identity, self.mode,
                              anchor="value")
-        return safe or generate.refusal(message) or BILMIYORUM
+        return safe or generate.refusal(message) or FALLBACK_DONT_KNOW
 
     # --- writing -------------------------------------------------------
     def _write(self, triples, message):
@@ -732,8 +734,8 @@ class Session:
             if subject_label:
                 self._pending = (subject_label, question)   # ask-first
                 offer = generate.offer_research(subject_label, question)
-                return offer or generate.refusal(question) or BILMIYORUM
-            return generate.refusal(question) or BILMIYORUM
+                return offer or generate.refusal(question) or FALLBACK_DONT_KNOW
+            return generate.refusal(question) or FALLBACK_DONT_KNOW
         # TARGETED EDGE (multi-hop — benchmark finding): if the question
         # mentions a second KNOWN concept ("zilfen bir canlı mıdır" → 'canlı')
         # and the graph knows that edge (derived included), move that record
@@ -800,7 +802,7 @@ class Session:
                                      generate.answer(question, block),
                                      allowed, self.mode, anchor="edge")
                 if not safe:
-                    return generate.refusal(question) or BILMIYORUM
+                    return generate.refusal(question) or FALLBACK_DONT_KNOW
         # SOURCE-TRUST (strictest): if the weakest fact is below CERTAIN,
         # source+hedge.
         if records:
@@ -834,7 +836,7 @@ class Session:
         'I know it' but source-stamped+low trust (condition-4)."""
         text, url = research.wiki_summary(subject_label)
         if not text:
-            return generate.refusal(question) or BILMIYORUM
+            return generate.refusal(question) or FALLBACK_DONT_KNOW
         # Extract ONE plain category (the essence, not taxonomic clutter) →
         # clean fact, clean answer. Many values/Latin terms were drowning the
         # small model.
@@ -843,7 +845,7 @@ class Session:
         vk = (link.resolve(self.memory, value, self.vectors, create=True)
               if value else None)
         if not value or sk is None or vk is None:
-            return generate.refusal(question) or BILMIYORUM
+            return generate.refusal(question) or FALLBACK_DONT_KNOW
         # #web stamp + DOCUMENT (0.6 < CERTAIN) → source-tagged in the answer.
         self.gate.admit(sk, None, vk, f"#web:{url}", DOCUMENT)
         self.memory.lived(f"web:{subject_label}", outcome=1.0,
@@ -876,7 +878,7 @@ class Session:
         # fabrication (Google) still falls. See verify.verify.
         safe = verify.verify(self.memory, raw, self._identity, self.mode,
                              anchor="value")
-        return safe or generate.refusal(message) or BILMIYORUM
+        return safe or generate.refusal(message) or FALLBACK_DONT_KNOW
 
     # --- LMM strength: self-awareness (curiosity + contradiction pressure)
     def curiosity(self, most=5):

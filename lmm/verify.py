@@ -23,7 +23,7 @@ allowed-check NARROWS F3 substantially (the decision lives in the allowed set,
 not in Qwen), but full independence requires a non-Qwen entity extractor —
 future work.
 
-Mode: STRICT (an unsupported sentence drops) · ASSIST (marked ‹doğrulanmamış›).
+Mode: STRICT (an unsupported sentence drops) · ASSIST (marked ‹unverified›).
 """
 import os
 import re
@@ -128,6 +128,6 @@ def verify(memory, answer, allowed, mode="STRICT", anchor="edge"):
         if grounded:
             kept.append(sentence)
         elif mode == "ASSIST":
-            kept.append(sentence + " ‹doğrulanmamış›")
+            kept.append(sentence + " ‹unverified›")
         # STRICT: the unsupported sentence is discarded
     return " ".join(kept).strip()

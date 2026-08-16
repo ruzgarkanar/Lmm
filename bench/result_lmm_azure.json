@@ -1,0 +1,93 @@
+{
+ "ingest_ms": 159563,
+ "yazilan": 62,
+ "atlanan": 2,
+ "turetilen": 8,
+ "cevaplar": [
+  {
+   "soru": "zerbalit nedir",
+   "cevap": "Bu konuda elimde bilgi yok.",
+   "ms": 8955
+  },
+  {
+   "soru": "vorlin nedir",
+   "cevap": "Vorlin bir içecektir. (Detaylar kesin değil, kaynak: depolanmış bilgi.)",
+   "ms": 4868
+  },
+  {
+   "soru": "morlan nedir",
+   "cevap": "Morlan bir kuştur. (Muhtemelen eski bir kaynak)",
+   "ms": 6280
+  },
+  {
+   "soru": "norgul nedir",
+   "cevap": "Norgul bir bitkidir. (Nedir? Kaynak: saklanan bilgi)",
+   "ms": 7018
+  },
+  {
+   "soru": "karvel nedir",
+   "cevap": "Karvel bir canlıdır. (Kaynak: depolanmış bilgi)",
+   "ms": 6286
+  },
+  {
+   "soru": "kelvit nedir",
+   "cevap": "Kelvit bir metal ve madde olup gri renktedir. (Kaynak: saklı bilgi)",
+   "ms": 5085
+  },
+  {
+   "soru": "selvin nedir",
+   "cevap": "Selvin bir içecektir. (Saklı kaynak: kesin değil)",
+   "ms": 4907
+  },
+  {
+   "soru": "Velmar nedir",
+   "cevap": "Velmar bir köydür. (Velmar hakkında kesin bilgi yok, kaynak: depolanmış veri)",
+   "ms": 5096
+  },
+  {
+   "soru": "vorlin bir sıvı mıdır",
+   "cevap": "Vorlin bir sıvıdır. (Kesin değil, kaynak: depolanmış veri)",
+   "ms": 4958
+  },
+  {
+   "soru": "zilfen bir canlı mıdır",
+   "cevap": "Zilfen bir canlıdır. (Kesin değil, kaynak: saklanan veri)",
+   "ms": 5463
+  },
+  {
+   "soru": "torvanit bir madde midir",
+   "cevap": "Torvanit bir maddedir. (Bu bilgi kaynağa dayanmaktadır.)",
+   "ms": 4852
+  },
+  {
+   "soru": "yağmur yağarsa ne olur",
+   "cevap": "Bu konuda kesin bir bilgiye sahip değilim.",
+   "ms": 6721
+  },
+  {
+   "soru": "norgul çoğalırsa ne olur",
+   "cevap": "Bu konuda henüz bilgiye sahip değilim.",
+   "ms": 3878
+  },
+  {
+   "soru": "melvarit nedir",
+   "cevap": "Melvarit hakkında henüz bir bilgim yok. Bakmamı ister misin?",
+   "ms": 4018
+  },
+  {
+   "soru": "Nortlann'ın başkenti neresidir",
+   "cevap": "Nortlann bir adadır. (Neresi kesin değil, kaynak: depolanmış bilgi)",
+   "ms": 5058
+  },
+  {
+   "soru": "vorlin kaç derecede kaynar",
+   "cevap": "Bilmiyorum. (Veri kaynağına göre kesin değil.)",
+   "ms": 4826
+  },
+  {
+   "soru": "adanın nüfusu kaçtır",
+   "cevap": "Bilmiyorum. (Veri kaynağına göre değişebilir.)",
+   "ms": 4933
+  }
+ ]
+}

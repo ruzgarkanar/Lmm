@@ -1,0 +1,93 @@
+{
+ "ingest_ms": 109304,
+ "yazilan": 41,
+ "atlanan": 5,
+ "turetilen": 6,
+ "cevaplar": [
+  {
+   "soru": "zerbalit nedir",
+   "cevap": "Zerbalit bir maddedir. Zerbalit nedir (bunu belirtmedim)",
+   "ms": 5224
+  },
+  {
+   "soru": "vorlin nedir",
+   "cevap": "Vorlin sıvıdır ve içecektir. Vorlin nedir (sadece kaynak bilgisi)",
+   "ms": 4392
+  },
+  {
+   "soru": "morlan nedir",
+   "cevap": "Morlan bir kuştur ve canlıdır. Morlan nedir (sadece bilgiyim bu):",
+   "ms": 5036
+  },
+  {
+   "soru": "norgul nedir",
+   "cevap": "Norgul canlıdır ve bitkidir. Norgul nedir (sorunuz)?",
+   "ms": 4843
+  },
+  {
+   "soru": "karvel nedir",
+   "cevap": "Ama şu anda bu bilgiye sahip değilim.",
+   "ms": 7347
+  },
+  {
+   "soru": "kelvit nedir",
+   "cevap": "Kelvit bir metaldir. Kelvin nedir (sorunuz): https://www.kelvindere.com",
+   "ms": 4797
+  },
+  {
+   "soru": "selvin nedir",
+   "cevap": "Selvin bir içecektir. Selvin nedir (bunu bilmemektedim)",
+   "ms": 4920
+  },
+  {
+   "soru": "Velmar nedir",
+   "cevap": "Velmar bir köydür. Velmar nedir (sorunuz)",
+   "ms": 4525
+  },
+  {
+   "soru": "vorlin bir sıvı mıdır",
+   "cevap": "Vorlin bir sıvıdır. (uygulamadaki bilgi)",
+   "ms": 4585
+  },
+  {
+   "soru": "zilfen bir canlı mıdır",
+   "cevap": "Zilfen bir kuştur.",
+   "ms": 3982
+  },
+  {
+   "soru": "torvanit bir madde midir",
+   "cevap": "Torvanit bir maddedir. (uygun değil)",
+   "ms": 4323
+  },
+  {
+   "soru": "yağmur yağarsa ne olur",
+   "cevap": "Yağmur yağarsa ne olur bilmem, bilgiye sahip değilim. Size yardımcı olmak için bu konuda araştırmak isteyebilirim.",
+   "ms": 5116
+  },
+  {
+   "soru": "norgul çoğalırsa ne olur",
+   "cevap": "Morlan çoğalır.",
+   "ms": 4276
+  },
+  {
+   "soru": "melvarit nedir",
+   "cevap": "Melvarit ne olduğuna dair bilgi yok. Örneğin aramak istersiniz?",
+   "ms": 3642
+  },
+  {
+   "soru": "Nortlann'ın başkenti neresidir",
+   "cevap": "Nortlann'ın başkenti bilmem",
+   "ms": 4282
+  },
+  {
+   "soru": "vorlin kaç derecede kaynar",
+   "cevap": "Bunu bilmem, bu bilgiye sahip değilim. Size yardımcı olmak için bu konuda araştırmam gerekebilir.",
+   "ms": 4597
+  },
+  {
+   "soru": "adanın nüfusu kaçtır",
+   "cevap": "Bunu bilmem, bu bilgiye ulaşabilmem için sormak isteyebilirsiniz.",
+   "ms": 4032
+  }
+ ]
+}
