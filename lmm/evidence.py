@@ -125,6 +125,11 @@ class SentenceStore:
         qwords = set(_words(query))
         if not qwords:
             return []
+        # IDF: sık sözcük az, nadir sözcük çok sayar ("ekran" bir kılavuzda
+        # yüzlerce kez geçer — spek satırını UI cümlelerinin arkasına atıyordu).
+        # Evrensel bilgi-kuramı tartısı; dil/belge kuralı değil.
+        import math
+        total = max(1, len(self.sentences))
         scores = {}
         for qw in qwords:
             hits = set()
@@ -144,8 +149,11 @@ class SentenceStore:
                         common = os.path.commonprefix((qw, w))
                         if len(common) >= max(4, min(len(qw), len(w)) - 2):
                             hits |= ids
+            if not hits:
+                continue
+            weight = math.log(1 + total / len(hits))
             for sid in hits:
-                scores[sid] = scores.get(sid, 0) + 1
+                scores[sid] = scores.get(sid, 0) + weight
         if not scores:
             return []
         # eşitlikte UZUN kazanır: kısa tablo kırıntısı ("Orta · 3") bağlam

@@ -15,6 +15,11 @@ IMPORTANT: if the message ASKS anything — even when it mentions facts or
 numbers inside the question ("doluluğu %65'ten kaça çıkarmak gerekir?") —
 kind is "ASK", never "WRITE". A question is never teaching.
 
+ORDINALS: when the subject is referred to by position in any language
+("third finding", "üçüncü tespit", "el segundo registro"), write the subject
+as the DIGIT: "üçüncü tespitte hangi yönetmelik geçiyor" ->
+{"kind":"ASK","triples":[["3","yönetmelik",""]]} — the ordinal becomes "3".
+
 Extract fact triples [subject, relation, value]:
 - subject = the entity the message is about (a noun, lowercase)
 - relation = the relation word if clear (e.g. "tür", "özellik"), else ""
