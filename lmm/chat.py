@@ -86,6 +86,10 @@ def main():
                 "at": time.strftime("%H:%M:%S"),
                 "in": line,
                 "out": said,
+                # KAPI-onaylı üçlüler: uyku-konsolidasyonun altın verisi
+                # (cümle → üçlü çifti; modelin ham çıktısı değil, kapının
+                # kabul ettiği). finetune/consolidate.py bunları hasat eder.
+                "learned": session.last_written,
                 "records": len(session.memory.records),
                 "ms": round((time.time() - started) * 1000),
             }, ensure_ascii=False) + "\n")
