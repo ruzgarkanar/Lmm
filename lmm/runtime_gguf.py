@@ -18,10 +18,15 @@ def _root():
 
 
 def path():
-    """GGUF dosya yolu. LMM_GGUF_PATH ile override edilebilir."""
-    return os.environ.get(
-        "LMM_GGUF_PATH",
-        os.path.join(_root(), "models/qwen-3b/qwen3b-q4.gguf"))
+    """GGUF dosya yolu. LMM_GGUF_PATH ile override edilebilir. Öncelik:
+    LoRA-birleşik LMM motoru (varsa) > ham Qwen kuantizesi."""
+    env = os.environ.get("LMM_GGUF_PATH")
+    if env:
+        return env
+    merged = os.path.join(_root(), "models/lmm/lmm-q4_k_m.gguf")
+    if os.path.exists(merged):
+        return merged
+    return os.path.join(_root(), "models/qwen-3b/qwen3b-q4.gguf")
 
 
 def ready():
