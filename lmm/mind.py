@@ -16,6 +16,9 @@ Yavaş-dış araştırma + guardrail'lar (bütçe, #auto damgası, frontier dond
 tartışılıp eklenecek.
 """
 from v3 import dynamics
+from v3.memory import DOCUMENT
+from lmm import generate, link
+from lmm import research as web
 
 
 class Mind:
@@ -80,6 +83,35 @@ class Mind:
                     ("settled", "faded", "judged", "pruned", "distilled")):
                 break                       # doygun — dinlen
         return log
+
+    # --- yarı-otonom: merakını YÜZEYE çıkar, onayla doldur ------------
+    def wonder(self, most=3):
+        """ms-loop doygunlaştıktan sonra mind'ın DOLDURAMADIĞI en büyük boşluklar
+        — 'araştırmak istediklerim'. Web'e DOKUNMAZ, yalnız öneri döner. Semi-
+        otonom güvenlik: döngü kendi başına web'e çıkmaz; insan onaylar (guardrail).
+        curiosity() zaten yüklem/self düğümlerini süzüyor."""
+        return self.session.curiosity(most=most)
+
+    def research(self, subject_label):
+        """İNSAN ONAYIYLA bir boşluğu web'den doldur — INGEST-ONLY, otonom-güvenli:
+        wiki_summary(başlık) → category_from → gate.admit(#web, DÜŞÜK güven). Sentetik
+        soru YOK (başlık zaten etiket → condition-5), konuşma üretimi YOK — sadece
+        kaynaklı+düşük-güvenli yutma. Provenans (#web:url) denetim için kalır; web
+        güvenilmez olduğu için asla CERTAIN, operatör olgusunu asla ezmez."""
+        text, url = web.wiki_summary(subject_label)
+        if not text:
+            return False
+        value = generate.category_from(subject_label, text)
+        sk = link.resolve(self.memory, subject_label, self.session.vectors,
+                          create=True)
+        vk = (link.resolve(self.memory, value, self.session.vectors, create=True)
+              if value else None)
+        if not value or sk is None or vk is None or sk == vk:
+            return False
+        self.session.gate.admit(sk, None, vk, f"#web:{url}", DOCUMENT)
+        self.memory.lived(f"auto-research:{subject_label}", outcome=1.0,
+                          about=[self.memory.self_key])
+        return True
 
     def status(self):
         """Gelişim nabzı — sayı, dil değil (projenin etiği). Bebek ne kadar 'büyüdü'."""
