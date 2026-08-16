@@ -191,7 +191,7 @@ class Session:
         # geliyorsa yeni iddia YOKTUR → uydurma yapısal olarak imkânsız, geç.
         # Dışına çıkan sözcük varsa eski sıkı verify işler. Dil kuralı değil —
         # küme kapsaması.
-        if evidence.covered(raw or "", block + " " + message):
+        if evidence.covered(raw or "", block, message):
             return raw
         allowed = set()
         for c, e in edges:
@@ -486,6 +486,9 @@ class Session:
         backend = os.environ.get("LMM_BACKEND", "")
         workers = int(os.environ.get("LMM_INGEST_WORKERS",
                                      "8" if backend == "azure" else "1"))
+        if backend != "azure":
+            workers = 1     # yerel torch modeli thread-safe DEĞİL (review #3):
+            #                 env override bile paralel yerel üretime izin vermez
         if workers > 1:
             from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -619,7 +622,7 @@ class Session:
         # içerik-sözcükleri verilen blok+sorudan geliyorsa YENİ iddia yoktur —
         # uydurma yapısal olarak imkânsız → geç. (Kanıt cümlelerindeki sayı/
         # aralık cevapları eski üçlü-verify'dan geçemezdi; kapsama geçirir.)
-        if evidence.covered(raw or "", block + " " + question):
+        if evidence.covered(raw or "", block, question):
             safe = raw
         else:
             allowed = verify.allowed_of(self.memory, records)
@@ -637,6 +640,13 @@ class Session:
             weakest = min(records, key=lambda r: r.trust)
             if weakest.trust < CERTAIN:
                 safe = self._hedge(safe, weakest, question) or safe
+        elif proof:
+            # KANIT-TEK cevap da çekince taşır (review #5): kaynak DOCUMENT
+            # düzeyi — graf yolundaki kaynak-şeffaflık ilkesinin aynısı.
+            src = next((s for s in self.evidence.last_sources if s), "#document")
+            note = generate.hedge_note(src, question)
+            if note:
+                safe = f"{safe} {note}"
         return safe
 
     def _hedge(self, answer, record, message):
