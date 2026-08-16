@@ -68,11 +68,11 @@ def _grounding_rows(limit):
     """tanim-temiz.jsonl'den: her kavram için (olgu bloğu + soru) → öz-damıtılmış
     kısa grounded cümle. Blok yalnız TEK olgu taşır; hedef o olgudan sapamaz."""
     src = os.path.join("data", "train", "tanim-temiz.jsonl")
-    rows = []
     with open(src, encoding="utf-8") as f:
         lines = [json.loads(x) for x in f if x.strip()]
     random.seed(0)                              # tekrarlanabilir örnek
     random.shuffle(lines)
+    n = 0
     for rec in lines[:limit]:
         kavram, hedef = rec.get("kavram", "").strip(), rec.get("hedef", "").strip()
         if not kavram or not hedef:
@@ -83,24 +83,24 @@ def _grounding_rows(limit):
         target = generate.answer(question, block)      # ÖZ-DAMITIM (Qwen üretir)
         if not _tr_ok(target):                          # DİL FİLTRESİ
             continue
-        rows.append({"messages": [
+        yield {"messages": [
             {"role": "system", "content": prompts.ANSWER_SYSTEM},
             {"role": "user", "content": f"OLGULAR:\n{block}\n\nSORU: {question}"},
             {"role": "assistant", "content": target},
-        ]})
-        if len(rows) % 25 == 0:
-            _tick("grounding", len(rows), limit)
-    return rows
+        ]}
+        n += 1
+        if n % 25 == 0:
+            _tick("grounding", n, limit)
 
 
 def _refusal_rows(limit):
     """Bilinmeyen sorular → 'bilmiyorum' (model kendi dilinde). Girdi olgusuz."""
     src = os.path.join("data", "train", "tanim-temiz.jsonl")
-    rows = []
     with open(src, encoding="utf-8") as f:
         lines = [json.loads(x) for x in f if x.strip()]
     random.seed(1)
     random.shuffle(lines)
+    n = 0
     for rec in lines[:limit]:
         kavram = rec.get("kavram", "").strip()
         if not kavram:
@@ -109,16 +109,16 @@ def _refusal_rows(limit):
         target = generate.refusal(question)
         if not _tr_ok(target):                          # DİL FİLTRESİ
             continue
-        rows.append({"messages": [
+        yield {"messages": [
             {"role": "system", "content": prompts.ANSWER_SYSTEM},
             {"role": "user", "content":
              f"SORU: {question}\n\n(Belleğinde bu konuda kayıtlı olgu YOK. "
              "Uydurma; bilmediğini söyle.)"},
             {"role": "assistant", "content": target},
-        ]})
-        if len(rows) % 25 == 0:
-            _tick("refusal", len(rows), limit)
-    return rows
+        ]}
+        n += 1
+        if n % 25 == 0:
+            _tick("refusal", n, limit)
 
 
 # Kimlik soruları — ÇOK DİLLİ, ÇOK BİÇİMLİ. Kimlik gibi spesifik davranış az
@@ -150,7 +150,6 @@ def _identity_rows(samples=2):
     idb = "\n".join(f"{link.label_of(m, r.subject)} "
                     f"{link.label_of(m, r.predicate)} → "
                     f"{link.label_of(m, r.value)}" for r in recs)
-    rows = []
     for q in _IDENTITY_Q:
         for _ in range(samples):
             target = generate.chat(q, idb)
@@ -161,12 +160,11 @@ def _identity_rows(samples=2):
             # anmalı — yoksa 'bilmiyorum'/yanlış, eğitime girmesin.
             if "rüzgar" not in low and "lmm" not in low:
                 continue
-            rows.append({"messages": [
+            yield {"messages": [
                 {"role": "system", "content": prompts.CHAT_SYSTEM},
                 {"role": "user", "content": q},
                 {"role": "assistant", "content": target},
-            ]})
-    return rows
+            ]}
 
 
 def main():
@@ -177,14 +175,20 @@ def main():
     args = ap.parse_args()
     os.chdir(os.path.dirname(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__)))))
-    rows = (_grounding_rows(args.limit) + _refusal_rows(args.limit // 2)
-            + _identity_rows())
-    random.seed(2)
-    random.shuffle(rows)
+    # CRASH-SAFE: her örneği ANINDA yaz + flush (Drive'a bile). Kopma olursa
+    # üretilen kısım dosyada KALIR (eski hâl hepsini sonda yazıyordu → kopmada
+    # her şey gidiyordu). Trainer nasılsa karıştırır, sonda shuffle gerekmez.
+    import itertools
+    stream = itertools.chain(_grounding_rows(args.limit),
+                             _refusal_rows(args.limit // 2),
+                             _identity_rows())
+    n = 0
     with open(args.out, "w", encoding="utf-8") as f:
-        for r in rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    print(f"{len(rows)} örnek → {args.out}")
+        for row in stream:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+            f.flush()
+            n += 1
+    print(f"{n} örnek → {args.out}")
 
 
 if __name__ == "__main__":
