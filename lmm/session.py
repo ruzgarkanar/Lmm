@@ -433,9 +433,12 @@ class Session:
         kaynak-etiketli, operatör olgusunu ezemez). Dönen: (yazılan, atlanan)."""
         wrote, skipped = 0, 0
         seen = set()          # _write ile aynı: aynı üçlü iki cümlede geçerse
+        self.unread = []      # OKUMA GÜVENCESİ: öğrenilemeyen cümleler —
+        #                       sessiz atlama YOK, çağıran görür (dürüstlük)
         sentences = [s.strip() for s in re.split(r"(?<=[.!?;])\s+|\n+", text)
                      if s.strip()]
         for sent in sentences:
+            wrote_before = wrote
             # NEDENSELLİK de dokümandan öğrenilir ("Yağmur yağarsa bataklık
             # büyür") — benchmark bunu yakaladı: is_causal yalnız sohbet
             # yolundaydı, dokümandaki neden-sonuç hiç yutulmuyordu.
@@ -445,7 +448,15 @@ class Session:
                 self.learn_cause(causal[0], causal[1], source=source)
                 wrote += 1
                 continue
-            for subject, predicate, value in extract.reextract(sent):
+            triples = extract.reextract(sent)
+            if not triples:
+                # İKİNCİ OKUMA (okuma güvencesi): reextract boş döndüyse öteki
+                # istemle dene — benchmark'ta koşudan koşuya değişen "karvel
+                # kayboldu" sınıfı buradan geliyordu (tek istem, tek şans).
+                second = extract.extract(sent)
+                if second["kind"] == extract.WRITE:
+                    triples = second["triples"]
+            for subject, predicate, value in triples:
                 if not value or not _grounded_in(value, sent):
                     skipped += 1
                     continue
@@ -467,6 +478,8 @@ class Session:
                 self._learn_transitive(pk)
                 if pk in self.memory.transitive:
                     self._derive(sk, pk, vk)
+            if wrote == wrote_before:
+                self.unread.append(sent)    # bu cümleden HİÇBİR olgu çıkmadı
         if wrote:
             self.memory.lived(f"document:{source}:{wrote}", outcome=1.0,
                               about=[self.memory.self_key])
