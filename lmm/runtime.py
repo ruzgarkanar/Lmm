@@ -1,10 +1,11 @@
-"""Qwen runtime — LMM'in DİL motoru. Yükler, üretir. condition-1 burada yaşar.
+"""Qwen runtime — LMM's LANGUAGE engine. Loads, generates. condition-1 lives here.
 
-Sorumluluğu tek: 'metin ver, metin al'. Hiçbir karar vermez — Qwen yalnız aday
-üretir, karar mantığı `verify`/`session`'dadır. Model bir kez yüklenir (tekil).
+Its responsibility is single: 'give text, get text'. It makes no decisions —
+Qwen only produces candidates, decision logic lives in `verify`/`session`. The
+model loads once (singleton).
 
-Aygıt otomatik: MPS (Apple) · CUDA · yoksa CPU. Dağıtımda GGUF/int4 sürümü
-buraya takılacak (ucuz donanımda hız); şimdilik transformers.
+Device is automatic: MPS (Apple) · CUDA · else CPU. In deployment the GGUF/int4
+build will plug in here (speed on cheap hardware); transformers for now.
 """
 import os
 
@@ -31,7 +32,7 @@ def _load():
         return
     if not ready():
         raise FileNotFoundError(
-            f"Qwen modeli bulunamadı: {path()} — önce indir "
+            f"Qwen model not found: {path()} — download it first "
             "(huggingface: Qwen/Qwen2.5-3B-Instruct).")
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -41,16 +42,17 @@ def _load():
     dtype = torch.float16 if _DEVICE in ("mps", "cuda") else torch.float32
     _MODEL = (AutoModelForCausalLM.from_pretrained(path(), dtype=dtype)
               .to(_DEVICE).eval())
-    # LoRA adapter (varsa) uygula — ince-ayarlı DAVRANIŞ (dil/kimlik/tutarlılık).
-    # Bilgi değil davranış; graf hâlâ retrain'siz büyür (condition-3). LMM_NO_LORA=1
-    # ile kapatılır (ham modele dön — A/B karşılaştırma).
+    # Apply the LoRA adapter (if present) — fine-tuned BEHAVIOR
+    # (language/identity/consistency). Behavior, not knowledge; the graph still
+    # grows without retraining (condition-3). Disable with LMM_NO_LORA=1
+    # (back to the raw model — A/B comparison).
     adapter = os.path.join(_root(), "models/lmm/lora")
     if os.path.isdir(adapter) and os.environ.get("LMM_NO_LORA") != "1":
         try:
             from peft import PeftModel
             _MODEL = PeftModel.from_pretrained(_MODEL, adapter).eval()
         except Exception:                                   # noqa: BLE001
-            pass        # peft yok / adapter bozuk → ham modelle devam et
+            pass        # no peft / broken adapter → continue with the raw model
 
 
 def device():
@@ -59,16 +61,16 @@ def device():
 
 
 def generate(messages, max_tokens=256, temperature=0.7, system=None):
-    """Üretir. `messages`: str (tek kullanıcı sözü) ya da [{role,content}].
-    `system`: sistem talimatı (topraklama için). Dönen: düz metin.
+    """Generates. `messages`: str (a single user utterance) or [{role,content}].
+    `system`: the system instruction (for grounding). Returns: plain text.
 
-    Backend seçimi: LMM_BACKEND=gguf ise llama.cpp/int4 sürümüne delege eder
-    (ucuz/yerel donanımda hız). Aksi halde transformers. Sözleşme aynı."""
+    Backend selection: if LMM_BACKEND=gguf, delegates to the llama.cpp/int4
+    build (speed on cheap/local hardware). Otherwise transformers. Same contract."""
     if os.environ.get("LMM_BACKEND") == "gguf":
         from . import runtime_gguf
         return runtime_gguf.generate(messages, max_tokens=max_tokens,
                                      temperature=temperature, system=system)
-    if os.environ.get("LMM_BACKEND") == "azure":     # DENEY: aynı-motor kıyası
+    if os.environ.get("LMM_BACKEND") == "azure":     # EXPERIMENT: same-engine comparison
         from . import runtime_azure
         return runtime_azure.generate(messages, max_tokens=max_tokens,
                                       temperature=temperature, system=system)
@@ -80,11 +82,12 @@ def generate(messages, max_tokens=256, temperature=0.7, system=None):
         messages = [{"role": "system", "content": system}] + list(messages)
     text = _TOK.apply_chat_template(messages, tokenize=False,
                                     add_generation_prompt=True)
-    # truncation: çok uzun mesaj model pozisyon sınırını aşıp çökmesin.
+    # truncation: an overly long message must not exceed the model's position
+    # limit and crash.
     ids = _TOK(text, return_tensors="pt", truncation=True,
                max_length=8192).to(_DEVICE)
-    # Örnekleme parametreleri yalnız do_sample=True iken geçilir (greedy'de
-    # transformers "unused flags" uyarısı basıyordu — davranış doğru, gürültü).
+    # Sampling parameters are passed only when do_sample=True (in greedy mode
+    # transformers printed an "unused flags" warning — behavior correct, noise).
     kwargs = {"max_new_tokens": max_tokens, "pad_token_id": _TOK.eos_token_id}
     if temperature > 0:
         kwargs.update(do_sample=True, temperature=temperature, top_p=0.9)

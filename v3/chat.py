@@ -1,14 +1,14 @@
-"""Etkileşimli sohbet — her tur günlüğe yazılır, sorunlar oradan okunur.
+"""Interactive chat — every turn is written to the log, problems are read from there.
 
-Kullanım:
-    python3.11 -m v3.chat            # bellek: models/v3/sohbet.lmm3
-    (çıkmak için boş satırda Ctrl+D ya da Ctrl+C)
+Usage:
+    python3.11 -m v3.chat            # memory: models/v3/sohbet.lmm3
+    (to quit, Ctrl+D on an empty line or Ctrl+C)
 
-Günlük: logs/chat-<zaman>.jsonl — her satır bir tur:
-    girdi · cevap · okuyucunun gördüğü işlem (tür/özne/değer/güven) · süre
+Log: logs/chat-<time>.jsonl — one turn per line:
+    input · answer · the operation the reader saw (kind/subject/value/confidence) · duration
 
-Günlük İNCELEME içindir: okuyucu neyi yanlış okudu, hangi tur boş kaldı,
-hangi kayıt yazıldı — hepsi tek dosyada, sonradan birlikte bakılır.
+The log is for INSPECTION: what the reader misread, which turn came back
+empty, which record was written — all in one file, examined together later.
 """
 import json
 import os

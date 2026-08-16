@@ -1,30 +1,35 @@
-"""Okuyucu: cümleyi belleğin ANLAYACAĞI işleme çevirir — eğitilmiş, kuralsız.
+"""The reader: turns a sentence into an operation memory can UNDERSTAND — trained, rule-free.
 
-Eski sistemde okuma üç parçaya bölünmüştü: önce cümleyi bir sınıfa ayır, sonra
-kavramı bul, sonra grafa sor. Üçü ayrı organdı, ayrı hatalar yapıyorlardı ve
-ortadaki sınıf etiketi hiçbir işe yaramayan bir ara duraktı.
+In the old system reading was split into three pieces: first classify the
+sentence, then find the concept, then ask the graph. The three were separate
+organs, making separate mistakes, and the class label in the middle was a
+way station serving no purpose.
 
-Burada tek adım var ve bir dil modelinin yaptığı işin aynısı: metin girer,
-YAPI çıkar. Aradaki fark, çıkan yapının ağırlıklara gömülmesi değil, belleğe
-yazılacak bir işlem olması.
+Here there is a single step, and it is the same work a language model does:
+text goes in, STRUCTURE comes out. The difference is that the emerging
+structure is not buried in the weights but is an operation to be written into
+memory.
 
     "kartal bir kuştur"   ->  WRITE(kartal, tür, kuş)
     "kartal nedir"        ->  ASK(kartal, ?, ?)
     "selam"               ->  PASS
 
-Üç işlem, üç sayı. Dil değil, mimarideki karşılıkları:
+Three operations, three numbers. Not language — their counterparts in the
+architecture:
 
-    PASS   bilgi taşımıyor — sohbeti sürdüren söz
-    ASK    bellekten bir şey isteniyor
-    WRITE  belleğe bir şey konuyor (kapıdan geçmek şartıyla)
+    PASS   carries no knowledge — an utterance keeping the conversation going
+    ASK    something is being requested from memory
+    WRITE  something is being put into memory (provided it passes the gate)
 
-Bu dosyada ağ EĞİTİLMEZ, yalnız YÜKLENİR ve çalıştırılır. Eğitim ayrı bir
-tezgahın işi; buradaki tek sorumluluk, eğitilmiş ağı belleğin diline
-bağlamak. Ağ yoksa `ready` False olur ve sistem susar — kolaylık,
-bağımlılık değil: `v3/` torch'a muhtaç olmamalı.
+In this file the network is NOT TRAINED, only LOADED and run. Training is a
+separate workbench's job; the only responsibility here is wiring the trained
+network to memory's language. If there is no network, `ready` is False and
+the system stays silent — a convenience, not a dependency: `v3/` must not
+depend on torch.
 
-Dile ait hiçbir şey yoktur: ne ek, ne kalıp, ne kelime listesi. Ağ harf
-düzeyinde çalışır ve alfabesini kendi verisinden sayarak bulur.
+Nothing belonging to language exists: no suffix, no pattern, no word list.
+The network works at the letter level and finds its alphabet by counting it
+from its own data.
 """
 import os
 
@@ -32,11 +37,11 @@ PASS, ASK, WRITE = 0, 1, 2
 
 
 class Operation:
-    """Okuyucunun çıktısı: belleğe uygulanacak tek bir işlem.
+    """The reader's output: a single operation to apply to memory.
 
-    `subject`, `predicate`, `value` metin parçalarıdır — henüz kimlik değil.
-    Onları kimliğe çevirmek geometrinin işi (aynı yazılış birden çok kavram
-    olabilir ve hangisi olduğunu bağlam söyler).
+    `subject`, `predicate`, `value` are text pieces — not identities yet.
+    Turning them into identities is geometry's job (the same spelling can be
+    more than one concept, and context says which one it is).
     """
 
     __slots__ = ("kind", "subject", "predicate", "value", "confidence")
@@ -55,13 +60,14 @@ class Operation:
 
 
 class Reader:
-    """Eğitilmiş okuyucu. Model yoksa `ready` False."""
+    """The trained reader. If there is no model, `ready` is False."""
 
     def __init__(self, folder="models/v3", name="reader.pt"):
         self.ready = False
         self.model = None
-        # Yol depo köküne göre: cwd'ye göre olunca kök dışından açılan
-        # oturum ağı SESSİZCE bulamıyordu (3. tur gözlemi) — hatasız ama kör.
+        # The path is relative to the repo root: when it was relative to the
+        # cwd, a session opened outside the root SILENTLY failed to find the
+        # network (round-3 observation) — errorless but blind.
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         path = os.path.join(root, folder, name)
         if not os.path.exists(path):
@@ -84,16 +90,17 @@ class Reader:
         heads = held.get("heads", 8)
 
         class Net(nn.Module):
-            """Harf dizisi -> (işlem türü, harf başına rol).
+            """Letter sequence -> (operation kind, role per letter).
 
-            İki başlık tek gövdeyi paylaşır: biri cümlenin ne yapmak
-            istediğini, öteki hangi harflerin özne/yüklem/değer olduğunu
-            söyler. Tek gövde, çünkü ikisi aynı okumanın iki yüzü.
+            Two heads share one body: one says what the sentence wants to do,
+            the other which letters are subject/predicate/value. One body,
+            because the two are two faces of the same reading.
 
-            Konum tablosunun boyu KAYITTAN okunur, burada varsayılmaz. İlk
-            yazışta 4096 sabitti ve eğitim 257 ile kaydetmişti; model
-            yüklenemedi ve okuyucu sessizce hazır değil kaldı. Bir sayıyı iki
-            yerde yazmak, er geç iki farklı sayı yazmaktır.
+            The position table's length is read FROM THE CHECKPOINT, not
+            assumed here. In the first draft it was fixed at 4096 and
+            training had saved with 257; the model could not load and the
+            reader silently stayed not-ready. Writing one number in two
+            places is, sooner or later, writing two different numbers.
             """
 
             def __init__(self):
@@ -122,16 +129,18 @@ class Reader:
         self.ready = True
 
     def read(self, sentence):
-        """Cümle -> Operation. Ağ yoksa PASS döner (susmak, uydurmaktan iyi)."""
+        """Sentence -> Operation. Without a network returns PASS (silence beats confabulation)."""
         if not self.ready or not sentence:
             return Operation(PASS)
         torch = self.torch
-        # KATLA: büyük/küçük harf işlem türünü DEĞİŞTİRMEMELİ. Ölçüldü —
-        # "kalp nedir" ASK okunurken "Kalp nedir" WRITE sanılıp grafa
-        # "kalp→nedir" çöpü yazılıyordu; eğitimdeki olgular hep büyük harfle
-        # başladığından ağ büyük-harf-başı'nı "olgu" işareti sanmış. Katlama
-        # uzunluk korur (indeksler geçerli kalır) ve dil-bağımsızdır; eğitim
-        # küçük harfleri de gördüğü için dağılım dışına düşmez.
+        # FOLD: upper/lower case must NOT CHANGE the operation kind.
+        # Measured — while "kalp nedir" read as ASK, "Kalp nedir" was mistaken
+        # for WRITE and the garbage "kalp→nedir" was written into the graph;
+        # since the facts in training always began with a capital, the
+        # network had taken capital-initial as a "fact" marker. Folding
+        # preserves length (indexes stay valid) and is language-independent;
+        # since training also saw lowercase, it does not fall out of
+        # distribution.
         from v3.dataset import fold
         sentence = fold(sentence)
         ids = torch.tensor([[self.letters.get(ch, 0)
@@ -146,12 +155,13 @@ class Reader:
 
 
 def spans(text, roles):
-    """Harf rollerinden üç parçayı geri okur.
+    """Reads the three pieces back from the letter roles.
 
-    Roller: 0 dışarısı · 1 özne · 2 yüklem · 3 değer. Her rol için en uzun
-    kesintisiz dizi alınır ve kelime sınırına genişletilir — ağ ortada bir
-    harf kaçırırsa parça yine bulunsun. Kelime sınırı bir DİL KURALI değil:
-    boşluğun kelimeleri ayırdığını bilmek, Türkçe bilmeyi gerektirmiyor.
+    Roles: 0 outside · 1 subject · 2 predicate · 3 value. For each role the
+    longest unbroken run is taken and widened to the word boundary — so the
+    piece is still found if the network misses a letter in the middle. The
+    word boundary is not a LANGUAGE RULE: knowing that whitespace separates
+    words does not require knowing Turkish.
     """
     found = {}
     for role in (1, 2, 3):
@@ -174,9 +184,10 @@ def spans(text, roles):
         while high < len(text) and not text[high].isspace():
             high += 1
         piece = text[low:high]
-        # Elle noktalama kümesi yerine Unicode'un kendisi: baştan ve sondan,
-        # harf/rakam olmayan her şey kırpılır. Küme yazmak, alfabe saymış
-        # bir hattın içine ASCII varsayımı sokmaktı.
+        # Instead of a hand-written punctuation set, Unicode itself: from the
+        # front and back, everything that is not a letter/digit is trimmed.
+        # Writing a set would have smuggled an ASCII assumption into a
+        # pipeline that had counted its own alphabet.
         start, stop = 0, len(piece)
         while start < stop and not piece[start].isalnum():
             start += 1

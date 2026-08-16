@@ -1,10 +1,11 @@
-"""GENEL xlsx→metin dönüştürücü — LMM yutması için. Belgeye özgü kural YOK:
-her sayfada başlık satırı sezgisel bulunur (en çok dolu-metin hücreli satır),
-her veri satırı "Başlık: değer · Başlık: değer" cümlesine serileştirilir —
-böylece hücre-değeri hangi niteliğe ait olduğunu YANINDA taşır (tablo-bağlama
-sorunu kaynağında çözülür). Başlık-öncesi satırlar düz metin olarak geçer.
+"""GENERIC xlsx→text converter — for LMM ingestion. NO document-specific rules:
+on each sheet the header row is found heuristically (the row with the most
+short-text-filled cells), and each data row is serialized into a
+"Header: value · Header: value" sentence — so every cell value carries the
+attribute it belongs to RIGHT NEXT to it (the table-context problem is solved
+at the source). Rows before the header pass through as plain text.
 
-Kullanım: python3.11 bench/xlsx2txt.py dosya.xlsx > çıktı.txt
+Usage: python3.11 bench/xlsx2txt.py file.xlsx > output.txt
 """
 import sys
 
@@ -15,19 +16,19 @@ def sheet_to_text(df, sheet_name):
     out = [f"[{sheet_name}]"]
     rows = df.values.tolist()
     columns = list(df.columns)
-    # pandas ilk satırı başlık sanmış olabilir; gerçek başlığı içeride ara:
-    # en çok kısa-metin-dolu hücresi olan satır.
+    # pandas may have mistaken the first row for the header; look for the real
+    # header inside: the row with the most short-text-filled cells.
     def fullness(cells):
         return sum(1 for c in cells
                    if isinstance(c, str) and 0 < len(c.strip()) <= 40
                    and not c.startswith("Unnamed"))
     candidates = [(-fullness(r), i) for i, r in enumerate(rows[:10])]
-    candidates.append((-fullness(columns), -1))     # pandas başlığı da aday
+    candidates.append((-fullness(columns), -1))     # pandas header is a candidate too
     candidates.sort()
     header_i = candidates[0][1]
     header = columns if header_i == -1 else rows[header_i]
     header = [str(h).strip() if not pd.isna(h) else "" for h in header]
-    # başlık-öncesi hücreler: düz metin (rapor üstbilgisi vb.)
+    # cells before the header: plain text (report front matter etc.)
     pre = rows[:header_i] if header_i >= 0 else []
     if header_i >= 0 and list(columns) and not all(
             str(c).startswith("Unnamed") for c in columns):
@@ -37,7 +38,7 @@ def sheet_to_text(df, sheet_name):
             if isinstance(cell, str) and cell.strip() \
                     and not cell.startswith("Unnamed"):
                 out.append(cell.strip())
-    # veri satırları: "Başlık: değer · ..."
+    # data rows: "Header: value · ..."
     data = rows[header_i + 1:] if header_i >= 0 else rows
     for r in data:
         parts = []

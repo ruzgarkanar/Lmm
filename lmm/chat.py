@@ -1,11 +1,11 @@
-"""LMM sohbet — etkileşimli. Qwen (dil) + graf/kapı (doğruluk & büyüme).
+"""LMM chat — interactive. Qwen (language) + graph/gate (truth & growth).
 
-Kullanım:
-    python3.11 -m lmm.chat            # bellek: models/lmm/hafiza.lmm
+Usage:
+    python3.11 -m lmm.chat            # memory: models/lmm/hafiza.lmm
 
-Her tur günlüğe yazılır (logs/lmm-<zaman>.jsonl): girdi · cevap · okuyucunun
-gördüğü işlem · süre. Bellek çıkışta kaydedilir — bir sonraki oturuma taşınır
-(retrain'siz büyüme). Çıkış: boş satırda Ctrl+D ya da Ctrl+C.
+Every turn is logged (logs/lmm-<time>.jsonl): input · answer · the operation
+the reader saw · duration. Memory is saved on exit — carried into the next
+session (growth without retraining). Exit: Ctrl+D on an empty line or Ctrl+C.
 """
 import json
 import os
@@ -24,16 +24,16 @@ def main():
     stamp = time.strftime("%Y%m%d-%H%M%S")
     log_path = os.path.join("logs", f"lmm-{stamp}.jsonl")
 
-    print("# LMM yükleniyor (Qwen-3B, ilk sefer ~10 sn)...")
+    print("# LMM loading (Qwen-3B, ~10 s on first run)...")
     session = Session(memory_path)
     from lmm.mind import Mind
-    mind = Mind(session)        # otonom zihin — turlar arası kendi düşünür (ms)
-    print(f"# bellek: {memory_path} ({len(session.memory.records)} kayıt)")
-    print(f"# günlük: {log_path}")
-    print("# çıkış: Ctrl+C ya da Ctrl+D · boş satır atlanır\n")
+    mind = Mind(session)        # autonomous mind — thinks on its own between turns (ms)
+    print(f"# memory: {memory_path} ({len(session.memory.records)} records)")
+    print(f"# log: {log_path}")
+    print("# exit: Ctrl+C or Ctrl+D · empty lines are skipped\n")
 
     log = open(log_path, "a", encoding="utf-8")
-    proposed = set()        # proaktif olarak ÖNERİLEN meraklar (tekrar etmemek için)
+    proposed = set()        # curiosities already PROACTIVELY suggested (avoid repeats)
     try:
         while True:
             try:
@@ -42,53 +42,55 @@ def main():
                 break
             if not line:
                 continue
-            # OTONOM ZİHİN — öz-farkındalık + kendi büyüme komutları:
-            if line in ("?merak", "?curiosity"):
-                w = mind.wonder()           # çok-kullanılan-ama-tanımsız (rafine)
-                print("# merak ediyorum (sürekli kullanıp da bilmediğim): "
+            # AUTONOMOUS MIND — self-awareness + self-growth commands
+            # (legacy Turkish command names still accepted):
+            if line in ("?wonder", "?curiosity", "?merak"):
+                w = mind.wonder()           # much-used-but-undefined (refined)
+                print("# I wonder about (things I keep using but don't know): "
                       + (", ".join(w) if w else "—")
-                      + ("  →  ?araştır <konu>" if w else ""))
+                      + ("  →  ?research <topic>" if w else ""))
                 continue
-            if line.startswith("?araştır ") or line.startswith("?research "):
-                konu = line.split(" ", 1)[1].strip()
-                print(f"# {konu} araştırılıyor (web, düşük güven)...")
-                ok = mind.research(konu)
-                print(f"# {'öğrendim ✓ (kaynaklı)' if ok else 'bulamadım'}")
+            if line.startswith("?research ") or line.startswith("?araştır "):
+                topic = line.split(" ", 1)[1].strip()
+                print(f"# researching {topic} (web, low trust)...")
+                ok = mind.research(topic)
+                print(f"# {'learned ✓ (sourced)' if ok else 'not found'}")
                 continue
-            if line in ("?çelişki", "?tension"):
+            if line in ("?tension", "?çelişki"):
                 tens = session.tension()
                 if tens:
                     for subj, vals in tens:
-                        print(f"# çelişki: {subj} → {' ↔ '.join(vals)}")
+                        print(f"# tension: {subj} → {' ↔ '.join(vals)}")
                 else:
-                    print("# çelişki yok")
+                    print("# no tension")
                 continue
             started = time.time()
             said = session.respond(line)
             print(said if said else "[…]")
-            # OTONOM DÜŞÜNME (ms, turlar arası): mesajdan sonra kendi akıl yürütür —
-            # çelişki çöz / türet / damıt. Yeni bir şey türetirse sessizce söyler.
+            # AUTONOMOUS THINKING (ms, between turns): reasons on its own after
+            # the message — resolve tension / derive / distill. If it derives
+            # something new, it quietly says so.
             before = sum(1 for r in session.memory.records.values()
                          if r.source == "#inference")
             mind.run()
             after = sum(1 for r in session.memory.records.values()
                         if r.source == "#inference")
             if after > before:
-                print(f"  💭 (kendim türettim: {after - before} yeni bağ)")
-            # PROAKTİF MERAK: bir kavramı yeterince çok kullanıp da bilmiyorsa,
-            # kendi 'bunu öğrenmek istiyorum' der (bir kez, gürültü yapmadan).
+                print(f"  💭 (derived on my own: {after - before} new links)")
+            # PROACTIVE CURIOSITY: if it has used a concept often enough without
+            # knowing it, it says 'I want to learn this' (once, without noise).
             cur = mind.top_curiosity()
             if cur and cur[0] not in proposed:
                 proposed.add(cur[0])
-                print(f"  💭 '{cur[0]}' sürekli geçiyor ama ne olduğunu bilmiyorum"
-                      f" — ?araştır {cur[0]}")
+                print(f"  💭 '{cur[0]}' keeps coming up but I don't know what it is"
+                      f" — ?research {cur[0]}")
             log.write(json.dumps({
                 "at": time.strftime("%H:%M:%S"),
                 "in": line,
                 "out": said,
-                # KAPI-onaylı üçlüler: uyku-konsolidasyonun altın verisi
-                # (cümle → üçlü çifti; modelin ham çıktısı değil, kapının
-                # kabul ettiği). finetune/consolidate.py bunları hasat eder.
+                # GATE-approved triples: the gold data for sleep-consolidation
+                # (sentence → triple pairs; not the model's raw output, but what
+                # the gate accepted). finetune/consolidate.py harvests these.
                 "learned": session.last_written,
                 "records": len(session.memory.records),
                 "ms": round((time.time() - started) * 1000),
@@ -97,8 +99,8 @@ def main():
     finally:
         session.save()
         log.close()
-        print(f"\n# bellek kaydedildi ({len(session.memory.records)} kayıt)"
-              f" · günlük: {log_path}")
+        print(f"\n# memory saved ({len(session.memory.records)} records)"
+              f" · log: {log_path}")
 
 
 if __name__ == "__main__":

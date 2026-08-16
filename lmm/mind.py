@@ -1,19 +1,20 @@
-"""Mind — respond()'un mesajsız, sinyal-güdümlü İKİZİ. Otonom gelişim döngüsü.
+"""Mind — respond()'s message-less, signal-driven TWIN. The autonomous growth loop.
 
-respond() TEPKİSELdir: mesaj gelir → cevap. Mind PROAKTİFtir: mesaj gelmese de
-iç sinyallerden (çelişki basıncı, bilgi boşluğu) iş çıkarır — çelişkilerini çözer,
-türetir, damıtır, (ileride) araştırır. "Kendi kendine düşünen, kendi büyüyen akıl."
+respond() is REACTIVE: a message arrives → an answer. Mind is PROACTIVE: even
+without a message it produces work from internal signals (contradiction pressure,
+knowledge gaps) — resolves its contradictions, derives, distills, (later)
+researches. "A mind that thinks on its own and grows on its own."
 
-İKİ HIZ (net ayrım):
-  ms-iç   : türet / çöz / damıt — SAF GRAF, model/web YOK, mikro-saniye
-  yavaş-dış: araştır — Qwen+web, saniyeler, bütçeli+onaylı (Adım 4, henüz yok)
+TWO SPEEDS (a sharp split):
+  ms-internal : derive / resolve / distill — PURE GRAPH, NO model/web, microseconds
+  slow-external: research — Qwen+web, seconds, budgeted+approved (Step 4, not yet)
 
-Bu YAŞAM DEĞİL: graf üstünde zamanlanmış, sınırlı, devam-ettirilebilir hesap.
-Sinyaller boşalınca DİNLENİR — substrat-özgür değil. Sayı ≠ anlayış.
+This is NOT LIFE: scheduled, bounded, resumable computation over the graph.
+When the signals drain it RESTS — not substrate-free. Numbers ≠ understanding.
 
-Bu dosya şimdilik yalnız SAF-MS çekirdeği (Adım 0-2): sıfır model/web/thread riski.
-Yavaş-dış araştırma + guardrail'lar (bütçe, #auto damgası, frontier dondurma) ayrı
-tartışılıp eklenecek.
+For now this file is only the PURE-MS core (Steps 0-2): zero model/web/thread risk.
+Slow-external research + guardrails (budget, #auto stamp, frontier freeze) will be
+discussed and added separately.
 """
 from v3 import dynamics
 from v3.gate import SPEAK
@@ -23,40 +24,44 @@ from lmm import research as web
 
 
 class Mind:
-    """Bir Session'ı sarar; iç sinyallerden proaktif iş çıkarır. Session (konuşma)
-    dokunulmaz; ikisi aynı `memory`'yi paylaşır."""
+    """Wraps a Session; produces proactive work from internal signals. The
+    Session (conversation) is untouched; the two share the same `memory`."""
 
     def __init__(self, session):
         self.session = session
         self.memory = session.memory
 
-    # --- tek tik (ms, saf graf) ----------------------------------------
+    # --- one tick (ms, pure graph) -------------------------------------
     def step(self):
-        """Bir düşünme tiki — bedava (ms) yapısal hamle. Öncelik: ÇELİŞKİ çöz >
-        TÜRET (geçişli kapanış) > DAMIT (uyku). Dönen: yapılan eylemin SAYISAL
-        raporu (dict). Model/web YOK — deterministik, çevrimdışı.
+        """One thinking tick — a free (ms) structural move. Priority: resolve
+        CONTRADICTION > DERIVE (transitive closure) > DISTILL (sleep). Returns:
+        a NUMERIC report (dict) of the action taken. NO model/web —
+        deterministic, offline.
 
-        (Adım 3'te if-sıra yerine dürtü/maliyet argmax'e yükselecek; ama davranış
-        zaten 'ucuz yapısal hamleyi yeğle' — model-yargısı eylem yok.)"""
-        # 1) ÇELİŞKİ varsa çöz — en yüksek basınçlı kaydı hakemle
+        (In Step 3 the if-order will be upgraded to a drive/cost argmax; but the
+        behavior is already 'prefer the cheap structural move' — no
+        model-judgment actions.)"""
+        # 1) if there is a CONTRADICTION, resolve it — arbitrate the record
+        #    under highest pressure
         pres = dynamics.pressure(self.memory)
         if pres:
             record = self.memory.records.get(pres[0][0])
             if record is not None:
                 dynamics.arbitrate(self.memory, record)
-                return {"action": "resolve", "kalan_celisi": len(pres) - 1}
-        # 2) TÜRET — geçişli yüklemlerde eksik #inference kenarlarını doldur
+                return {"action": "resolve", "remaining_conflicts": len(pres) - 1}
+        # 2) DERIVE — fill in missing #inference edges on transitive predicates
         derived = self._derive_closure()
         if derived:
-            return {"action": "derive", "turetildi": derived}
-        # 3) DAMIT — uyku (settle/fade/prune). Bir şey değişmezse doygun.
+            return {"action": "derive", "derived": derived}
+        # 3) DISTILL — sleep (settle/fade/prune). If nothing changes, saturated.
         report = dynamics.sleep(self.memory)
         return {"action": "distill", **report}
 
     def _derive_closure(self):
-        """Geçişli yüklemlerde eksik türetimleri kapat. Önce geçişliliği veriden
-        öğren (_learn_transitive), sonra her kenar çevresinde _derive. ms, saf graf.
-        Dönen: bu turda türetilen yeni #inference kenar sayısı."""
+        """Close missing derivations on transitive predicates. First learn
+        transitivity from the data (_learn_transitive), then _derive around each
+        edge. ms, pure graph. Returns: number of new #inference edges derived
+        this round."""
         for pk in list(self.memory.by_predicate.keys()):
             self.session._learn_transitive(pk)
         new = 0
@@ -70,11 +75,12 @@ class Mind:
                 new += len(self.memory.records) - before
         return new
 
-    # --- döngü (doygunlukta durur) -------------------------------------
+    # --- loop (stops at saturation) ------------------------------------
     def run(self, max_steps=200):
-        """Sinyal ya da bütçe bitene dek düşün. DOYGUNLUKTA durur (dinlenir):
-        çelişki yok + türetilecek yok + damıtım hiçbir şey değiştirmiyor. Zamanlayıcı
-        durumu geçici; graf'tan yeniden hesaplanır → durup devam bedava."""
+        """Think until the signals or the budget run out. Stops (rests) at
+        SATURATION: no contradiction + nothing to derive + distilling changes
+        nothing. The scheduler state is transient; it is recomputed from the
+        graph → stopping and resuming is free."""
         log = []
         for _ in range(max_steps):
             report = self.step()
@@ -82,36 +88,38 @@ class Mind:
             if report["action"] == "distill" and not any(
                     report.get(k) for k in
                     ("settled", "faded", "judged", "pruned", "distilled")):
-                break                       # doygun — dinlen
+                break                       # saturated — rest
         return log
 
-    # --- yarı-otonom: merakını YÜZEYE çıkar, onayla doldur ------------
+    # --- semi-autonomous: SURFACE its curiosity, fill it with approval --
     def wonder(self, most=3):
-        """En DEĞERLİ merak: ÇOK atıfta bulunulan ama TANIMSIZ kavramlar — "bunu
-        sürekli kullanıyorum ama kendisini bilmiyorum" (ör. hayvan: aslan→hayvan,
-        kaplan→hayvan der ama hayvan NEDİR bilmez). Öncelik = atıf sayısı (by_value
-        in-derece) × tanımsızlık. Böylece yaprak-değil, GERÇEKTEN kullanılan boşluk
-        öne gelir. Web'e DOKUNMAZ — yalnız öneri; insan onaylar (semi-otonom)."""
+        """The most VALUABLE curiosity: concepts referenced OFTEN but UNDEFINED
+        — "I use this constantly but don't know the thing itself" (e.g. animal:
+        it says lion→animal, tiger→animal but doesn't know what an animal IS).
+        Priority = reference count (by_value in-degree) × undefinedness. So a
+        gap that is ACTUALLY used comes first, not a leaf. Does NOT touch the
+        web — only a suggestion; a human approves (semi-autonomous)."""
         scored = []
         for key in self.memory.identities:
             if key in self.session._identity:
                 continue
-            # tanımlı mı: bu kavram HAKKINDA (özne olarak) SPEAK-üstü olgu var mı
+            # defined?: is there a SPEAK-or-above fact ABOUT this concept (as subject)
             if any(self.memory.records[k].trust >= SPEAK
                    for k in self.memory.by_subject.get(key, ())):
-                continue                    # tanımlı → merak değil
-            refs = len(self.memory.by_value.get(key, ()))   # kaç kez kullanılıyor
+                continue                    # defined → not a curiosity
+            refs = len(self.memory.by_value.get(key, ()))   # how often it's used
             label = link.label_of(self.memory, key)
-            if label and refs > 0:          # en az bir atıf → anlamlı boşluk
+            if label and refs > 0:          # at least one reference → meaningful gap
                 scored.append((refs, label))
         scored.sort(reverse=True)
         return [label for _refs, label in scored[:most]]
 
     def top_curiosity(self, min_refs=2):
-        """En BASKIN merak — en az `min_refs` kez atıfta bulunulan ama tanımsız TEK
-        kavram (label, atıf). Proaktif yüzeye çıkarma için: döngü, bir şeyi yeterince
-        çok kullanıp da bilmediğinde 'bunu öğrenmek istiyorum' der (dürtü eşiği).
-        Eşik = sık kullanılan boşluğu gürültüden ayırır."""
+        """The most DOMINANT curiosity — the ONE concept referenced at least
+        `min_refs` times but undefined (label, refs). For proactive surfacing:
+        the loop says 'I want to learn this' when it has used something often
+        enough without knowing it (a drive threshold). The threshold separates
+        a frequently used gap from noise."""
         best = None
         for key in self.memory.identities:
             if key in self.session._identity:
@@ -125,11 +133,12 @@ class Mind:
         return best
 
     def research(self, subject_label):
-        """İNSAN ONAYIYLA bir boşluğu web'den doldur — INGEST-ONLY, otonom-güvenli:
-        wiki_summary(başlık) → category_from → gate.admit(#web, DÜŞÜK güven). Sentetik
-        soru YOK (başlık zaten etiket → condition-5), konuşma üretimi YOK — sadece
-        kaynaklı+düşük-güvenli yutma. Provenans (#web:url) denetim için kalır; web
-        güvenilmez olduğu için asla CERTAIN, operatör olgusunu asla ezmez."""
+        """WITH HUMAN APPROVAL, fill a gap from the web — INGEST-ONLY,
+        autonomy-safe: wiki_summary(title) → category_from → gate.admit(#web,
+        LOW trust). NO synthetic question (the title is already the label →
+        condition-5), NO speech generation — only sourced+low-trust ingestion.
+        Provenance (#web:url) remains for audit; since the web is untrusted it
+        is never CERTAIN, it never overrides an operator fact."""
         text, url = web.wiki_summary(subject_label)
         if not text:
             return False
@@ -146,12 +155,13 @@ class Mind:
         return True
 
     def status(self):
-        """Gelişim nabzı — sayı, dil değil (projenin etiği). Bebek ne kadar 'büyüdü'."""
+        """The growth pulse — numbers, not language (the project's ethic). How
+        much the baby has 'grown'."""
         return {
-            "olgu": len(self.memory.records),
-            "kavram": len(self.memory.identities),
-            "acik_bosluk": len(dynamics.gaps(self.memory)),
-            "acik_celiski": len(dynamics.pressure(self.memory)),
-            "turetilmis": sum(1 for r in self.memory.records.values()
-                              if r.source == "#inference"),
+            "facts": len(self.memory.records),
+            "concepts": len(self.memory.identities),
+            "open_gaps": len(dynamics.gaps(self.memory)),
+            "open_conflicts": len(dynamics.pressure(self.memory)),
+            "derived": sum(1 for r in self.memory.records.values()
+                           if r.source == "#inference"),
         }

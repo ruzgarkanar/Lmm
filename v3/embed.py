@@ -1,29 +1,32 @@
-"""Gömme kurucu: kelimelere geometri — sayarak, gradyansız, GPU'suz.
+"""The embedding builder: geometry for words — by counting, gradient-free, GPU-free.
 
-Geometri katmanı (`v3/geometry.py`) vektör bekler ve bu dosya olmadan kördü:
-`Identity.vector` alanı vardı, dolduranı yoktu. Doldurulmadığında `resolve`
-"en çok erişilen"e düşüyor — yani dizgi eşleşmesi + popülerlik. Çokanlamlılığı
-çözmek için kurulan katman, dolduranı olmadığı için hiç çalışmamış olurdu.
-Denetim bunu satır satır kıyasta yakaladı.
+The geometry layer (`v3/geometry.py`) expects vectors and without this file
+it was blind: the `Identity.vector` field existed, nothing filled it. When
+unfilled, `resolve` falls back to "the most accessed" — that is, string
+matching + popularity. The layer built to solve polysemy would never have
+run, for lack of anything to fill it. The audit caught this in the
+line-by-line comparison.
 
-Yöntem sayımdır ve dayanağı ölçülüdür: word2vec'in kaydırılmış bir PMI
-matrisini örtük çarpanlara ayırdığı gösterildi (Levy & Goldberg 2014) —
-gradyan, anlamın geldiği yer değil, ona varmanın bir yoluydu. Burada aynı
-geometriye doğrudan gidilir:
+The method is counting, and its grounding is measured: word2vec was shown to
+implicitly factorize a shifted PMI matrix (Levy & Goldberg 2014) — the
+gradient was not where the meaning came from, only one way of arriving at it.
+Here we go to the same geometry directly:
 
-    1. SAYIM     hangi kelime hangi kelimeyle geçiyor (pencere)
-    2. PPMI      "herkesin arkadaşı" kelimelerin şişirmesi bölünür
-    3. İZDÜŞÜM   sabit tohumlu rastgele izdüşümle boyut indirilir —
-                 deterministik: aynı derlem her zaman aynı vektörler
+    1. COUNT       which word occurs with which word (the window)
+    2. PPMI        the inflation of "everyone's friend" words is divided out
+    3. PROJECTION  dimensionality is reduced with a fixed-seed random
+                   projection — deterministic: the same corpus always gives
+                   the same vectors
 
-Dile ait hiçbir şey yoktur: kelime, boşlukla ayrılan şeydir ve hangi dilde
-olduğu sorulmaz. Aynı kurucu yarın İngilizce derlemle İngilizce geometri
-kurar.
+Nothing belonging to language exists: a word is what whitespace separates,
+and which language it is in is never asked. The same builder, tomorrow, builds
+English geometry from an English corpus.
 
-SINIR — geometri yalnız BULUR. Vektör hiçbir zaman kayıt yazmaz; zıtlar aynı
-çevrede geçer ve dağılım onları ayıramaz (bu projede ölçüldü). Karar kapınındır.
+THE BOUNDARY — geometry only FINDS. A vector never writes a record; opposites
+occur in the same surroundings and distribution cannot separate them
+(measured in this project). The decision is the gate's.
 
-Kullanım:
+Usage:
     python3 -m v3.embed data/raw/tr-metin.txt --out models/v3/vectors.json
 """
 import json
@@ -31,19 +34,20 @@ import math
 import os
 import sys
 
-# Pencere: bir kelimenin "çevresi" sayılan komşuluk. Dördün ötesi, cümle
-# sınırını aşıp ilgisiz kelimeleri çevre saymaya başlıyor.
+# The window: the neighborhood that counts as a word's "surroundings". Beyond
+# four it starts crossing the sentence boundary and counting unrelated words
+# as surroundings.
 WINDOW = 4
 
-# Bir kelimenin sayılması için en az kaç kez görülmesi gerekir. Bir kez
-# görülenin dağılımı yoktur; vektörü gürültü olur.
+# The minimum times a word must be seen to be counted. What is seen once has
+# no distribution; its vector would be noise.
 LEAST = 5
 
 DIMENSIONS = 128
 
 
 def sentences(paths, most=None):
-    """Derlem satırları — kelimelere bölünmüş. Bölme yalnız boşluktan."""
+    """Corpus lines — split into words. Splitting is by whitespace only."""
     count = 0
     for path in paths:
         opener = _open(path)
@@ -74,7 +78,7 @@ def _open(path):
 
 
 def counts(rows):
-    """Kelime ve pairs sayımları. Tek geçişte, bellek dostu."""
+    """Word and pair counts. In a single pass, memory-friendly."""
     seen, pairs = {}, {}
     for words in rows:
         for at, word in enumerate(words):
@@ -94,19 +98,22 @@ def counts(rows):
 
 
 def vectors_of(kept, pairs, dimensions=DIMENSIONS, rounds=10):
-    """PPMI matrisinin baş yönleri — altuzay yinelemesiyle.
+    """The leading directions of the PPMI matrix — by subspace iteration.
 
-    İlk yazış seyrek rastgele izdüşümdü ve ölçüm çürüttü: "kuş" kelimesinin
-    komşuları "karıştırıp, saklamak, luhansk" çıktı — gürültü. Kelime başına
-    ~48 bağlam var; o seyreklikte izdüşüm gürültüsü sinyali yutuyor.
+    The first draft was a sparse random projection and measurement refuted
+    it: the neighbors of the word "kuş" came out as "karıştırıp, saklamak,
+    luhansk" — noise. There are ~48 contexts per word; at that sparsity the
+    projection noise swallows the signal.
 
-    Altuzay yinelemesi aynı geometriye emin yoldan gider: M·V çarpımı tekrar
-    tekrar uygulanır ve V, matrisin en güçlü yönlerine yakınsar — word2vec'in
-    örtük yaptığı çarpanlara ayırmanın açık hâli (Levy & Goldberg 2014).
-    Başlangıç SABİT tohumlu: aynı derlem, her zaman aynı vektörler.
+    Subspace iteration goes to the same geometry by a sure road: the M·V
+    product is applied again and again and V converges to the matrix's
+    strongest directions — the explicit form of the factorization word2vec
+    does implicitly (Levy & Goldberg 2014). The start has a FIXED seed: the
+    same corpus, always the same vectors.
 
-    torch yalnız hız için (seyrek çarpım + QR); eğitim tarafının aracı zaten.
-    Çalışma anındaki geometri (`v3/geometry.py`) torch'suz kalır.
+    torch is only for speed (sparse multiply + QR); it is the training
+    side's tool anyway. The runtime geometry (`v3/geometry.py`) stays
+    torch-free.
     """
     import torch
 
@@ -146,7 +153,7 @@ def vectors_of(kept, pairs, dimensions=DIMENSIONS, rounds=10):
 
 
 def attach(memory, table):
-    """Vektörleri kimliklere bağlar: kimliğin vektörü, etiketlerinin ortalaması."""
+    """Binds the vectors to identities: an identity's vector is the average of its labels'."""
     bound = 0
     for identity in memory.identities.values():
         vectors = [table[label] for label in identity.labels

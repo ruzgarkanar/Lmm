@@ -1,10 +1,15 @@
-"""RAG tarafı — endüstri-standardı boru hattı, dürüst ve güçlü kurulmuş:
-langchain text-splitter → çok-dilli embedding → Chroma → top-k → gpt-4o-mini
-(Azure). İstem best-practice: "yalnız bağlamdan cevapla, yoksa bilmiyorum de".
-Motor bizimkinden ÇOK güçlü (bulut 4o-mini vs yerel 3B) — kıyas bizim
-aleyhimize eğik; buna rağmen fark çıkarsa iddia sağlamdır.
+"""RAG side — industry-standard pipeline, set up honestly and strong:
+langchain text-splitter → multilingual embedding → Chroma → top-k → gpt-4o-mini
+(Azure). Prompt follows best practice: "answer only from the context,
+otherwise say you don't know". The engine is FAR stronger than ours (cloud
+4o-mini vs local 3B) — the comparison is tilted against us; if a gap still
+shows up, the claim is solid.
 
-Çıktı: bench/sonuc_rag.json  [{soru, cevap, ms}]
+The system prompt is in Turkish (FUNCTIONAL: the benchmark corpus and
+questions are Turkish), and the output JSON field names ('soru', 'cevap',
+'ms', 'ingest_ms', 'cevaplar') match the Turkish benchmark data format.
+
+Output: bench/sonuc_rag.json  [{soru, cevap, ms}]
 """
 import json
 import os
@@ -48,7 +53,7 @@ def main():
         chunk_size=500, chunk_overlap=80).split_text(corpus)
     store = Chroma.from_texts(chunks, STEmbed())
     ingest_ms = round((time.time() - t0) * 1000)
-    print(f"ingest: {len(chunks)} parça, {ingest_ms}ms", flush=True)
+    print(f"ingest: {len(chunks)} chunks, {ingest_ms}ms", flush=True)
 
     llm = AzureChatOpenAI(
         azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],

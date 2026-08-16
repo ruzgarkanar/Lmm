@@ -1,29 +1,40 @@
-"""LoRA eğitim verisi — GRAFTAN/GERÇEK VERİDEN üretilir, ELLE cümle YAZILMAZ.
+"""LoRA training data — produced FROM THE GRAPH / REAL DATA, no sentences
+WRITTEN BY HAND.
 
-condition-5 (elle dil yok) burada da korunur: hedef cümleyi biz uydurmayız.
-İki kaynak, iki strateji:
+condition-5 (no hand-written language) is preserved here too: we do not invent
+the target sentence. Two sources, two strategies:
 
-  1) GROUNDING (topraklama disiplini): modele "yalnız ENJEKTE edilen olgudan
-     konuş" davranışını öğretir. Girdi = olgu bloğu + soru; hedef = o olguyu
-     söyleyen KISA cümle. Hedefi ELLE kalıpla yazmak condition-5'i ihlal ederdi;
-     bu yüzden hedef, MEVCUT çalışan istem davranışının ÖZ-DAMITIMIDIR (Qwen
-     kendi üretir, biz yalnız 'ne yap' deriz) — yani sistemin şu anki doğru
-     davranışını ağırlığa taşırız. Kalıp yok.
+  1) GROUNDING (grounding discipline): teaches the model to "speak only from
+     the INJECTED fact". Input = fact block + question; target = a SHORT
+     sentence stating that fact. Writing the target by hand from a template
+     would violate condition-5; therefore the target is a SELF-DISTILLATION of
+     the CURRENT working prompted behavior (Qwen produces it itself, we only
+     say 'what to do') — i.e. we move the system's current correct behavior
+     into the weights. No templates.
 
-  2) REFUSAL (uydurmama refleksi): olgu bloğu BOŞ iken hedef, generate.refusal
-     çıktısı — "bilmiyorum"u da model kendi dilinde üretir.
+  2) REFUSAL (no-fabrication reflex): with an EMPTY fact block the target is
+     the generate.refusal output — the model produces "I don't know" in its
+     own words too.
 
-  3) IDENTITY: kimlik olgusu (lmm→üretici→rüzgar) graftan; hedef yine öz-damıtım.
+  3) IDENTITY: the identity fact (lmm→creator→rüzgar) comes from the graph;
+     the target is again self-distillation.
 
-Çıktı: JSONL, her satır {"messages":[{system},{user},{assistant}]} — chat SFT
-formatı. train.py bunu tüketir.
+Output: JSONL, each line {"messages":[{system},{user},{assistant}]} — chat SFT
+format. train.py consumes it.
 
-Kullanım:
+Usage:
     python3.11 -m lmm.finetune.make_data --limit 800 --out data/train/lora.jsonl
 
-Not: öz-damıtım Qwen'i çağırır (yavaş). --limit ile küçük tut; kalite için
-gerçek `cümle`'yi de kullanmıyoruz çünkü o, blokta OLMAYAN olgular içerir
-(modele fazladan olgu = uydurma öğretirdi). Sadece bloktaki olgu hedefe girer.
+Note: self-distillation calls Qwen (slow). Keep it small with --limit; for
+quality we do NOT use the real source sentence either, because it contains
+facts NOT in the block (extra facts would teach the model to fabricate). Only
+the fact in the block enters the target.
+
+Note on Turkish literals: prompt/question strings ("{concept} nedir",
+"OLGULAR:/SORU:", the identity questions, the "rüzgar"/"lmm" check) are
+FUNCTIONAL — the system operates in Turkish and they must match the inference
+format exactly. The JSON field names ("kavram", "hedef") match the
+tanim-temiz.jsonl data file.
 """
 import argparse
 import json
@@ -34,20 +45,20 @@ import sys
 
 
 def _tick(kind, n, total):
-    """Canlı ilerleme (stderr) — izlenebilsin."""
-    print(f"  [{kind}] {n}/{total} üretildi", file=sys.stderr, flush=True)
+    """Live progress (stderr) — so it can be watched."""
+    print(f"  [{kind}] {n}/{total} produced", file=sys.stderr, flush=True)
 
-# DİL FİLTRESİ: self-distillation, sistemin şu anki OYNAK çıktılarını da yakalar
-# (Çince/İngilizce sızıntı). Bu örnekleri eğitim verisinden ATARIZ ki LoRA temiz
-# hedef-dil davranışını öğrensin. Bu bir VERİ TEMİZLİĞİ süzgeci — çalışma-zamanı
-# dil üretimi değil (condition-5 ihlali değil).
+# LANGUAGE FILTER: self-distillation also captures the system's current FLAKY
+# outputs (Chinese/English leakage). We DROP those examples from the training
+# data so LoRA learns clean target-language behavior. This is a DATA-CLEANING
+# filter — not runtime language generation (not a condition-5 violation).
 _CJK = re.compile(r"[　-鿿가-힯぀-ヿ]")
 _EN = re.compile(r"\b(the|and|is|are|was|were|of|to|this|that|with|not|for|"
                  r"you|your|according|source)\b", re.I)
 
 
 def _tr_ok(text):
-    """Türkçe-girdi hedefi temiz mi (Çince yok, ağır İngilizce sızıntı yok)."""
+    """Is the Turkish-input target clean (no Chinese, no heavy English leakage)?"""
     if not text or not text.strip():
         return False
     if _CJK.search(text):
@@ -56,7 +67,7 @@ def _tr_ok(text):
 
 
 def _no_cjk(text):
-    """Kimlik satırları TR ya da EN olabilir — yalnız CJK sızıntısını ele."""
+    """Identity lines may be TR or EN — only eliminate CJK leakage."""
     return bool(text and text.strip()) and not _CJK.search(text)
 
 from lmm import prompts, retrieve, link, generate
@@ -65,23 +76,24 @@ from v3.gate import Gate
 
 
 def _grounding_rows(limit):
-    """tanim-temiz.jsonl'den: her kavram için (olgu bloğu + soru) → öz-damıtılmış
-    kısa grounded cümle. Blok yalnız TEK olgu taşır; hedef o olgudan sapamaz."""
+    """From tanim-temiz.jsonl: for each concept, (fact block + question) →
+    self-distilled short grounded sentence. The block carries only ONE fact;
+    the target cannot stray from it."""
     src = os.path.join("data", "train", "tanim-temiz.jsonl")
     with open(src, encoding="utf-8") as f:
         lines = [json.loads(x) for x in f if x.strip()]
-    random.seed(0)                              # tekrarlanabilir örnek
+    random.seed(0)                              # reproducible sample
     random.shuffle(lines)
     n = 0
     for rec in lines[:limit]:
-        kavram, hedef = rec.get("kavram", "").strip(), rec.get("hedef", "").strip()
-        if not kavram or not hedef:
+        concept, value = rec.get("kavram", "").strip(), rec.get("hedef", "").strip()
+        if not concept or not value:
             continue
-        # Tek-olgu blok — facts_block biçimiyle birebir (inference'la aynı girdi).
-        block = f"[1] {kavram.lower()} → {hedef.lower()}"
-        question = f"{kavram} nedir"
-        target = generate.answer(question, block)      # ÖZ-DAMITIM (Qwen üretir)
-        if not _tr_ok(target):                          # DİL FİLTRESİ
+        # Single-fact block — exactly the facts_block format (same input as inference).
+        block = f"[1] {concept.lower()} → {value.lower()}"
+        question = f"{concept} nedir"
+        target = generate.answer(question, block)      # SELF-DISTILLATION (Qwen produces it)
+        if not _tr_ok(target):                          # LANGUAGE FILTER
             continue
         yield {"messages": [
             {"role": "system", "content": prompts.ANSWER_SYSTEM},
@@ -94,7 +106,7 @@ def _grounding_rows(limit):
 
 
 def _refusal_rows(limit):
-    """Bilinmeyen sorular → 'bilmiyorum' (model kendi dilinde). Girdi olgusuz."""
+    """Unknown questions → "I don't know" (in the model's own words). Input has no facts."""
     src = os.path.join("data", "train", "tanim-temiz.jsonl")
     with open(src, encoding="utf-8") as f:
         lines = [json.loads(x) for x in f if x.strip()]
@@ -102,12 +114,12 @@ def _refusal_rows(limit):
     random.shuffle(lines)
     n = 0
     for rec in lines[:limit]:
-        kavram = rec.get("kavram", "").strip()
-        if not kavram:
+        concept = rec.get("kavram", "").strip()
+        if not concept:
             continue
-        question = f"{kavram} nedir"
+        question = f"{concept} nedir"
         target = generate.refusal(question)
-        if not _tr_ok(target):                          # DİL FİLTRESİ
+        if not _tr_ok(target):                          # LANGUAGE FILTER
             continue
         yield {"messages": [
             {"role": "system", "content": prompts.ANSWER_SYSTEM},
@@ -121,9 +133,10 @@ def _refusal_rows(limit):
             _tick("refusal", n, limit)
 
 
-# Kimlik soruları — ÇOK DİLLİ, ÇOK BİÇİMLİ. Kimlik gibi spesifik davranış az
-# örnekle oturmaz; geniş tut. Elle CEVAP değil, elle SORU listesi (kullanıcı
-# girdisi) — hedefi yine Qwen üretir (condition-5: cevap kalıbı yok).
+# Identity questions — MULTILINGUAL, MULTI-FORM. A behavior as specific as
+# identity does not settle with few examples; keep it broad. Hand-written
+# QUESTION list (user input), not hand-written ANSWERS — the target is still
+# produced by Qwen (condition-5: no answer templates).
 _IDENTITY_Q = [
     "sen kimsin", "kimsin sen", "sen nesin", "adın ne", "kendini tanıt",
     "sen kimsin?", "senin adın ne",
@@ -136,9 +149,10 @@ _IDENTITY_Q = [
 
 
 def _identity_rows(samples=2):
-    """Kimlik: graftan tohumla, SORULARI Qwen'e sor, yalnız DOĞRU cevapları hasat
-    et (üreticiyi/kimliği söyleyen; 'bilmiyorum' ya da yanlış olanları at). Böylece
-    az-ama-temiz kimlik verisi çıkar — 'seni kim yaptı' tutarlılığını bu çözer."""
+    """Identity: seed from the graph, ask Qwen the QUESTIONS, harvest only the
+    CORRECT answers (those naming the creator/identity; drop "I don't know" or
+    wrong ones). This yields small-but-clean identity data — it is what fixes
+    "who made you" consistency."""
     m = Memory()
     m.self_key = m.identify("#self")
     gate = Gate(m)
@@ -156,8 +170,9 @@ def _identity_rows(samples=2):
             if not _no_cjk(target):
                 continue
             low = target.lower()
-            # DOĞRULUK filtresi: cevap üreticiyi (rüzgar) ya da kimliği (lmm)
-            # anmalı — yoksa 'bilmiyorum'/yanlış, eğitime girmesin.
+            # CORRECTNESS filter: the answer must mention the creator (rüzgar)
+            # or the identity (lmm) — otherwise it is "I don't know"/wrong,
+            # keep it out of training.
             if "rüzgar" not in low and "lmm" not in low:
                 continue
             yield {"messages": [
@@ -170,14 +185,15 @@ def _identity_rows(samples=2):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=400,
-                    help="grounding+refusal için kavram sayısı (her biri)")
+                    help="number of concepts for grounding+refusal (each)")
     ap.add_argument("--out", default="data/train/lora.jsonl")
     args = ap.parse_args()
     os.chdir(os.path.dirname(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__)))))
-    # CRASH-SAFE: her örneği ANINDA yaz + flush (Drive'a bile). Kopma olursa
-    # üretilen kısım dosyada KALIR (eski hâl hepsini sonda yazıyordu → kopmada
-    # her şey gidiyordu). Trainer nasılsa karıştırır, sonda shuffle gerekmez.
+    # CRASH-SAFE: write + flush every example IMMEDIATELY (even to Drive). If
+    # the run drops, the produced part STAYS in the file (the old version wrote
+    # everything at the end → a drop lost everything). The trainer shuffles
+    # anyway, no final shuffle needed.
     import itertools
     stream = itertools.chain(_grounding_rows(args.limit),
                              _refusal_rows(args.limit // 2),
@@ -188,7 +204,7 @@ def main():
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
             f.flush()
             n += 1
-    print(f"{n} örnek → {args.out}")
+    print(f"{n} examples → {args.out}")
 
 
 if __name__ == "__main__":

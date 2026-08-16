@@ -1,6 +1,6 @@
-"""FACTS + soru → Qwen cevap. Katman-1 topraklama: system prompt "yalnız verilen
-olgulardan konuş" der. Bu TEK BAŞINA kapı DEĞİL (LLM parametrik bilgiyi
-sızdırabilir) — asıl kapı verify.py'nin üretim-sonrası geri-okumasıdır.
+"""FACTS + question → Qwen answer. Layer-1 grounding: the system prompt says
+"speak only from the given facts". This ALONE is NOT the gate (the LLM can leak
+parametric knowledge) — the real gate is verify.py's post-generation read-back.
 """
 import re
 
@@ -8,8 +8,8 @@ from lmm import prompts, runtime
 
 
 def answer(question, facts_block, warmth=0.2):
-    """Soruya, yalnız verilen olgularla, akıcı Türkçe cevap. Olgu yoksa model
-    'bilmiyorum' demeye yönlendirilir (system prompt)."""
+    """Answer the question fluently, using only the given facts. If there is no
+    fact, the model is steered to say 'I don't know' (system prompt)."""
     if facts_block.strip():
         user = f"OLGULAR:\n{facts_block}\n\nSORU: {question}"
     else:
@@ -21,16 +21,19 @@ def answer(question, facts_block, warmth=0.2):
 
 
 def chat(message, identity_block="", warmth=0.7, history=None):
-    """Sohbet cevabı (selam, teşekkür, küçük konuşma). Olgu iddiası taşırsa
-    verify süzer — yani doğal konuş, ama uydurulan olgu yine çıkışta düşer.
+    """Chat reply (greeting, thanks, small talk). If it carries a fact claim,
+    verify filters it — so speak naturally, but a fabricated fact still drops at
+    the exit.
 
-    `history`: son turlar [{role,content}] — sohbet SÜREKLİLİĞİ (az önce ne
-    konuştuk). Böylece "ne yapıyorsun", takip soruları bağlamla cevaplanır.
+    `history`: recent turns [{role,content}] — conversational CONTINUITY (what
+    we just talked about). So "what are you doing" and follow-up questions are
+    answered with context.
 
-    `identity_block`: kimlik olguları (graftan, ör. lmm→üretici→rüzgar).
-    ENJEKTE edilir ki "seni kim yaptı" gibi sorular personaya değil GRAFA
-    dayansın — dil-bağımsız (İngilizce persona Türkçe'de zayıf kalıyordu;
-    enjekte olgu her dilde çalışır). Olgu graftan geldiği için verify'dan geçer.
+    `identity_block`: identity facts (from the graph, e.g. lmm→creator→rüzgar).
+    It is INJECTED so questions like "who made you" rest on the GRAPH, not on a
+    persona — language-independent (an English persona stayed weak in Turkish;
+    an injected fact works in every language). Since the fact comes from the
+    graph, it passes verify.
     """
     system = prompts.CHAT_SYSTEM
     if identity_block.strip():
@@ -41,11 +44,11 @@ def chat(message, identity_block="", warmth=0.7, history=None):
             "using these facts, but write a natural sentence IN THE USER'S "
             "LANGUAGE — never copy the raw rows or the arrow. If a fact is not "
             "listed, do not invent it.")
-        # Kimlik olgusaldır — ılımlı düşük sıcaklık: model dodge/ramble yerine
-        # olguyu daha tutarlı söylesin (0.7 örneklemesi bazen sapıyordu, 0.2
-        # ise fazla tutuk kalıp reddediyordu).
+        # Identity is factual — moderately low temperature: let the model state
+        # the fact more consistently instead of dodging/rambling (0.7 sampling
+        # sometimes drifted, while 0.2 stayed too stiff and refused).
         warmth = 0.4
-    # KONUŞMA BAĞLAMI: son turları messages'a kat, sonuna güncel mesaj.
+    # CONVERSATION CONTEXT: fold recent turns into messages, current message last.
     messages = list(history or [])
     messages.append({"role": "user", "content": message})
     return runtime.generate(messages, system=system,
@@ -53,12 +56,13 @@ def chat(message, identity_block="", warmth=0.7, history=None):
 
 
 def are_rivals(a, b):
-    """İki değer AYNI şey hakkında söylendi: bir arada var olabilir mi, yoksa
-    birbirini DIŞLAYAN alternatif mi? Çelişki tespiti için — dil-bağımsız (kuralı
-    biz yazmıyoruz, Qwen yargılar). Dönen: True = rakip (çelişki), False = bir arada.
+    """Two values were stated about the SAME thing: can they coexist, or are
+    they mutually EXCLUSIVE alternatives? For contradiction detection —
+    language-independent (we don't write the rule, Qwen judges). Returns:
+    True = rivals (contradiction), False = coexist.
 
-    "kuş"/"yırtıcı" → bir arada (kartal ikisi de) → False.
-    "kuş"/"balık"   → dışlayan → True.  "paris"/"berlin" (tek başkent) → True."""
+    "bird"/"predator" → coexist (an eagle is both) → False.
+    "bird"/"fish"     → exclusive → True.  "paris"/"berlin" (one capital) → True."""
     system = (
         "Two labels were each stated about the SAME single entity. Decide if "
         "they can BOTH hold at once, or are mutually EXCLUSIVE.\n"
@@ -77,18 +81,19 @@ def are_rivals(a, b):
     return "EXCLUSIVE" in out.upper()
 
 
-# --- DİNAMİK SİSTEM SÖZLERİ (dil-bağımsız) --------------------------------
-# "Bunu bilmiyorum", "Öğrendim" gibi sistem cümleleri ELLE Türkçe yazılmaz —
-# Qwen kullanıcının dilinde üretir. Böylece tez (tüm diller, elle dil yok)
-# sistemin kendi ağzında da tutar; İngilizce derse İngilizce, Almanca derse
-# Almanca teyit/ret alır.
+# --- DYNAMIC SYSTEM UTTERANCES (language-independent) ---------------------
+# System sentences like "I don't know this", "Learned" are NOT hand-written in
+# Turkish — Qwen produces them in the user's language. So the thesis (all
+# languages, no hand-written language) holds in the system's own mouth too:
+# speak English, get an English confirmation/refusal; German, German.
 
 def supported(answer, block):
-    """İKİNCİ-KADEME destek denetimi: kanıt bloğu bu cevabı GERÇEKTEN söylüyor
-    mu — kapsama kapısı masum anlatım sözcüklerine ('olarak', 'belirtilmiştir')
-    takıldığında çağrılır. Rakam disiplini (digits_ok) BU denetimden ÖNCE ve
-    pazarlıksız; burası yalnız sözcük-düzeyi kalıntıyı yargılar. Sıkı: şüphede
-    no → cevap düşer (yanlış-negatif güvenli, yanlış-pozitif tehlikeli)."""
+    """SECOND-TIER support check: does the evidence block REALLY say this answer
+    — called when the coverage gate trips on innocent narrative words ('olarak',
+    'belirtilmiştir'). The digit discipline (digits_ok) comes BEFORE this check
+    and is non-negotiable; this only judges word-level residue. Strict: when in
+    doubt, no → the answer drops (false-negative is safe, false-positive is
+    dangerous)."""
     out = runtime.generate(f"EVIDENCE:\n{block}\n\nCLAIM: {answer}",
                            system=prompts.SUPPORT_SYSTEM, max_tokens=4,
                            temperature=0.0)
@@ -96,11 +101,12 @@ def supported(answer, block):
 
 
 def hedge_note(source_label, message):
-    """Kullanıcının dilinde KISA bir çekince NOTU üretir (olgu YOK; yalnız 'bu
-    bilgi şu kaynaktan, emin değilim' anlamı). Doğrulanmış cevaba EKLENİR; cevabın
-    kendisi DEĞİŞMEZ — böylece hedge adımı asla uydurma ekleyemez (yalnız not,
-    üstelik olgu taşımadığı için verify'dan da geçer). condition-5: notu Qwen
-    kurar, elle kalıp yok."""
+    """Produces a SHORT caveat NOTE in the user's language (NO facts; only the
+    meaning 'this information is from this source, I'm not certain'). It is
+    APPENDED to the verified answer; the answer itself does NOT change — so the
+    hedge step can never add fabrication (only a note, and since it carries no
+    fact it also passes verify). condition-5: Qwen composes the note, no
+    hand-written template."""
     system = ("In the SAME LANGUAGE as the user's message, write ONE very short "
               "caveat, in parentheses, meaning: the statement is not certain and "
               f"comes from this source: {source_label}. Contain NO facts — only "
@@ -109,9 +115,10 @@ def hedge_note(source_label, message):
 
 
 def category_from(subject, text):
-    """Metinden `subject`'in NE OLDUĞUNU TEK sade kavramla (isim) çıkarır —
-    araştırma olgusu için. Latin/teknik terim değil, günlük kategori ister
-    (Wikipedia ilk cümlesi taksonomi karmaşasıyla dolu; onu değil özü al)."""
+    """Extracts WHAT `subject` IS from the text as ONE plain concept (noun) —
+    for a research fact. It wants an everyday category, not a Latin/technical
+    term (Wikipedia's first sentence is full of taxonomy clutter; take the
+    essence, not that)."""
     system = (f"From the text, what kind of thing is '{subject}'? Reply with ONE "
               "short everyday common-noun category, a single word. Use the SAME "
               "LANGUAGE as the text (do not translate to English). Not a "
@@ -122,10 +129,10 @@ def category_from(subject, text):
 
 
 def is_causal(message):
-    """Mesaj NEDENSELLİK iddia ediyor mu (X, Y'ye neden olur)? Öyleyse (sebep,
-    sonuç) döner, değilse None. YÖN kritik — few-shot ile pekiştirilir; ayrıca
-    session tarafında _grounded_in ile iki varlık da mesajda mı denetlenir. Dil
-    kodda değil (Qwen yargılar); is-a/soru/sohbet → None."""
+    """Does the message assert CAUSALITY (X causes Y)? If so, returns (cause,
+    effect), else None. DIRECTION is critical — reinforced with few-shot; on the
+    session side _grounded_in additionally checks that both entities are in the
+    message. Language is not in the code (Qwen judges); is-a/question/chat → None."""
     system = ("Decide if the message asserts a CAUSAL relation (X causes / leads "
               "to / results in Y). If yes, output exactly 'CAUSE: <cause> -> "
               "EFFECT: <effect>' using the head nouns, CAUSE first. If it is NOT "
@@ -146,9 +153,10 @@ def is_causal(message):
 
 
 def is_causal_question(message):
-    """Nedensel soru mu, hangi YÖN? 'CAUSES: <konu>' (neyin sebebi) / 'EFFECTS:
-    <konu>' (neye yol açar) / None. few-shot, dil Qwen'de. Yalnız öznenin nedensel
-    kenarı varsa çağrılır (ms ön-kontrol) — boşuna model çağrısı olmasın."""
+    """Is it a causal question, and which DIRECTION? 'CAUSES: <topic>' (what
+    causes it) / 'EFFECTS: <topic>' (what it leads to) / None. few-shot, the
+    language lives in Qwen. Called only if the subject has a causal edge (an ms
+    pre-check) — no wasted model call."""
     system = ("Is this asking about the CAUSES or the EFFECTS of something?\n"
               "- what CAUSES X (why X, X'in sebebi ne, X neden olur) -> 'CAUSES: X'\n"
               "- what X CAUSES (X neye yol açar, X'in sonucu, what happens if X) "
@@ -166,8 +174,9 @@ def is_causal_question(message):
 
 
 def confirm_cause(cause, effect, message):
-    """Kullanıcının dilinde: nedensel olguyu öğrendiğini teyit et. Olgu grafa
-    (kaynaklı) yazıldı — teyit güvenli. condition-5: cümleyi Qwen kurar."""
+    """In the user's language: confirm that the causal fact was learned. The
+    fact was written to the graph (with a source) — confirming is safe.
+    condition-5: Qwen composes the sentence."""
     system = (f"The user taught you a CAUSE→EFFECT fact and you stored it: "
               f"'{cause}' causes '{effect}'. In the SAME LANGUAGE as their message, "
               "give a short, positive acknowledgement that you learned this causal "
@@ -176,12 +185,14 @@ def confirm_cause(cause, effect, message):
 
 
 def is_identity_question(message):
-    """Mesaj ASİSTANIN KENDİ kimliğini mi soruyor (kimsin / adın / seni kim yaptı /
-    who are you / who made you)? Dış bir şeyi soruyorsa NO. Dil-bağımsız (Qwen).
-    Kimlik sorularını oynak persona yerine graftan deterministik cevaplamak için."""
-    # Few-shot: düz talimat Qwen-3B'ye "sana mı soruyor" kavramını veremiyordu;
-    # örneklerle güvenilir. Yalnız CHAT dalında çağrılır (ASK "X nedir" buraya
-    # gelmez), o yüzden "nedir"deki yanlış-pozitif akışı etkilemez.
+    """Is the message asking about the ASSISTANT'S OWN identity (who are you /
+    your name / who made you)? If it asks about something external, NO.
+    Language-independent (Qwen). To answer identity questions deterministically
+    from the graph instead of a wobbly persona."""
+    # Few-shot: a plain instruction could not give Qwen-3B the "is it asking
+    # about YOU" concept; with examples it's reliable. Called only on the CHAT
+    # branch (ASK "what is X" never reaches here), so the false-positive on
+    # "what is" does not affect the flow.
     system = ("Classify if the message asks the responder ABOUT ITSELF — its "
               "identity, name, nature, or who made/created it. A question about "
               "some OTHER thing ('what is X') is NO. Output ONLY yes/no.\n"
@@ -195,10 +206,12 @@ def is_identity_question(message):
 
 
 def identity_answer(question, name, id_block):
-    """Kimlik sorusunu GRAFTAN cevaplar. Köprü ROUTE'ta kurulur (özne=self); burada
-    talimat modele ADINI ('name', graftan) ve kendine dair OLGULARI verir — böylece
-    'sen kimsin'→ad, 'seni kim yaptı'→üretici. 'sen/seni' zamirini çözmeye gerek
-    yok. Çıktı Qwen'den (elle kalıp yok, condition-5); olgudan sapamaz."""
+    """Answers the identity question FROM THE GRAPH. The bridge is built in
+    ROUTE (subject=self); here the instruction gives the model its NAME ('name',
+    from the graph) and the FACTS about itself — so 'who are you'→name, 'who
+    made you'→creator. No need to resolve the 'sen/seni' pronoun. The output is
+    from Qwen (no hand-written template, condition-5); it cannot stray from the
+    facts."""
     system = (f"You are the assistant, and your name is '{name}'. Facts about "
               f"yourself:\n{id_block}\n\nThe user is asking about you. Reply in the "
               "SAME LANGUAGE as the question, in ONE short natural sentence: use "
@@ -211,8 +224,8 @@ def identity_answer(question, name, id_block):
 
 
 def is_affirmative(message):
-    """Kullanıcı mesajı ONAY/evet/'devam et' mi? (araştırma teklifine yanıt).
-    Dil-bağımsız (Qwen). Dönen: True=onay."""
+    """Is the user's message APPROVAL/yes/'go ahead'? (a reply to the research
+    offer). Language-independent (Qwen). Returns: True=approval."""
     system = ("Does the user's message mean YES / go ahead / approval, as opposed "
               "to no or a different request? Answer exactly ONE word: YES or NO.")
     out = runtime.generate(message, system=system, max_tokens=3, temperature=0.0)
@@ -220,7 +233,7 @@ def is_affirmative(message):
 
 
 def offer_research(subject, message):
-    """Kullanıcının dilinde: 'bunu bilmiyorum, araştırayım mı?' (önce-sor)."""
+    """In the user's language: 'I don't know this, shall I look it up?' (ask-first)."""
     system = (f"You do NOT have information about '{subject}' in your memory. In "
               "the SAME LANGUAGE as the user's message, briefly say you don't know "
               "it yet and ASK whether you should look it up. One short sentence, "
@@ -229,7 +242,7 @@ def offer_research(subject, message):
 
 
 def refusal(message):
-    """Kullanıcının dilinde: 'bu bilgi bende yok'. Uydurma yasak, kısa."""
+    """In the user's language: 'I don't have this information'. No fabrication, short."""
     system = ("The user asked about something that is NOT in your memory. Reply "
               "ONLY in the SAME LANGUAGE as their message (never switch to "
               "another language), briefly and honestly saying you don't have "
@@ -239,10 +252,10 @@ def refusal(message):
 
 
 def confirm(learned, conflicts, message):
-    """Kullanıcının dilinde: öğrenilen olguyu kısaca teyit et (+ çelişki notu).
+    """In the user's language: briefly confirm the learned fact (+ conflict note).
 
-    `learned`: [(özne, değer)] · `conflicts`: [(özne, eski, yeni)]. Olgular
-    zaten grafa yazıldı (desteklenmiş) — teyit güvenli.
+    `learned`: [(subject, value)] · `conflicts`: [(subject, old, new)]. The
+    facts were already written to the graph (supported) — confirming is safe.
     """
     facts = "; ".join(f"{s} = {v}" for s, v in learned)
     system = (f"The user taught you a new fact and you have stored it in your "

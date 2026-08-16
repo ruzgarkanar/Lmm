@@ -1,25 +1,27 @@
-"""Yaşayan belleğin çekirdeği: kimlik, kayıt, bağ, yaşantı.
+"""The core of the living memory: identity, record, link, experience.
 
-Bu dosyada dile ait TEK BİR ŞEY YOKTUR. Ne kelime listesi, ne ek, ne hece, ne
-kalıp, ne şablon, ne ünlü kuralı. Buradaki her ad bir VERİ ALANI adıdır —
-veritabanının sütun adı gibi. Dil sisteme yalnız iki eğitilmiş ağdan girer.
+There is NOT A SINGLE THING belonging to language in this file. No word list,
+no suffix, no syllable, no pattern, no template, no vowel rule. Every name here
+is the name of a DATA FIELD — like a database column name. Language enters the
+system only through the two trained networks.
 
-Eski belleğin kırıldığı yer düğümün bir DİZGİ olmasıydı: `kartal` hem kuş hem
-ilçeydi ve ikisi aynı düğümde çarpışıyordu. Ölçüldü — 1.500 çok anlamlı
-durumda doğru anlamı seçme oranı %21-24, rastgele %14,4. Yani anlam ayrımı
-neredeyse hiç çalışmıyordu ve sebebi mekanizma değil, KİMLİĞİN YOKLUĞUYDU.
+Where the old memory broke was that a node was a STRING: `kartal` was both the
+bird and the district, and the two collided in the same node. It was measured —
+across 1,500 polysemous cases the rate of picking the right sense was 21-24%,
+random being 14.4%. So sense disambiguation was barely working at all, and the
+cause was not the mechanism but the ABSENCE OF IDENTITY.
 
-Burada kavram bir SAYI kimliktir. Kelime yalnız o kimliğe takılmış bir
-etikettir ve bir kimliğin birden çok dilde etiketi olabilir — bilgi bir kez
-öğrenilir, her dilde konuşulur.
+Here a concept is a NUMERIC identity. A word is merely a label attached to that
+identity, and one identity can carry labels in multiple languages — knowledge
+is learned once, spoken in every language.
 
-    #1  etiketler: kartal, eagle      kayıtlar: tür → #2
-    #7  etiketler: kartal             kayıtlar: tür → #9
-                                      ikisi AYRI VARLIK, aynı yazılış
+    #1  labels: kartal, eagle      records: tür → #2
+    #7  labels: kartal             records: tür → #9
+                                   the two are SEPARATE ENTITIES, same spelling
 
-Kayıt da düğümdür: kaynağı, güveni, zamanı, tanık sayısı ve YAŞANTISI olan bir
-şey. Kayıtlar birbirine bağlanabilir (neden, sonra, koşul) — düz üçlünün
-yapamadığı ve uzun anlatının iskeletini veren şey budur.
+A record is a node too: a thing with a source, a trust, a time, a witness count
+and an EXPERIENCE. Records can link to one another (cause, then, condition) —
+the thing a flat triple cannot do, and what gives long narrative its skeleton.
 """
 import json
 import os
@@ -27,26 +29,27 @@ import struct
 import time
 import zlib
 
-# Bağ türleri. Bunlar İLİŞKİ KİMLİĞİDİR, dil değil: hangi cümlenin hangi bağı
-# taşıdığını okuyucu ağı öğrenir, burada yazılı bir liste eşleştirmez.
+# Link kinds. These are RELATION IDENTITIES, not language: which sentence
+# carries which link is learned by the reader network; no written list here
+# does the matching.
 CAUSE, THEN, IF, CONTRA = 1, 2, 3, 4
 
-# Kaynak basamakları. Sayı büyükse söz daha ağır basar. Bir yabancının tek
-# cümlesi, doğrulanmış bir belgeyi ezmemeli — eski bellekte bu ölçülmüş ve
-# ezebildiği görülmüştü.
+# Source levels. A higher number means the word carries more weight. A single
+# sentence from a stranger must not crush a verified document — in the old
+# memory this was measured and it could crush it.
 OPERATOR, DOCUMENT, DISTILLED, INFERRED, STRANGER = 5, 4, 3, 2, 1
 
 
 class Identity:
-    """Bir kavram. Kelime değil — kelimeler yalnız etiketi."""
+    """A concept. Not a word — words are only its labels."""
 
     __slots__ = ("key", "labels", "vector", "seen")
 
     def __init__(self, key, labels=(), vector=None):
         self.key = key
-        self.labels = list(labels)      # hangi dilde hangi yazılış
-        self.vector = vector            # sürekli katman: bulmak için
-        self.seen = 0                   # kaç kez erişildi (solma için)
+        self.labels = list(labels)      # which spelling in which language
+        self.vector = vector            # continuous layer: for finding
+        self.seen = 0                   # how many times accessed (for fading)
 
     def to_dict(self):
         return {"key": self.key, "labels": self.labels,
@@ -60,11 +63,12 @@ class Identity:
 
 
 class Record:
-    """Bir olgu — ve olgunun kendisi bir düğüm.
+    """A fact — and the fact itself is a node.
 
-    Düz üçlüde kayıt bir kenardı ve kenara bir şey bağlanamıyordu. Burada
-    kaydın kimliği var, dolayısıyla başka kayıtlara bağlanabiliyor: "yağmur
-    yağdı" kaydı, "toprak ıslandı" kaydına NEDEN bağıyla bağlanır.
+    In a flat triple a record was an edge, and nothing could attach to an
+    edge. Here the record has an identity, so it can link to other records:
+    the record "it rained" links to the record "the soil got wet" with a
+    CAUSE link.
     """
 
     __slots__ = ("key", "subject", "predicate", "value", "source", "level",
@@ -74,27 +78,30 @@ class Record:
     def __init__(self, key, subject, predicate, value, source, level=None,
                  trust=0.5, at=None, episodic=True):
         self.key = key
-        self.subject = subject          # kimlik anahtarı
-        self.predicate = predicate      # yüklem kimliği — dağarcık AÇIK
-        self.value = value              # kimlik anahtarı ya da düz değer
-        # AD ile BASAMAK ayrı: `source` kimin söylediği ("hayvanlar.txt",
-        # "ali"), `level` ne kadar sayıldığı (OPERATOR..STRANGER). İlk yazışta
-        # tek alandaydı ve duman testi ele verdi — çıktıda kaynak ‹4› diye
-        # basılıyordu: sayı, adın yerini yemişti. "Her cevapta kaynak" iddiası
-        # adı ister; hakemlik basamağı ister; ikisi ayrı alan olmak zorunda.
+        self.subject = subject          # identity key
+        self.predicate = predicate      # predicate identity — vocabulary OPEN
+        self.value = value              # identity key or plain value
+        # NAME and LEVEL are separate: `source` is who said it
+        # ("hayvanlar.txt", "ali"), `level` is how much it counts
+        # (OPERATOR..STRANGER). In the first draft they were one field, and
+        # the smoke test gave it away — the output printed the source as ‹4›:
+        # the number had eaten the name's place. The "a source in every
+        # answer" claim demands the name; arbitration demands the level; the
+        # two must be separate fields.
         self.source = str(source)
         self.level = level if level is not None else DOCUMENT
         self.trust = trust
         self.at = at if at is not None else time.time()
         self.witnesses = 1
-        # Tanık KÜMESİ: aynı kaynağın üçüncü tekrarı üçüncü tanık değildir.
-        # Denetim ölçtü — küme yokken iki kaynak dokuz tanık sayılmıştı.
+        # Witness SET: the third repetition of the same source is not a third
+        # witness. The audit measured it — without the set, two sources had
+        # been counted as nine witnesses.
         self.sources = {self.source}
         self.last_seen = self.at
-        self.links = []                 # [(bağ türü, kayıt anahtarı)]
-        # Episodik: tek bir olaydan geldi ("Ali dedi ki"). Damıtma turunda
-        # tekrarlana tekrarlana semantiğe yükselir. Beynin hipokampus/korteks
-        # ayrımının bellekteki karşılığı.
+        self.links = []                 # [(link kind, record key)]
+        # Episodic: came from a single event ("Ali said so"). In the
+        # distillation round it rises to semantic through repetition. The
+        # memory-side counterpart of the brain's hippocampus/cortex split.
         self.episodic = episodic
 
     def to_dict(self):
@@ -107,11 +114,12 @@ class Record:
                 "sources": sorted(self.sources)}
 
     def strengthen(self, source, level=None):
-        """YENİ bağımsız tanık: kalan kuşkunun sabit bir payı kapanır.
+        """A NEW independent witness: a fixed share of the remaining doubt closes.
 
-        Hesap TEK burada durur ve kendi korumasını taşır: aynı kaynak
-        ikinci kez sayılmaz. Denetim ölçtü — koruma yokken tek öğretme iki
-        tanık, aynı adamın üç tekrarı dokuz tanık oluyordu.
+        The calculation lives ONLY here and carries its own protection: the
+        same source is not counted twice. The audit measured it — without the
+        protection a single teaching became two witnesses, and three
+        repetitions by the same man became nine witnesses.
         """
         source = str(source)
         if source in self.sources:
@@ -119,10 +127,11 @@ class Record:
             return self
         self.sources.add(source)
         self.witnesses += 1
-        # TERFİ: sonradan gelen daha yüksek basamak, kaydın basamağını
-        # yükseltir. 3. tur ölçtü — yabancı önce söylerse kayıt STRANGER
-        # açılıyor ve işletmecinin onayı bunu asla yükseltemiyordu: yabancı,
-        # ilk konuşan olarak olgu yuvasını ucuza kapatabiliyordu.
+        # PROMOTION: a higher level arriving later raises the record's level.
+        # Round 3 measured it — if the stranger spoke first, the record opened
+        # as STRANGER and the operator's confirmation could never raise it:
+        # the stranger, by speaking first, could lock in the fact slot on the
+        # cheap.
         if level is not None and level > self.level:
             self.level = level
             self.trust = max(self.trust, Memory.trust_of(level))
@@ -145,29 +154,32 @@ class Record:
 
 
 class Experience:
-    """Yaşantı — duygunun mühendislik karşılığı.
+    """Experience — the engineering counterpart of emotion.
 
-    Çocuk sobaya dokunur, yanar, öğrenir. Ona "ateş tehlikelidir" listesi
-    verilmez; deneyim kayıt olur ve sonraki davranışı o kayıt frenler.
+    A child touches the stove, gets burned, learns. Nobody hands it a "fire
+    is dangerous" list; the experience becomes a record and that record
+    brakes the next behavior.
 
-    Burada da öyle: sistem bir şey söyler, bir tepki alır, tepki kaydedilir.
-    Sonraki benzer durumda aday cevaplar bu kayıtlara çarpılır.
+    The same here: the system says something, receives a reaction, the
+    reaction is recorded. In the next similar situation the candidate answers
+    are struck against these records.
 
-    `surprise` — öngörücü kodlamanın karşılığı. Beyin sürekli tahmin eder ve
-    yalnız ŞAŞIRDIĞINDA güncellenir. Tahmin tutmuşsa kayıt ucuz, tutmamışsa
-    pahalı ve kalıcı. Tek seferde öğrenme (sobaya bir kez dokunmak) buradan
-    çıkıyor — bin tekrar değil, bir sürpriz.
+    `surprise` — the counterpart of predictive coding. The brain predicts
+    constantly and updates only when SURPRISED. If the prediction held, the
+    record is cheap; if it failed, it is expensive and permanent. One-shot
+    learning (touching the stove once) comes from here — not a thousand
+    repetitions, one surprise.
     """
 
     __slots__ = ("key", "said", "outcome", "surprise", "at", "about")
 
     def __init__(self, key, said, outcome, surprise=0.0, at=None, about=()):
         self.key = key
-        self.said = said                # ne söylendi (ham)
-        self.outcome = outcome          # ne oldu — sayısal işaret
-        self.surprise = surprise        # tahmin ile gerçek arası fark
+        self.said = said                # what was said (raw)
+        self.outcome = outcome          # what happened — numeric signal
+        self.surprise = surprise        # gap between prediction and reality
         self.at = at if at is not None else time.time()
-        self.about = list(about)        # ilgili kimlik anahtarları
+        self.about = list(about)        # related identity keys
 
     def to_dict(self):
         return {"key": self.key, "said": self.said, "outcome": self.outcome,
@@ -181,35 +193,38 @@ class Experience:
 
 
 class Memory:
-    """Kimlikler, kayıtlar, yaşantılar — ve kendi geçmişi.
+    """Identities, records, experiences — and its own history.
 
-    Dışarıdan doğrudan yazılamaz: yazmanın tek yolu `write`, ve orada kaynak
-    basamağı ile güven hesabı zorunludur. Firma senaryosunda grafın
-    değiştirilemez olması bu kapıya dayanır.
+    Cannot be written to directly from outside: the only way to write is
+    `write`, and there the source level and the trust calculation are
+    mandatory. In the company scenario the graph's immutability rests on
+    this gate.
     """
 
     FORMAT = 3
 
     def __init__(self):
-        self.identities = {}            # anahtar -> Identity
-        self.records = {}               # anahtar -> Record
-        self.experiences = {}           # anahtar -> Experience
-        self.by_label = {}              # etiket -> [kimlik anahtarı]
-        self.by_subject = {}            # kimlik anahtarı -> [kayıt anahtarı]
-        # TERS İNDEKSLER (optimizasyon): türetme/çıkarım her yazmada TÜM grafı
-        # taramasın diye. by_value: değer düğümü -> onu DEĞER alan kayıtlar
-        # (_derive incoming); by_predicate: yüklem -> o yüklemli kayıtlar
-        # (_learn_transitive). O(N)/yazma → O(derece)/yazma.
-        self.by_value = {}              # değer anahtarı -> [kayıt anahtarı]
-        self.by_predicate = {}          # yüklem anahtarı -> [kayıt anahtarı]
-        self.self_key = None            # #BEN — özyaşam öyküsünün düğümü
-        # Geçişli olduğu VERİYLE kanıtlanmış yüklemler. Elle liste değil:
-        # graf kapalı bir üçgen (A→B, B→C, A→C hepsi TANIK) gördüğünde o
-        # yüklem buraya girer. "tür" bir örnekten öğrenir, "sever" hiç.
+        self.identities = {}            # key -> Identity
+        self.records = {}               # key -> Record
+        self.experiences = {}           # key -> Experience
+        self.by_label = {}              # label -> [identity key]
+        self.by_subject = {}            # identity key -> [record key]
+        # REVERSE INDEXES (optimization): so derivation/inference does not
+        # scan the WHOLE graph on every write. by_value: value node -> the
+        # records that take it as VALUE (_derive incoming); by_predicate:
+        # predicate -> records with that predicate (_learn_transitive).
+        # O(N)/write → O(degree)/write.
+        self.by_value = {}              # value key -> [record key]
+        self.by_predicate = {}          # predicate key -> [record key]
+        self.self_key = None            # #SELF — the node of the autobiography
+        # Predicates whose transitivity is proven BY DATA. Not a hand-written
+        # list: when the graph sees a closed triangle (A→B, B→C, A→C all
+        # WITNESSED), that predicate enters here. "tür" learns from one
+        # example, "sever" never does.
         self.transitive = set()
         self._next = 1
 
-    # --- kimlik ---------------------------------------------------------
+    # --- identity -------------------------------------------------------
 
     def _key(self):
         found = self._next
@@ -217,13 +232,13 @@ class Memory:
         return found
 
     def identify(self, label, vector=None, same_as=None):
-        """Etiketi bir kimliğe bağlar; gerekirse YENİ kimlik açar.
+        """Binds a label to an identity; opens a NEW identity if needed.
 
-        Aynı yazılışın iki kavram olabilmesi buranın bütün meselesi: `same_as`
-        verilmezse ve etiket zaten başka bir kimliğe bağlıysa, çağıran hangi
-        kimliği kastettiğini söylemek zorundadır. Karar burada verilmez —
-        burası yalnız kaydı tutar; hangi anlamın kastedildiğini bulmak
-        geometrinin ve bağlamın işi.
+        That the same spelling can be two concepts is this place's whole
+        point: if `same_as` is not given and the label is already bound to
+        another identity, the caller must say which identity it means. The
+        decision is not made here — this place only keeps the record; finding
+        which sense was meant is the job of geometry and context.
         """
         if same_as is not None:
             found = self.identities[same_as]
@@ -237,18 +252,18 @@ class Memory:
         return key
 
     def candidates(self, label):
-        """Bu etiketi taşıyan bütün kimlikler — hangisi olduğu ayrı iş."""
+        """All identities carrying this label — which one it is, is a separate job."""
         return list(self.by_label.get(label, ()))
 
-    # --- kayıt ----------------------------------------------------------
+    # --- record ---------------------------------------------------------
 
     def write(self, subject, predicate, value, source, level=None,
               trust=None, episodic=True):
-        """Bir olguyu belleğe koyar; aynısı varsa PEKİŞTİRİR.
+        """Puts a fact into memory; if the same one exists, REINFORCES it.
 
-        Pekişme, ikinci bağımsız kaynağın kalan kuşkunun bir payını
-        kapatmasıdır — toplamsal değil, çünkü toplamsalken birkaç belge
-        tavanı deliyordu (eski bellekte ölçüldü).
+        Reinforcement is the second independent source closing a share of the
+        remaining doubt — not additive, because when it was additive a few
+        documents pierced the ceiling (measured in the old memory).
         """
         level = DOCUMENT if level is None else level
         trust = self.trust_of(level) if trust is None else trust
@@ -268,28 +283,30 @@ class Memory:
         return found
 
     def link(self, one, other, kind):
-        """İki kaydı bağlar — neden, sonra, koşul, çelişki."""
+        """Links two records — cause, then, condition, contradiction."""
         held = self.records[one]
         if (kind, other) not in held.links:
             held.links.append((kind, other))
         return held
 
     def about(self, subject, touch=True):
-        """Bir kimlik hakkındaki kayıtlar.
+        """The records about an identity.
 
-        `touch=False`: graf yürüyüşü ve iç denetimler için. Denetim ölçtü —
-        her yayılım `seen` sayacını artırıyordu ve "erişim" sayacı "graf
-        komşuluğu" sayacına dönüşmüştü; on sorguda üç kimlik 11'er erişim
-        görünüyordu, hiçbiri kullanıcıdan gelmeden.
+        `touch=False`: for graph walks and internal audits. The audit
+        measured it — every spreading pass incremented the `seen` counter and
+        the "access" counter had turned into a "graph adjacency" counter; in
+        ten queries three identities showed 11 accesses each, none of them
+        coming from the user.
         """
         found = self.identities.get(subject)
         records = [self.records[key] for key in self.by_subject.get(subject, ())]
         if touch and found is not None:
             found.seen += 1
-            # C2: GERÇEK erişim, kaydın son-görülmesini de tazeler. Yoksa 1000
-            # kez sorulan bir olgu bile `fade` penceresinden sonra sönüyordu
-            # (erişim yalnız identity.seen'i artırıyor, record.last_seen'e
-            # dokunmuyordu) — "retrain'siz kalıcı bilgi" ile çelişiyordu.
+            # C2: a REAL access also refreshes the record's last-seen.
+            # Otherwise even a fact asked 1000 times faded after the `fade`
+            # window (access only incremented identity.seen, never touching
+            # record.last_seen) — contradicting "permanent knowledge without
+            # retraining".
             now = time.time()
             for r in records:
                 r.last_seen = now
@@ -297,41 +314,44 @@ class Memory:
 
     @staticmethod
     def trust_of(level):
-        """BASAMAKTAN başlangıç güveni. Şeritler örtüşmez."""
-        # INFERRED, SPEAK(0.4) eşiğinin ALTINDA: çıkarılmış (belki kırılgan
-        # zincirden) kayıt grafta durur ve "ne çıkardın" sorusuna işaretli
-        # gösterilir, ama olgu gibi SÖYLENMEZ. Denetim yakaladı — 0.45 iken
-        # kapıyı geçip kesin olgu gibi konuşuluyordu (kaynağı #inference
-        # kaybolarak). Gözlemle bağımsızca pekişirse trust yükselir ve söylenir.
+        """Initial trust FROM the level. The bands do not overlap."""
+        # INFERRED is BELOW the SPEAK(0.4) threshold: an inferred record
+        # (possibly from a fragile chain) stays in the graph and is shown
+        # marked to the "what did you infer" question, but is NOT SPOKEN as
+        # a fact. The audit caught it — at 0.45 it passed the gate and was
+        # spoken like a certain fact (its #inference source vanishing). If it
+        # is independently reinforced by observation, trust rises and it is
+        # spoken.
         return {OPERATOR: 0.75, DOCUMENT: 0.6, DISTILLED: 0.5,
                 INFERRED: 0.35, STRANGER: 0.3}.get(level, 0.3)
 
-    # --- yaşantı --------------------------------------------------------
+    # --- experience -----------------------------------------------------
 
     def lived(self, said, outcome, surprise=0.0, about=()):
-        """Bir yaşantıyı kaydeder. Şaşırtan yaşantı ağır basar."""
+        """Records an experience. A surprising experience carries more weight."""
         key = self._key()
         found = Experience(key, said, outcome, surprise, about=about)
         self.experiences[key] = found
         return found
 
     def recall(self, about, most=8):
-        """Bu kimliklerle ilgili yaşantılar, şaşkınlığı yüksek olan önce."""
+        """Experiences about these identities, highest surprise first."""
         wanted = set(about)
         held = [one for one in self.experiences.values()
                 if wanted & set(one.about)]
         held.sort(key=lambda one: -one.surprise)
         return held[:most]
 
-    # --- dosya ----------------------------------------------------------
+    # --- file -----------------------------------------------------------
 
-    MAGIC = b"LMM1"       # kapalı ikili .lmm başlığı
+    MAGIC = b"LMM1"       # closed binary .lmm header
 
     def save(self, path):
-        """KAPALI ikili .lmm olarak yaz: magic + sürüm + ham-uzunluk + crc32 +
-        zlib(json). JSON gibi GÖRÜNMEZ, elle DEĞİŞTİRİLEMEZ; pickle/.pt DEĞİL
-        (yüklerken yalnız json.loads çalışır — kod-çalıştırma riski yok). Yazım
-        ATOMİK (.tmp + os.replace): yarı yazım kalıcı dosyayı bozmaz."""
+        """Write as CLOSED binary .lmm: magic + version + raw-length + crc32 +
+        zlib(json). It does NOT LOOK like JSON, cannot be EDITED by hand; NOT
+        pickle/.pt (loading runs only json.loads — no code-execution risk).
+        The write is ATOMIC (.tmp + os.replace): a half-write does not corrupt
+        the permanent file."""
         held = {"format": self.FORMAT, "next": self._next,
                 "self": self.self_key,
                 "transitive": sorted(self.transitive),
@@ -348,29 +368,31 @@ class Memory:
         tmp = path + ".tmp"
         with open(tmp, "wb") as handle:
             handle.write(frame)
-        os.replace(tmp, path)               # atomik takas
+        os.replace(tmp, path)               # atomic swap
 
     @classmethod
     def load(cls, path):
         found = cls()
         if not os.path.exists(path):
-            return found            # yeni dosya: boş bellek meşru
-        # BOZUK dosya boş bellek DEĞİLDİR. 3. tur denetimi ölçtü: bozuk dosya
-        # sessizce boş dönüyor ve bir sonraki save() kurtarılabilir dosyayı
-        # eziyordu — hatasız toplam veri kaybı. Bozuksa gürültüyle dur.
+            return found            # new file: an empty memory is legitimate
+        # A CORRUPT file is NOT an empty memory. The round-3 audit measured
+        # it: a corrupt file silently returned empty and the next save()
+        # crushed the recoverable file — total data loss without an error.
+        # If corrupt, stop loudly.
         with open(path, "rb") as handle:
             raw = handle.read()
         if raw[:4] == cls.MAGIC:
             version, rawlen, crc = struct.unpack(">BII", raw[4:13])
             payload = zlib.decompress(raw[13:])
             if len(payload) != rawlen or (zlib.crc32(payload) & 0xffffffff) != crc:
-                raise ValueError(f"bozuk .lmm (crc/uzunluk uyuşmuyor): {path}")
+                raise ValueError(f"corrupt .lmm (crc/length mismatch): {path}")
             held = json.loads(payload.decode("utf-8"))
         else:
-            # ESKİ düz-JSON dosyası (geri-uyum) — sonraki save() ikiliye göçürür.
+            # OLD plain-JSON file (backward compat) — the next save() migrates
+            # it to binary.
             text = raw.decode("utf-8")
             if not text.lstrip().startswith("{"):
-                raise ValueError(f"tanınmayan .lmm dosyası (ne ikili ne JSON): {path}")
+                raise ValueError(f"unrecognized .lmm file (neither binary nor JSON): {path}")
             held = json.loads(text)
         found._next = held.get("next", 1)
         found.self_key = held.get("self")
@@ -384,7 +406,7 @@ class Memory:
             made = Record.from_dict(one)
             found.records[made.key] = made
             found.by_subject.setdefault(made.subject, []).append(made.key)
-            if isinstance(made.value, int):     # ters indeksleri de kur
+            if isinstance(made.value, int):     # rebuild reverse indexes too
                 found.by_value.setdefault(made.value, []).append(made.key)
             if made.predicate is not None:
                 found.by_predicate.setdefault(made.predicate, []).append(made.key)

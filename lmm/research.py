@@ -1,26 +1,30 @@
-"""Agentic araştırma — LMM bilmediğini, KULLANICI ONAYIYLA internetten öğrenir.
+"""Agentic research — LMM learns what it doesn't know from the internet, WITH
+USER APPROVAL.
 
-Belkemiği kural burada da tutar: web = GÜVENİLMEZ kaynak. Çekilen bilgi grafa
-"biliyorum" diye DEĞİL, `#web:<url>` damgası + DÜŞÜK güvenle girer; konuşulurken
-kaynak-etiketiyle işaretlenir (session._hedge). Böylece condition-3 (retrain'siz
-büyüme) sağlanır ve condition-4 (uydurma yok) bozulmaz — icat değil, kaynaklı.
+The backbone rule holds here too: the web = an UNTRUSTED source. Fetched
+information enters the graph NOT as "I know this" but with a `#web:<url>` stamp
++ LOW trust; when spoken it is marked with the source label (session._hedge).
+Thus condition-3 (growth without retraining) is met and condition-4 (no
+fabrication) is not broken — not invention, but sourced.
 
-Kaynak: Wikipedia REST özeti (anahtarsız, saygın, salt-okunur). Sorunun dili
-bilinmediğinden birkaç dil denenir; ilk özet bulunan kullanılır.
+Source: the Wikipedia REST summary (keyless, reputable, read-only). Since the
+question's language is unknown, several languages are tried; the first summary
+found is used.
 """
 import json
 import urllib.parse
 import urllib.request
 
-# Denenecek Wikipedia dilleri — dil algılamayı Wikipedia'nın kendi yönlendirmesi
-# yapar; hangi dilde madde bulunursa o kullanılır (elle dil kuralı değil).
+# Wikipedia languages to try — language detection is done by Wikipedia's own
+# redirects; whichever language has the article is used (not a hand-written
+# language rule).
 LANGS = ("tr", "en", "de", "fr", "es")
 
 
 def wiki_summary(title, langs=LANGS, timeout=10):
-    """Wikipedia'dan `title` için (özet_metin, sayfa_url) döndürür; bulunamazsa
-    ("", ""). REST summary uç noktası ilk cümlede genelde 'X, bir Y'dir' verir —
-    extract için ideal."""
+    """Returns (summary_text, page_url) for `title` from Wikipedia; if not
+    found, ("", ""). The REST summary endpoint usually gives 'X is a Y' in the
+    first sentence — ideal for extract."""
     for lang in langs:
         url = (f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/"
                + urllib.parse.quote(title.strip().replace(" ", "_")))
