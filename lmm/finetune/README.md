@@ -1,46 +1,47 @@
-# LoRA ince-ayar (opsiyonel geliştirme)
+# LoRA fine-tuning (optional improvement)
 
-**Durum:** çekirdek LMM bu adım OLMADAN çalışır. Bu, Qwen-3B'nin Türkçe'de ara
-sıra yaşadığı örnekleme sapmasını (bkz. `docs/LMM.md` §sınırlar) azaltmak için
-bir **davranış** ince-ayarıdır. Otonom olarak KOŞULMADI — çok saatlik, doğrulama
-ister; hazır bırakıldı, sen başlat.
+**Status:** the core LMM works WITHOUT this step. This is a **behavior**
+fine-tune to reduce the sampling drift Qwen-3B occasionally shows in Turkish
+(see `docs/LMM.md` §limits). It was NOT run autonomously — it takes many hours
+and needs validation; it is left ready, you start it.
 
-## Ne öğretir (ve ne öğretmez)
+## What it teaches (and what it doesn't)
 
-Öğretir: **davranış** — "yalnız enjekte edilen olgudan konuş, olgu yoksa reddet,
-kimliğini graftan söyle". Türkçe tutarlılığı artar.
+Teaches: **behavior** — "speak only from the injected fact, refuse when there
+is no fact, state your identity from the graph". Turkish consistency improves.
 
-Öğretmez: **bilgi**. Yeni gerçekler hâlâ GRAFA girer, retrain'siz (condition-3).
-LoRA sadece grafın DAHA TUTARLI kullanılmasını sağlar. Bu yüzden veri de elle
-yazılmaz — hedef cümleler ya gerçek veriden ya sistemin şu anki doğru
-davranışının **öz-damıtımından** gelir (condition-5 korunur).
+Does not teach: **knowledge**. New facts still enter the GRAPH, without
+retraining (condition-3). LoRA only makes the graph be used MORE CONSISTENTLY.
+That is also why the data is not written by hand — target sentences come
+either from real data or from **self-distillation** of the system's current
+correct behavior (condition-5 preserved).
 
-## Adımlar
+## Steps
 
 ```bash
-# 0) bağımlılık
+# 0) dependencies
 python3.11 -m pip install peft datasets
 
-# 1) veri üret (graftan/gerçek veriden; Qwen öz-damıtımı — yavaş, küçük tut)
+# 1) produce data (from the graph/real data; Qwen self-distillation — slow, keep it small)
 python3.11 -m lmm.finetune.make_data --limit 600 --out data/train/lora.jsonl
 
-# 2) eğit (Apple M5 / MPS)
+# 2) train (Apple M5 / MPS)
 python3.11 -m lmm.finetune.train --data data/train/lora.jsonl --epochs 1
 
-# 3) çıktı: models/lmm/lora/  (adapter)
+# 3) output: models/lmm/lora/  (adapter)
 ```
 
-## Donanım / süre
+## Hardware / duration
 
-- **M5 (MPS), fp16, rank 16, ~1000 örnek, 1 epoch:** kabaca 1–3 saat. İlk kez
-  dene, kaybını izle.
-- **Bellek dararsa (MPS OOM):** `--rank 8 --batch 1 --grad-accum 16 --max-len 384`.
-- **FALLBACK (MPS derleme/çökme):** `--device cpu` — çok yavaş ama garanti biter;
-  ya da CUDA'lı bir kutu.
+- **M5 (MPS), fp16, rank 16, ~1000 examples, 1 epoch:** roughly 1-3 hours.
+  Try it once first and watch the loss.
+- **If memory gets tight (MPS OOM):** `--rank 8 --batch 1 --grad-accum 16 --max-len 384`.
+- **FALLBACK (MPS compilation/crash):** `--device cpu` — very slow but
+  guaranteed to finish; or a CUDA box.
 
-## Adapter'ı kullanmak
+## Using the adapter
 
-`lmm/runtime.py` `_load()` içine, model yüklendikten sonra:
+In `lmm/runtime.py` `_load()`, after the model is loaded:
 
 ```python
 from peft import PeftModel
@@ -49,13 +50,15 @@ if os.path.exists(adapter):
     _MODEL = PeftModel.from_pretrained(_MODEL, adapter)
 ```
 
-GGUF yolu için: adapter'ı base'e **merge** edip (`model.merge_and_unload()`)
-tekrar GGUF'a dönüştür (bkz. kök dizindeki dönüşüm adımları), sonra
-`LMM_BACKEND=gguf` yine int4/CPU hızında ama ince-ayarlı çalışır.
+For the GGUF route: **merge** the adapter into the base
+(`model.merge_and_unload()`) and convert to GGUF again (see the conversion
+steps in the repo root); then `LMM_BACKEND=gguf` runs at int4/CPU speed but
+fine-tuned.
 
-## Değerlendirme
+## Evaluation
 
-Eğitim sonrası `docs/LMM.md`'deki kabul senaryolarını tekrar koştur:
-öğren→sor→ret→çelişki→kimlik. Beklenen: Türkçe "seni kim yaptı" ve "X nedir"
-cevapları tutarlı; uydurma hâlâ 0 (verify kapısı zaten koruyor, LoRA onu
-GEVŞETMEZ — yalnız modeli kapıya daha uyumlu yapar).
+After training, re-run the acceptance scenarios in `docs/LMM.md`:
+learn→ask→refuse→contradiction→identity. Expected: Turkish "who made you" and
+"what is X" answers consistent; fabrication still 0 (the verify gate already
+protects that, and LoRA does NOT loosen it — it only makes the model more
+compliant with the gate).

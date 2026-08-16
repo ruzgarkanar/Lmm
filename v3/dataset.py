@@ -1,22 +1,25 @@
-"""Eğitim kümesi: ham metinden okuyucunun öğreneceği biçime.
+"""The training set: from raw text to the form the reader will learn.
 
-Okuyucunun öğreneceği iki şey var ve ikisi de aynı cümleden çıkar:
+There are two things the reader will learn, and both come out of the same
+sentence:
 
-    ne yapmak istiyor      PASS · ASK · WRITE
-    hangi harf ne rolde    0 dışarısı · 1 özne · 2 yüklem · 3 değer
+    what it wants to do        PASS · ASK · WRITE
+    which letter in what role  0 outside · 1 subject · 2 predicate · 3 value
 
-Etiketler ELLE YAZILMIYOR, HİZALAMAYLA çıkıyor: elimizde (cümle, olgu) çifti
-var; olgunun parçalarının cümlede nerede geçtiği bulunuyor ve harfler o role
-işaretleniyor. Hiçbir ek listesi, kalıp ya da sözcük sınıfı kullanılmıyor.
+The labels are NOT HAND-WRITTEN, they come from ALIGNMENT: we hold a
+(sentence, fact) pair; where the fact's parts occur in the sentence is found,
+and the letters are marked with that role. No suffix list, pattern or word
+class is used.
 
     "Kartal, yırtıcı bir kuş türüdür."   +   (kartal, tür, kuş)
      1111110000000000000033300000000         WRITE
 
-Soru cümlelerinin etiketi de aynı yoldan gelir: bir soru, bir olgunun EKSİK
-hâlidir — öznesi söylenmiş, değeri sorulmuştur.
+The labels for question sentences come by the same road: a question is the
+INCOMPLETE form of a fact — its subject stated, its value asked.
 
-Bu dosyada dile ait hiçbir şey yoktur. Hizalama, dizginin dizgide nerede
-geçtiğini aramaktan ibarettir ve hangi dilde olduğunu bilmez.
+Nothing belonging to language exists in this file. Alignment amounts to
+searching for where a string occurs in a string, and it does not know what
+language it is in.
 """
 import json
 import os
@@ -24,18 +27,19 @@ import random
 
 
 def fold(text):
-    """Uzunluk KORUYAN harf katlaması — eşleştirme için.
+    """Length-PRESERVING letter folding — for matching.
 
-    `lower()` dil-bağımlı ve Türkçe'de uzunluk değiştiriyor: 'İ'.lower()
-    iki kod noktası ('i̇') üretiyor. Ölçüldü — 'İstanbul büyük bir şehirdir'
-    27 harften 28'e çıkıyor, indeksler kayıyor ve `span_of` None dönüyor:
-    İ'li özneli HER örnek eğitim kümesinden sessizce düşüyordu. Kendi
-    dilimizde kırıktık ve fark eden, dil-bağımsızlık taramasıydı.
+    `lower()` is language-dependent and changes length in Turkish:
+    'İ'.lower() produces two code points ('i̇'). Measured — 'İstanbul büyük
+    bir şehirdir' went from 27 letters to 28, the indexes shifted and
+    `span_of` returned None: EVERY example with an İ-bearing subject was
+    silently dropping out of the training set. We were broken in our own
+    language, and what noticed it was the language-independence sweep.
 
-    Katlama harf harf: her harfin Unicode casefold'unun İLK kod noktası.
-    Uzunluk hiç değişmez, indeksler orijinal metinde geçerli kalır. Bu bir
-    dil kuralı değil, Unicode'un kendi tablosu — Almanca ß, Yunanca Σ dahil
-    her yazıya aynı davranır.
+    The folding is letter by letter: the FIRST code point of each letter's
+    Unicode casefold. The length never changes, the indexes stay valid in the
+    original text. This is not a language rule, it is Unicode's own table —
+    it treats every script the same, German ß and Greek Σ included.
     """
     return "".join(ch.casefold()[0] for ch in text)
 
@@ -44,11 +48,12 @@ PASS, ASK, WRITE = 0, 1, 2
 
 
 def span_of(text, name):
-    """Adın metindeki yeri — çekimli hâliyle de olsa.
+    """The name's place in the text — even in its inflected form.
 
-    Kök bulunur, kelime sonuna kadar uzatılır: ek de parçanın kendisi sayılır,
-    çünkü ağ ekli hâli görecek ve kökü çıkarmayı KENDİSİ öğrenmeli. Hangi ekin
-    olduğu hiç sorulmuyor — sorulsaydı bu dosya bir ek listesine muhtaç olurdu.
+    The root is found and extended to the end of the word: the suffix counts
+    as part of the piece itself, because the network will see the suffixed
+    form and must learn to extract the root ITSELF. Which suffix it is, is
+    never asked — had it been asked, this file would need a suffix list.
     """
     if not name:
         return None
@@ -57,20 +62,22 @@ def span_of(text, name):
     if at < 0:
         return None
     end = at + len(name)
-    # Kelime sonuna uzatma yalnız HARFLE: kesme işareti özel durumu
-    # (`== "'"`) Türkçe özel-ad eki için konmuş bir karakter kuralıydı ve
-    # söküldü. "ankara'da" öznesinde artık yalnız "ankara" işaretlenir —
-    # kök zaten eşleşiyor, eki işaretlemek kural istiyordu.
+    # Extension to the end of the word only BY LETTER: the apostrophe special
+    # case (`== "'"`) was a character rule put in for the Turkish proper-noun
+    # suffix, and it was torn out. In the subject "ankara'da" only "ankara"
+    # is marked now — the root already matches, marking the suffix demanded a
+    # rule.
     while end < len(text) and text[end].isalpha():
         end += 1
     return at, min(end, len(text))
 
 
 def label(text, subject, predicate, value):
-    """Cümlenin her harfi için rol. Hizalanamıyorsa None.
+    """A role for each letter of the sentence. None if it cannot be aligned.
 
-    Özne şart: öznesi bulunamayan cümleden öğrenilecek bir şey yok. Yüklem ve
-    değer bulunamazsa yerleri boş kalır — soru cümlelerinde zaten öyle olur.
+    The subject is mandatory: there is nothing to learn from a sentence whose
+    subject cannot be found. If the predicate and value cannot be found their
+    places stay empty — in question sentences that is already how it is.
     """
     roles = [OUT] * len(text)
     place = span_of(text, subject)
@@ -85,19 +92,20 @@ def label(text, subject, predicate, value):
         if where is None:
             continue
         if any(roles[at] != OUT for at in range(*where)):
-            continue        # çakışma: aynı harf iki role verilemez
+            continue        # clash: the same letter cannot be given two roles
         for at in range(*where):
             roles[at] = role
     return roles
 
 
 def from_facts(paths, longest=256, most=None):
-    """(cümle, olgu) dosyalarından WRITE örnekleri.
+    """WRITE examples from (sentence, fact) files.
 
-    Cümle başına TEK örnek: aynı cümle birden çok olgu verdiğinde her birini
-    ayrı örnek yapmak veriyi kendiyle çeliştiriyordu — eski mimaride ölçüldü,
-    kavram+değer birlikte doğruluğu %0,9'da kalmıştı. Bir cümlenin bir öznesi
-    vardır; en çok tekrarlanan özne alınır, ötekiler düşer.
+    ONE example per sentence: when the same sentence yielded several facts,
+    making each one a separate example set the data against itself — measured
+    in the old architecture, joint concept+value accuracy stalled at 0.9%. A
+    sentence has one subject; the most-repeated subject is taken, the others
+    drop.
     """
     held = {}
     for path in paths:
@@ -128,12 +136,12 @@ def from_facts(paths, longest=256, most=None):
         roles = label(text, *chosen)
         if roles is None:
             continue
-        # TEMİZLİK SÜZGECİ: etiket ancak özne VE değer cümlede düzgün
-        # hizalanıyorsa öğretilir. Ölçüldü — olguların %66'sı gürültülü
-        # (eski okuma hattı %57 doğrulukla çıkarmıştı): "beşiktaş/sempatik"
-        # gibi cümlede geçmeyen etiketler. Gürültülü etiket, modele YANLIŞ
-        # öğretir ve VAL'i ~%42'de tavana vurdurur. Az ama doğru > çok ama
-        # gürültülü.
+        # CLEANLINESS FILTER: a label is taught only if the subject AND value
+        # align properly in the sentence. Measured — 66% of the facts were
+        # noisy (the old reading pipeline had extracted them at 57% accuracy):
+        # labels like "beşiktaş/sempatik" that never occur in the sentence. A
+        # noisy label teaches the model WRONG and caps VAL at ~42%. Few but
+        # correct > many but noisy.
         from v3.reader import spans as _spans
         gs, _, gv = _spans(text, roles)
         if not (gs and gv):
@@ -141,7 +149,7 @@ def from_facts(paths, longest=256, most=None):
         fs = fold(chosen[0])
         fv = fold(chosen[2]) if chosen[2] else ""
         if not (gs == fs[:len(gs)] and fv and fv.startswith(gv[:min(4, len(gv))])):
-            continue        # hizalama gürültülü — atla
+            continue        # alignment is noisy — skip
         found.append((text, WRITE, roles))
         if most and len(found) >= most:
             return found
@@ -149,14 +157,16 @@ def from_facts(paths, longest=256, most=None):
 
 
 def from_dialogue(paths, longest=256, most=None, keep=0.25):
-    """Konuşma satırlarından PASS örnekleri.
+    """PASS examples from conversation lines.
 
-    Bir sohbet satırının çoğu bilgi taşımaz: selamlaşma, tepki, geçiş. Bunlar
-    PASS'tir ve okuyucunun bunları tanıması, olgu taşıyanları tanıması kadar
-    önemli — tanımazsa her söze bir olgu uydurmaya çalışır.
+    Most lines of a chat carry no knowledge: greeting, reaction, transition.
+    These are PASS, and the reader recognizing them matters as much as
+    recognizing the fact-bearers — if it does not, it tries to invent a fact
+    for every utterance.
 
-    `keep` payı örnekleniyor çünkü konuşma derlemi olgu derleminden çok daha
-    büyük ve dengesiz bir küme, çoğunluk sınıfına çökmeyi öğretir.
+    A `keep` share is sampled because the conversation corpus is a much
+    larger and unbalanced set than the fact corpus, and it teaches collapsing
+    onto the majority class.
     """
     found = []
     chance = random.Random(7)
@@ -184,16 +194,17 @@ def _open(path):
 
 
 def from_questions(paths, longest=256, most=None):
-    """Gerçek sorulardan ASK örnekleri.
+    """ASK examples from real questions.
 
-    Denetimin en kritik bulgusu: ASK üreticisi YOKTU. Okuyucu üç sınıflıydı
-    ama iki sınıfla eğitiliyordu; soru gelince WRITE diyor, oturum yazacak
-    şey bulamayınca boş dönüyordu — soru-cevap yolu uçtan uca kopuktu.
+    The audit's most critical finding: there was NO ASK producer. The reader
+    was three-class but was being trained with two; when a question came it
+    said WRITE, the session found nothing to write and returned empty — the
+    question-answer path was severed end to end.
 
-    Girdi: satır başına bir gerçek soru (arşivdeki niyet dosyaları: sekmeli
-    ise ikinci sütun alınır). Roller işaretlenmez — None döner ve eğitim o
-    örnekte rol başlığına kayıp yazmaz: soru, işlem türünü öğretir; rolleri
-    olgu cümleleri öğretir.
+    Input: one real question per line (the intent files in the archive: if
+    tab-separated, the second column is taken). Roles are not marked — None
+    is returned and training writes no loss to the role head on that example:
+    questions teach the operation kind; fact sentences teach the roles.
     """
     found = []
     for path in paths:
@@ -213,7 +224,7 @@ def from_questions(paths, longest=256, most=None):
 
 
 def alphabet(rows):
-    """Derlemin kendi harfleri — hiçbir yerde bildirilmiyor, sayılıyor."""
+    """The corpus's own letters — declared nowhere, counted."""
     seen = set()
     for text, _, _ in rows:
         seen.update(text)
@@ -222,7 +233,7 @@ def alphabet(rows):
 
 def build(fact_paths, dialogue_paths=(), question_paths=(), most_facts=None,
           most_dialogue=None, most_questions=None, seed=7):
-    """Karışık, dengeli, karıştırılmış eğitim kümesi — ÜÇ sınıf birden."""
+    """A mixed, balanced, shuffled training set — all THREE classes at once."""
     rows = from_facts(fact_paths, most=most_facts)
     if dialogue_paths:
         share = most_dialogue or max(1, len(rows) // 3)

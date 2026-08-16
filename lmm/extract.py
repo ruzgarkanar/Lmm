@@ -1,6 +1,6 @@
-"""Çıkarım: mesaj → {kind, triples}. Qwen çıkarır ama YAZAMAZ — çıkan üçlüler
-KAPIYA aday olarak girer (session/verify karar verir). reader.py'nin yerini
-alır; sözleşme aynı kalır (kind + üçlüler) ki session mantığı bozulmasın.
+"""Extraction: message → {kind, triples}. Qwen extracts but does NOT write — the
+extracted triples enter the GATE as candidates (session/verify decides). Replaces
+reader.py; the contract stays the same (kind + triples) so session logic doesn't break.
 """
 import json
 import unicodedata
@@ -10,11 +10,12 @@ from lmm import prompts, runtime
 
 
 def _fold(text):
-    """fold + görünmez-birleşen-im temizliği. Qwen JSON'unda 'i̇çecek' gibi
-    (i + U+0307) diziler ÜRETEBİLİYOR — görünmez nokta ayrı graf düğümü açar,
-    zincirler sessizce kopar. Önce NFC (gerçek aksanlar tek koda birleşir:
-    ç/ö/ü/é korunur), sonra ARTAKALAN birleşen imler atılır (birleşemeyenler
-    bu tür çöptür). Dil kuralı değil — Unicode'un kendi tablosu."""
+    """fold + invisible-combining-mark cleanup. Qwen CAN produce sequences like
+    'i̇çecek' (i + U+0307) in its JSON — the invisible dot opens a separate graph
+    node, chains silently break. First NFC (real accents merge into one code
+    point: ç/ö/ü/é preserved), then the REMAINING combining marks are dropped
+    (those that couldn't merge are this kind of garbage). Not a language rule —
+    Unicode's own tables."""
     text = unicodedata.normalize("NFC", str(text))
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
     return fold(text)
@@ -23,12 +24,13 @@ WRITE, ASK, CHAT = "WRITE", "ASK", "CHAT"
 
 
 def _json(raw):
-    """Qwen çıktısından İLK TAM JSON nesnesini çeker — dengeli parantez tarama.
+    """Pulls the FIRST COMPLETE JSON object from Qwen's output — balanced-brace scan.
 
-    Eski greedy `\\{.*\\}` en baştaki { ile en sondaki } arasını yutuyordu:
-    Qwen olgudan sonra açıklama + ikinci bir {...} verirse (küçük modellerde
-    sık) iki nesne birleşip geçersiz JSON oluyor, çıkarım sessizce sıfırlanıyordu.
-    Şimdi ilk açılan parantezin dengelendiği yerde durur.
+    The old greedy `\\{.*\\}` swallowed everything between the first { and the
+    last }: if Qwen gives an explanation plus a second {...} after the fact
+    (common in small models), the two objects merged into invalid JSON and
+    extraction was silently zeroed out. Now it stops where the first opening
+    brace balances.
     """
     start = raw.find("{")
     if start < 0:
@@ -48,11 +50,11 @@ def _json(raw):
 
 
 def _clean(triples):
-    """Üçlüleri (özne, yüklem, değer) tekilliğe getirir; öznesizi atar.
+    """Normalizes triples to (subject, predicate, value); drops subject-less ones.
 
-    Qwen üçlüyü hem liste [[s,p,v]] hem sözlük [{"subject":..}] biçiminde
-    verebilir (chat modellerde sözlük olası) — ikisi de kabul edilir, yoksa
-    öğretilen olgu sessizce düşerdi.
+    Qwen may give a triple both as a list [[s,p,v]] and as a dict
+    [{"subject":..}] (dicts are likely with chat models) — both are accepted,
+    otherwise a taught fact would silently drop.
     """
     out = []
     for t in triples or []:
@@ -69,18 +71,18 @@ def _clean(triples):
             continue
         subject, predicate, value = parts
         if subject:
-            # _fold, .lower() DEĞİL: 'İçecek'.lower() → 'i̇çecek' (görünmez
-            # U+0307) ayrı düğüm açıp zincirleri koparıyordu; _fold hem bunu
-            # hem Qwen'in hazır ürettiği birleşen imleri temizler.
+            # _fold, NOT .lower(): 'İçecek'.lower() → 'i̇çecek' (invisible
+            # U+0307) was opening a separate node and breaking chains; _fold
+            # cleans both this and the combining marks Qwen produces ready-made.
             out.append((_fold(subject), _fold(predicate), _fold(value)))
     return out
 
 
 def _malformed(subject, value):
-    """Özne cümleyi YUTMUŞ mu — "aslan bir memelidir" öznesi 'aslan bir
-    memelidir' olursa düğüm etiketi cümle olur ve "aslan nedir" onu asla
-    bulamaz (sessiz kayıp). Yapısal ölçüt: değerin sözcükleri öznenin İÇİNDE.
-    Dil kuralı değil — küme bakışı."""
+    """Has the subject SWALLOWED the sentence — if the subject of "a lion is a
+    mammal" becomes 'a lion is a mammal', the node label becomes a sentence and
+    "what is a lion" can never find it (silent loss). Structural criterion: the
+    value's words are INSIDE the subject. Not a language rule — a set view."""
     if not (subject and value):
         return False
     sw = set(subject.split())
@@ -89,12 +91,13 @@ def _malformed(subject, value):
 
 
 def extract(message):
-    """Mesajı oku → {'kind': WRITE|ASK|CHAT, 'triples': [(s,p,v)]}.
-    Deterministik (temperature 0): aynı cümle aynı çıkarım.
+    """Read the message → {'kind': WRITE|ASK|CHAT, 'triples': [(s,p,v)]}.
+    Deterministic (temperature 0): same sentence, same extraction.
 
-    EMNİYET: özne-cümleyi-yutmuş üçlü önce reextract'la (farklı istem, daha
-    sağlam) onarılmaya çalışılır; o da veremezse üçlü DÜŞER — çöp düğüm açıp
-    "öğrendim" demektense dürüstçe öğrenememek (uydurma-0'ın yazma yüzü)."""
+    SAFETY: a subject-swallowed-the-sentence triple is first repaired with
+    reextract (a different prompt, more robust); if that too yields nothing, the
+    triple DROPS — honestly failing to learn rather than opening a garbage node
+    and saying "learned" (the write-side face of fabrication-0)."""
     raw = runtime.generate(message, system=prompts.EXTRACT_SYSTEM,
                            max_tokens=160, temperature=0.0)
     data = _json(raw)
@@ -112,8 +115,8 @@ def extract(message):
 
 
 def reextract(sentence):
-    """Doğrulama kapısı için: bir cümlenin taşıdığı OLGU iddialarını çıkarır.
-    Olgu yoksa [] (selam, görüş, 'bilmiyorum')."""
+    """For the verification gate: extracts the FACT claims a sentence carries.
+    If there is no fact, [] (greeting, opinion, 'I don't know')."""
     raw = runtime.generate(sentence, system=prompts.REEXTRACT_SYSTEM,
                            max_tokens=120, temperature=0.0)
     return _clean(_json(raw).get("triples"))

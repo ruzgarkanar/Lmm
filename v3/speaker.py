@@ -1,50 +1,56 @@
-"""Konuşucu: kayıtlardan cümle kurar — eğitilmiş, şablonsuz.
+"""The speaker: builds sentences from records — trained, template-free.
 
-Eski sistemde konuşmayı programcı yazmıştı: "{kavram} bir {hedef}dır". Bir
-dil modelinde bunun karşılığı yoktur; orada cümle, kelime kelime, olasılıkla
-üretilir ve her cümle yenidir. Bu dosya o mekanizmanın buradaki karşılığıdır.
+In the old system the programmer had written the speaking: "{kavram} bir
+{hedef}dır". A language model has no counterpart of that; there the sentence
+is produced word by word, by probability, and every sentence is new. This
+file is the counterpart of that mechanism here.
 
-    girdi   [ (kartal, tür, kuş) ‹hayvanlar.txt› , (kartal, özellik, hızlı) ]
-    çıktı   "Kartal, hızlı bir kuştur."
+    input    [ (kartal, tür, kuş) ‹hayvanlar.txt› , (kartal, özellik, hızlı) ]
+    output   "Kartal, hızlı bir kuştur."
 
-Fark, girdinin nereden geldiğinde: bir dil modeli cümleyi ağırlıklarından
-çıkarır ve neye dayandığı hesaplanamaz. Burada üretim KAYITLARA koşulludur ve
-her cümlenin arkasında kayıt anahtarları durur.
+The difference is where the input comes from: a language model derives the
+sentence from its weights, and what it rests on is uncomputable. Here
+generation is CONDITIONED ON RECORDS and record keys stand behind every
+sentence.
 
-İKİ KAPI. Üretim serbest değildir:
+TWO GATES. Generation is not free:
 
-    ÖNCE   ağ yalnız kendisine verilen kayıtları görür — bilmediği bir şeyi
-           kurgulayacak malzemesi yoktur
-    SONRA  kurulan cümle geri okunur (`v3/reader.py`) ve çıkan işlemler
-           kayıtlarla karşılaştırılır; tutmayan cümle DÜŞER
+    FIRST    the network sees only the records handed to it — it has no
+             material to fabricate something it does not know
+    SECOND   the built sentence is read back (`v3/reader.py`) and the
+             resulting operations are compared with the records; a sentence
+             that does not hold FALLS
 
-İkinci kapı olmadan akıcılık uydurmaya açılır. Bu mimaride akıcılık ile
-doğruluk arasında takas yoktur: akıcı olmayan cümle atılır, yanlış olan da.
+Without the second gate, fluency opens itself to confabulation. In this
+architecture there is no trade between fluency and correctness: the unfluent
+sentence is discarded, and so is the wrong one.
 
-Bu dosyada ağ EĞİTİLMEZ, yalnız yüklenir. Ağ yoksa `ready` False olur ve
-sistem ham kayıtları döker — konuşamaz ama yalan da söylemez.
+In this file the network is NOT TRAINED, only loaded. If there is no network,
+`ready` is False and the system dumps raw records — it cannot speak, but it
+does not lie either.
 
-Dile ait hiçbir şey yoktur: ne şablon, ne ek, ne kelime listesi.
+Nothing belonging to language exists: no template, no suffix, no word list.
 """
 import os
 
-# Bir cevapta en çok kaç aday üretilir. Tartım bunların arasından seçer; tek
-# aday üretmek, düşünmeden konuşmaktır.
+# The most candidates produced in one answer. The weighing picks among them;
+# producing a single candidate is speaking without thinking.
 CANDIDATES = 4
 
-# Üretimin durduğu uzunluk — harf. Ağ bitiş işaretini kendi öğrenir; bu yalnız
-# sonsuz döngüye karşı emniyet.
+# The length at which generation stops — letters. The network learns the stop
+# marker itself; this is only a safeguard against an infinite loop.
 LONGEST = 400
 
 
 class Speaker:
-    """Eğitilmiş konuşucu. Model yoksa `ready` False."""
+    """The trained speaker. If there is no model, `ready` is False."""
 
     def __init__(self, folder="models/v3", name="speaker.pt"):
         self.ready = False
         self.model = None
-        # Yol depo köküne göre: cwd'ye göre olunca kök dışından açılan
-        # oturum ağı SESSİZCE bulamıyordu (3. tur gözlemi) — hatasız ama kör.
+        # The path is relative to the repo root: when it was relative to the
+        # cwd, a session opened outside the root SILENTLY failed to find the
+        # network (round-3 observation) — errorless but blind.
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         path = os.path.join(root, folder, name)
         if not os.path.exists(path):
@@ -65,24 +71,27 @@ class Speaker:
         size = held.get("size", 256)
         layers = held.get("layers", 6)
         heads = held.get("heads", 8)
-        # Bitiş işareti kayıttan gelir ve 0 OLAMAZ: 0 dolgu/bilinmeyen-harf
-        # kimliği — bitişle çakışırsa üretim ilk tanınmayan harfte kesilir.
-        # Eğitim betiği bitişi len(letters)+1 olarak ayırmak zorunda.
+        # The stop marker comes from the checkpoint and CANNOT be 0: 0 is the
+        # padding/unknown-letter identity — if it collides with the stop,
+        # generation cuts off at the first unrecognized letter. The training
+        # script must reserve the stop as len(letters)+1.
         self.stop = held.get("stop")
         width = held.get("width", 2048)
         self.width = width
 
         class Net(nn.Module):
-            """Kayıt dizisi + şu ana kadarki harfler -> sonraki harf.
+            """Record sequence + the letters so far -> the next letter.
 
-            Nedensel: üretirken gelecek görülmez. Okuyucu çift yönlüydü
-            çünkü anlamak için sonu görmek gerekiyor; üretmek tersidir.
+            Causal: while generating, the future is not seen. The reader was
+            bidirectional because understanding requires seeing the end;
+            generating is the opposite.
             """
 
             def __init__(self):
                 super().__init__()
-                # +2: dolgu (0) ve BİTİŞ kimliği (len+1). Defter böyle eğitti;
-                # +1 kuran yükleyici boyut uyuşmazlığıyla sessizce düşüyordu.
+                # +2: padding (0) and the STOP identity (len+1). The notebook
+                # trained it this way; a loader building +1 silently fell
+                # over with a size mismatch.
                 self.token = nn.Embedding(len(held["letters"]) + 2, size)
                 self.place = nn.Embedding(width + 1, size)
                 block = nn.TransformerEncoderLayer(
@@ -107,11 +116,13 @@ class Speaker:
         self.ready = True
 
     def say(self, prompt, count=CANDIDATES, warmth=0.8):
-        """Kayıt dizisinden aday cümleler üretir.
+        """Produces candidate sentences from a record sequence.
 
-        `prompt`: kayıtların düz metin serimi — ağın gördüğü tek şey.
-        Dönen: [cümle]. Aynı girdiden birden çok aday çıkar ve seçimi
-        tartım yapar; bu, "böyle mi desem şöyle mi" adımının karşılığı.
+        `prompt`: the records' plain-text layout — the only thing the network
+        sees.
+        Returns: [sentence]. Multiple candidates come from the same input and
+        the weighing does the picking; this is the counterpart of the
+        "should I say it this way or that" step.
         """
         if not self.ready or not prompt:
             return []
@@ -127,19 +138,22 @@ class Speaker:
                     mask = torch.nn.Transformer.generate_square_subsequent_mask(
                         window.shape[1])
                     logits = self.model(window, mask)[0, -1]
-                    # DÖNGÜ ENGELİ (no-repeat n-gram): üretilen kısımda son n-1
-                    # harfle başlayan bir n-gram DAHA ÖNCE geçtiyse, onu
-                    # tamamlayacak harfi yasakla. Az eğitilmiş ağ açgözlü
-                    # üretimde "bir kaç tane bir kaç tane" gibi kilitleniyordu;
-                    # bu, model hatası değil çözümleme hatası — burada kırılır.
+                    # LOOP BLOCK (no-repeat n-gram): if an n-gram starting
+                    # with the last n-1 letters has ALREADY occurred in the
+                    # generated part, ban the letter that would complete it.
+                    # An undertrained network locked up in greedy generation
+                    # into "bir kaç tane bir kaç tane"; that is not a model
+                    # error but a decoding error — it is broken here.
                     for ban in self._loops(ids, start):
                         logits[ban] = float("-inf")
-                    # İlk aday az ısıtılır (kararlı), sonrakiler çeşitlensin.
+                    # The first candidate is heated little (stable), let the
+                    # later ones diversify.
                     heat = 0.5 if at == 0 else max(warmth, 0.6)
                     probs = torch.softmax(logits / heat, dim=-1)
-                    # TOP-P (çekirdek örnekleme): olasılığı toplam p'yi geçen en
-                    # küçük kümeden seç. Greedy'nin döngüsünü de, düz ısıtmanın
-                    # gürültü kuyruğunu da atlar — akıcı ama takılmayan üretim.
+                    # TOP-P (nucleus sampling): pick from the smallest set
+                    # whose probability exceeds a total of p. It skips both
+                    # greedy's loop and plain heating's noise tail — fluent
+                    # but unstuck generation.
                     pick = self._nucleus(probs, 0.92)
                     if self.stop is not None and pick == self.stop:
                         break
@@ -151,9 +165,10 @@ class Speaker:
         return found
 
     def _loops(self, ids, start, size=10):
-        """Üretilen dizide son (size-1) harfle başlayan bir n-gram tekrar
-        ediyorsa, onu tamamlayacak harfleri döndürür — birebir döngü engeli.
-        Yalnız ÜRETİLEN kısma bakar (girdi/prompt sayılmaz)."""
+        """If an n-gram starting with the last (size-1) letters repeats in
+        the generated sequence, returns the letters that would complete it —
+        an exact loop block. Looks only at the GENERATED part (the
+        input/prompt does not count)."""
         made = ids[start:]
         if len(made) < size:
             return set()
@@ -165,8 +180,9 @@ class Speaker:
         return banned
 
     def _nucleus(self, probs, p):
-        """Çekirdek (top-p) örnekleme: en olasıdan başlayıp toplam olasılık
-        p'yi geçene dek biriktir, o kümeden örnekle."""
+        """Nucleus (top-p) sampling: starting from the most probable,
+        accumulate until the total probability exceeds p, sample from that
+        set."""
         torch = self.torch
         order = torch.argsort(probs, descending=True)
         keep, cum = [], 0.0
@@ -180,11 +196,11 @@ class Speaker:
 
 
 def prompt_of(records, memory):
-    """Kayıtları ağın göreceği düz metne çevirir.
+    """Turns the records into the plain text the network will see.
 
-    Bu bir CÜMLE ŞABLONU DEĞİL, veri serimidir: ağın girdisi, insanın
-    okuyacağı bir şey değil. Ayraçlar dil-bağımsız işaretler; hangi kelimenin
-    nereye geleceğine ağ karar verir.
+    This is NOT A SENTENCE TEMPLATE, it is a data layout: the network's
+    input, not something a human will read. The separators are
+    language-independent markers; the network decides which word goes where.
     """
     lines = []
     for record in records:
@@ -196,9 +212,10 @@ def prompt_of(records, memory):
 
 
 def _label(memory, key):
-    """Kimlik anahtarından ilk etikete. Kimlik değilse değerin kendisi."""
-    # None yüklem "None" değil BOŞ olmalı: ağın girdisine "kalp\tNone\t..."
-    # gibi çöp girip çıktıya "none" sızıyordu (ölçüldü).
+    """From an identity key to its first label. If not an identity, the value itself."""
+    # A None predicate must be EMPTY, not "None": garbage like
+    # "kalp\tNone\t..." was entering the network's input and "none" was
+    # leaking into the output (measured).
     if key is None:
         return ""
     held = memory.identities.get(key) if isinstance(key, int) else None

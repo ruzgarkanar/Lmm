@@ -1,23 +1,26 @@
-"""Okuyucu ağının eğitimi — küçük ölçekte, hattı görmek için.
+"""Training the reader network — at small scale, to see the pipeline.
 
-Bu betik iki şeyi birden öğretir çünkü ikisi aynı okumanın iki yüzüdür:
+This script teaches two things at once because the two are two faces of the
+same reading:
 
-    işlem türü      cümle ne yapmak istiyor (PASS · ASK · WRITE)
-    harf rolleri     hangi harfler özne, yüklem, değer
+    operation kind   what the sentence wants to do (PASS · ASK · WRITE)
+    letter roles     which letters are subject, predicate, value
 
-Eğitimden ÖNCE üç denetim var ve üçü de geçmeden eğitim başlamaz. Sebebi
-ölçülmüş: bir gece, veri eksikken saatlerce koşan bir eğitim ve sonunda
-kullanılamaz bir model. Denetimler ucuz, saatler pahalı.
+BEFORE training there are three checks, and training does not start until
+all three pass. The reason is measured: one night, a training that ran for
+hours with data missing, and at the end an unusable model. Checks are cheap,
+hours are expensive.
 
-    VERİ       beklenen bantta mı, iki sınıf da var mı
-    HİZALAMA   etiketli örneklerde gerçekten rol işaretlenmiş mi
-    EZBER      tek yığın 120 adımda ezberlenebiliyor mu — ezberleyemeyen
-               hat bozuktur ve ona saat verilmez
+    DATA        is it in the expected band, are both classes present
+    ALIGNMENT   are roles really marked in the labeled examples
+    MEMORIZE    can a single batch be memorized in 120 steps — a rig that
+                cannot memorize is broken and gets no hours
 
-En iyi tur saklanır, son tur değil: eski mimaride ölçüldü, kayıp düşerken
-sınav %68,5'ten %56,3'e inmişti — ders ezberi. Sabır dolunca kendi durur.
+The best round is kept, not the last: measured in the old architecture, while
+the loss fell the exam went from 68.5% to 56.3% — rote memorization. When
+patience runs out it stops itself.
 
-Kullanım:
+Usage:
     python3 -m v3.train_reader [--sayi 20000] [--tur 8] [--boyut 192]
 """
 import glob
@@ -28,14 +31,14 @@ import time
 
 from v3 import dataset as ds
 
-HELD_OUT = 800          # sınav — eğitimde hiç görülmeyen
+HELD_OUT = 800          # the exam — never seen in training
 LONGEST = 256
 
 
 def encode(text, roles, letters, width):
     ids = [letters.get(ch, 0) for ch in text[:width]]
-    # roles=None: rol denetimi YOK (soru örnekleri) — hepsi -100, kayıp
-    # yazılmaz. Soru işlem türünü öğretir, rolleri olgu cümleleri.
+    # roles=None: NO role supervision (question examples) — all -100, no loss
+    # is written. Questions teach the operation kind, fact sentences the roles.
     tags = ([-100] * len(ids) if roles is None else list(roles[:width]))
     pad = width - len(ids)
     return ids + [0] * pad, tags + [-100] * pad
@@ -57,7 +60,7 @@ def main(argv):
                     most_dialogue=max(1, count // 3),
                     most_questions=max(1, count // 3))
 
-    # DENETİM 1 — veri
+    # CHECK 1 — data
     kinds = {}
     for _, kind, _ in rows:
         kinds[kind] = kinds.get(kind, 0) + 1
@@ -66,7 +69,7 @@ def main(argv):
     assert len(kinds) >= 3, "MISSING CLASS: reader needs PASS+ASK+WRITE"
     print("  CHECK 1 OK")
 
-    # DENETİM 2 — hizalama
+    # CHECK 2 — alignment
     marked = sum(1 for _, kind, roles in rows
                  if kind == ds.WRITE and roles and ds.SUBJECT in roles)
     writes = kinds.get(ds.WRITE, 0)
@@ -106,10 +109,12 @@ def main(argv):
 
     optimiser = torch.optim.AdamW(model.parameters(), lr=3e-4)
     kind_loss = nn.CrossEntropyLoss()
-    # Rol sınıfları AĞIR dengesiz: harflerin ~%91'i OUT. Ölçüldü — düz kayıpla
-    # eğitilen model 332 harfte V ve P'yi SIFIR kez seçti; argmax hep OUT/S.
-    # Değer üretilmeyince yazma yolu çalışma anında ölüydü (3. tur denetimi).
-    # Kök-ters frekans ağırlığı: az görünen rol, kaybettiğinde daha çok acıtır.
+    # The role classes are SEVERELY unbalanced: ~91% of letters are OUT.
+    # Measured — a model trained with the plain loss picked V and P ZERO
+    # times across 332 letters; argmax was always OUT/S. With no value
+    # produced, the write path was dead at runtime (round-3 audit).
+    # Square-root inverse-frequency weighting: the rarely seen role hurts
+    # more when it loses.
     role_count = [1, 1, 1, 1]
     for _, _, roles in rows:
         if roles:
@@ -133,7 +138,7 @@ def main(argv):
                 torch.tensor(tags, device=device),
                 torch.tensor(kinds_, device=device))
 
-    # DENETİM 3 — ezber
+    # CHECK 3 — memorization
     probe = rows[:32]
     ids, tags, kinds_ = batch_of(probe)
     first = last = None
@@ -152,7 +157,7 @@ def main(argv):
           f"{'OK' if ok else 'FAILED'}")
     assert ok, "RIG BROKEN: single batch not memorised"
 
-    model = Net().to(device)       # denetim ezberi eğitime taşınmasın
+    model = Net().to(device)       # the check's memorization must not carry into training
     optimiser = torch.optim.AdamW(model.parameters(), lr=3e-4)
 
     best, since, started = 0.0, 0, time.time()

@@ -1,48 +1,54 @@
-"""Sürekli katman: BULMAK için geometri, doğrulamak için değil.
+"""The continuous layer: geometry for FINDING, not for verifying.
 
-Projenin çekirdek fikri burada yarısını buluyor:
+The project's core idea finds half of itself here:
 
-    Bir dil modelinde her şey süreklidir — bulunur ama doğrulanamaz.
-    Klasik bir bilgi grafında her şey ayrıktır — doğrulanır ama bulunamaz.
-    Burada ikisi aynı kayıtların iki katmanıdır: SÜREKLİ BULUR, AYRIK DOĞRULAR.
+    In a language model everything is continuous — findable but unverifiable.
+    In a classic knowledge graph everything is discrete — verifiable but unfindable.
+    Here the two are two layers of the same records: CONTINUOUS FINDS, DISCRETE VERIFIES.
 
-Ölçüldü ve eksik olan tam buydu: eski bellekte gerçek soruların %19'unda
-"kavram grafta yok" deniyordu ve kavram GRAFTAYDI — dizgi tutmuyordu. Erişim
-harf harf eşleşmeye dayandığı sürece, bilinen bir şey bilinmiyor görünür.
+It was measured, and this was exactly what was missing: in the old memory 19%
+of real questions got "concept not in graph" and the concept WAS IN THE
+GRAPH — the string did not match. As long as retrieval rests on
+letter-by-letter matching, a known thing looks unknown.
 
-Burada erişim iki adımdır:
+Here retrieval is two steps:
 
-    1. YAKINLIK   sorunun vektörüne en yakın kimlikler (sürekli katman)
-    2. YAYILIM    o kimliklerden başlayıp BAĞLAR üzerinden yürümek
+    1. PROXIMITY   the identities nearest to the question's vector (continuous layer)
+    2. SPREADING   starting from those identities and walking along LINKS
 
-İkincisi çağrışımdır: bir örüntünün parçası verilince bütünü geri gelir
-(Hopfield sezgisi). Dizgi araması bunu yapamaz; bir kayıt ancak adı tam
-bilinirse bulunur. Yayılım, adı bilinmeyeni komşusundan getirir.
+The second is association: given a part of a pattern, the whole comes back
+(the Hopfield intuition). String search cannot do this; a record is found only
+if its name is known exactly. Spreading brings the unnamed in from its
+neighbor.
 
-Vektörler bu dosyada ÜRETİLMEZ — sayımla kurulur ve dışarıdan verilir. Burada
-yalnız kullanılırlar. Dile ait hiçbir şey yoktur: ne kelime, ne ek, ne kural.
-Kosinüs ve graf yürüyüşü, o kadar.
+Vectors are NOT PRODUCED in this file — they are built by counting and given
+from outside. Here they are only used. Nothing belonging to language exists:
+no word, no suffix, no rule. Cosine and graph walking, that is all.
 
-SINIR — MUTLAK. Geometri hiçbir zaman bir kayıt YAZMAZ. Zıtlar aynı çevrede
-geçer ve dağılımsal benzerlik onları ayıramaz; bu, bu projede bir kez ölçüldü.
-Geometri aday bulur, kapı karar verir.
+THE BOUNDARY — ABSOLUTE. Geometry never WRITES a record. Opposites occur in
+the same surroundings and distributional similarity cannot separate them;
+this was measured once in this project. Geometry finds candidates, the gate
+decides.
 """
 import math
 
-# Yakınlığın anlamlı sayılması için en az bu kadar olmalı. Eşiğin altı gürültü:
-# yüksek boyutlu bir uzayda her şey her şeye biraz benzer.
+# Proximity must be at least this to count as meaningful. Below the threshold
+# is noise: in a high-dimensional space everything resembles everything a
+# little.
 NEAR = 0.35
 
-# Yayılımda her adımda benzerliğin ne kadarı sönümlenir. Bire yakın olursa
-# uzak kayıtlar yakınlar kadar bağırır ve çağrışım anlamını kaybeder.
+# How much of the similarity is dampened at each step of spreading. If it is
+# close to one, distant records shout as loudly as near ones and association
+# loses its meaning.
 DECAY = 0.6
 
-# Yayılımın kaç adım süreceği. Üçten sonrası pratikte bütün grafa yayılıyor.
+# How many steps the spreading runs. Beyond three it spreads over practically
+# the whole graph.
 STEPS = 3
 
 
 def cosine(one, other):
-    """İki vektör arasındaki yön benzerliği."""
+    """Directional similarity between two vectors."""
     if not one or not other:
         return 0.0
     total = sum(a * b for a, b in zip(one, other))
@@ -54,10 +60,10 @@ def cosine(one, other):
 
 
 def mean(vectors):
-    """Vektörlerin ortalaması — bir cümlenin kaba temsili.
+    """The average of vectors — a crude representation of a sentence.
 
-    Sözcük sırasını kaybeder ve bunu biliyoruz. Yerini alacak şey okuyucu
-    ağıdır; burası yalnız ilk elemeyi yapan ucuz bir el.
+    It loses word order and we know it. What will replace it is the reader
+    network; this is only a cheap hand doing the first cull.
     """
     held = [one for one in vectors if one]
     if not held:
@@ -67,7 +73,7 @@ def mean(vectors):
 
 
 def nearest(memory, vector, count=8, least=NEAR):
-    """Vektöre en yakın kimlikler — [(kimlik, yakınlık)], yakından uzağa."""
+    """The identities nearest to the vector — [(identity, proximity)], near to far."""
     if vector is None:
         return []
     scored = []
@@ -82,15 +88,16 @@ def nearest(memory, vector, count=8, least=NEAR):
 
 
 def resolve(memory, label, vector=None):
-    """Bir etiketin HANGİ kimliği olduğunu bağlamdan seçer.
+    """Picks from context WHICH identity a label is.
 
-    Aynı yazılış birden çok kavram olabilir ve hangisi olduğunu bellek
-    bilmez — bilmesi de gerekmez. Karar burada, bağlamın vektörüne en yakın
-    kimliği seçerek verilir.
+    The same spelling can be more than one concept, and memory does not know
+    which — nor does it need to. The decision is made here, by picking the
+    identity nearest to the context's vector.
 
-    Bağlam yoksa ya da hiçbiri yeterince yakın değilse en çok erişilmiş
-    kimlik döner: yokluğunda en tanıdık olanı seçmek, hiç seçmemekten iyidir
-    ve seçimin zayıf olduğu güvene yansır.
+    If there is no context, or none is near enough, the most-accessed
+    identity is returned: in its absence, picking the most familiar is better
+    than picking none, and the weakness of the pick is reflected in the
+    trust.
     """
     held = memory.candidates(label)
     if not held:
@@ -113,14 +120,15 @@ def resolve(memory, label, vector=None):
 
 
 def spread(memory, seeds, steps=STEPS, decay=DECAY, most=40):
-    """Çağrışım: tohum kimliklerden başlayıp bağlar üzerinden yürür.
+    """Association: starts from seed identities and walks along links.
 
-    Dönen: {kayıt anahtarı: ağırlık}. Ağırlık, tohuma olan uzaklıkla söner —
-    yakından gelen kayıt daha yüksek sesle konuşur.
+    Returns: {record key: weight}. The weight dampens with distance from the
+    seed — a record coming from nearby speaks with a louder voice.
 
-    Yürüyüş iki tür bağı da kullanır: bir kimliğin kayıtları (özne bağı) ve
-    kayıtların birbirine bağları (neden, sonra, koşul). İkincisi olmadan bu
-    yalnız komşu listelemek olurdu; onunla birlikte bir zincir izlemek oluyor.
+    The walk uses both kinds of link: an identity's records (the subject
+    link) and the records' links to one another (cause, then, condition).
+    Without the second this would only be listing neighbors; with it, it
+    becomes following a chain.
     """
     reached = {}
     frontier = {key: weight for key, weight in seeds}
@@ -131,13 +139,13 @@ def spread(memory, seeds, steps=STEPS, decay=DECAY, most=40):
                 held = reached.get(record.key, 0.0)
                 if weight > held:
                     reached[record.key] = weight
-                # Kaydın değeri bir kimlikse oradan devam et.
+                # If the record's value is an identity, continue from there.
                 if isinstance(record.value, int) \
                         and record.value in memory.identities:
                     onward = weight * decay
                     if onward > following.get(record.value, 0.0):
                         following[record.value] = onward
-                # Kayıttan kayda bağlar — asıl çağrışım burada.
+                # Record-to-record links — the real association is here.
                 for _, other in record.links:
                     onward = weight * decay
                     if onward > reached.get(other, 0.0):
@@ -149,11 +157,11 @@ def spread(memory, seeds, steps=STEPS, decay=DECAY, most=40):
 
 
 def recall(memory, vector=None, labels=(), most=40):
-    """Bir soru için ilgili kayıtlar — geometri ile bulur, yayılım ile toplar.
+    """The records relevant to a question — found by geometry, gathered by spreading.
 
-    Erişimin tek kapısı: önce en yakın kimlikler, sonra onlardan yayılım.
-    Hiçbir yerde dizgi eşleşmesi zorunlu değil; etiket verilirse yalnız
-    tohumu güçlendirir.
+    The single gate of retrieval: first the nearest identities, then
+    spreading from them. String matching is mandatory nowhere; if a label is
+    given, it only strengthens the seed.
     """
     seeds = []
     for label in labels:

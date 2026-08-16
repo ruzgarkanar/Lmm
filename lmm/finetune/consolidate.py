@@ -1,22 +1,26 @@
-"""UYKU-KONSOLİDASYONU — hasat: sohbet günlükleri → LoRA eğitim verisi.
+"""SLEEP-CONSOLIDATION — harvest: chat logs → LoRA training data.
 
-Beyin analojisinin motoru: gün içinde graf (hipokampus) hızlı öğrenir; bu araç
-o birikimi periyodik olarak MOTORA (korteks/ağırlık) taşınacak veriye çevirir.
-Döngü: yaşa → hasat et (bu dosya) → eğit (train.py --resume) → değiştir (lora/).
+The engine of the brain analogy: during the day the graph (hippocampus) learns
+fast; this tool periodically turns that accumulation into data to be moved into
+the ENGINE (cortex/weights).
+Cycle: live → harvest (this file) → train (train.py --resume) → swap (lora/).
 
-GÜVENLİ damıtım ilkesi — modelin KENDİ ham çıktısı asla hedef olmaz (hata
-büyütür, v2 dersi). Hasat edilen tek şey KAPI-ONAYLI çiftlerdir:
-    kullanıcı cümlesi → o tur kapının GERÇEKTEN kabul ettiği üçlüler
-(chat.py her turun "learned" alanına yazar). Yani hedefler grafın kendisinden
-gelir — condition-5 temiz, elle yazılmış dil yok.
+SAFE distillation principle — the model's OWN raw output is never a target
+(it amplifies errors, the v2 lesson). The only thing harvested is GATE-APPROVED
+pairs:
+    user sentence → the triples the gate ACTUALLY accepted that turn
+(chat.py writes them into each turn's "learned" field). So the targets come
+from the graph itself — condition-5 clean, no hand-written language.
 
-Ayrıca ASK örnekleri türetir ("{özne} nedir" → ASK) ki WRITE/ASK ayrımı
-tazelensin — özne etiketi gerçek veriden gelir, cümle şablonu değil olgu.
+It also derives ASK examples ("{subject} nedir" → ASK) so the WRITE/ASK
+distinction stays fresh — the subject label comes from real data; the sentence
+is a template but the fact is not.
 
-Kullanım (tetik İNSAN-onaylı; otomatik eğitim başlatmaz — guardrail):
+Usage (the trigger is HUMAN-approved; it never starts training automatically —
+guardrail):
     python3.11 -m lmm.finetune.consolidate                # logs/ → data/train/consolidate.jsonl
-    python3.11 -m lmm.finetune.consolidate --min-turns 50 # az birikimse çık
-Çıktı 0 değilse önerilen eğitim komutunu basar.
+    python3.11 -m lmm.finetune.consolidate --min-turns 50 # exit if too little accumulated
+If the output is non-zero it prints the suggested training command.
 """
 import argparse
 import glob
@@ -27,14 +31,15 @@ from lmm import prompts
 
 
 def harvest(log_dir="logs", state_path=None):
-    """Günlüklerden kapı-onaylı (cümle, üçlüler) çiftlerini topla.
+    """Collect gate-approved (sentence, triples) pairs from the logs.
 
-    FİLİGRAN (code-review bulgusu #2): işlenen dosya+satır sayısı state'te
-    tutulur; sonraki hasat yalnız YENİ turları alır. Yoksa ilk günlerin turları
-    her döngüde yeniden eğitime girer, eski örnekler katlanarak ağır basardı
-    (sessiz overfit). DÖNEN: (pairs, new_state) — new_state'i ÇAĞIRAN, çıktıyı
-    gerçekten yazdıktan SONRA kaydeder (min-turns'te çıkarsa filigran ilerlemez,
-    turlar kaybolmaz). state_path=None → filigransız (test)."""
+    WATERMARK (code-review finding #2): the processed file+line counts are kept
+    in state; the next harvest takes only NEW turns. Without it, the first
+    days' turns would re-enter training every cycle and old examples would
+    compound and dominate (silent overfit). RETURNS: (pairs, new_state) — the
+    CALLER saves new_state AFTER actually writing the output (if it exits at
+    min-turns the watermark does not advance, so no turns are lost).
+    state_path=None → no watermark (tests)."""
     state = {}
     if state_path and os.path.exists(state_path):
         with open(state_path, encoding="utf-8") as f:
@@ -53,7 +58,7 @@ def harvest(log_dir="logs", state_path=None):
             learned = turn.get("learned") or []
             message = (turn.get("in") or "").strip()
             if not (message and learned):
-                continue            # o tur kapıdan bir şey geçmedi → hasat yok
+                continue            # nothing passed the gate that turn → no harvest
             triples = [[s, p, v] for s, p, v in
                        (t[:3] for t in learned if len(t) >= 3) if s and v]
             if triples:
@@ -63,7 +68,7 @@ def harvest(log_dir="logs", state_path=None):
 
 
 def commit_state(state_path, state):
-    """Filigranı kalıcıla — YALNIZ hasat çıktısı gerçekten yazıldıktan sonra."""
+    """Persist the watermark — ONLY after the harvest output is actually written."""
     if not state_path:
         return
     os.makedirs(os.path.dirname(state_path) or ".", exist_ok=True)
@@ -72,9 +77,9 @@ def commit_state(state_path, state):
 
 
 def rows_from(pairs, ask_ratio=0.4):
-    """(cümle, üçlüler) → make_extract_data ile AYNI formatta SFT satırları."""
+    """(sentence, triples) → SFT rows in the SAME format as make_extract_data."""
     rows = []
-    acc = 0.0                # birikimli oran: ask_ratio GERÇEKTEN o oran olsun
+    acc = 0.0                # accumulated ratio: make ask_ratio ACTUALLY that ratio
     for message, triples in pairs:
         rows.append({"messages": [
             {"role": "system", "content": prompts.EXTRACT_SYSTEM},
@@ -101,15 +106,15 @@ def main():
     ap.add_argument("--logs", default="logs")
     ap.add_argument("--out", default="data/train/consolidate.jsonl")
     ap.add_argument("--min-turns", type=int, default=20,
-                    help="bundan az hasat varsa eğitime değmez — çık")
+                    help="if the harvest is smaller than this, training is not worth it — exit")
     ap.add_argument("--state", default="data/train/.consolidated.json",
-                    help="filigran: işlenmiş günlük satırları (tekrar hasat yok)")
+                    help="watermark: already-processed log lines (no re-harvest)")
     args = ap.parse_args()
 
     pairs, state = harvest(args.logs, state_path=args.state)
     if len(pairs) < args.min_turns:
-        print(f"hasat {len(pairs)} tur < {args.min_turns} — birikim az, "
-              f"eğitime değmez (döngü: yaşamaya devam; filigran İLERLEMEDİ)")
+        print(f"harvested {len(pairs)} turns < {args.min_turns} — too little accumulated, "
+              f"not worth training (cycle: keep living; watermark did NOT advance)")
         return
     rows = rows_from(pairs)
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
@@ -117,8 +122,8 @@ def main():
         for r in rows:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
     commit_state(args.state, state)
-    print(f"{len(rows)} örnek ({len(pairs)} kapı-onaylı tur) → {args.out}")
-    print("önerilen (İNSAN başlatır — guardrail):")
+    print(f"{len(rows)} examples ({len(pairs)} gate-approved turns) → {args.out}")
+    print("suggested (a HUMAN starts it — guardrail):")
     print(f"  python3.11 -m lmm.finetune.train --data {args.out} "
           f"--out models/lmm/lora_next --epochs 1 --rank 64 --mlp")
 

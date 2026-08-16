@@ -1,17 +1,18 @@
-"""Orkestratör — LMM'in tüm organlarını tek akışta bağlar.
+"""Orchestrator — binds all of LMM's organs into a single flow.
 
-    mesaj
-      → EXTRACT (Qwen)     kind + üçlüler  (ADAY — yazamaz)
-      → WRITE  → gate.admit                 grafa, kapıdan
-      → ASK    → retrieve → generate (Qwen) → verify (KAPI) → cevap
-      → CHAT   → generate (Qwen, olgusuz)   → verify (KAPI) → cevap
+    message
+      → EXTRACT (Qwen)     kind + triples  (CANDIDATE — cannot write)
+      → WRITE  → gate.admit                 into the graph, through the gate
+      → ASK    → retrieve → generate (Qwen) → verify (GATE) → answer
+      → CHAT   → generate (Qwen, fact-free) → verify (GATE) → answer
 
-Belleği taşır (`Memory.load/save`), yaşantıyı kaydeder. Uydurmama HER yolda
-`verify` ile korunur: Qwen ne derse desin, grafta desteği yoksa olgu iddiası
-çıkışta düşer. "Qwen kayıt yazamaz" (giriş) + "Qwen desteksiz olgu söyleyemez"
-(çıkış) — belkemiği kural iki uçta da.
+Carries the memory (`Memory.load/save`), records lived experience. Non-fabrication
+is protected on EVERY path via `verify`: whatever Qwen says, a factual claim with
+no support in the graph is dropped at the output. "Qwen cannot write records"
+(input) + "Qwen cannot state unsupported facts" (output) — the backbone rule at
+both ends.
 
-Mod: STRICT (uydurma 0 — desteksiz olgu düşer) · ASSIST (işaretlenir).
+Mode: STRICT (fabrication 0 — unsupported fact is dropped) · ASSIST (flagged).
 """
 import os
 import re
@@ -22,45 +23,49 @@ from v3.gate import Gate
 from v3.memory import Memory, OPERATOR, STRANGER, DOCUMENT
 from lmm import evidence, extract, generate, link, research, retrieve, verify
 
-SLEEP_EVERY = 50   # kaç turda bir uyku (damıt/sol/hakemle) — v3 §117
+SLEEP_EVERY = 50   # sleep every N turns (distill/fade/adjudicate) — v3 §117
 
-# KAYNAK-GÜVEN eşiği: bunun ALTINDAKİ güvenle konuşulan olgu cevapta ETİKETLENİR
-# (çekince + kaynak). Operatör-öğretisi (0.75) kesin → etiketsiz; belge (0.6),
-# damıtım (0.5), web (düşük) → "emin değilim, ...'e göre". "en sıkı" yanlış-bilgi.
+# SOURCE-TRUST threshold: a fact spoken with trust BELOW this gets TAGGED in the
+# answer (hedge + source). Operator teaching (0.75) is certain → untagged;
+# document (0.6), distillation (0.5), web (low) → "I'm not sure, according to
+# ...". "Strictest" would be misinformation.
 CERTAIN = 0.7
 
 BILMIYORUM = "Bunu bilmiyorum."
 
 
 def _grounded_in(value, message):
-    """Öğretilecek DEĞER kullanıcının MESAJINDA gerçekten geçiyor mu — Qwen
-    uydurmadı mı? "söylemediğin şeyi öğretemezsin". Fold + kök eşleşmesi
-    (kuş~kuştur). Bu, extract'ın soruyu ("atom nedir") WRITE sanıp olmayan bir
-    değer ("birleşik") icat edip grafa yazmasını engeller — dil-bağımsız."""
+    """Does the VALUE to be taught actually appear in the user's MESSAGE — did
+    Qwen not fabricate it? "You cannot teach what you didn't say". Fold + stem
+    matching (kuş~kuştur). This prevents extract from mistaking a question
+    ("atom nedir") for a WRITE and inventing a nonexistent value ("birleşik")
+    to write into the graph — language-agnostic."""
     want = {fold(w) for w in re.findall(r"\w+", value) if len(w) >= 3}
     if not want:
-        return True        # kısa/tokensiz değer — engelleme (nadir)
+        return True        # short/token-less value — don't block (rare)
     have = {fold(w) for w in re.findall(r"\w+", message) if len(w) >= 3}
     return any(a == b or a.startswith(b) or b.startswith(a)
                for a in want for b in have)
 
 
 class Session:
-    """Bir konuşma. Qwen (dil) + graf/kapı (doğruluk & büyüme)."""
+    """One conversation. Qwen (language) + graph/gate (truth & growth)."""
 
     def __init__(self, path=None, who="#operator", mode="STRICT"):
         self.path = path
         self.memory = (Memory.load(path) if path and os.path.exists(path)
                        else Memory())
         self.gate = Gate(self.memory)
-        # Çelişki için anlamsal RAKİP kontrolünü Qwen'e bağla (cache'li) — yüklemsiz
-        # durumda "kuş/yırtıcı" bir arada, "kuş/balık" çelişki. Bkz. _are_rivals.
+        # Wire the semantic RIVAL check for contradictions to Qwen (cached) —
+        # in the predicate-less case "kuş/yırtıcı" coexist, "kuş/balık" is a
+        # contradiction. See _are_rivals.
         self._rival_cache = {}
         self.gate.rival = self._are_rivals
-        self._pending = None    # araştırma teklif edilen özne (önce-sor akışı)
-        self.last_written = []  # bu turda kapının kabul ettiği üçlüler (hasat)
-        self.history = []       # KISA-VADELİ konuşma bağlamı (son N tur) — graf
-        # uzun-vadeli hafıza; bu, "az önce ne konuştuk" bağlamı (sohbet sürekliliği)
+        self._pending = None    # subject offered for research (ask-first flow)
+        self.last_written = []  # triples the gate admitted this turn (harvest)
+        self.history = []       # SHORT-TERM conversation context (last N turns) —
+        # the graph is long-term memory; this is the "what did we just talk
+        # about" context (conversation continuity)
         self.who = who
         self.level = OPERATOR if who == "#operator" else STRANGER
         self.mode = mode
@@ -69,40 +74,45 @@ class Session:
         if self.memory.self_key is None:
             self.memory.self_key = self.memory.identify("#self")
         self._identity = self._seed_identity()
-        # NEDENSELLİK yüklemi — nedensel olgu (sebep→sonuç) NORMAL Record olarak
-        # bu ayrılmış yüklemle durur; tüm kapı/verify/ters-indeks/türetme makinesini
-        # bedava miras alır. is-a'dan (tür) FİZİKSEL olarak ayrı → verify/çelişki
-        # ilişki-tipini karıştırmasın. Etiket dil-nötr (#causes).
+        # CAUSALITY predicate — a causal fact (cause→effect) is stored as a
+        # NORMAL Record under this reserved predicate; it inherits the entire
+        # gate/verify/inverse-index/derivation machinery for free. PHYSICALLY
+        # separate from is-a (type) → verify/contradiction won't confuse the
+        # relation type. Label is language-neutral (#causes).
         self._causes_key = link.resolve(self.memory, "#causes", self.vectors,
                                         create=True)
-        # KANIT DEPOSU — doküman cümleleri (üçlüye sığmayan sayı/aralık/nüans
-        # kaybolmasın; temsil-darlığı düzeltmesi). Graf yapı, cümle kanıt.
+        # EVIDENCE STORE — document sentences (so numbers/ranges/nuance that
+        # don't fit a triple aren't lost; representation-narrowness fix). The
+        # graph is structure, the sentence is evidence.
         self.evidence = evidence.SentenceStore.load(path)
 
     def _seed_identity(self):
-        """KİMLİK grafa olgu olarak: (lmm → üretici → rüzgar). Böylece kimlik
-        de 'bilinen bilgi'dir — kapıdan geçer, dil-bağımsız söylenir. Persona
-        (prompts.CHAT_SYSTEM) Qwen'e adını verir; bu tohum onu grafta tutar."""
+        """IDENTITY as a fact in the graph: (lmm → üretici → rüzgar). This way
+        identity too is 'known knowledge' — it passes through the gate and is
+        spoken language-independently. The persona (prompts.CHAT_SYSTEM) gives
+        Qwen its name; this seed keeps it in the graph."""
         lmm = link.resolve(self.memory, "lmm", self.vectors, create=True)
-        ruzgar = link.resolve(self.memory, "rüzgar", self.vectors, create=True)
+        owner = link.resolve(self.memory, "rüzgar", self.vectors, create=True)
         maker = link.resolve(self.memory, "üretici", self.vectors, create=True)
-        if self.gate.behind(lmm, maker, ruzgar) is None:
-            self.gate.admit(lmm, maker, ruzgar, "#operator", OPERATOR)
-        self._lmm_key = lmm    # kimlik öznesi — _chat gather bunu kullanır
-        return {lmm, ruzgar, maker, self.memory.self_key}
+        if self.gate.behind(lmm, maker, owner) is None:
+            self.gate.admit(lmm, maker, owner, "#operator", OPERATOR)
+        self._lmm_key = lmm    # identity subject — _chat gather uses this
+        return {lmm, owner, maker, self.memory.self_key}
 
     def _are_rivals(self, old_key, new_key):
-        """İki değer anlamsal RAKİP mi (aynı yuva, birbirini dışlayan)? Qwen
-        yargılar (dil-bağımsız), sonuç cache'lenir — aynı çift bir daha model
-        çağırmaz. gate._contradiction bunu yüklemsiz çelişki kararında kullanır."""
+        """Are two values semantic RIVALS (same slot, mutually exclusive)? Qwen
+        judges (language-agnostic), the verdict is cached — the same pair never
+        calls the model again. gate._contradiction uses this in the
+        predicate-less contradiction decision."""
         ck = frozenset((old_key, new_key))
         if ck in self._rival_cache:
             return self._rival_cache[ck]
-        # HİYERARŞİK BAĞ (GRAF — LMM'in gücü): iki değer is-a zinciriyle bağlıysa
-        # (kedigil→memel: kedigil bir memelidir) RAKİP DEĞİL, bir arada var olurlar
-        # — "aslan hem kedigil hem memeli" çelişki değil hiyerarşidir. Qwen'e
-        # sormadan grafla çöz (are_rivals fazla ateşliyordu). Yalnız BAĞSIZ
-        # değerlerde Qwen'e sor (kuş/balık gibi).
+        # HIERARCHICAL LINK (GRAPH — LMM's strength): if the two values are
+        # connected by an is-a chain (kedigil→memeli: a felid is a mammal) they
+        # are NOT rivals, they coexist — "a lion is both felid and mammal" is
+        # hierarchy, not contradiction. Resolve with the graph without asking
+        # Qwen (are_rivals was over-firing). Ask Qwen only for UNCONNECTED
+        # values (like kuş/balık).
         if self._connected(old_key, new_key):
             self._rival_cache[ck] = False
             return False
@@ -111,13 +121,14 @@ class Session:
         try:
             verdict = bool(old and new and generate.are_rivals(old, new))
         except Exception:                                   # noqa: BLE001
-            verdict = False        # emin değilsek çelişki sayma (bozma)
+            verdict = False        # if unsure, don't count as contradiction (don't break)
         self._rival_cache[ck] = verdict
         return verdict
 
     def _connected(self, a, b, depth=4):
-        """a ile b graf'ta is-a zinciriyle bağlı mı (her iki yön). Bağlıysa
-        hiyerarşiktir → çelişki değil. Sınırlı BFS (döngü-korumalı)."""
+        """Are a and b connected in the graph via an is-a chain (both
+        directions)? If connected they are hierarchical → not a contradiction.
+        Bounded BFS (cycle-protected)."""
         for start, goal in ((a, b), (b, a)):
             seen, frontier = {start}, [start]
             for _ in range(depth):
@@ -135,11 +146,12 @@ class Session:
                 frontier = nxt
         return False
 
-    # --- NEDENSELLİK (ms, sembolik — sinirsel değil) -------------------
+    # --- CAUSALITY (ms, symbolic — not neural) -------------------------
     def learn_cause(self, cause_label, effect_label, source=None):
-        """Nedensel olgu öğret: sebep→sonuç, KAPIDAN geçerek (Qwen yazamaz).
-        #causes yüklemiyle normal Record → is-a'dan ayrı. Şimdilik doğrudan;
-        sonraki adımda extract nedensel cümleyi buraya bağlayacak."""
+        """Teach a causal fact: cause→effect, passing THROUGH THE GATE (Qwen
+        cannot write). A normal Record under the #causes predicate → separate
+        from is-a. Direct for now; the next step will wire extract's causal
+        sentence into here."""
         ck = link.resolve(self.memory, cause_label, self.vectors, create=True)
         ek = link.resolve(self.memory, effect_label, self.vectors, create=True)
         if ck is None or ek is None or ck == ek:
@@ -149,10 +161,11 @@ class Session:
         return record is not None
 
     def _learn_causal(self, message):
-        """Nedensel cümleyi yakala → learn_cause. is_causal (Qwen, YÖNLÜ few-shot)
-        + _grounded_in (iki varlık da mesajda mı — uydurma varlık engeli). Değilse
-        None → normal is-a yazımına düşer. DÜRÜST SINIR: _grounded_in varlığı
-        doğrular ama YÖNÜ değil (3B ters çıkarabilir — tasarımın en büyük riski)."""
+        """Catch a causal sentence → learn_cause. is_causal (Qwen, DIRECTED
+        few-shot) + _grounded_in (are both entities in the message —
+        fabricated-entity block). Otherwise None → falls back to the normal
+        is-a write. HONEST LIMIT: _grounded_in validates the entities but NOT
+        the DIRECTION (a 3B can flip it — the design's biggest risk)."""
         try:
             pair = generate.is_causal(message)
         except Exception:                                   # noqa: BLE001
@@ -161,7 +174,7 @@ class Session:
             return None
         cause, effect = pair
         if not (_grounded_in(cause, message) and _grounded_in(effect, message)):
-            return None                    # varlık mesajda yok → Qwen uydurdu
+            return None                    # entity not in the message → Qwen fabricated it
         if not self.learn_cause(cause, effect):
             return None
         self.memory.lived(f"cause:{cause}->{effect}", outcome=1.0,
@@ -169,28 +182,30 @@ class Session:
         return generate.confirm_cause(cause, effect, message) or "OK"
 
     def _causal_answer(self, message, direction, subject):
-        """Nedensel soruyu cevapla: ms-traversal (sebep/sonuç) → Qwen cümleye
-        döker → verify denetler. Boşluksa reddet (uydurma yok). DÜRÜST SINIR:
-        verify._has_edge yüklem-körü (is-a/causes ayırmaz) — nedensel-farkında
-        anchor sonraki iş; şimdilik kenar VAR olduğu için desteksiz düşmez."""
+        """Answer a causal question: ms-traversal (causes/effects) → Qwen turns
+        it into a sentence → verify audits. If empty, refuse (no fabrication).
+        HONEST LIMIT: verify._has_edge is predicate-blind (doesn't distinguish
+        is-a/causes) — a causality-aware anchor is future work; for now the
+        edge EXISTS so it doesn't fall as unsupported."""
         if direction == "causes":
             edges = [(c, subject) for c in self.causes_of(subject)]
         else:
             edges = [(subject, e) for e in self.effects_of(subject)]
         if not edges:
             return generate.refusal(message) or BILMIYORUM
-        # CAUSE/EFFECT etiketli blok (iç iskele) — "kanserin sebebi ne" gibi TERS
-        # yönlü soruda model oku çevirip sebebi bulabilsin (etiketsiz ok'ta
-        # takılıyordu). Etiket iç prompt yapısı, çıktı dili değil.
+        # CAUSE/EFFECT-labeled block (internal scaffold) — so on a REVERSE-
+        # direction question like "kanserin sebebi ne" the model can flip the
+        # arrow and find the cause (it stumbled on unlabeled arrows). The label
+        # is internal prompt structure, not output language.
         block = "\n".join(f"[{i}] CAUSE: {c}  EFFECT: {e}"
                           for i, (c, e) in enumerate(edges, 1))
         raw = generate.answer(message, block)
-        # SÖZCÜK-KAPSAMA kapısı (benchmark bulgusu): nedensel cümle is-a
-        # kalıbına uymaz — reextract "yağarsa"yı değer sanıp DOĞRU cevabı
-        # düşürüyordu. İlke: cevabın TÜM içerik-sözcükleri verilen blok+sorudan
-        # geliyorsa yeni iddia YOKTUR → uydurma yapısal olarak imkânsız, geç.
-        # Dışına çıkan sözcük varsa eski sıkı verify işler. Dil kuralı değil —
-        # küme kapsaması.
+        # WORD-COVERAGE gate (benchmark finding): a causal sentence doesn't fit
+        # the is-a pattern — reextract mistook "yağarsa" for a value and dropped
+        # a CORRECT answer. Principle: if ALL of the answer's content-words come
+        # from the given block+question there is NO new claim → fabrication is
+        # structurally impossible, pass. If a word steps outside, the old strict
+        # verify applies. Not a language rule — set coverage.
         if evidence.covered(raw or "", block, message):
             return raw
         allowed = set()
@@ -201,8 +216,8 @@ class Session:
         return safe or generate.refusal(message) or BILMIYORUM
 
     def causes_of(self, effect_label):
-        """effect'in SEBEPLERİ (etiket). ms: by_value ters indeksi, O(gelen-derece).
-        Saf graf yürüyüşü — sinirsel üretim yok."""
+        """The effect's CAUSES (labels). ms: by_value inverse index,
+        O(in-degree). Pure graph walk — no neural generation."""
         ek = link.resolve(self.memory, effect_label, self.vectors)
         if ek is None:
             return []
@@ -211,7 +226,7 @@ class Session:
                 if self.memory.records[k].predicate == self._causes_key]
 
     def effects_of(self, cause_label):
-        """cause'un SONUÇLARI (etiket). ms: by_subject, O(giden-derece)."""
+        """The cause's EFFECTS (labels). ms: by_subject, O(out-degree)."""
         ck = link.resolve(self.memory, cause_label, self.vectors)
         if ck is None:
             return []
@@ -220,9 +235,10 @@ class Session:
                 if self.memory.records[k].predicate == self._causes_key]
 
     def root_causes(self, effect_label, depth=4):
-        """effect'e giden nedensel ZİNCİR — sınırlı-derinlik BFS (döngü-korumalı).
-        Kök sebeplere kadar geri yürür. Yol/ara-adımları döndürür; X→Z'yi OTOMATİK
-        YAZMAZ (nedensellik her zaman geçişli değil — condition-4 güvenli). ms."""
+        """The causal CHAIN leading to effect — bounded-depth BFS
+        (cycle-protected). Walks back to the root causes. Returns the
+        path/intermediate steps; does NOT AUTOMATICALLY write X→Z (causality is
+        not always transitive — condition-4 safe). ms."""
         ek = link.resolve(self.memory, effect_label, self.vectors)
         if ek is None:
             return []
@@ -241,35 +257,39 @@ class Session:
             if not nxt:
                 break
             frontier = nxt
-        return chain            # [(sebep, sonuç)] kenarları — kök→yaprak zinciri
+        return chain            # [(cause, effect)] edges — root→leaf chain
 
     def respond(self, message):
-        """Bir mesaja cevap + KONUŞMA BAĞLAMINI günceller. Asıl mantık _respond'da;
-        bu sarmalayıcı son N turu `history`'de tutar (sohbet sürekliliği).
-        `last_written`: bu turda KAPININ kabul ettiği üçlüler — konsolidasyon
-        hasadı için (kapı-onaylı = güvenilir eğitim hedefi; modelin kendi ham
-        çıktısı DEĞİL)."""
+        """Answer one message + update the CONVERSATION CONTEXT. The real logic
+        is in _respond; this wrapper keeps the last N turns in `history`
+        (conversation continuity). `last_written`: the triples the GATE
+        admitted this turn — for the consolidation harvest (gate-approved =
+        trustworthy training target; NOT the model's own raw output)."""
         self.last_written = []
         said = self._respond(message)
         if message and message.strip():
             self.history.append({"role": "user", "content": message})
             self.history.append({"role": "assistant", "content": said or ""})
-            self.history = self.history[-12:]     # son ~6 tur (kayan pencere)
+            self.history = self.history[-12:]     # last ~6 turns (sliding window)
         return said
 
     def _respond(self, message):
-        """Bir mesaja cevap. Dönen daima metin; asla desteksiz olgu.
+        """Answer one message. The return is always text; never an unsupported
+        fact.
 
-        Sağlamlık (kod-denetimi): boş mesaj korunur, tüm akış try/except içinde
-        (tek bozuk üretim konuşmayı çökertmesin — güvenli cevaba düşer)."""
+        Robustness (code-audit): empty message is guarded, the whole flow is
+        inside try/except (one broken generation must not crash the
+        conversation — falls back to a safe answer)."""
         if not message or not message.strip():
             return ""
-        # ARAŞTIRMA ONAYI (önce-sor): geçen turda "araştırayım mı?" teklif
-        # edildiyse, bu mesaj ONAY mı diye bak. Onaysa çek+öğren; değilse teklifi
-        # bırak ve mesajı olağan işle (yeni soru olabilir).
-        # AUTO-UYKU: her SLEEP_EVERY turda bir damıt/sönümle/hakemle. v3'te
-        # ölçüldü — bu mekanizmalar yalnız elle çağrılıyordu, sistem hiç
-        # "uyumuyordu"; sarmalandı. Hata olursa konuşmayı çökertmesin.
+        # RESEARCH APPROVAL (ask-first): if last turn offered "shall I
+        # research?", check whether this message is the APPROVAL. If yes,
+        # fetch+learn; otherwise drop the offer and process the message
+        # normally (it may be a new question).
+        # AUTO-SLEEP: every SLEEP_EVERY turns distill/decay/adjudicate once.
+        # Measured in v3 — these mechanisms were only ever called manually, the
+        # system never "slept"; now wrapped. If it errors, it must not crash
+        # the conversation.
         self.turns += 1
         if self.turns % SLEEP_EVERY == 0:
             try:
@@ -278,12 +298,13 @@ class Session:
                 pass
         try:
             op = extract.extract(message)
-            # ARAŞTIRMA ONAYI (mimari — içerik karar verir): geçen tur "araştırayım
-            # mı?" teklif edildiyse, bu mesaj YENİ İÇERİK mi (öğretme/soru) yoksa
-            # saf onay mı — EXTRACT söyler. Yeni içerik = yeni tur (pending düşer,
-            # aşağıda normal işlenir); yalnız içeriksiz-olumlama araştırmayı
-            # tetikler. Eskiden körlemesine is_affirmative çağrılıyordu; "biliyor
-            # musun balina da memelidir" yanlışlıkla "evet" sanılıp turu kaçırıyordu.
+            # RESEARCH APPROVAL (architecture — content decides): if last turn
+            # offered "shall I research?", is this message NEW CONTENT
+            # (teaching/question) or a pure affirmation — EXTRACT tells. New
+            # content = new turn (pending is dropped, processed normally
+            # below); only a content-free affirmation triggers the research.
+            # Previously is_affirmative was called blindly; "biliyor musun
+            # balina da memelidir" was mistaken for "yes" and the turn was lost.
             if self._pending is not None:
                 (subj, orig_q), self._pending = self._pending, None
                 new_content = bool(op["triples"] and op["triples"][0][0])
@@ -293,36 +314,41 @@ class Session:
                             return self._research(subj, orig_q)
                     except Exception:                       # noqa: BLE001
                         pass
-                # yeni içerik ya da onay değil → aşağıda normal işlenir
+                # new content or not an approval → processed normally below
             if op["kind"] == extract.WRITE and op["triples"]:
-                # NEDENSEL cümle mi ("X, Y'ye neden olur") — is-a'dan AYRI sakla
-                # (#causes yüklemi). Öyleyse learn_cause; değilse normal is-a yazımı.
+                # Is it a CAUSAL sentence ("X causes Y") — store SEPARATE from
+                # is-a (#causes predicate). If so learn_cause; else the normal
+                # is-a write.
                 caused = self._learn_causal(message)
                 if caused:
                     return caused
                 said = self._write(op["triples"], message)
                 if said:
                     return said
-                # Boş yazım (yanlış WRITE sınıflaması / değersiz üçlü — ör. "X
-                # nedir" yanlışlıkla WRITE geldi): uydurma yerine SORU gibi ele
-                # al → getir/reddet. Düşer.
+                # Empty write (wrong WRITE classification / valueless triple —
+                # e.g. "X nedir" wrongly came as WRITE): instead of
+                # fabricating, treat it like a QUESTION → retrieve/refuse.
+                # Falls through.
             subject = op["triples"][0][0] if op["triples"] else None
             subject_key = (link.resolve(self.memory, subject, self.vectors)
                            if subject else None)
-            # KİMLİK ROUTE (mimari köprü): özne ÇÖZÜLEMİYORSA (CHAT ya da "seni
-            # kim yaptı" gibi extract'ın "sen"i çözemediği durum) bu bir KİMLİK
-            # sorusu mu — deterministik sınıflandır. Öyleyse extract'ın kumarını
-            # ATLA, kimlik olgusunu _lmm_key'den GARANTİ getiren yola sok. Yalnız
-            # özne-çözülemeyende çağrılır (net "kartal nedir"de ekstra çağrı yok).
+            # IDENTITY ROUTE (architectural bridge): if the subject CANNOT BE
+            # RESOLVED (CHAT, or "seni kim yaptı" where extract can't resolve
+            # "sen"), classify deterministically: is this an IDENTITY question?
+            # If so SKIP extract's gamble and route into the path that
+            # GUARANTEES fetching the identity fact from _lmm_key. Called only
+            # when the subject is unresolved (no extra call on a clear "kartal
+            # nedir").
             if subject_key is None:
                 try:
                     if generate.is_identity_question(message):
                         return self._identity_reply(message)
                 except Exception:                           # noqa: BLE001
                     pass
-            # NEDENSEL SORU mu — YALNIZ özne nedensel kenar taşıyorsa Qwen'e sor
-            # (ms ön-kontrol: causes_of/effects_of boş değilse). Boşuna model
-            # çağrısı yok; nedensel bilgisi olmayan özne için hiç sorulmaz.
+            # Is it a CAUSAL QUESTION — ask Qwen ONLY if the subject carries a
+            # causal edge (ms pre-check: causes_of/effects_of non-empty). No
+            # wasted model call; never asked for a subject with no causal
+            # knowledge.
             if subject and (self.causes_of(subject) or self.effects_of(subject)):
                 try:
                     cq = generate.is_causal_question(message)
@@ -336,13 +362,15 @@ class Session:
         except Exception:                                   # noqa: BLE001
             return BILMIYORUM
 
-    # --- kimlik (deterministik route) ----------------------------------
+    # --- identity (deterministic route) --------------------------------
     def _identity_reply(self, message):
-        """KİMLİK sorusunu deterministik cevapla. Kök sebep (denetim): kimlik
-        sorusu extract'ta ASK olup 'sen' çözülemeyince olgu HİÇ getirilmiyordu.
-        Burada olguyu _lmm_key'den GARANTİ getir; adı + olguları identity_answer'a
-        ver; verify anchor='value' (özne öz-referans zamir → None; edge yolu
-        kimliği düşürürdü, nesne 'rüzgar' allowed'da çapa)."""
+        """Answer an IDENTITY question deterministically. Root cause (audit):
+        an identity question became ASK in extract, "sen" couldn't be
+        resolved, and the fact was NEVER fetched. Here, GUARANTEE fetching the
+        fact from _lmm_key; give the name + the facts to identity_answer;
+        verify anchor='value' (the subject is a self-referential pronoun →
+        None; the edge path would drop identity, the object 'rüzgar' anchors
+        in allowed)."""
         id_records = retrieve.gather(self.memory, self._lmm_key)
         id_block = "\n".join(
             f"{link.label_of(self.memory, r.subject)} "
@@ -354,34 +382,39 @@ class Session:
                              anchor="value")
         return safe or generate.refusal(message) or BILMIYORUM
 
-    # --- yazma ---------------------------------------------------------
+    # --- writing -------------------------------------------------------
     def _write(self, triples, message):
-        """Öğretileni grafa koyar — kapıdan geçerek (Qwen yazamaz, kapı yazar).
+        """Puts the taught material into the graph — through the gate (Qwen
+        doesn't write, the gate writes).
 
-        Kod-denetimi: değersiz yarım üçlü atlanır (None değer gate'e gitmesin);
-        aynı üçlü iki kez gelirse tekilleştirilir (tekrarlı 'Öğrendim' olmasın).
+        Code-audit: a valueless half-triple is skipped (no None value must
+        reach the gate); if the same triple arrives twice it is deduplicated
+        (no repeated 'Öğrendim').
         """
         wrote = []
         conflicts = []
         seen = set()
         for subject, predicate, value in triples:
             if not value:
-                continue                       # yarım üçlü — yazma
+                continue                       # half triple — don't write
             if not _grounded_in(value, message):
-                continue     # değer mesajda yok → Qwen uydurdu ("atom nedir"→
-                             # "birleşik"): soruyu WRITE sanma tuzağı, yazma
+                continue     # value not in message → Qwen fabricated it ("atom
+                             # nedir"→"birleşik"): the mistake-a-question-for-
+                             # WRITE trap, don't write
             sk = link.resolve(self.memory, subject, self.vectors, create=True)
             vk = link.resolve(self.memory, value, self.vectors, create=True)
-            # sk == vk: ÖZ-DÖNGÜ ("almanya → almanya") — bir şey kendisi olamaz,
-            # anlamsız kayıt. extract ara sıra üretiyordu; kapıdan geçirme.
+            # sk == vk: SELF-LOOP ("almanya → almanya") — a thing cannot be
+            # itself, meaningless record. extract produced it occasionally;
+            # don't let it through the gate.
             if sk is None or vk is None or sk == vk or (sk, vk) in seen:
                 continue
             seen.add((sk, vk))
             pk = (link.resolve(self.memory, predicate, self.vectors, create=True)
                   if predicate else None)
-            # ÇELİŞKİ: yeni olgu, aynı özne+yüklemde BAŞKA değer taşıyan bir
-            # kayıtla çelişiyor mu — yazmadan önce bak (CONTRA bağı admit'te
-            # kurulur, biz kullanıcıya YÜZEYE çıkarırız: sessizce üstüne yazma).
+            # CONTRADICTION: does the new fact clash with a record carrying a
+            # DIFFERENT value under the same subject+predicate — check before
+            # writing (the CONTRA link is created in admit; we SURFACE it to
+            # the user: no silent overwrite).
             clash = self.gate._contradiction(sk, pk, vk)
             if clash is not None:
                 conflicts.append((link.label_of(self.memory, sk),
@@ -391,71 +424,83 @@ class Session:
             if record is not None:
                 wrote.append((link.label_of(self.memory, sk),
                               link.label_of(self.memory, vk)))
-                # konsolidasyon hasadı: kapıdan geçen ADAY üçlünün kendisi
-                # (düğüm etiketi DEĞİL — düğüm yanlış-birleşmiş olabilirdi ve
-                # extractor'a girdide olmayan metin üretmek öğretilirdi;
-                # code-review bulgusu #3). Bunlar extract._clean çıktısı:
-                # fold'lu, mesajla topraklanmış.
+                # consolidation harvest: the CANDIDATE triple itself that
+                # passed the gate (NOT the node label — the node might have
+                # been wrongly merged and the extractor would be taught to
+                # produce text absent from its input; code-review finding #3).
+                # These are extract._clean output: folded, grounded in the
+                # message.
                 self.last_written.append((subject, predicate or "", value))
-                # TÜRETME (geçişli akıl): "kartal→kuş, kuş→hayvan ⊢ kartal→
-                # hayvan". Geçişlilik veriden öğrenilir (≥2 tanıklı üçgen),
-                # çıkarım #inference kaynağıyla düşük güvenle yazılır. Bu,
-                # "kendi yorumunu katar" mekanizması — v3'ten sarmalandı.
+                # DERIVATION (transitive reasoning): "kartal→kuş, kuş→hayvan ⊢
+                # kartal→hayvan". Transitivity is learned from data (triangle
+                # with ≥2 witnesses), the inference is written with the
+                # #inference source at low trust. This is the "adds its own
+                # interpretation" mechanism — wrapped from v3.
                 self._learn_transitive(pk)
                 if pk in self.memory.transitive:
                     self._derive(sk, pk, vk)
         if not wrote:
             return ""
-        # YAŞANTI (tasarım notu — denetim "recall/weigh kullanılmıyor" dedi):
-        # lmm'de yaşantı BİLEREK yaz-only. v3'te deneyim, aday cevapları sürprizle
-        # TARTIYORDU; lmm'de cevap olgudan+kapıdan gelir, aday-tartma YOK — o
-        # yüzden recall/weigh burada anlamsız. lived() bir "ne yaptım" günlüğüdür:
-        # uyku/damıtım onu budar, provenans için durur. Zorla bağlamak kullanılmayan
-        # karmaşa ekler (sulandırır), sağlamlaştırmaz.
+        # LIVED EXPERIENCE (design note — the audit said "recall/weigh
+        # unused"): in lmm, lived experience is DELIBERATELY write-only. In v3
+        # experience WEIGHED candidate answers by surprise; in lmm the answer
+        # comes from facts+gate, there is NO candidate-weighing — so
+        # recall/weigh are meaningless here. lived() is a "what did I do"
+        # journal: sleep/distillation prunes it, it stays for provenance.
+        # Forcing a connection adds unused complexity (dilutes), doesn't
+        # harden.
         self.memory.lived(str(wrote), outcome=1.0,
                           about=[self.memory.self_key])
-        # DİNAMİK DİL: teyit cümlesi ELLE Türkçe değil — Qwen kullanıcının
-        # dilinde üretir (öğrenilen olgu + varsa çelişki). Olgular grafa
-        # yazıldığı için teyit güvenli.
+        # DYNAMIC LANGUAGE: the confirmation sentence is not HAND-WRITTEN
+        # Turkish — Qwen produces it in the user's language (the learned fact +
+        # any contradiction). Since the facts are written to the graph, the
+        # confirmation is safe.
         said = generate.confirm(wrote, conflicts, message)
         return said or "OK"
 
-    # --- doküman yutma (RAG'siz öğrenme) --------------------------------
+    # --- document ingestion (RAG-less learning) -------------------------
     def learn_text(self, text, source="#document", deep=True):
-        """Bir METNİ (doküman/paragraf) grafa yut — embed/chunk-RAG'in yerine.
+        """Ingest a TEXT (document/paragraph) into the graph — in place of
+        embed/chunk-RAG.
 
-        RAG metni saklayıp sorguda benzerlikle PARÇA arar; LMM metni bir kez
-        OKUYUP olgulara çevirir, kapıdan yazar — cevap sorguda ms graf-yürüyüşü,
-        çok-adımlı türetim bedava (RAG parça-birleştiremez). Cümle cümle:
-        reextract (olgu iddiaları; selam/yorum → []) → _write ile aynı korumalar
-        (topraklama, öz-döngü) → DOCUMENT güveni (CERTAIN altı → cevapta
-        kaynak-etiketli, operatör olgusunu ezemez). Dönen: (yazılan, atlanan)."""
+        RAG stores the text and searches for CHUNKS by similarity at query
+        time; LMM READS the text once, turns it into facts, writes them
+        through the gate — answering is an ms graph-walk at query time, and
+        multi-step derivation comes for free (RAG cannot combine chunks).
+        Sentence by sentence: reextract (factual claims; greetings/comments →
+        []) → the same protections as _write (grounding, self-loop) → DOCUMENT
+        trust (below CERTAIN → source-tagged in answers, cannot override an
+        operator fact). Returns: (written, skipped)."""
         wrote, skipped = 0, 0
-        seen = set()          # _write ile aynı: aynı üçlü iki cümlede geçerse
-        self.unread = []      # OKUMA GÜVENCESİ: öğrenilemeyen cümleler —
-        #                       sessiz atlama YOK, çağıran görür (dürüstlük)
+        seen = set()          # same as _write: same triple across two sentences
+        self.unread = []      # READING GUARANTEE: sentences that couldn't be
+        #                       learned — NO silent skipping, the caller sees
+        #                       them (honesty)
         sentences = [s.strip() for s in re.split(r"(?<=[.!?;])\s+|\n+", text)
                      if s.strip()]
-        # KANIT: her cümle depoya girer — üçlüye sığmayan sayı/aralık/nüans
-        # cevap anında kanıt olarak geri gelir (temsil-darlığı düzeltmesi).
+        # EVIDENCE: every sentence enters the store — numbers/ranges/nuance
+        # that don't fit a triple come back as evidence at answer time
+        # (representation-narrowness fix).
         for sent in sentences:
             self.evidence.add(sent, source)
-        # BAĞLAM PENCERELERİ: komşu cümleler birlikte de indekslenir — "Uyarı:
-        # Eşik ayarı..." cümlesi 'sepsis' sözcüğünü taşımaz ama bölümü taşır;
-        # tek-cümle taneciği bölüm bağlamını kaybediyordu (hastane bulgusu).
-        # İki ölçek: dar (3) hassas eşleşme, geniş (6) başlık↔içerik köprüsü
-        # (bölüm başlığındaki sözcükle bölüm sonundaki Uyarı satırı aynı
-        # pencerede buluşsun — "kamera ... KVKK" sınıfı).
+        # CONTEXT WINDOWS: neighboring sentences are indexed together too —
+        # the sentence "Uyarı: Eşik ayarı..." doesn't carry the word 'sepsis'
+        # but carries the section; single-sentence granularity was losing the
+        # section context (hospital finding). Two scales: narrow (3) for
+        # precise matching, wide (6) for the heading↔content bridge (so the
+        # word in a section heading and the Warning line at the section's end
+        # meet in the same window — the "kamera ... KVKK" class).
         for size, step in ((3, 2), (6, 2)):
             for i in range(0, max(1, len(sentences) - size + 1), step):
                 window = " ".join(sentences[i:i + size])
                 if len(window) > len(sentences[i]):
                     self.evidence.add(window, source)
-        # TABLO ONARIMI (kanıt-yalnız): PDF tabloları satır satır parçalanır —
-        # "Dijital patoloji" ile tier hücresi "3" ayrı düşer, model yanlış sayı
-        # kapar (hastane testi bulgusu; RAG de aynı tabloda aynı hatayı yaptı).
-        # Ardışık KISA satırlar (hücreler) kayan pencereyle birleştirilir ki
-        # satır-komşuluğu kanıtta korunuyor olsun. Dil kuralı yok — uzunluk.
+        # TABLE REPAIR (evidence-only): PDF tables shatter row by row —
+        # "Dijital patoloji" and the tier cell "3" land apart, the model grabs
+        # the wrong number (hospital test finding; RAG made the same mistake
+        # on the same table). Consecutive SHORT lines (cells) are joined with
+        # a sliding window so row-adjacency stays preserved in the evidence.
+        # No language rule — length.
         lines = [l.strip() for l in text.split("\n")]
         run = []
         for line in lines + [""]:
@@ -463,10 +508,10 @@ class Session:
                 run.append(line)
             else:
                 if len(run) >= 3:
-                    # Tablo başlık satırı (koşunun ilk hücreleri) her pencereye
-                    # önek olur — sütun adları satırdan kopunca "Orta" hangi
-                    # niteliğin değeri bilinemiyordu. Başlık değilse zararsız
-                    # fazladan bağlam.
+                    # The table header row (the run's first cells) is prefixed
+                    # to every window — when column names detach from the row,
+                    # it was unknowable which attribute "Orta" was the value
+                    # of. If it isn't a header, it's harmless extra context.
                     header = " · ".join(run[:6])
                     for i in range(0, len(run), 2):
                         window = run[max(0, i - 1):i + 6]
@@ -476,38 +521,43 @@ class Session:
                                               source)
                 run = []
 
-        # ANINDA-HAZIR modu (deep=False): yalnız kanıt katmanı — model çağrısı
-        # SIFIR, 500 sayfa bile saniyeler içinde SORGULANABİLİR olur (cevaplar
-        # kanıt yolundan, kapsama+destek kapılarıyla). Graf çıkarımı sonra
-        # deep=True ile / uyku-konsolidasyonunda tamamlanır: "önce oku-hazır ol,
-        # sindirmeyi arkada yap" — beyindeki hızlı/yavaş öğrenmenin aynısı.
+        # INSTANT-READY mode (deep=False): evidence layer only — ZERO model
+        # calls, even 500 pages become QUERYABLE within seconds (answers via
+        # the evidence path, with coverage+support gates). Graph extraction is
+        # completed later with deep=True / during sleep-consolidation:
+        # "read-and-be-ready first, digest in the background" — same as the
+        # brain's fast/slow learning.
         if not deep:
             return 0, 0
 
         def _read(sent):
-            """Bir cümlenin SAF-OKUMA aşaması (model çağrıları; graf'a dokunmaz
-            → paralel-güvenli). Dönen: (cümle, causal|None, üçlüler)."""
+            """The PURE-READ stage of one sentence (model calls; doesn't touch
+            the graph → parallel-safe). Returns: (sentence, causal|None,
+            triples)."""
             causal = generate.is_causal(sent)
             if causal and _grounded_in(causal[0], sent) \
                     and _grounded_in(causal[1], sent):
                 return sent, causal, []
             triples = extract.reextract(sent)
             if not triples:
-                # İKİNCİ OKUMA (okuma güvencesi): reextract boş döndüyse öteki
-                # istemle dene — tek istem tek şanstı, "karvel kayboldu" sınıfı.
+                # SECOND READ (reading guarantee): if reextract returned empty
+                # try the other prompt — one prompt was one chance, the
+                # "karvel kayboldu" class.
                 second = extract.extract(sent)
                 if second["kind"] == extract.WRITE:
                     triples = second["triples"]
             return sent, None, triples
 
-        # PARALEL OKUMA: cümleler bağımsız — API backend'de eşzamanlı okunur
-        # (20 dk → dakikalar). Yerel motor paralel-güvenli değil → 1 işçi.
+        # PARALLEL READING: sentences are independent — on the API backend
+        # they're read concurrently (20 min → minutes). The local engine is
+        # not parallel-safe → 1 worker.
         backend = os.environ.get("LMM_BACKEND", "")
         workers = int(os.environ.get("LMM_INGEST_WORKERS",
                                      "8" if backend == "azure" else "1"))
         if backend != "azure":
-            workers = 1     # yerel torch modeli thread-safe DEĞİL (review #3):
-            #                 env override bile paralel yerel üretime izin vermez
+            workers = 1     # the local torch model is NOT thread-safe (review
+            #                 #3): even an env override doesn't permit parallel
+            #                 local generation
         if workers > 1:
             from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -515,7 +565,7 @@ class Session:
         else:
             readings = [_read(s) for s in sentences]
 
-        # SERİ YAZMA: graf/kapı tek-iş parçacıklı — sıra korunur.
+        # SERIAL WRITING: the graph/gate is single-threaded — order is kept.
         for sent, causal, triples in readings:
             wrote_before = wrote
             if causal:
@@ -545,17 +595,17 @@ class Session:
                 if pk in self.memory.transitive:
                     self._derive(sk, pk, vk)
             if wrote == wrote_before:
-                self.unread.append(sent)    # bu cümleden HİÇBİR olgu çıkmadı
+                self.unread.append(sent)    # NO fact came out of this sentence
         if wrote:
             self.memory.lived(f"document:{source}:{wrote}", outcome=1.0,
                               about=[self.memory.self_key])
         return wrote, skipped
 
-    # --- yapılandırılmış yutma (tablo — extractor'SIZ) ------------------
+    # --- structured ingestion (table — extractor-LESS) ------------------
     def learn_cell(self, subject_label, predicate_label, value_label, source):
-        """TEK yapısal olgu — model çağrısı YOK, yine KAPIDAN. Tablo hücresi /
-        'Anahtar: Değer' üstbilgisi gibi zaten-yapılı verinin tek giriş yolu.
-        Dönen: yazılan kayıt sayısı (0|1)."""
+        """A SINGLE structural fact — NO model call, still THROUGH THE GATE.
+        The only entry path for already-structured data such as a table cell /
+        a 'Key: Value' header. Returns: number of records written (0|1)."""
         sk = link.resolve(self.memory, subject_label, self.vectors, create=True)
         vk = link.resolve(self.memory, value_label, self.vectors, create=True)
         if sk is None or vk is None or sk == vk:
@@ -571,12 +621,13 @@ class Session:
         return 1
 
     def learn_rows(self, rows, source="#table"):
-        """Tablo satırları → graf, extractor'SIZ (Excel dersinin kalıcı hali):
-        satır=varlık, sütun=yüklem, hücre=değer. Model çağrısı YOK →
-        deterministik ve ms; 500 sayfalık tablo saniyeler. Her üçlü yine
-        kapıdan (DOCUMENT güveni). Satır cümlesi kanıta da yazılır; satırın en
-        bilgi-yoğun hücresi satır-düğümüne ALIAS olur ki soru onu doğal adıyla
-        ("yangın ekipmanı tespiti...") bulabilsin. rows: [{sütun: değer}]."""
+        """Table rows → graph, extractor-LESS (the permanent form of the Excel
+        lesson): row=entity, column=predicate, cell=value. NO model call →
+        deterministic and ms; a 500-page table takes seconds. Every triple
+        still goes through the gate (DOCUMENT trust). The row sentence is also
+        written to evidence; the row's most information-dense cell becomes an
+        ALIAS of the row node so a question can find it by its natural name
+        ("yangın ekipmanı tespiti..."). rows: [{column: value}]."""
         wrote = 0
         for row in rows:
             cells = [(str(k).strip(), str(v).strip()) for k, v in row.items()
@@ -600,16 +651,18 @@ class Session:
                               about=[self.memory.self_key])
         return wrote
 
-    # --- türetme (geçişli akıl — v3'ten) -------------------------------
+    # --- derivation (transitive reasoning — from v3) -------------------
     def _learn_transitive(self, predicate):
-        """Bu yüklem geçişli mi — graf ≥2 tanıklı kapalı üçgen gördü mü.
-        Geçişlilik ELLE değil VERİDEN öğrenilir: "tür" is-a örneklerinden
-        öğrenir; "sever" asla (sevgi zinciri grafta kapanmaz). Tek tesadüfi
-        üçgen yetmez (yanlış çıkarım deliği) — en az iki bağımsız üçgen."""
+        """Is this predicate transitive — has the graph seen a closed triangle
+        with ≥2 witnesses. Transitivity is learned from DATA, not BY HAND:
+        "tür" learns from is-a examples; "sever" never does (love chains don't
+        close in the graph). One coincidental triangle isn't enough (wrong-
+        inference hole) — at least two independent triangles."""
         WITNESSED = 2
         if predicate is None or predicate in self.memory.transitive:
             return
-        # TERS İNDEKS: tüm grafı değil, YALNIZ bu yüklemli kayıtları gez (O(N)→O(derece)).
+        # INVERSE INDEX: walk ONLY the records with this predicate, not the
+        # whole graph (O(N)→O(degree)).
         edges = [r for r in (self.memory.records[k]
                              for k in self.memory.by_predicate.get(predicate, ()))
                  if r.source != "#inference"]
@@ -627,13 +680,15 @@ class Session:
                             return
 
     def _derive(self, subject, predicate, value):
-        """Yeni kenar çevresinde İKİ YÖNLÜ zincir çıkarımı. Türetilen kayıt
-        #inference kaynağıyla, DÜŞÜK güvenle, gerekçesine bağlı yazılır —
-        gözlem değil çıkarım olduğu ayrılabilir, kapı onu olgu gibi söyletmez."""
+        """TWO-DIRECTIONAL chain inference around the new edge. The derived
+        record is written with the #inference source, at LOW trust, linked to
+        its justification — it stays separable as inference rather than
+        observation, and the gate won't let it be spoken like a fact."""
         forward = [(subject, r.value, [r.key])
                    for r in self.memory.about(value, touch=False)
                    if r.predicate == predicate]
-        # TERS İNDEKS: subject'i DEĞER alan kayıtları by_value'dan al (O(N)→O(derece)).
+        # INVERSE INDEX: take the records with subject as VALUE from by_value
+        # (O(N)→O(degree)).
         incoming = [(r.subject, value, [r.key])
                     for r in (self.memory.records[k]
                               for k in self.memory.by_value.get(subject, ()))
@@ -642,41 +697,48 @@ class Session:
             if who != what and not self.gate.behind(who, predicate, what):
                 self.gate.inferred(who, predicate, what, because)
 
-    # --- cevaplama -----------------------------------------------------
+    # --- answering -----------------------------------------------------
     def _answer(self, question, subject_label):
-        """Soruya graftan getirip Qwen'le cevap; kapı, ENJEKTE edilen olguların
-        dışına çıkan iddiayı düşürür."""
+        """Answer the question by fetching from the graph + Qwen; the gate
+        drops any claim stepping outside the INJECTED facts."""
         subject = (link.resolve(self.memory, subject_label, self.vectors)
                    if subject_label else None)
-        # associative=False: cevap YALNIZ doğrudan olgulardan kurulur (kenar-
-        # denetimiyle uyum — bkz. retrieve.gather / verify._has_edge).
+        # associative=False: the answer is built ONLY from direct facts
+        # (consistent with the edge check — see retrieve.gather /
+        # verify._has_edge).
         records = retrieve.gather(self.memory, subject, associative=False)
-        # KANIT (temsil-darlığı düzeltmesi): soruyla kesişen doküman cümleleri —
-        # üçlüye sığmayan sayı/aralık/nüans buradan gelir. Graf yapı, cümle kanıt.
+        # EVIDENCE (representation-narrowness fix): document sentences
+        # intersecting the question — numbers/ranges/nuance that don't fit a
+        # triple come from here. The graph is structure, the sentence is
+        # evidence.
         proof = self.evidence.find(f"{subject_label or ''} {question}", most=6)
         if proof and len(proof) < 4:
-            # İKİ-SEKME (yalnız kanıt AZKEN): en iyi kanıtın sözcükleriyle ikinci
-            # arama — kompozisyon soruları iki ayrı bölümün birleşimini ister.
-            # İlk arama zaten doluysa ikinci sekme tablo-kırıntısı ekleyip cevabı
-            # yoldan çıkarıyordu (hastane izi) — bolluk varken dokunma.
+            # TWO-HOP (only when evidence is SCARCE): a second search with the
+            # best evidence's words — composition questions want the union of
+            # two separate sections. When the first search was already full,
+            # the second hop added table-crumbs and derailed the answer
+            # (hospital trace) — don't touch when there's plenty.
             for extra in self.evidence.find(f"{proof[0]} {question}", most=4):
                 if extra not in proof and len(proof) < 6:
                     proof.append(extra)
-        # GERÇEK BOŞLUK (gaps sinyali) — grafta bu özne hakkında HİÇ olgu YOKSA,
-        # araştırmayı ÜRETİMDEN ÖNCE teklif et. Böylece modelin nazik "bilmiyorum"u
-        # (verify'ı geçip safe'i doldurur) teklifi ENGELLEMEZ (Bug #2). Boşluk =
-        # merak = araştır. Olgu varken buraya girilmez → bildiğini araştırmaya
-        # kaçmaz. KANIT varsa boşluk sayılmaz — cümleden cevaplanır.
+        # TRUE GAP (gaps signal) — if the graph holds NO fact at all about
+        # this subject, offer research BEFORE GENERATION. That way the model's
+        # polite "I don't know" (which passes verify and fills safe) does NOT
+        # BLOCK the offer (Bug #2). Gap = curiosity = research. With facts
+        # present this branch is never entered → it doesn't flee into
+        # researching what it knows. If EVIDENCE exists it doesn't count as a
+        # gap — answered from the sentence.
         if not records and not proof:
             if subject_label:
-                self._pending = (subject_label, question)   # önce-sor
+                self._pending = (subject_label, question)   # ask-first
                 offer = generate.offer_research(subject_label, question)
                 return offer or generate.refusal(question) or BILMIYORUM
             return generate.refusal(question) or BILMIYORUM
-        # HEDEFLİ KENAR (çok-adım — benchmark bulgusu): soruda ikinci bir
-        # BİLİNEN kavram geçiyorsa ("zilfen bir canlı mıdır" → 'canlı') ve graf
-        # o kenarı biliyorsa (türetilmiş dahil), o kaydı ÖNE al — graf türetmişti
-        # ama cevap seçici başka olguyu seslendiriyordu. Saf graf, ms, dil yok.
+        # TARGETED EDGE (multi-hop — benchmark finding): if the question
+        # mentions a second KNOWN concept ("zilfen bir canlı mıdır" → 'canlı')
+        # and the graph knows that edge (derived included), move that record
+        # to the FRONT — the graph had derived it but the answer selector was
+        # voicing another fact. Pure graph, ms, no language.
         qwords = {fold(w) for w in re.findall(r"\w+", question) if len(w) >= 3}
         qwords.discard(fold(subject_label or ""))
         targeted = []
@@ -687,16 +749,19 @@ class Session:
                 targeted.append(r)
         if targeted:
             records = targeted + [r for r in records if r not in targeted]
-        # Olgu ve/veya KANIT var → grounded cevap + çıkış kapısı.
-        # KANIT ÖNCE: tam cümle taşır; düzyazıdan çıkan üçlüler kırıntı olabilir
-        # ("projeler → en kolay") ve blokta önde durunca cevabı yoldan çıkarıyordu
-        # (hastane izi). Graf kayıtları desteğe iner.
+        # Facts and/or EVIDENCE exist → grounded answer + output gate.
+        # EVIDENCE FIRST: it carries the full sentence; triples extracted from
+        # prose can be crumbs ("projeler → en kolay") and, sitting at the
+        # front of the block, derailed the answer (hospital trace). Graph
+        # records step down to support.
         if proof:
-            # Kanıt varken DOKÜMAN-kaynaklı üçlüler bloğa GİRMEZ: düzyazı
-            # çıkarımı kırıntı üretebiliyor ("projeler → en kolay") ve yutma
-            # varyansıyla cevabı koşudan koşuya değiştiriyordu. Kanıt aynı
-            # dokümanın TAM cümlesi — bilgi kaybı yok, istikrar var. Operatör/
-            # çıkarım kayıtları (sohbette öğretilen, türetilen) blokta kalır.
+            # With evidence present, DOCUMENT-sourced triples do NOT enter the
+            # block: prose extraction can produce crumbs ("projeler → en
+            # kolay") and, with ingestion variance, changed the answer from
+            # run to run. The evidence is the FULL sentence of the same
+            # document — no information loss, stability gained. Operator/
+            # inference records (taught in conversation, derived) stay in the
+            # block.
             records = [r for r in records
                        if not str(r.source).startswith("#doc")]
         block = retrieve.facts_block(self.memory, records) if records else ""
@@ -705,42 +770,47 @@ class Session:
                                     for i, s in enumerate(proof, 1))
             block = (proof_block + "\n" + block) if block else proof_block
         raw = generate.answer(question, block)
-        # SÖZCÜK-KAPSAMA kapısı (nedensel yoldakiyle aynı ilke): cevabın tüm
-        # içerik-sözcükleri verilen blok+sorudan geliyorsa YENİ iddia yoktur —
-        # uydurma yapısal olarak imkânsız → geç. (Kanıt cümlelerindeki sayı/
-        # aralık cevapları eski üçlü-verify'dan geçemezdi; kapsama geçirir.)
+        # WORD-COVERAGE gate (same principle as on the causal path): if all of
+        # the answer's content-words come from the given block+question there
+        # is NO new claim — fabrication is structurally impossible → pass.
+        # (Number/range answers from evidence sentences could never pass the
+        # old triple-verify; coverage lets them through.)
         if evidence.covered(raw or "", block, question) and (
                 not proof or generate.supported(raw, block)):
-            # KANIT-temelli HER cevap destek denetiminden geçer (yalnız rakamlı
-            # değil): tablo hücreleri sütunsuz gezerken "Orta" yanlış niteliğe
-            # yapışabiliyordu — kapsama sözcük görür, bağlanmayı denetçi görür.
+            # EVERY evidence-based answer goes through the support check (not
+            # just numeric ones): with table cells wandering column-less,
+            # "Orta" could stick to the wrong attribute — coverage sees words,
+            # the auditor sees the binding.
             safe = raw
         elif raw and proof and evidence.digits_present(raw, block) \
                 and generate.supported(raw, block):
-            # İKİNCİ KADEME: sözcük-kapsaması masum anlatım sözcüklerine
-            # ("olarak", "belirtilmiştir") takıldı ama rakamlar sağlam VE motor
-            # destek denetimi "kanıt bunu söylüyor" dedi → geç. Rakam ihlalini
-            # bu kademe kurtaramaz (digits_ok önce, pazarlıksız).
+            # SECOND TIER: word-coverage tripped on innocent narration words
+            # ("olarak", "belirtilmiştir") but the digits are sound AND the
+            # engine's support check said "the evidence says this" → pass. A
+            # digit violation cannot be rescued by this tier (digits_ok first,
+            # non-negotiable).
             safe = raw
         else:
             allowed = verify.allowed_of(self.memory, records)
             safe = verify.verify(self.memory, raw, allowed, self.mode,
                                  anchor="edge")
             if not safe:
-                # üretim tökezledi → bir kez yeniden dene; yine düşerse güvenli ret.
+                # generation stumbled → retry once; if it falls again, safe refusal.
                 safe = verify.verify(self.memory,
                                      generate.answer(question, block),
                                      allowed, self.mode, anchor="edge")
                 if not safe:
                     return generate.refusal(question) or BILMIYORUM
-        # KAYNAK-GÜVEN (en sıkı): en zayıf olgu CERTAIN altındaysa kaynak+çekince.
+        # SOURCE-TRUST (strictest): if the weakest fact is below CERTAIN,
+        # source+hedge.
         if records:
             weakest = min(records, key=lambda r: r.trust)
             if weakest.trust < CERTAIN:
                 safe = self._hedge(safe, weakest, question) or safe
         elif proof:
-            # KANIT-TEK cevap da çekince taşır (review #5): kaynak DOCUMENT
-            # düzeyi — graf yolundaki kaynak-şeffaflık ilkesinin aynısı.
+            # An EVIDENCE-ONLY answer carries a hedge too (review #5): the
+            # source is DOCUMENT level — same source-transparency principle as
+            # the graph path.
             src = next((s for s in self.evidence.last_sources if s), "#document")
             note = generate.hedge_note(src, question)
             if note:
@@ -748,68 +818,75 @@ class Session:
         return safe
 
     def _hedge(self, answer, record, message):
-        """Düşük güvenli olguya dayanan DOĞRULANMIŞ cevaba çekince NOTU ekler.
-        Cevap metni değişmez (uydurma eklenemez), yalnız sonuna kaynak+çekince."""
+        """Appends a hedging NOTE to a VERIFIED answer resting on a low-trust
+        fact. The answer text doesn't change (no fabrication can be added),
+        only source+hedge at the end."""
         source = record.source or ""
         label = source[5:] if source.startswith("#web:") else "a stored source"
         note = generate.hedge_note(label, message)
         return f"{answer} {note}".strip() if note else answer
 
-    # --- agentic araştırma (onayla, webden öğren) ----------------------
+    # --- agentic research (approve, learn from the web) ----------------
     def _research(self, subject_label, question):
-        """Kullanıcı onayladı → Wikipedia'dan çek, üçlü çıkar, #web+düşük güvenle
-        grafa yaz, sonra ORİJİNAL soruyu normal cevapla (kaynak-etiketli). Web
-        GÜVENİLMEZ: olgu 'biliyorum' diye değil kaynak damgalı+düşük güvenle
-        girer (condition-4)."""
+        """The user approved → fetch from Wikipedia, extract triples, write to
+        the graph with #web+low trust, then answer the ORIGINAL question
+        normally (source-tagged). The web is UNTRUSTED: the fact enters not as
+        'I know it' but source-stamped+low trust (condition-4)."""
         text, url = research.wiki_summary(subject_label)
         if not text:
             return generate.refusal(question) or BILMIYORUM
-        # TEK sade kategori çıkar (taksonomi karmaşası değil özü) → temiz olgu,
-        # temiz cevap. Çok değerli/latin terim küçük modeli boğuyordu.
+        # Extract ONE plain category (the essence, not taxonomic clutter) →
+        # clean fact, clean answer. Many values/Latin terms were drowning the
+        # small model.
         value = generate.category_from(subject_label, text)
         sk = link.resolve(self.memory, subject_label, self.vectors, create=True)
         vk = (link.resolve(self.memory, value, self.vectors, create=True)
               if value else None)
         if not value or sk is None or vk is None:
             return generate.refusal(question) or BILMIYORUM
-        # #web damgası + DOCUMENT (0.6 < CERTAIN) → cevapta kaynak-etiketli.
+        # #web stamp + DOCUMENT (0.6 < CERTAIN) → source-tagged in the answer.
         self.gate.admit(sk, None, vk, f"#web:{url}", DOCUMENT)
         self.memory.lived(f"web:{subject_label}", outcome=1.0,
                           about=[self.memory.self_key])
-        return self._answer(question, subject_label)     # artık grafta → cevap+hedge
+        return self._answer(question, subject_label)     # now in the graph → answer+hedge
 
-    # --- sohbet --------------------------------------------------------
+    # --- chat ----------------------------------------------------------
     def _chat(self, message):
-        """Sohbet cevabı — kapı, sızan olgu iddiasını yine süzer.
+        """Chat answer — the gate still filters any leaking factual claim.
 
-        DELİK KAPATILDI (F2): eskiden `safe or raw` idi — verify tüm cümleleri
-        desteksiz bulup düşürürse HAM (denetimsiz) çıktı dönüyordu, kapı komple
-        atlanıyordu. Artık boşsa güvenli tarafa düşer, ham uydurma dönmez.
+        HOLE CLOSED (F2): this used to be `safe or raw` — if verify found all
+        sentences unsupported and dropped them, the RAW (unaudited) output was
+        returned, bypassing the gate entirely. Now on empty it falls to the
+        safe side, no raw fabrication is returned.
         """
         id_records = retrieve.gather(self.memory, self._lmm_key)
-        # KİMLİK bloğu YÜKLEMLİ (üretici gizlenmesin) — "kim yaptı" yanıtlanabilsin.
+        # The IDENTITY block is PREDICATED (the maker must not be hidden) — so
+        # "kim yaptı" can be answered.
         id_block = "\n".join(
             f"{link.label_of(self.memory, r.subject)} "
             f"{link.label_of(self.memory, r.predicate)} → "
             f"{link.label_of(self.memory, r.value)}" for r in id_records)
-        # KONUŞMA BAĞLAMI: son turları da ver → sohbet sürekliliği ("araştır"ın
-        # neyi, "ne yapıyorsun"un bağlamı korunur). Uydurma yine verify'da süzülür.
+        # CONVERSATION CONTEXT: give the recent turns too → conversation
+        # continuity (what "araştır" refers to, the context of "ne yapıyorsun"
+        # is kept). Fabrication is still filtered in verify.
         raw = generate.chat(message, id_block, history=self.history)
-        # Sohbette allowed = yalnız KİMLİK olguları. anchor="value": özne öz-
-        # referanslı zamir (ben/beni) çözülemez, NESNE'nin (rüzgar) izinli olması
-        # yeter; dış uydurma (Google) yine düşer. Bkz. verify.verify.
+        # In chat, allowed = ONLY the identity facts. anchor="value": the
+        # subject is a self-referential pronoun (ben/beni) that can't be
+        # resolved; it suffices that the OBJECT (rüzgar) is allowed; external
+        # fabrication (Google) still falls. See verify.verify.
         safe = verify.verify(self.memory, raw, self._identity, self.mode,
                              anchor="value")
         return safe or generate.refusal(message) or BILMIYORUM
 
-    # --- LMM gücü: öz-farkındalık (merak + çelişki basıncı) ------------
+    # --- LMM strength: self-awareness (curiosity + contradiction pressure)
     def curiosity(self, most=5):
-        """Sistem neyi BİLMEDİĞİNİ bilir: hakkında hiç/yalnız-episodik kaydı olan,
-        ama konuşmada geçmiş kavramların etiketleri. `dynamics.gaps`'i sarar (o
-        organ v3'te vardı, lmm akışına bağlı değildi). Proaktif araştırmanın
-        girdisi: 'şunu bilmiyorum, bakayım mı'. Kendi/kimlik düğümleri hariç."""
-        # Yüklem düğümlerini (tür/özellik gibi ilişki etiketleri) merak sayma —
-        # kavram değiller. Kendi/kimlik düğümleri de hariç.
+        """The system knows what it does NOT know: labels of concepts that
+        appeared in conversation but have no / only-episodic records. Wraps
+        `dynamics.gaps` (that organ existed in v3, unconnected to the lmm
+        flow). The input of proactive research: 'I don't know this, shall I
+        look it up'. Self/identity nodes excluded."""
+        # Don't count predicate nodes (relation labels like tür/özellik) as
+        # curiosity — they aren't concepts. Self/identity nodes excluded too.
         predicates = {r.predicate for r in self.memory.records.values()
                       if r.predicate is not None}
         out = []
@@ -824,9 +901,10 @@ class Session:
         return out
 
     def tension(self, most=5):
-        """Sistem çelişkiden RAHATSIZ olur: en yüksek basınçlı çelişkiler
-        (özne, [rakip değerler]). `dynamics.pressure`'ı sarar. Kullanıcıya
-        'şu konuda çelişkili bilgim var' diye yüzeye çıkarılabilir."""
+        """The system is BOTHERED by contradiction: the highest-pressure
+        contradictions (subject, [rival values]). Wraps `dynamics.pressure`.
+        Can be surfaced to the user as 'I hold contradictory knowledge about
+        this'."""
         from v3.memory import CONTRA
         out, seen = [], set()
         for rkey, _p in dynamics.pressure(self.memory):
@@ -845,7 +923,7 @@ class Session:
                 break
         return out
 
-    # --- bakım ---------------------------------------------------------
+    # --- maintenance ---------------------------------------------------
     def save(self):
         if self.path:
             self.memory.save(self.path)

@@ -1,15 +1,17 @@
-"""Azure OpenAI backend — DENEY amaçlı (aynı-motor kıyası: LMM+4o-mini vs
-RAG+4o-mini → mimarinin katkısını izole eder). Ürün varsayılanı DEĞİL: ürün
-yerel motor (condition-1, ucuz donanım); bu backend yalnız benchmark/geliştirme.
+"""Azure OpenAI backend — for EXPERIMENTS (same-engine comparison: LMM+4o-mini vs
+RAG+4o-mini → isolates the architecture's contribution). NOT the product default:
+the product is the local engine (condition-1, cheap hardware); this backend is
+benchmark/development only.
 
-Sözleşme runtime.generate ile AYNI: generate(messages, max_tokens, temperature,
-system) → düz metin. Seçim: LMM_BACKEND=azure. Anahtarlar .env'den (git-dışı).
+Contract is the SAME as runtime.generate: generate(messages, max_tokens,
+temperature, system) → plain text. Selection: LMM_BACKEND=azure. Keys from .env
+(outside git).
 """
 import os
 import threading
 
 _CLIENT = None
-_LOCK = threading.Lock()    # paralel yutmada çift client init'i engeller
+_LOCK = threading.Lock()    # prevents double client init during parallel ingestion
 
 
 def _root():
@@ -31,7 +33,7 @@ def _load():
     global _CLIENT
     if _CLIENT is None:
         with _LOCK:
-            if _CLIENT is None:     # double-checked: çağrılar thread-safe (httpx)
+            if _CLIENT is None:     # double-checked: calls are thread-safe (httpx)
                 _env()
                 from openai import AzureOpenAI
                 _CLIENT = AzureOpenAI(

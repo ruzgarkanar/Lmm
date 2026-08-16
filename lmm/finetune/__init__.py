@@ -1,2 +1,3 @@
-"""LoRA ince-ayar — Qwen'e LMM davranışını (topraklama/ret/kimlik) öğretir.
-Bilgi değil DAVRANIŞ; condition-3 korunur (bilgi hâlâ grafa gider). Bkz. README."""
+"""LoRA fine-tuning — teaches Qwen the LMM behavior (grounding/refusal/identity).
+BEHAVIOR, not knowledge; condition-3 holds (knowledge still goes to the graph).
+See README."""

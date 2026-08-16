@@ -1,7 +1,10 @@
-"""LMM tarafı — aynı korpus, aynı sorular. learn_text (bir kez oku → grafa) +
-respond (graf-temelli cevap). Motor: YEREL Qwen-3B+LoRA (bulut yok, API yok).
+"""LMM side — same corpus, same questions. learn_text (read once → graph) +
+respond (graph-grounded answer). Engine: LOCAL Qwen-3B+LoRA (no cloud, no API).
 
-Çıktı: bench/sonuc_lmm.json  [{soru, cevap, ms}] + yutma istatistiği.
+Output JSON field names ('soru', 'cevap', 'ms', 'ingest_ms', 'cevaplar') match
+the Turkish benchmark data format read by score.py — do not rename them.
+
+Output: bench/sonuc_lmm.json  [{soru, cevap, ms}] + ingestion statistics.
 """
 import json
 import os
@@ -19,18 +22,18 @@ def main():
 
     corpus = open(sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "bench", "korpus.txt"),
                   encoding="utf-8").read()
-    s = Session(None)               # taze bellek — diske yazmaz
+    s = Session(None)               # fresh memory — no disk writes
     m = Mind(s)
     t0 = time.time()
     wrote, skipped = s.learn_text(corpus, source="#doc:korpus")
-    m.run()                         # türetimler (ms) — çok-adım burada oluşur
+    m.run()                         # derivations (ms) — multi-hop forms here
     ingest_ms = round((time.time() - t0) * 1000)
     derived = sum(1 for r in s.memory.records.values()
                   if r.source == "#inference")
-    print(f"ingest: {wrote} olgu, {skipped} atlandı, {derived} türetildi, "
+    print(f"ingest: {wrote} facts, {skipped} skipped, {derived} derived, "
           f"{ingest_ms}ms", flush=True)
     for sent in getattr(s, "unread", []):
-        print(f"  ⚠ öğrenilemedi: {sent}", flush=True)
+        print(f"  ⚠ not learned: {sent}", flush=True)
 
     questions = json.load(open(sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "bench", "sorular.json"),
                                encoding="utf-8"))

@@ -1,57 +1,64 @@
-"""Epistemik kapı: belleğe girişin ve çıkışın TEK yolu.
+"""The epistemic gate: the ONLY way in and out of memory.
 
-İki yönlü bir kapıdır ve iki soruyu sorar:
+It is a two-way gate and asks two questions:
 
-    GİRİŞTE   bu iddia yazılmalı mı — kaynağı ne, çelişiyor mu, tanığı var mı
-    ÇIKIŞTA   bu cümle söylenmeli mi — içindeki her iddianın kaydı var mı
+    ON ENTRY   should this claim be written — what is its source, does it
+               contradict, does it have a witness
+    ON EXIT    should this sentence be spoken — does every claim in it have
+               a record
 
-İkincisi projenin dördüncü şartıdır: desteklenmeyen iddiaya giden yol olmasın.
-Bir dil modelinde bu kapı yoktur ve olamaz — orada bilgi ağırlıklara gömülü
-olduğu için "bu cümle neye dayanıyor" sorusunun cevabı hesaplanamaz. Burada
-her cümlenin arkasında kayıt anahtarları durur.
+The second is the project's fourth condition: let there be no path to an
+unsupported claim. A language model has no such gate and cannot have one —
+there, knowledge is buried in the weights, so the question "what does this
+sentence rest on" is uncomputable. Here, record keys stand behind every
+sentence.
 
-Dile ait hiçbir şey yoktur: ne kelime, ne kalıp, ne ek. Kapı iddiaları
-KAYIT olarak alır, cümle olarak değil. Cümleyi kayda çeviren okuyucu ağıdır;
-kapı yalnız kayıtlara bakar.
+Nothing belonging to language exists here: no word, no pattern, no suffix.
+The gate takes claims as RECORDS, not as sentences. Turning a sentence into a
+record is the reader network's job; the gate looks only at records.
 
-TEK YÖNLÜ KURAL — mutlak: geometri kayıt yazamaz. Sürekli katman aday
-üretir, ayrık katman karar verir. Bu kural bir kez gevşetildiğinde sistem
-uydurmaya açılır ve o zaman elde LLM'in kötü bir kopyası kalır.
+THE ONE-WAY RULE — absolute: geometry cannot write a record. The continuous
+layer produces candidates, the discrete layer decides. Once this rule is
+relaxed even once, the system opens itself to confabulation, and then what
+remains is a bad copy of an LLM.
 """
 from v3.memory import CONTRA, INFERRED, STRANGER
 
-# Bir iddianın söylenebilmesi için gereken en az güven. Altındakiler bellekte
-# durur — atılmazlar, çünkü kaynağı vardır — ama konuşurken sayılmazlar.
+# The minimum trust a claim needs to be speakable. Those below it stay in
+# memory — they are not discarded, because they have a source — but they do
+# not count when speaking.
 SPEAK = 0.4
 
-# Bir yabancının, hiç kimsenin doğrulamadığı sözü. Bellekte durur, cevapta
-# işaretlenir. Eski bellekte ölçüldü: işaretsizken tek bir yabancı, tek bir
-# cümleyle grafın sesini değiştirebiliyordu.
+# A stranger's word that nobody has verified. It stays in memory, it is
+# marked in the answer. Measured in the old memory: unmarked, a single
+# stranger could change the graph's voice with a single sentence.
 UNVERIFIED = 1
 
 
 class Gate:
-    """Belleğin önünde duran denetim. Bellek dışarıdan doğrudan yazılamaz."""
+    """The control standing in front of memory. Memory cannot be written directly from outside."""
 
     def __init__(self, memory):
         self.memory = memory
-        # Opsiyonel anlamsal RAKİP kontrolü: (eski_değer_key, yeni_değer_key)->bool.
-        # LMM'de session bunu Qwen'e bağlar. Yüklem bilinmediğinde (predicate=None)
-        # iki farklı değer ancak RAKİP (aynı yuva, birbirini dışlayan) ise çelişki
-        # sayılır — yoksa "kartal→kuş, kartal→yırtıcı" gibi bir arada var olan
-        # olgular yanlışlıkla çelişki sanılıp arbitrate ile bozuluyordu.
+        # Optional semantic RIVAL check: (old_value_key, new_value_key)->bool.
+        # In LMM the session wires this to Qwen. When the predicate is unknown
+        # (predicate=None), two different values count as a contradiction only
+        # if they are RIVALS (same slot, mutually exclusive) — otherwise
+        # coexisting facts like "kartal→kuş, kartal→yırtıcı" were mistaken
+        # for contradictions and broken by arbitrate.
         self.rival = None
 
-    # --- giriş ----------------------------------------------------------
+    # --- entry ----------------------------------------------------------
 
     def admit(self, subject, predicate, value, source, level=None,
               episodic=True):
-        """Bir iddiayı belleğe koymayı dener.
+        """Tries to put a claim into memory.
 
-        Dönen: (kayıt | None, sebep). Sebep bir SAYIDIR — dil değil:
-            0  yazıldı ya da pekişti
-            1  aynı yuvada karşıt kayıt var, güveni bundan yüksek
-            2  kaynak tanınmıyor
+        Returns: (record | None, reason). The reason is a NUMBER — not
+        language:
+            0  written or reinforced
+            1  an opposing record exists in the same slot with higher trust
+            2  source unrecognized
         """
         if source is None:
             return None, 2
@@ -60,10 +67,11 @@ class Gate:
         clash = self._contradiction(subject, predicate, value)
         if clash is not None:
             trust = self.memory.trust_of(level)
-            # Çelişki bağı HER DURUMDA kurulur. Denetim yakaladı: yeni iddia
-            # güçlüyken bağ kurulmuyordu ve `arbitrate`/`pressure` o
-            # çelişkiyi hiç göremiyordu — sistemin rahatsız olması gereken
-            # yer, kayıtsız kalıyordu.
+            # The contradiction link is established IN EVERY CASE. The audit
+            # caught it: when the new claim was stronger the link was not
+            # made, and `arbitrate`/`pressure` never saw that contradiction —
+            # the place where the system should have been uneasy stayed
+            # unrecorded.
             weaker = clash.trust >= trust
             held = self.memory.write(subject, predicate, value, source,
                                      level,
@@ -76,35 +84,40 @@ class Gate:
                                  episodic=episodic), 0
 
     def _contradiction(self, subject, predicate, value):
-        """Aynı özne + aynı yüklemde BAŞKA değer taşıyan RAKİP kayıt.
+        """A RIVAL record carrying ANOTHER value on the same subject + same predicate.
 
-        İki farklı değer ÇELİŞKİ mi — YÜKLEMDEN BAĞIMSIZ, değerlerin RAKİP olup
-        olmadığına bakılır. `rival` bağlıysa (LMM): hiyerarşik bağlı değerler
-        (kedigil/memel — kedigil bir memelidir) rakip DEĞİL → çelişki değil, bir
-        arada var olurlar; bağsız/dışlayan değerler (paris/berlin, kuş/balık) →
-        çelişki. `rival` bağlı değilse (v3) yüklem eşleşmesi çelişki sayılır (eski).
+        Are two different values a CONTRADICTION — INDEPENDENT OF THE
+        PREDICATE, what matters is whether the values are RIVALS. If `rival`
+        is wired (LMM): hierarchically related values (felid/mammal — a felid
+        IS a mammal) are NOT rivals → not a contradiction, they coexist;
+        unrelated/exclusive values (paris/berlin, bird/fish) → contradiction.
+        If `rival` is not wired (v3), a predicate match counts as a
+        contradiction (legacy).
 
-        DÜZELTME (test-kanıtı): rakip kontrolü eskiden yalnız predicate=None
-        dalındaydı; açık yüklem ("tür", is-a) o kontrolü atlayıp aslan
-        kedigil/memel'i sahte çelişki sayıyordu. Artık tüm yüklemlerde uygulanır."""
+        FIX (test-proven): the rival check used to live only in the
+        predicate=None branch; an explicit predicate ("tür", is-a) skipped
+        that check and counted lion felid/mammal as a false contradiction.
+        Now it applies to all predicates."""
         for held in self.memory.about(subject, touch=False):
             if held.predicate != predicate or held.value == value:
                 continue
             if self.rival is not None and not self.rival(held.value, value):
-                continue          # bağlı/hiyerarşik değerler → çelişki değil
+                continue          # related/hierarchical values → not a contradiction
             return held
         return None
 
-    # --- çıkış ----------------------------------------------------------
+    # --- exit -----------------------------------------------------------
 
     def supported(self, claims):
-        """Söylenmek istenen iddiaların hangileri kayıtla destekli.
+        """Which of the claims wanting to be spoken are backed by a record.
 
-        `claims`: [(özne, yüklem, değer)] — üretici ağın söylemek istediği.
-        Dönen: (geçenler, düşenler). Düşenler SÖYLENMEZ.
+        `claims`: [(subject, predicate, value)] — what the generator network
+        wants to say.
+        Returns: (passed, dropped). The dropped are NOT SPOKEN.
 
-        Bu, üretici ağın önündeki son duvardır. Ağ akıcı olabilir, hatta
-        kendinden emin olabilir; kaydı yoksa cümle düşer.
+        This is the last wall in front of the generator network. The network
+        can be fluent, even confident; if there is no record, the sentence
+        falls.
         """
         passed, dropped = [], []
         for claim in claims:
@@ -116,54 +129,58 @@ class Gate:
         return passed, dropped
 
     def behind(self, subject, predicate, value):
-        """Bu iddianın arkasındaki kayıt — yoksa None.
+        """The record behind this claim — None if there is none.
 
-        "Bunu neden söyledin" sorusunun cevabı budur ve hesaplanabilir
-        olması bu mimarinin ayırt edici yanıdır.
+        This is the answer to "why did you say that", and that it is
+        computable is the distinguishing feature of this architecture.
         """
         for held in self.memory.about(subject, touch=False):
-            # Yüklem None ise JOKER: değer eşleşmesi yeter. Sebep ölçüldü —
-            # okuyucu yüklemi cümlelerin ~%0,5'inde çıkarıyor; yüklem eşleşmesi
-            # zorunlu tutulunca özneli+değerli ama yüklemsiz doğal cümleler
-            # (kayıtları da yüklemsiz saklanır) desteksiz sayılıp düşüyordu.
-            # Özne+değer eşleşmesi uydurma engeli için zaten yeterli.
+            # If the predicate is None it is a WILDCARD: a value match
+            # suffices. The reason was measured — the reader extracts the
+            # predicate in ~0.5% of sentences; when the predicate match was
+            # made mandatory, natural sentences with subject+value but no
+            # predicate (their records are also stored predicate-less) were
+            # counted unsupported and fell. Subject+value matching is already
+            # enough as a confabulation barrier.
             if held.value == value and (predicate is None
                                         or held.predicate == predicate):
                 return held
         return None
 
     def doubtful(self, record):
-        """Bu kayıt yalnız tek bir düşük basamaklı sözcüğe mi dayanıyor.
+        """Does this record rest solely on a single low-level word.
 
-        Söylenirken işaretlenmeli: bilgi atılmıyor ama aynı sesle
-        konuşmuyor.
+        It must be marked when spoken: the knowledge is not discarded but it
+        does not speak with the same voice.
         """
-        # Kaynağın BASAMAĞINA bakılır, güven DEĞERİNE değil. İlk yazışta
-        # `trust_of(source) <= STRANGER` yazmıştım: 0,6 <= 1 her zaman doğru
-        # çıkıyor ve belge kayıtları da kuşkulu görünüyordu. Basamak ile
-        # değer aynı ölçekte değil; karşılaştırılmaları da bir hataydı.
+        # We look at the source's LEVEL, not the trust VALUE. In the first
+        # draft I wrote `trust_of(source) <= STRANGER`: 0.6 <= 1 is always
+        # true and document records also looked doubtful. Level and value are
+        # not on the same scale; comparing them was itself a mistake.
         return record.witnesses <= UNVERIFIED and record.level == STRANGER
 
     def inferred(self, subject, predicate, value, because):
-        """Çıkarımla türetilen kayıt — düşük güvenle, gerekçesine bağlı.
+        """A record derived by inference — with low trust, bound to its rationale.
 
-        Türetme motorunun belleğe dokunduğu tek nokta burasıdır ve buradan
-        geçen her kayıt kaynağını "çıkarım" olarak taşır: sonradan hangi
-        bilginin gözlemden hangisinin akıl yürütmeden geldiği ayrılabilir.
+        This is the only point where the derivation engine touches memory,
+        and every record passing through here carries its source as
+        "inference": later, which knowledge came from observation and which
+        from reasoning can be separated.
         """
         held = self.memory.write(subject, predicate, value, "#inference",
                                  INFERRED, episodic=False)
         for key in because:
-            self.memory.link(held.key, key, 3)      # koşul bağı
+            self.memory.link(held.key, key, 3)      # condition link
         return held
 
-    # --- yaşantı --------------------------------------------------------
+    # --- experience -----------------------------------------------------
 
     def weigh(self, expected, actual):
-        """Şaşkınlık: tahmin ile gerçek arasındaki fark.
+        """Surprise: the gap between prediction and reality.
 
-        Öngörücü kodlamanın karşılığı. Tahmin tuttuysa yaşantı ucuzdur ve
-        belleği meşgul etmez; tutmadıysa pahalıdır ve kalıcı olur. Sobaya
-        bir kez dokunmak bin tekrardan bu yüzden güçlüdür.
+        The counterpart of predictive coding. If the prediction held, the
+        experience is cheap and does not occupy memory; if it failed, it is
+        expensive and permanent. This is why touching the stove once is
+        stronger than a thousand repetitions.
         """
         return min(1.0, abs(float(expected) - float(actual)))

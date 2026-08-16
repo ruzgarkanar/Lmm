@@ -1,18 +1,19 @@
-"""Bağlantı denetimi: her dosya mimarinin neresine oturuyor, kim kimi çağırıyor.
+"""The wiring audit: where each file sits in the architecture, who calls whom.
 
-Bu proje boyunca en pahalı hatalar ölçülmediği için değil, GÖRÜLMEDİĞİ için
-oluştu: kurulmuş ama hiç çağrılmayan organlar, birbirinden habersiz iki yol,
-sessizce ölmüş bir kapı. Bir dosya yazıldıktan sonra sorulacak soru şudur —
-bu dosya gerçekten bağlı mı, yoksa yalnız duruyor mu.
+Throughout this project the most expensive mistakes happened not because they
+were unmeasured but because they were UNSEEN: organs built but never called,
+two paths unaware of each other, a gate that had died silently. The question
+to ask after a file is written is this — is this file really wired in, or is
+it merely standing there.
 
-Dört şey denetlenir ve dördü de sayıyla döner:
+Four things are audited and all four return as numbers:
 
-    BAĞLANTI   hangi modül hangisini içe aktarıyor · kimse çağırmıyorsa ölü
-    KULLANIM   her genel işlev başka bir dosyadan çağrılıyor mu
-    TEMİZLİK   Türkçe tanımlayıcı · kelime listesi · harf kuralı — hepsi 0 olmalı
-    KATMAN     mimarideki yeri: bellek · sürekli · kapı · dinamik · ağ
+    WIRING     which module imports which · if nobody calls it, it is dead
+    USAGE      is every public function called from another file
+    CLEANLINESS Turkish identifier · word list · letter rule — all must be 0
+    LAYER      its place in the architecture: memory · continuous · gate · dynamics · network
 
-Kullanım:
+Usage:
     python3 -m v3.check
 """
 import ast
@@ -22,8 +23,8 @@ import re
 TURKISH = re.compile(r"[çğıöşüÇĞİÖŞÜ]")
 VOWEL_RULE = re.compile(r"[aeıioöuü]{5,}")
 
-# Mimarideki katmanlar. Sıra, bağımlılığın hangi yöne akması gerektiğini
-# söyler: aşağıdaki yukarıdakini çağırabilir, tersi mimari kırılmasıdır.
+# The layers in the architecture. The order says which way dependency must
+# flow: the lower may call the upper, the reverse is an architectural break.
 LAYERS = ["memory", "geometry", "gate", "dynamics", "reader", "speaker",
           "session"]
 
@@ -75,7 +76,7 @@ def called_names(tree):
 
 
 def turkish_in(tree):
-    """Belge dizgileri dışında Türkçe metin — açıklama serbest, veri değil."""
+    """Turkish text outside docstrings — commentary is free, data is not."""
     docs = {ast.get_docstring(node, clean=False) for node in ast.walk(tree)
             if isinstance(node, (ast.Module, ast.FunctionDef, ast.ClassDef,
                                  ast.AsyncFunctionDef))}
@@ -97,7 +98,7 @@ def turkish_identifiers(tree):
 
 
 def word_lists(tree):
-    """Üç ve daha çok dizgi taşıyan koleksiyon — kelime listesi şüphesi."""
+    """A collection carrying three or more strings — suspected word list."""
     found = []
     for node in ast.walk(tree):
         if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
@@ -113,7 +114,7 @@ def main():
     held = modules()
     print(f"\n=== {len(held)} modül ===\n")
 
-    # Kim kimi çağırıyor
+    # Who calls whom
     graph = {name: imports_of(tree) & set(held)
              for name, (_, tree) in held.items()}
     used_by = {name: set() for name in held}
@@ -130,7 +131,8 @@ def main():
         callers = ", ".join(sorted(used_by[name])) or "—"
         print(f"  {name:<12} {layer:>4}     {calls:<24}  {callers}")
 
-    # Mimari yönü: aşağı katman yukarıyı çağırmalı, tersi kırılma
+    # Architectural direction: the lower layer must call the upper, the
+    # reverse is a break
     print("\n  YÖN DENETİMİ")
     broken = 0
     for name, targets in graph.items():
@@ -142,7 +144,7 @@ def main():
                 broken += 1
     print(f"    ters bağımlılık: {broken}")
 
-    # Ölü modül ve kullanılmayan işlev
+    # Dead modules and unused functions
     print("\n  BAĞLANTI")
     every_call = set()
     for _, (_, tree) in held.items():
@@ -157,7 +159,7 @@ def main():
         if unused:
             print(f"    {name}: dışarıdan çağrılmayan {unused}")
 
-    # Temizlik
+    # Cleanliness
     print("\n  TEMİZLİK (hepsi 0 olmalı)")
     totals = {"türkçe dizgi": 0, "türkçe ad": 0, "kelime listesi": 0,
               "harf kuralı": 0}
