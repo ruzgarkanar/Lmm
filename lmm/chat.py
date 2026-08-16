@@ -26,6 +26,8 @@ def main():
 
     print("# LMM yükleniyor (Qwen-3B, ilk sefer ~10 sn)...")
     session = Session(memory_path)
+    from lmm.mind import Mind
+    mind = Mind(session)        # otonom zihin — turlar arası kendi düşünür (ms)
     print(f"# bellek: {memory_path} ({len(session.memory.records)} kayıt)")
     print(f"# günlük: {log_path}")
     print("# çıkış: Ctrl+C ya da Ctrl+D · boş satır atlanır\n")
@@ -39,11 +41,18 @@ def main():
                 break
             if not line:
                 continue
-            # LMM GÜCÜ — öz-farkındalık komutları (sistemin kendi bilgisi üstüne):
+            # OTONOM ZİHİN — öz-farkındalık + kendi büyüme komutları:
             if line in ("?merak", "?curiosity"):
-                gaps = session.curiosity()
-                print("# merak ettiğim (az bildiğim): "
-                      + (", ".join(gaps) if gaps else "—"))
+                w = mind.wonder()           # çok-kullanılan-ama-tanımsız (rafine)
+                print("# merak ediyorum (sürekli kullanıp da bilmediğim): "
+                      + (", ".join(w) if w else "—")
+                      + ("  →  ?araştır <konu>" if w else ""))
+                continue
+            if line.startswith("?araştır ") or line.startswith("?research "):
+                konu = line.split(" ", 1)[1].strip()
+                print(f"# {konu} araştırılıyor (web, düşük güven)...")
+                ok = mind.research(konu)
+                print(f"# {'öğrendim ✓ (kaynaklı)' if ok else 'bulamadım'}")
                 continue
             if line in ("?çelişki", "?tension"):
                 tens = session.tension()
@@ -56,6 +65,15 @@ def main():
             started = time.time()
             said = session.respond(line)
             print(said if said else "[…]")
+            # OTONOM DÜŞÜNME (ms, turlar arası): mesajdan sonra kendi akıl yürütür —
+            # çelişki çöz / türet / damıt. Yeni bir şey türetirse sessizce söyler.
+            before = sum(1 for r in session.memory.records.values()
+                         if r.source == "#inference")
+            mind.run()
+            after = sum(1 for r in session.memory.records.values()
+                        if r.source == "#inference")
+            if after > before:
+                print(f"  💭 (kendim türettim: {after - before} yeni bağ)")
             log.write(json.dumps({
                 "at": time.strftime("%H:%M:%S"),
                 "in": line,
