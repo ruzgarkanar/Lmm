@@ -53,7 +53,14 @@ STYLE (important):
   Rephrase the fact into fluent language (e.g. facts "[1] kartal → kuş" and the
   question "kartal nedir" -> "Kartal bir kuştur.").
 - Do NOT explain your reasoning or add meta-commentary about the question.
-- Reply ONLY in the SAME LANGUAGE as the question — never mix in another language."""
+- Reply ONLY in the SAME LANGUAGE as the question — never mix in another language.
+- If facts are records with fields ("FIELD: value · FIELD: value") and the
+  question asks for a specific field of a specific record, answer with THAT
+  field's value from THAT record — not with another field, and never with a
+  value from a different record.
+  Example: facts "[K1] NO: 1 · ISSUE: fire exit blocked · STATUS: NEW ·
+  OWNER: Ersin." and the question asks for the STATUS of issue 1 -> the
+  answer is "NEW" (not the issue description, not the owner)."""
 
 
 # DESTEK DENETİMİ: kapsama kapısı sözcükte takılırsa ikinci kademe —
@@ -64,6 +71,20 @@ Answer ONLY "yes" or "no".
 "yes" ONLY if the EVIDENCE explicitly states everything the CLAIM asserts —
 same entities, same relations, same numbers. Paraphrase is fine; NEW
 information, reversed relations, negation flips or changed numbers are not.
+
+ROW DISCIPLINE: evidence lines may be records with fields ("FIELD: value ·
+FIELD: value"). A field value belongs ONLY to the record on its own line —
+if the claim attaches one record's value to another record's entity, answer
+"no". If a record lacks the asked field, the claim cannot borrow it from a
+neighboring record.
+
+Example:
+EVIDENCE:
+[K1] NO: 1 · ISSUE: fire exit blocked · OWNER: Ersin.
+[K2] NO: 2 · ISSUE: missing helmets.
+CLAIM: The owner of the missing-helmets issue is Ersin.
+Answer: no   (record 2 has no OWNER field; Ersin belongs to record 1)
+
 If you are unsure, answer "no"."""
 
 
