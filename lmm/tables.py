@@ -13,8 +13,11 @@ store (the language surface is built from there). The header heuristic is the
 same as xlsx2txt: the row most filled with short text. No document-specific rule.
 """
 import os
+import re
 
 import pandas as pd
+
+from v3.dataset import fold
 
 
 def _header_row(rows, columns):
@@ -59,6 +62,55 @@ def read_xlsx(path):
     return sheets
 
 
+_KEY_TOKEN = r"(?<![^\s:])(?![^\s:]*\d)[^\s:]+"   # whole word, no digit inside
+_KV = re.compile(rf"((?:{_KEY_TOKEN}[ \t]+){{0,2}}{_KEY_TOKEN})\s*:\s*")
+
+
+def split_kv_text(text):
+    """Split a COMPOSITE cell on colon FORMAT boundaries: 'Konsol: IPX0 Prob:
+    IPX7 Ayak Anahtarı: IPX4' → three (key, value) pairs. The colon is a
+    format separator (allowed); the only other cue is typographic: key words
+    carry no digits, so a value's tail ('IPX0') cannot be mistaken for the
+    next key. No language rule."""
+    ms = list(_KV.finditer(text))
+    pairs = []
+    for i, m in enumerate(ms):
+        end = ms[i + 1].start(1) if i + 1 < len(ms) else len(text)
+        value = text[m.end():end].strip(" ,;·|")
+        key = m.group(1).strip(" ,;·|")
+        if key and value:
+            pairs.append((key, value))
+    return pairs
+
+
+def _split_leading_value(text):
+    """'Boyutlar 360 mm * 380 mm * 125 mm' → ('Boyutlar', '360 mm * ...').
+    FORMAT cue only: a short record cell whose leading words carry no digit
+    and whose value starts at the first digit. None if the shape doesn't
+    match (prose stays prose)."""
+    words = text.split()
+    if not 2 <= len(words) <= 12:
+        return None
+    first_digit = next((i for i, w in enumerate(words)
+                        if any(ch.isdigit() for ch in w)), None)
+    if not first_digit or first_digit > 3:
+        return None
+    return " ".join(words[:first_digit]), " ".join(words[first_digit:])
+
+
+def _drop_sparse_column(clean):
+    """A wide table whose FIRST column is a section label spanning many rows
+    ('Güç Gereksinimi') comes back mostly empty in that column — dropping it
+    exposes the real key/value pairs. Structural criterion: ≤1/3 filled."""
+    while clean and len(clean[0]) > 2:
+        filled = sum(1 for row in clean if row and row[0])
+        if filled <= max(1, len(clean) // 3):
+            clean = [row[1:] for row in clean]
+        else:
+            break
+    return clean
+
+
 def read_pdf(path):
     """PDF → (prose_text, tables). Tables are detected with pdfplumber (it sees
     character COORDINATES and ruling lines — structure the plain-text dump
@@ -67,52 +119,117 @@ def read_pdf(path):
     prose is everything outside table bounding boxes. No model calls."""
     import pdfplumber
 
+    def _classify(grid):
+        """One extracted grid → ('kv', pairs) | ('rows', rows) | None."""
+        if not grid or len(grid) < 2:
+            return None
+        clean = [[(c or "").replace("\n", " ").strip() for c in raw]
+                 for raw in grid]
+        clean = _drop_sparse_column(clean)
+        # KEY-VALUE table? (spec sheets: "Ekran | 15.6\" LCD") — rows with at
+        # most 2 non-empty cells. Treating row 0 as a header there scrambled
+        # every pair; instead each row IS a (key, value) pair.
+        widths = [sum(1 for c in raw if c) for raw in clean if any(raw)]
+        # MAJORITY, not unanimity: one messy multi-cell row (a wrapped
+        # remark) must not disqualify a whole spec sheet — if ≥2/3 of the
+        # rows are (key, value)-shaped the table is kv; a wider row joins
+        # its extra cells into the value.
+        if widths and sum(1 for w in widths if w <= 2) * 3 >= len(widths) * 2:
+            pairs = []
+            for raw in clean:
+                cells = [c for c in raw if c]
+                if len(cells) > 2:
+                    pairs.append((cells[0], " ".join(cells[1:])))
+                elif len(cells) == 2:
+                    pairs.append((cells[0], cells[1]))
+                elif len(cells) == 1:
+                    # merged cell ('Boyutlar 360 mm * ...') — the key column
+                    # came back empty. Inheriting the previous key
+                    # mis-assigned values; keep it keyless, the FORMAT
+                    # splitters below may still recover the key.
+                    pairs.append(("", cells[0]))
+            # FORMAT-cue recovery on damaged cells: composite 'A: x B: y'
+            # values split on colons; a keyless 'Boyutlar 360 mm ...' cell
+            # yields its leading no-digit words as the key.
+            out = []
+            for key, value in pairs:
+                out.append((key, value))
+                text = f"{key}: {value}" if key else value
+                if ":" in text:
+                    out += [p for p in split_kv_text(text) if p != (key, value)]
+                elif not key:
+                    lead = _split_leading_value(value)
+                    if lead:
+                        out.append(lead)
+            return ("kv", out) if out else None
+        header = clean[0]
+        rows = []
+        # A header row carrying DIGITS is data wearing a header's hat
+        # (pdfplumber promoted the first row): keep it as a kv pair too.
+        if len(header) == 2 and all(header) \
+                and any(ch.isdigit() for ch in header[1]):
+            rows.append({"__kv__": True, header[0]: header[1]})
+        for raw in clean[1:]:
+            row = {}
+            for h, cell in zip(header, raw):
+                if cell:
+                    row[h] = cell
+            if row:
+                rows.append(row)
+        return ("rows", rows) if rows else None
+
     prose_parts = []
     tables = []
     with pdfplumber.open(path) as pdf:
         for page in pdf.pages:
-            found = page.find_tables()
-            boxes = [t.bbox for t in found]
-            for t in found:
-                grid = t.extract()
-                if not grid or len(grid) < 2:
+            page_kv_keys = set()
+            for t in page.find_tables():
+                got = _classify(t.extract())
+                if not got:
                     continue
-                clean = [[(c or "").replace("\n", " ").strip() for c in raw]
-                         for raw in grid]
-                # KEY-VALUE table? (spec sheets: "Ekran | 15.6\" LCD") — rows
-                # with at most 2 non-empty cells. Treating row 0 as a header
-                # there scrambled every pair; instead each row IS a (key,
-                # value) pair; an empty key inherits the previous one
-                # (vertically merged cells).
-                widths = [sum(1 for c in raw if c) for raw in clean]
-                if widths and max(widths) <= 2:
-                    pairs = []
-                    for raw in clean:
-                        cells = [c for c in raw if c]
-                        if len(cells) == 2:
-                            pairs.append((cells[0], cells[1]))
-                        elif len(cells) == 1:
-                            # merged cell ('Boyutlar 360 mm * ...') — the key
-                            # column came back empty. Inheriting the previous
-                            # key mis-assigned values (boyutlar landed under
-                            # ekran); instead keep it as an evidence-only line
-                            # (key '') — lexical retrieval still finds it.
-                            pairs.append(("", cells[0]))
-                    if pairs:
-                        tables.append([{"__kv__": True, k: v}
-                                       for k, v in pairs])
+                kind, data = got
+                if kind == "kv":
+                    page_kv_keys |= {fold(k) for k, _v in data if k}
+                    tables.append([{"__kv__": True, k: v} for k, v in data])
+                else:
+                    tables.append(data)
+
+            text = page.extract_text() or ""
+
+            # SECOND GEOMETRY PASS (vertical_strategy='text'): where ruling
+            # lines lie, the default pass loses whole kv columns (measured:
+            # 'Koruma derecesi' lost its IPX values, İŞLEMCI/Xubuntu rows
+            # collapsed into one cell). The text-based pass recovers them but
+            # can TRUNCATE other values — so keep only pairs whose key the
+            # default pass did NOT already deliver AND whose value text
+            # actually occurs on the page (a truncated '100 V-2' does not).
+            page_norm = fold(re.sub(r"\s+", "", text))
+            # WORD GUARD: the text-based pass can chop a word at a column seam
+            # ('Ciha | z Listesi') — a key whose word is not a real token on
+            # the page is such an amputation, and it was poisoning both the
+            # graph and the field-name index (measured: 'Ciha: z Listesi').
+            page_words = {fold(w) for w in re.findall(r"\w+", text)}
+            try:
+                alt_grids = page.extract_tables({"vertical_strategy": "text"})
+            except Exception:                               # noqa: BLE001
+                alt_grids = []
+            recovered = []
+            for grid in alt_grids:
+                got = _classify(grid)
+                if not got or got[0] != "kv":
                     continue
-                header = clean[0]
-                rows = []
-                for raw in clean[1:]:
-                    row = {}
-                    for h, cell in zip(header, raw):
-                        if cell:
-                            row[h] = cell
-                    if row:
-                        rows.append(row)
-                if rows:
-                    tables.append(rows)
+                for key, value in got[1]:
+                    if not key or fold(key) in page_kv_keys:
+                        continue
+                    if fold(re.sub(r"\s+", "", value)) not in page_norm:
+                        continue
+                    if any(len(w) >= 3 and fold(w) not in page_words
+                           for w in re.findall(r"\w+", key)):
+                        continue
+                    page_kv_keys.add(fold(key))
+                    recovered.append((key, value))
+            if recovered:
+                tables.append([{"__kv__": True, k: v} for k, v in recovered])
 
             # FULL page text goes to prose — tables included. Excluding table
             # bboxes seemed clean but LOST information: wherever cell geometry
@@ -120,7 +237,6 @@ def read_pdf(path):
             # was the only remaining carrier — and the evidence layer's lexical
             # retrieval still finds it. Structural facts are a BONUS on top of
             # full text, never a replacement.
-            text = page.extract_text() or ""
             if text.strip():
                 prose_parts.append(text)
     return "\n".join(prose_parts), tables

@@ -100,6 +100,33 @@ NUMBER field equals that ordinal — check THAT record's fields, not another's.
 CLAIM: The third finding cites regulation X — but [NO: 3]'s own line lists
 regulation Y -> answer no.
 
+ATTRIBUTE DISCIPLINE: the claim's value must come from the SAME attribute the
+claim names. If the evidence states that value only for a DIFFERENT attribute,
+answer "no" — a related field is not the same field.
+Example:
+EVIDENCE: [K1] Service life: 10 years.
+CLAIM: The warranty period is 10 years.
+Answer: no   (the evidence gives the service life; the warranty is a
+different attribute and is not stated)
+But a REWORDED name of the SAME attribute is fine — questions speak plainly
+while tables abbreviate ("ingress protection degree" vs "water protection
+degree"; IPX ratings ARE water-ingress protection):
+EVIDENCE: [K1] Protection degree, ingress — Console: IPX 0 Probe: IPX 7
+CLAIM: The probe's water protection degree is IPX 7.
+Answer: yes   (same attribute under a plainer name; the probe's own value)
+
+NOTATION IS PARAPHRASE: spec sheets write values tersely ("5 ° C ~ + 40° C",
+"100 V-240 V~", "360 mm * 380 mm * 125 mm", "14.4 V / 6500 mAh"). A claim
+restating the SAME attribute's numbers as a fluent sentence ("from 5°C to
+40°C", "voltage 14.4 V and capacity 6500 mAh") asserts nothing new — answer
+"yes". Spec lines are often glued together by PDF extraction; a value still
+belongs to the field name immediately before it.
+Example:
+EVIDENCE: [K1] Operating temperature 5 ° C ~ + 40° C -20 ° C ~ + 55° C
+CLAIM: The operating temperature range is 5°C to 40°C.
+Answer: yes   (same attribute, same numbers; "~" is range notation and the
+second range belongs to the next column, not to the claim)
+
 If you are unsure, answer "no"."""
 
 

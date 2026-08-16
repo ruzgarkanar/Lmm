@@ -229,8 +229,16 @@ class SentenceStore:
                     elif len(w) >= 3 and qw.startswith(w):
                         cand[w] = ids
                     else:
+                        # PROPORTIONAL stem criterion: the shared stem must
+                        # cover >=70% of the longer form too — "hazırlandı"~
+                        # "hazırlanma" (8/10) is the same concept, but
+                        # "işlemi"~"işlemcisi" (5/9) is a DIFFERENT word whose
+                        # crowd was leaking into the rare word's group and
+                        # burying the spec row (measured, manual trace).
                         common = os.path.commonprefix((qw, w))
-                        if len(common) >= max(4, min(len(qw), len(w)) - 2):
+                        if len(common) >= max(4, min(len(qw), len(w)) - 2,
+                                              (max(len(qw), len(w)) * 7 + 9)
+                                              // 10):
                             cand[w] = ids
             if not cand:
                 continue

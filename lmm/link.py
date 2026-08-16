@@ -68,7 +68,13 @@ def resolve(memory, label, vectors=None, create=False):
     index = _label_index(memory)
     # forward: an existing ROOT is a prefix of the arriving label
     # (root >=5, remainder 1..3) → the candidate roots are label[:cut].
-    for cut in range(max(5, len(label) - 3), len(label)):
+    # A 4-letter root is admitted ONLY with a single-letter remainder
+    # ("probu"→"prob"; measured need — spec-table subjects are short). The
+    # F5 hole stays closed: "kartal"→"kart" has remainder 2 and never
+    # matches.
+    for cut in range(max(4, len(label) - 3), len(label)):
+        if cut == 4 and len(label) - cut != 1:
+            continue
         other = index["map"].get(label[:cut])
         if other is not None:
             return other

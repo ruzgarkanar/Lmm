@@ -715,22 +715,35 @@ class Session:
         drops any claim stepping outside the INJECTED facts."""
         subject = (link.resolve(self.memory, subject_label, self.vectors)
                    if subject_label else None)
+        fallback_keys = []
         if subject is None or not self.memory.by_subject.get(subject):
             # SUBJECT FALLBACK (manual-benchmark finding): extract may hand us
             # a subject ('cihaz') that resolves to nothing, while ANOTHER
             # question word ('ekranı'→'ekran') IS a graph node carrying the
             # answer. Try the remaining content words against the O(1) label
-            # index — pure graph, longest (most specific) words first.
+            # index — pure graph, longest (most specific) words first. UNION,
+            # not first-match: with only the first hit, a generic word
+            # ('cihazın'→cihaz) shadowed the field node ('ekranı'→ekran) and
+            # the answer-carrying fact never entered the block (measured).
             for w in sorted(set(evidence._words(question)),
                             key=len, reverse=True):
                 cand = link.resolve(self.memory, w)
-                if cand is not None and self.memory.by_subject.get(cand):
-                    subject = cand
-                    break
+                if cand is not None and cand not in fallback_keys \
+                        and self.memory.by_subject.get(cand):
+                    fallback_keys.append(cand)
+                    if len(fallback_keys) >= 3:
+                        break
+            if fallback_keys:
+                subject = fallback_keys[0]
         # associative=False: the answer is built ONLY from direct facts
         # (consistent with the edge check — see retrieve.gather /
         # verify._has_edge).
         records = retrieve.gather(self.memory, subject, associative=False)
+        for extra_key in fallback_keys[1:]:
+            for r in retrieve.gather(self.memory, extra_key,
+                                     associative=False):
+                if r not in records:
+                    records.append(r)
         # EVIDENCE (representation-narrowness fix): document sentences
         # intersecting the question — numbers/ranges/nuance that don't fit a
         # triple come from here. The graph is structure, the sentence is
