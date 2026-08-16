@@ -85,6 +85,12 @@ EVIDENCE:
 CLAIM: The owner of the missing-helmets issue is Ersin.
 Answer: no   (record 2 has no OWNER field; Ersin belongs to record 1)
 
+ORDINALS: when the claim refers to a record by position in ANY language
+("third finding", "üçüncü tespit", "el segundo"), it means the record whose
+NUMBER field equals that ordinal — check THAT record's fields, not another's.
+CLAIM: The third finding cites regulation X — but [NO: 3]'s own line lists
+regulation Y -> answer no.
+
 If you are unsure, answer "no"."""
 
 
