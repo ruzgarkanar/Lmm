@@ -715,6 +715,18 @@ class Session:
         drops any claim stepping outside the INJECTED facts."""
         subject = (link.resolve(self.memory, subject_label, self.vectors)
                    if subject_label else None)
+        if subject is None or not self.memory.by_subject.get(subject):
+            # SUBJECT FALLBACK (manual-benchmark finding): extract may hand us
+            # a subject ('cihaz') that resolves to nothing, while ANOTHER
+            # question word ('ekranı'→'ekran') IS a graph node carrying the
+            # answer. Try the remaining content words against the O(1) label
+            # index — pure graph, longest (most specific) words first.
+            for w in sorted(set(evidence._words(question)),
+                            key=len, reverse=True):
+                cand = link.resolve(self.memory, w)
+                if cand is not None and self.memory.by_subject.get(cand):
+                    subject = cand
+                    break
         # associative=False: the answer is built ONLY from direct facts
         # (consistent with the edge check — see retrieve.gather /
         # verify._has_edge).

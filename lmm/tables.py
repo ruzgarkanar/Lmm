@@ -86,15 +86,18 @@ def read_pdf(path):
                 # (vertically merged cells).
                 widths = [sum(1 for c in raw if c) for raw in clean]
                 if widths and max(widths) <= 2:
-                    last_key = ""
                     pairs = []
                     for raw in clean:
                         cells = [c for c in raw if c]
                         if len(cells) == 2:
-                            last_key = cells[0]
                             pairs.append((cells[0], cells[1]))
-                        elif len(cells) == 1 and last_key:
-                            pairs.append((last_key, cells[0]))
+                        elif len(cells) == 1:
+                            # merged cell ('Boyutlar 360 mm * ...') — the key
+                            # column came back empty. Inheriting the previous
+                            # key mis-assigned values (boyutlar landed under
+                            # ekran); instead keep it as an evidence-only line
+                            # (key '') — lexical retrieval still finds it.
+                            pairs.append(("", cells[0]))
                     if pairs:
                         tables.append([{"__kv__": True, k: v}
                                        for k, v in pairs])
@@ -111,11 +114,13 @@ def read_pdf(path):
                 if rows:
                     tables.append(rows)
 
-            def outside(obj):
-                mid = (obj["top"] + obj["bottom"]) / 2
-                return not any(b[1] <= mid <= b[3] for b in boxes)
-
-            text = page.filter(outside).extract_text() or ""
+            # FULL page text goes to prose — tables included. Excluding table
+            # bboxes seemed clean but LOST information: wherever cell geometry
+            # defeats the kv extractor (glued spec cells), the flattened text
+            # was the only remaining carrier — and the evidence layer's lexical
+            # retrieval still finds it. Structural facts are a BONUS on top of
+            # full text, never a replacement.
+            text = page.extract_text() or ""
             if text.strip():
                 prose_parts.append(text)
     return "\n".join(prose_parts), tables
@@ -139,13 +144,26 @@ def learn_pdf(session, path, source=None, deep=False):
                 for key, value in row.items():
                     if key == "__kv__":
                         continue
-                    session.evidence.add(f"{key}: {value}", source)
-                    wrote += session.learn_cell(key, "", value, source)
+                    session.evidence.add(f"{key}: {value}" if key else value,
+                                         source)
+                    if key:
+                        wrote += session.learn_cell(key, "", value, source)
         else:
             wrote += session.learn_rows(rows, source)
     session._bulk = prev_bulk
     if prose.strip():
         session.learn_text(prose, source=source, deep=deep)
+    # SECOND RENDERING: pypdf flattens the same pages differently (glued spec
+    # lines that pdfplumber's layout scrambles, and vice versa). Feeding BOTH
+    # renderings into the evidence layer doubles lexical-retrieval coverage;
+    # dedup keeps identical sentences single and the cost is milliseconds.
+    try:
+        from pypdf import PdfReader
+        alt = "\n".join((p.extract_text() or "") for p in PdfReader(path).pages)
+        if alt.strip():
+            session.learn_text(alt, source=source, deep=False)
+    except Exception:                                       # noqa: BLE001
+        pass
     return wrote, len(tables)
 
 
