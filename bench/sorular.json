@@ -3,7 +3,7 @@
   {"tip": "dogrudan", "soru": "vorlin nedir", "altin": ["içecek"]},
   {"tip": "dogrudan", "soru": "morlan nedir", "altin": ["kuş"]},
   {"tip": "dogrudan", "soru": "norgul nedir", "altin": ["bitki"]},
-  {"tip": "dogrudan", "soru": "karvel nedir", "altin": ["balık"]},
+  {"tip": "dogrudan", "soru": "karvel nedir", "altin": ["balık", "canlı"]},
   {"tip": "dogrudan", "soru": "kelvit nedir", "altin": ["metal"]},
   {"tip": "dogrudan", "soru": "selvin nedir", "altin": ["içecek", "sıvı"]},
   {"tip": "dogrudan", "soru": "Velmar nedir", "altin": ["köy"]},
