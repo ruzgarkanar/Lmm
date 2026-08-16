@@ -68,6 +68,10 @@ def generate(messages, max_tokens=256, temperature=0.7, system=None):
         from . import runtime_gguf
         return runtime_gguf.generate(messages, max_tokens=max_tokens,
                                      temperature=temperature, system=system)
+    if os.environ.get("LMM_BACKEND") == "azure":     # DENEY: aynı-motor kıyası
+        from . import runtime_azure
+        return runtime_azure.generate(messages, max_tokens=max_tokens,
+                                      temperature=temperature, system=system)
     import torch
     _load()
     if isinstance(messages, str):

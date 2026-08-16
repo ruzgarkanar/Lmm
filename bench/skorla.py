@@ -13,7 +13,7 @@ import unicodedata
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-SAKINMA = ("bilmiyorum", "bilgi yok", "bilgiye sahip değil", "bilemem",
+SAKINMA = ("bilmiyorum", "bilgi yok", "bilgim yok", "bilgiye sahip değil", "bilemem",
            "bulunmuyor", "yer almıyor", "belirtilmemiş", "bilinmiyor",
            "bilmem", "ulaşamadım", "emin değilim", "yoktur")
 
