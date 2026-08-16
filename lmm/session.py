@@ -443,10 +443,14 @@ class Session:
         # BAĞLAM PENCERELERİ: komşu cümleler birlikte de indekslenir — "Uyarı:
         # Eşik ayarı..." cümlesi 'sepsis' sözcüğünü taşımaz ama bölümü taşır;
         # tek-cümle taneciği bölüm bağlamını kaybediyordu (hastane bulgusu).
-        for i in range(0, max(1, len(sentences) - 2), 2):
-            window = " ".join(sentences[i:i + 3])
-            if len(window) > len(sentences[i]):
-                self.evidence.add(window, source)
+        # İki ölçek: dar (3) hassas eşleşme, geniş (6) başlık↔içerik köprüsü
+        # (bölüm başlığındaki sözcükle bölüm sonundaki Uyarı satırı aynı
+        # pencerede buluşsun — "kamera ... KVKK" sınıfı).
+        for size, step in ((3, 2), (6, 2)):
+            for i in range(0, max(1, len(sentences) - size + 1), step):
+                window = " ".join(sentences[i:i + size])
+                if len(window) > len(sentences[i]):
+                    self.evidence.add(window, source)
         # TABLO ONARIMI (kanıt-yalnız): PDF tabloları satır satır parçalanır —
         # "Dijital patoloji" ile tier hücresi "3" ayrı düşer, model yanlış sayı
         # kapar (hastane testi bulgusu; RAG de aynı tabloda aynı hatayı yaptı).
@@ -459,10 +463,17 @@ class Session:
                 run.append(line)
             else:
                 if len(run) >= 3:
-                    for i in range(0, len(run), 3):
-                        window = run[max(0, i - 1):i + 5]
+                    # Tablo başlık satırı (koşunun ilk hücreleri) her pencereye
+                    # önek olur — sütun adları satırdan kopunca "Orta" hangi
+                    # niteliğin değeri bilinemiyordu. Başlık değilse zararsız
+                    # fazladan bağlam.
+                    header = " · ".join(run[:6])
+                    for i in range(0, len(run), 2):
+                        window = run[max(0, i - 1):i + 6]
                         if len(window) >= 2:
-                            self.evidence.add(" · ".join(window), source)
+                            row = " · ".join(window)
+                            self.evidence.add(f"{header} — {row}" if i else row,
+                                              source)
                 run = []
 
         def _read(sent):
@@ -585,7 +596,15 @@ class Session:
         records = retrieve.gather(self.memory, subject, associative=False)
         # KANIT (temsil-darlığı düzeltmesi): soruyla kesişen doküman cümleleri —
         # üçlüye sığmayan sayı/aralık/nüans buradan gelir. Graf yapı, cümle kanıt.
-        proof = self.evidence.find(f"{subject_label or ''} {question}", most=4)
+        proof = self.evidence.find(f"{subject_label or ''} {question}", most=6)
+        if proof and len(proof) < 4:
+            # İKİ-SEKME (yalnız kanıt AZKEN): en iyi kanıtın sözcükleriyle ikinci
+            # arama — kompozisyon soruları iki ayrı bölümün birleşimini ister.
+            # İlk arama zaten doluysa ikinci sekme tablo-kırıntısı ekleyip cevabı
+            # yoldan çıkarıyordu (hastane izi) — bolluk varken dokunma.
+            for extra in self.evidence.find(f"{proof[0]} {question}", most=4):
+                if extra not in proof and len(proof) < 6:
+                    proof.append(extra)
         # GERÇEK BOŞLUK (gaps sinyali) — grafta bu özne hakkında HİÇ olgu YOKSA,
         # araştırmayı ÜRETİMDEN ÖNCE teklif et. Böylece modelin nazik "bilmiyorum"u
         # (verify'ı geçip safe'i doldurur) teklifi ENGELLEMEZ (Bug #2). Boşluk =
@@ -611,18 +630,40 @@ class Session:
                 targeted.append(r)
         if targeted:
             records = targeted + [r for r in records if r not in targeted]
-        # Olgu ve/veya KANIT var → grounded cevap + çıkış kapısı
+        # Olgu ve/veya KANIT var → grounded cevap + çıkış kapısı.
+        # KANIT ÖNCE: tam cümle taşır; düzyazıdan çıkan üçlüler kırıntı olabilir
+        # ("projeler → en kolay") ve blokta önde durunca cevabı yoldan çıkarıyordu
+        # (hastane izi). Graf kayıtları desteğe iner.
+        if proof:
+            # Kanıt varken DOKÜMAN-kaynaklı üçlüler bloğa GİRMEZ: düzyazı
+            # çıkarımı kırıntı üretebiliyor ("projeler → en kolay") ve yutma
+            # varyansıyla cevabı koşudan koşuya değiştiriyordu. Kanıt aynı
+            # dokümanın TAM cümlesi — bilgi kaybı yok, istikrar var. Operatör/
+            # çıkarım kayıtları (sohbette öğretilen, türetilen) blokta kalır.
+            records = [r for r in records
+                       if not str(r.source).startswith("#doc")]
         block = retrieve.facts_block(self.memory, records) if records else ""
         if proof:
             proof_block = "\n".join(f"[K{i}] {s}"
                                     for i, s in enumerate(proof, 1))
-            block = (block + "\n" + proof_block) if block else proof_block
+            block = (proof_block + "\n" + block) if block else proof_block
         raw = generate.answer(question, block)
         # SÖZCÜK-KAPSAMA kapısı (nedensel yoldakiyle aynı ilke): cevabın tüm
         # içerik-sözcükleri verilen blok+sorudan geliyorsa YENİ iddia yoktur —
         # uydurma yapısal olarak imkânsız → geç. (Kanıt cümlelerindeki sayı/
         # aralık cevapları eski üçlü-verify'dan geçemezdi; kapsama geçirir.)
-        if evidence.covered(raw or "", block, question):
+        if evidence.covered(raw or "", block, question) and (
+                not proof or generate.supported(raw, block)):
+            # KANIT-temelli HER cevap destek denetiminden geçer (yalnız rakamlı
+            # değil): tablo hücreleri sütunsuz gezerken "Orta" yanlış niteliğe
+            # yapışabiliyordu — kapsama sözcük görür, bağlanmayı denetçi görür.
+            safe = raw
+        elif raw and proof and evidence.digits_present(raw, block) \
+                and generate.supported(raw, block):
+            # İKİNCİ KADEME: sözcük-kapsaması masum anlatım sözcüklerine
+            # ("olarak", "belirtilmiştir") takıldı ama rakamlar sağlam VE motor
+            # destek denetimi "kanıt bunu söylüyor" dedi → geç. Rakam ihlalini
+            # bu kademe kurtaramaz (digits_ok önce, pazarlıksız).
             safe = raw
         else:
             allowed = verify.allowed_of(self.memory, records)

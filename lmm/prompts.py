@@ -39,6 +39,14 @@ Answer the user's question using ONLY the FACTS listed below. Do NOT add facts
 that are not in the list. If the facts do not answer the question, say you don't
 know — never invent.
 
+SPECIFICITY: if the question asks for a SPECIFIC item (a name, a number, a
+date, a place) and the facts do not CONTAIN that specific item, say you don't
+know. Do not answer with a generic restatement ("it was prepared for a
+hospital" is NOT an answer to "which hospital?").
+When facts from several list rows together imply the answer, COMBINE them
+(e.g. one row says project 07 is high priority, another lists 07 among the
+recommended projects -> name project 07).
+
 STYLE (important):
 - Answer in ONE short, natural sentence — a real sentence with a verb.
 - NEVER copy the raw fact rows: do not output the "→" arrow or the [n] numbers.
@@ -46,6 +54,17 @@ STYLE (important):
   question "kartal nedir" -> "Kartal bir kuştur.").
 - Do NOT explain your reasoning or add meta-commentary about the question.
 - Reply ONLY in the SAME LANGUAGE as the question — never mix in another language."""
+
+
+# DESTEK DENETİMİ: kapsama kapısı sözcükte takılırsa ikinci kademe —
+# "kanıt bu iddiayı gerçekten söylüyor mu". Sıkı: şüphede no.
+SUPPORT_SYSTEM = """You are a strict fact checker. You get EVIDENCE and a CLAIM.
+Answer ONLY "yes" or "no".
+
+"yes" ONLY if the EVIDENCE explicitly states everything the CLAIM asserts —
+same entities, same relations, same numbers. Paraphrase is fine; NEW
+information, reversed relations, negation flips or changed numbers are not.
+If you are unsure, answer "no"."""
 
 
 # SOHBET: selam/teşekkür/küçük konuşma. Olgu iddiası taşımasın (verify süzer).

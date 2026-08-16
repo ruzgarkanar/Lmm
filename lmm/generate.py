@@ -83,6 +83,18 @@ def are_rivals(a, b):
 # sistemin kendi ağzında da tutar; İngilizce derse İngilizce, Almanca derse
 # Almanca teyit/ret alır.
 
+def supported(answer, block):
+    """İKİNCİ-KADEME destek denetimi: kanıt bloğu bu cevabı GERÇEKTEN söylüyor
+    mu — kapsama kapısı masum anlatım sözcüklerine ('olarak', 'belirtilmiştir')
+    takıldığında çağrılır. Rakam disiplini (digits_ok) BU denetimden ÖNCE ve
+    pazarlıksız; burası yalnız sözcük-düzeyi kalıntıyı yargılar. Sıkı: şüphede
+    no → cevap düşer (yanlış-negatif güvenli, yanlış-pozitif tehlikeli)."""
+    out = runtime.generate(f"EVIDENCE:\n{block}\n\nCLAIM: {answer}",
+                           system=prompts.SUPPORT_SYSTEM, max_tokens=4,
+                           temperature=0.0)
+    return out.strip().lower().startswith("yes")
+
+
 def hedge_note(source_label, message):
     """Kullanıcının dilinde KISA bir çekince NOTU üretir (olgu YOK; yalnız 'bu
     bilgi şu kaynaktan, emin değilim' anlamı). Doğrulanmış cevaba EKLENİR; cevabın
