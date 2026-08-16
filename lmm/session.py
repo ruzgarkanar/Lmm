@@ -58,6 +58,7 @@ class Session:
         self._rival_cache = {}
         self.gate.rival = self._are_rivals
         self._pending = None    # araştırma teklif edilen özne (önce-sor akışı)
+        self.last_written = []  # bu turda kapının kabul ettiği üçlüler (hasat)
         self.history = []       # KISA-VADELİ konuşma bağlamı (son N tur) — graf
         # uzun-vadeli hafıza; bu, "az önce ne konuştuk" bağlamı (sohbet sürekliliği)
         self.who = who
@@ -233,7 +234,11 @@ class Session:
 
     def respond(self, message):
         """Bir mesaja cevap + KONUŞMA BAĞLAMINI günceller. Asıl mantık _respond'da;
-        bu sarmalayıcı son N turu `history`'de tutar (sohbet sürekliliği)."""
+        bu sarmalayıcı son N turu `history`'de tutar (sohbet sürekliliği).
+        `last_written`: bu turda KAPININ kabul ettiği üçlüler — konsolidasyon
+        hasadı için (kapı-onaylı = güvenilir eğitim hedefi; modelin kendi ham
+        çıktısı DEĞİL)."""
+        self.last_written = []
         said = self._respond(message)
         if message and message.strip():
             self.history.append({"role": "user", "content": message})
@@ -375,6 +380,12 @@ class Session:
             if record is not None:
                 wrote.append((link.label_of(self.memory, sk),
                               link.label_of(self.memory, vk)))
+                # konsolidasyon hasadı: kapıdan geçen ADAY üçlünün kendisi
+                # (düğüm etiketi DEĞİL — düğüm yanlış-birleşmiş olabilirdi ve
+                # extractor'a girdide olmayan metin üretmek öğretilirdi;
+                # code-review bulgusu #3). Bunlar extract._clean çıktısı:
+                # fold'lu, mesajla topraklanmış.
+                self.last_written.append((subject, predicate or "", value))
                 # TÜRETME (geçişli akıl): "kartal→kuş, kuş→hayvan ⊢ kartal→
                 # hayvan". Geçişlilik veriden öğrenilir (≥2 tanıklı üçgen),
                 # çıkarım #inference kaynağıyla düşük güvenle yazılır. Bu,
@@ -397,6 +408,48 @@ class Session:
         # yazıldığı için teyit güvenli.
         said = generate.confirm(wrote, conflicts, message)
         return said or "OK"
+
+    # --- doküman yutma (RAG'siz öğrenme) --------------------------------
+    def learn_text(self, text, source="#document"):
+        """Bir METNİ (doküman/paragraf) grafa yut — embed/chunk-RAG'in yerine.
+
+        RAG metni saklayıp sorguda benzerlikle PARÇA arar; LMM metni bir kez
+        OKUYUP olgulara çevirir, kapıdan yazar — cevap sorguda ms graf-yürüyüşü,
+        çok-adımlı türetim bedava (RAG parça-birleştiremez). Cümle cümle:
+        reextract (olgu iddiaları; selam/yorum → []) → _write ile aynı korumalar
+        (topraklama, öz-döngü) → DOCUMENT güveni (CERTAIN altı → cevapta
+        kaynak-etiketli, operatör olgusunu ezemez). Dönen: (yazılan, atlanan)."""
+        wrote, skipped = 0, 0
+        seen = set()          # _write ile aynı: aynı üçlü iki cümlede geçerse
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?;])\s+|\n+", text)
+                     if s.strip()]
+        for sent in sentences:
+            for subject, predicate, value in extract.reextract(sent):
+                if not value or not _grounded_in(value, sent):
+                    skipped += 1
+                    continue
+                sk = link.resolve(self.memory, subject, self.vectors,
+                                  create=True)
+                vk = link.resolve(self.memory, value, self.vectors,
+                                  create=True)
+                if sk is None or vk is None or sk == vk or (sk, vk) in seen:
+                    skipped += 1
+                    continue
+                seen.add((sk, vk))
+                pk = (link.resolve(self.memory, predicate, self.vectors,
+                                   create=True) if predicate else None)
+                record, _ = self.gate.admit(sk, pk, vk, source, DOCUMENT)
+                if record is None:
+                    skipped += 1
+                    continue
+                wrote += 1
+                self._learn_transitive(pk)
+                if pk in self.memory.transitive:
+                    self._derive(sk, pk, vk)
+        if wrote:
+            self.memory.lived(f"document:{source}:{wrote}", outcome=1.0,
+                              about=[self.memory.self_key])
+        return wrote, skipped
 
     # --- türetme (geçişli akıl — v3'ten) -------------------------------
     def _learn_transitive(self, predicate):

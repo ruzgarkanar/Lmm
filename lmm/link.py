@@ -38,6 +38,18 @@ def resolve(memory, label, vectors=None, create=False):
             if len(root) >= 5 and label.startswith(root) \
                     and 0 < len(label) - len(root) <= 3:
                 return other
+            # TERS YÖN — YALNIZ YAZARKEN (create=True). Var olan düğüm çekimli
+            # açılmış olabilir ("metaldir" önce değer olarak geldi), sonra kök
+            # gelir ("metal" özne) — tek yönlü bakış iki düğüm açıp geçişli
+            # zinciri koparıyordu. AMA doğrulama/okuma yolunda (create=False)
+            # bu eşleme KAPALI: grafta yalnız "şekersiz" varken Qwen'in "şeker
+            # ..." iddiası yanlış düğümün kenarıyla "destekli" sayılırdı —
+            # uydurma-0 deliği (code-review bulgusu #1). Yazarken eşleşince kök
+            # ALIAS olarak kimliğe eklenir; sonraki okumalar kör tarama değil,
+            # meşru etiket eşleşmesiyle bulur. F5 korumaları aynen.
+            if create and len(label) >= 5 and root.startswith(label) \
+                    and 0 < len(root) - len(label) <= 3:
+                return memory.identify(label, same_as=other)
     if create:
         return memory.identify(label, vector=vec)
     return None

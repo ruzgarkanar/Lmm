@@ -3,8 +3,21 @@ KAPIYA aday olarak girer (session/verify karar verir). reader.py'nin yerini
 alır; sözleşme aynı kalır (kind + üçlüler) ki session mantığı bozulmasın.
 """
 import json
+import unicodedata
 
+from v3.dataset import fold
 from lmm import prompts, runtime
+
+
+def _fold(text):
+    """fold + görünmez-birleşen-im temizliği. Qwen JSON'unda 'i̇çecek' gibi
+    (i + U+0307) diziler ÜRETEBİLİYOR — görünmez nokta ayrı graf düğümü açar,
+    zincirler sessizce kopar. Önce NFC (gerçek aksanlar tek koda birleşir:
+    ç/ö/ü/é korunur), sonra ARTAKALAN birleşen imler atılır (birleşemeyenler
+    bu tür çöptür). Dil kuralı değil — Unicode'un kendi tablosu."""
+    text = unicodedata.normalize("NFC", str(text))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return fold(text)
 
 WRITE, ASK, CHAT = "WRITE", "ASK", "CHAT"
 
@@ -56,7 +69,10 @@ def _clean(triples):
             continue
         subject, predicate, value = parts
         if subject:
-            out.append((subject.lower(), predicate.lower(), value.lower()))
+            # _fold, .lower() DEĞİL: 'İçecek'.lower() → 'i̇çecek' (görünmez
+            # U+0307) ayrı düğüm açıp zincirleri koparıyordu; _fold hem bunu
+            # hem Qwen'in hazır ürettiği birleşen imleri temizler.
+            out.append((_fold(subject), _fold(predicate), _fold(value)))
     return out
 
 
