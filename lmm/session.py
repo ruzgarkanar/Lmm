@@ -424,6 +424,15 @@ class Session:
         sentences = [s.strip() for s in re.split(r"(?<=[.!?;])\s+|\n+", text)
                      if s.strip()]
         for sent in sentences:
+            # NEDENSELLİK de dokümandan öğrenilir ("Yağmur yağarsa bataklık
+            # büyür") — benchmark bunu yakaladı: is_causal yalnız sohbet
+            # yolundaydı, dokümandaki neden-sonuç hiç yutulmuyordu.
+            causal = generate.is_causal(sent)
+            if causal and _grounded_in(causal[0], sent) \
+                    and _grounded_in(causal[1], sent):
+                self.learn_cause(causal[0], causal[1], source=source)
+                wrote += 1
+                continue
             for subject, predicate, value in extract.reextract(sent):
                 if not value or not _grounded_in(value, sent):
                     skipped += 1
@@ -513,6 +522,20 @@ class Session:
                 offer = generate.offer_research(subject_label, question)
                 return offer or generate.refusal(question) or BILMIYORUM
             return generate.refusal(question) or BILMIYORUM
+        # HEDEFLİ KENAR (çok-adım — benchmark bulgusu): soruda ikinci bir
+        # BİLİNEN kavram geçiyorsa ("zilfen bir canlı mıdır" → 'canlı') ve graf
+        # o kenarı biliyorsa (türetilmiş dahil), o kaydı ÖNE al — graf türetmişti
+        # ama cevap seçici başka olguyu seslendiriyordu. Saf graf, ms, dil yok.
+        qwords = {fold(w) for w in re.findall(r"\w+", question) if len(w) >= 3}
+        qwords.discard(fold(subject_label or ""))
+        targeted = []
+        for r in records:
+            vlab = fold(link.label_of(self.memory, r.value))
+            if vlab and any(w == vlab or vlab.startswith(w) or w.startswith(vlab)
+                            for w in qwords):
+                targeted.append(r)
+        if targeted:
+            records = targeted + [r for r in records if r not in targeted]
         # Olgu VAR → grounded cevap + çıkış kapısı
         block = retrieve.facts_block(self.memory, records)
         raw = generate.answer(question, block)

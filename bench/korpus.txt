@@ -1,0 +1,34 @@
+Nortlann Adası Doğa ve Kaynak Rehberi
+
+Zerbalit bir metaldir. Metal bir maddedir. Zerbalit bir maddedir.
+Kelvit bir metaldir. Kelvit bir maddedir.
+Torvanit bir metaldir. Zerbalit mavi renklidir. Kelvit gri renklidir.
+Torvanit ısıtılırsa yeşil alev çıkar.
+
+Vorlin bir içecektir. İçecek bir sıvıdır. Selvin bir içecektir.
+Selvin bir sıvıdır. Vorlin norgul bitkisinden yapılır.
+Selvin soğuk içilir. Vorlin sıcak içilir.
+
+Morlan bir kuştur. Kuş bir canlıdır. Morlan bir canlıdır.
+Zilfen bir kuştur. Karvel bir balıktır. Balık bir canlıdır.
+Karvel bir canlıdır. Morlan gece uçar. Zilfen gündüz uçar.
+Karvel derin suda yaşar. Morlan norgul tohumu yer.
+
+Norgul bir bitkidir. Bitki bir canlıdır. Norgul bir canlıdır.
+Telvas bir bitkidir. Telvas bir canlıdır. Norgul bataklıkta yetişir.
+Telvas kayalıkta yetişir. Norgul beyaz çiçek açar.
+Telvas kırmızı çiçek açar.
+
+Nortlann bir adadır. Velmar bir köydür. Doruk bir köydür.
+Velmar adanın kuzeyindedir. Doruk adanın güneyindedir.
+Zerbalit Velmar yakınında çıkarılır. Kelvit Doruk yakınında çıkarılır.
+
+Yağmur yağarsa bataklık büyür. Bataklık büyürse norgul çoğalır.
+Norgul çoğalırsa morlan çoğalır. Kuraklık olursa telvas kurur.
+
+Adada dört mevsim yaşanır. Kışın kar yağar. Yazın fırtına olur.
+Velmar köyünde balıkçılık yapılır. Doruk köyünde madencilik yapılır.
+Adanın ortasında büyük bir göl vardır. Gölün suyu tatlıdır.
+Karvel gölde de görülür. Zilfen göl kıyısında yuva yapar.
+Adaya tekneyle ulaşılır. Ada haritalarda küçük görünür.
+Rehber her yıl güncellenir. Rehberi adalılar yazar.
