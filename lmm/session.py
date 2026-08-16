@@ -20,7 +20,7 @@ from v3 import dynamics
 from v3.dataset import fold
 from v3.gate import Gate
 from v3.memory import Memory, OPERATOR, STRANGER, DOCUMENT
-from lmm import extract, generate, link, research, retrieve, verify
+from lmm import evidence, extract, generate, link, research, retrieve, verify
 
 SLEEP_EVERY = 50   # kaç turda bir uyku (damıt/sol/hakemle) — v3 §117
 
@@ -75,6 +75,9 @@ class Session:
         # ilişki-tipini karıştırmasın. Etiket dil-nötr (#causes).
         self._causes_key = link.resolve(self.memory, "#causes", self.vectors,
                                         create=True)
+        # KANIT DEPOSU — doküman cümleleri (üçlüye sığmayan sayı/aralık/nüans
+        # kaybolmasın; temsil-darlığı düzeltmesi). Graf yapı, cümle kanıt.
+        self.evidence = evidence.SentenceStore.load(path)
 
     def _seed_identity(self):
         """KİMLİK grafa olgu olarak: (lmm → üretici → rüzgar). Böylece kimlik
@@ -188,11 +191,7 @@ class Session:
         # geliyorsa yeni iddia YOKTUR → uydurma yapısal olarak imkânsız, geç.
         # Dışına çıkan sözcük varsa eski sıkı verify işler. Dil kuralı değil —
         # küme kapsaması.
-        given = {fold(w) for w in re.findall(r"\w+", block + " " + message)
-                 if len(w) >= 3}
-        raw_words = {fold(w) for w in re.findall(r"\w+", raw or "")
-                     if len(w) >= 3}
-        if raw_words and raw_words <= given:
+        if evidence.covered(raw or "", block + " " + message):
             return raw
         allowed = set()
         for c, e in edges:
@@ -437,25 +436,70 @@ class Session:
         #                       sessiz atlama YOK, çağıran görür (dürüstlük)
         sentences = [s.strip() for s in re.split(r"(?<=[.!?;])\s+|\n+", text)
                      if s.strip()]
+        # KANIT: her cümle depoya girer — üçlüye sığmayan sayı/aralık/nüans
+        # cevap anında kanıt olarak geri gelir (temsil-darlığı düzeltmesi).
         for sent in sentences:
-            wrote_before = wrote
-            # NEDENSELLİK de dokümandan öğrenilir ("Yağmur yağarsa bataklık
-            # büyür") — benchmark bunu yakaladı: is_causal yalnız sohbet
-            # yolundaydı, dokümandaki neden-sonuç hiç yutulmuyordu.
+            self.evidence.add(sent, source)
+        # BAĞLAM PENCERELERİ: komşu cümleler birlikte de indekslenir — "Uyarı:
+        # Eşik ayarı..." cümlesi 'sepsis' sözcüğünü taşımaz ama bölümü taşır;
+        # tek-cümle taneciği bölüm bağlamını kaybediyordu (hastane bulgusu).
+        for i in range(0, max(1, len(sentences) - 2), 2):
+            window = " ".join(sentences[i:i + 3])
+            if len(window) > len(sentences[i]):
+                self.evidence.add(window, source)
+        # TABLO ONARIMI (kanıt-yalnız): PDF tabloları satır satır parçalanır —
+        # "Dijital patoloji" ile tier hücresi "3" ayrı düşer, model yanlış sayı
+        # kapar (hastane testi bulgusu; RAG de aynı tabloda aynı hatayı yaptı).
+        # Ardışık KISA satırlar (hücreler) kayan pencereyle birleştirilir ki
+        # satır-komşuluğu kanıtta korunuyor olsun. Dil kuralı yok — uzunluk.
+        lines = [l.strip() for l in text.split("\n")]
+        run = []
+        for line in lines + [""]:
+            if line and len(line) <= 40:
+                run.append(line)
+            else:
+                if len(run) >= 3:
+                    for i in range(0, len(run), 3):
+                        window = run[max(0, i - 1):i + 5]
+                        if len(window) >= 2:
+                            self.evidence.add(" · ".join(window), source)
+                run = []
+
+        def _read(sent):
+            """Bir cümlenin SAF-OKUMA aşaması (model çağrıları; graf'a dokunmaz
+            → paralel-güvenli). Dönen: (cümle, causal|None, üçlüler)."""
             causal = generate.is_causal(sent)
             if causal and _grounded_in(causal[0], sent) \
                     and _grounded_in(causal[1], sent):
-                self.learn_cause(causal[0], causal[1], source=source)
-                wrote += 1
-                continue
+                return sent, causal, []
             triples = extract.reextract(sent)
             if not triples:
                 # İKİNCİ OKUMA (okuma güvencesi): reextract boş döndüyse öteki
-                # istemle dene — benchmark'ta koşudan koşuya değişen "karvel
-                # kayboldu" sınıfı buradan geliyordu (tek istem, tek şans).
+                # istemle dene — tek istem tek şanstı, "karvel kayboldu" sınıfı.
                 second = extract.extract(sent)
                 if second["kind"] == extract.WRITE:
                     triples = second["triples"]
+            return sent, None, triples
+
+        # PARALEL OKUMA: cümleler bağımsız — API backend'de eşzamanlı okunur
+        # (20 dk → dakikalar). Yerel motor paralel-güvenli değil → 1 işçi.
+        backend = os.environ.get("LMM_BACKEND", "")
+        workers = int(os.environ.get("LMM_INGEST_WORKERS",
+                                     "8" if backend == "azure" else "1"))
+        if workers > 1:
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                readings = list(pool.map(_read, sentences))
+        else:
+            readings = [_read(s) for s in sentences]
+
+        # SERİ YAZMA: graf/kapı tek-iş parçacıklı — sıra korunur.
+        for sent, causal, triples in readings:
+            wrote_before = wrote
+            if causal:
+                self.learn_cause(causal[0], causal[1], source=source)
+                wrote += 1
+                continue
             for subject, predicate, value in triples:
                 if not value or not _grounded_in(value, sent):
                     skipped += 1
@@ -536,12 +580,15 @@ class Session:
         # associative=False: cevap YALNIZ doğrudan olgulardan kurulur (kenar-
         # denetimiyle uyum — bkz. retrieve.gather / verify._has_edge).
         records = retrieve.gather(self.memory, subject, associative=False)
+        # KANIT (temsil-darlığı düzeltmesi): soruyla kesişen doküman cümleleri —
+        # üçlüye sığmayan sayı/aralık/nüans buradan gelir. Graf yapı, cümle kanıt.
+        proof = self.evidence.find(f"{subject_label or ''} {question}", most=4)
         # GERÇEK BOŞLUK (gaps sinyali) — grafta bu özne hakkında HİÇ olgu YOKSA,
         # araştırmayı ÜRETİMDEN ÖNCE teklif et. Böylece modelin nazik "bilmiyorum"u
         # (verify'ı geçip safe'i doldurur) teklifi ENGELLEMEZ (Bug #2). Boşluk =
         # merak = araştır. Olgu varken buraya girilmez → bildiğini araştırmaya
-        # kaçmaz.
-        if not records:
+        # kaçmaz. KANIT varsa boşluk sayılmaz — cümleden cevaplanır.
+        if not records and not proof:
             if subject_label:
                 self._pending = (subject_label, question)   # önce-sor
                 offer = generate.offer_research(subject_label, question)
@@ -561,22 +608,35 @@ class Session:
                 targeted.append(r)
         if targeted:
             records = targeted + [r for r in records if r not in targeted]
-        # Olgu VAR → grounded cevap + çıkış kapısı
-        block = retrieve.facts_block(self.memory, records)
+        # Olgu ve/veya KANIT var → grounded cevap + çıkış kapısı
+        block = retrieve.facts_block(self.memory, records) if records else ""
+        if proof:
+            proof_block = "\n".join(f"[K{i}] {s}"
+                                    for i, s in enumerate(proof, 1))
+            block = (block + "\n" + proof_block) if block else proof_block
         raw = generate.answer(question, block)
-        allowed = verify.allowed_of(self.memory, records)
-        safe = verify.verify(self.memory, raw, allowed, self.mode, anchor="edge")
-        if not safe:
-            # olgu var ama üretim tökezledi (MPS/örnekleme) → bir kez yeniden dene;
-            # yine düşerse bildiğini "araştırayım mı" diye SORMAZ, güvenli reddeder.
-            safe = verify.verify(self.memory, generate.answer(question, block),
-                                 allowed, self.mode, anchor="edge")
+        # SÖZCÜK-KAPSAMA kapısı (nedensel yoldakiyle aynı ilke): cevabın tüm
+        # içerik-sözcükleri verilen blok+sorudan geliyorsa YENİ iddia yoktur —
+        # uydurma yapısal olarak imkânsız → geç. (Kanıt cümlelerindeki sayı/
+        # aralık cevapları eski üçlü-verify'dan geçemezdi; kapsama geçirir.)
+        if evidence.covered(raw or "", block + " " + question):
+            safe = raw
+        else:
+            allowed = verify.allowed_of(self.memory, records)
+            safe = verify.verify(self.memory, raw, allowed, self.mode,
+                                 anchor="edge")
             if not safe:
-                return generate.refusal(question) or BILMIYORUM
+                # üretim tökezledi → bir kez yeniden dene; yine düşerse güvenli ret.
+                safe = verify.verify(self.memory,
+                                     generate.answer(question, block),
+                                     allowed, self.mode, anchor="edge")
+                if not safe:
+                    return generate.refusal(question) or BILMIYORUM
         # KAYNAK-GÜVEN (en sıkı): en zayıf olgu CERTAIN altındaysa kaynak+çekince.
-        weakest = min(records, key=lambda r: r.trust)
-        if weakest.trust < CERTAIN:
-            safe = self._hedge(safe, weakest, question) or safe
+        if records:
+            weakest = min(records, key=lambda r: r.trust)
+            if weakest.trust < CERTAIN:
+                safe = self._hedge(safe, weakest, question) or safe
         return safe
 
     def _hedge(self, answer, record, message):
@@ -681,3 +741,4 @@ class Session:
     def save(self):
         if self.path:
             self.memory.save(self.path)
+            self.evidence.save(self.path)

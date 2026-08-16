@@ -11,6 +11,10 @@ Classify `kind`:
 - "ASK":   the user asks about something    (e.g. "kartal nedir")
 - "CHAT":  greeting, thanks, small talk, no fact (e.g. "selam", "teşekkürler")
 
+IMPORTANT: if the message ASKS anything — even when it mentions facts or
+numbers inside the question ("doluluğu %65'ten kaça çıkarmak gerekir?") —
+kind is "ASK", never "WRITE". A question is never teaching.
+
 Extract fact triples [subject, relation, value]:
 - subject = the entity the message is about (a noun, lowercase)
 - relation = the relation word if clear (e.g. "tür", "özellik"), else ""
@@ -60,12 +64,18 @@ Keep replies short and friendly."""
 # GERİ-ÇIKARIM (doğrulama kapısı): üretilen cümledeki olgu iddialarını çıkar.
 REEXTRACT_SYSTEM = """Read one sentence (in ANY language) and output STRICT JSON only:
 the factual claims it makes as triples [subject, relation, value].
-subject/value are nouns (lowercase). If the sentence makes no factual claim
-(greeting, opinion, "I don't know", connective), output {"triples":[]}.
+subject is a noun phrase (lowercase, SHORT — never the whole sentence).
+relation is whatever the sentence asserts: category, property, quantity,
+percentage, location, time, risk, requirement — ANY relation, in the
+sentence's own language. value may be a number, a range, or a phrase.
+If the sentence makes no factual claim (greeting, opinion, "I don't know",
+connective, heading), output {"triples":[]}.
 
 Output ONLY: {"triples":[["subject","relation","value"]]}
 
 Examples:
 "Kartal bir kuştur." -> {"triples":[["kartal","tür","kuş"]]}
+"Çekim süresini %30-50 kısaltır." -> {"triples":[["çekim süresi","kısaltma","%30-50"]]}
+"Dijital patoloji Tier 3 içindedir." -> {"triples":[["dijital patoloji","tier","3"]]}
 "Rica ederim, başka bir şey var mı?" -> {"triples":[]}
 "Bunu bilmiyorum." -> {"triples":[]}"""

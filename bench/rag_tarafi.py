@@ -40,11 +40,12 @@ def main():
         def embed_query(self, text):
             return self.m.encode([text], normalize_embeddings=True)[0].tolist()
 
-    corpus = open(os.path.join(ROOT, "bench", "korpus.txt"),
+    import sys
+    corpus = open(sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "bench", "korpus.txt"),
                   encoding="utf-8").read()
     t0 = time.time()
     chunks = RecursiveCharacterTextSplitter(
-        chunk_size=200, chunk_overlap=40).split_text(corpus)
+        chunk_size=500, chunk_overlap=80).split_text(corpus)
     store = Chroma.from_texts(chunks, STEmbed())
     ingest_ms = round((time.time() - t0) * 1000)
     print(f"ingest: {len(chunks)} parça, {ingest_ms}ms", flush=True)
@@ -56,7 +57,7 @@ def main():
         azure_deployment=os.environ["AZURE_OPENAI_DEPLOYMENT"],
         temperature=0)
 
-    questions = json.load(open(os.path.join(ROOT, "bench", "sorular.json"),
+    questions = json.load(open(sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "bench", "sorular.json"),
                                encoding="utf-8"))
     results = []
     for q in questions:
@@ -73,7 +74,7 @@ def main():
         results.append({"soru": q["soru"], "cevap": msg.content, "ms": ms})
         print(f"> {q['soru']}\n  {msg.content}   ({ms}ms)", flush=True)
 
-    out = os.path.join(ROOT, "bench", "sonuc_rag.json")
+    out = sys.argv[3] if len(sys.argv) > 3 else os.path.join(ROOT, "bench", "sonuc_rag.json")
     json.dump({"ingest_ms": ingest_ms, "cevaplar": results},
               open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(f"→ {out}", flush=True)

@@ -41,11 +41,13 @@ def score(path, questions):
 
 
 def main():
-    questions = json.load(open(os.path.join(ROOT, "bench", "sorular.json"),
-                               encoding="utf-8"))
+    qpath = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "bench", "sorular.json")
+    questions = json.load(open(qpath, encoding="utf-8"))
+    global RAG_YOL, LMM_YOL
+
     for name, path in (("RAG (langchain+embedding+gpt-4o-mini)",
-                        "bench/sonuc_rag.json"),
-                       ("LMM (graf+kapı+yerel-3B)", "bench/sonuc_lmm.json")):
+                        sys.argv[2] if len(sys.argv) > 2 else "bench/sonuc_rag.json"),
+                       ("LMM (graf+kapı+yerel-3B)", sys.argv[3] if len(sys.argv) > 3 else "bench/sonuc_lmm.json")):
         full = os.path.join(ROOT, path)
         if not os.path.exists(full):
             print(f"{name}: sonuç yok ({path})"); continue
