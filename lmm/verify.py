@@ -21,6 +21,7 @@ bağımsızlık Qwen-dışı bir varlık-çıkarıcı ister — sonraki iş.
 
 Mod: STRICT (desteksiz cümle düşer) · ASSIST (‹doğrulanmamış› işaretlenir).
 """
+import os
 import re
 
 from lmm import extract, link
@@ -70,6 +71,17 @@ def _has_edge(memory, sk, vk, v_label=None):
                 for a in want:
                     for b in have:
                         if a == b or a.startswith(b) or b.startswith(a):
+                            return True
+                        # TEK-HARF GARBLING TOLERANSI: motor "meyvedir"i
+                        # "meyvedır" yazabiliyor (LoRA ünlü-uyumu hatası) ve
+                        # DOĞRU cevap düşüyordu ("zeytin nedir"→"bilmiyorum").
+                        # Ölçüt link.resolve'la aynı sıkılıkta: ortak önek >=5
+                        # VE iki artık da <=3. GÜVENLİ: hâlâ yalnız öznenin
+                        # KENDİ değerlerine bakar — başka düğüme ilişki
+                        # uyduramaz (blast radius = aynı öznenin değerleri).
+                        common = os.path.commonprefix((a, b))
+                        if len(common) >= 5 and len(a) - len(common) <= 3 \
+                                and len(b) - len(common) <= 3:
                             return True
     return False
 

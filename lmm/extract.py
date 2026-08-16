@@ -76,16 +76,39 @@ def _clean(triples):
     return out
 
 
+def _malformed(subject, value):
+    """Özne cümleyi YUTMUŞ mu — "aslan bir memelidir" öznesi 'aslan bir
+    memelidir' olursa düğüm etiketi cümle olur ve "aslan nedir" onu asla
+    bulamaz (sessiz kayıp). Yapısal ölçüt: değerin sözcükleri öznenin İÇİNDE.
+    Dil kuralı değil — küme bakışı."""
+    if not (subject and value):
+        return False
+    sw = set(subject.split())
+    vw = set(value.split())
+    return bool(vw) and vw <= sw and len(sw) > len(vw)
+
+
 def extract(message):
     """Mesajı oku → {'kind': WRITE|ASK|CHAT, 'triples': [(s,p,v)]}.
-    Deterministik (temperature 0): aynı cümle aynı çıkarım."""
+    Deterministik (temperature 0): aynı cümle aynı çıkarım.
+
+    EMNİYET: özne-cümleyi-yutmuş üçlü önce reextract'la (farklı istem, daha
+    sağlam) onarılmaya çalışılır; o da veremezse üçlü DÜŞER — çöp düğüm açıp
+    "öğrendim" demektense dürüstçe öğrenememek (uydurma-0'ın yazma yüzü)."""
     raw = runtime.generate(message, system=prompts.EXTRACT_SYSTEM,
                            max_tokens=160, temperature=0.0)
     data = _json(raw)
     kind = str(data.get("kind", CHAT)).upper()
     if kind not in (WRITE, ASK, CHAT):
         kind = CHAT
-    return {"kind": kind, "triples": _clean(data.get("triples"))}
+    triples = _clean(data.get("triples"))
+    if kind == WRITE and any(_malformed(s, v) for s, _p, v in triples):
+        repaired = reextract(message)
+        if repaired:
+            triples = repaired
+        else:
+            triples = [t for t in triples if not _malformed(t[0], t[2])]
+    return {"kind": kind, "triples": triples}
 
 
 def reextract(sentence):
