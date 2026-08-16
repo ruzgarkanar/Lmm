@@ -131,12 +131,19 @@ class SentenceStore:
             if qw in self.index:
                 hits |= self.index[qw]
             else:
-                # önek toleransı — iki yönlü, kök>=4 (indeks küçükken ucuz)
+                # önek toleransı — iki yönlü, kök>=4 (indeks küçükken ucuz).
+                # GÖVDE eşleşmesi de: "hazırlandı"~"hazırlanma" birbirinin
+                # öneki değil ama ortak gövde 8/10 — sondan-eklemeli dilde
+                # aynı kavram (ölçüt oransal, dil-listesi yok).
                 for w, ids in self.index.items():
                     if len(qw) >= 4 and w.startswith(qw):
                         hits |= ids
                     elif len(w) >= 4 and qw.startswith(w):
                         hits |= ids
+                    else:
+                        common = os.path.commonprefix((qw, w))
+                        if len(common) >= max(4, min(len(qw), len(w)) - 2):
+                            hits |= ids
             for sid in hits:
                 scores[sid] = scores.get(sid, 0) + 1
         if not scores:
@@ -153,6 +160,11 @@ class SentenceStore:
         best = ranked[0][1]
         floor = max(1 if len(qwords) <= 2 else 2, best // 2)
         keep = [sid for sid, sc in ranked if sc >= floor][:most]
+        if not keep:
+            # taban her şeyi süpürdüyse en iyi 2'yi yine ver: "hiç kanıt yok"
+            # yanlışsa cevap kapılarına hiç şans tanımıyoruz demektir; zayıf
+            # kanıtı kapsama+destek denetimi zaten süzer.
+            keep = [sid for sid, _sc in ranked[:2]]
         self.last_sources = [self.sentences[sid][1] for sid in keep]
         return [self.sentences[sid][0] for sid in keep]
 
