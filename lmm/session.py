@@ -58,6 +58,8 @@ class Session:
         self._rival_cache = {}
         self.gate.rival = self._are_rivals
         self._pending = None    # araştırma teklif edilen özne (önce-sor akışı)
+        self.history = []       # KISA-VADELİ konuşma bağlamı (son N tur) — graf
+        # uzun-vadeli hafıza; bu, "az önce ne konuştuk" bağlamı (sohbet sürekliliği)
         self.who = who
         self.level = OPERATOR if who == "#operator" else STRANGER
         self.mode = mode
@@ -230,6 +232,16 @@ class Session:
         return chain            # [(sebep, sonuç)] kenarları — kök→yaprak zinciri
 
     def respond(self, message):
+        """Bir mesaja cevap + KONUŞMA BAĞLAMINI günceller. Asıl mantık _respond'da;
+        bu sarmalayıcı son N turu `history`'de tutar (sohbet sürekliliği)."""
+        said = self._respond(message)
+        if message and message.strip():
+            self.history.append({"role": "user", "content": message})
+            self.history.append({"role": "assistant", "content": said or ""})
+            self.history = self.history[-12:]     # son ~6 tur (kayan pencere)
+        return said
+
+    def _respond(self, message):
         """Bir mesaja cevap. Dönen daima metin; asla desteksiz olgu.
 
         Sağlamlık (kod-denetimi): boş mesaj korunur, tüm akış try/except içinde
@@ -511,7 +523,9 @@ class Session:
             f"{link.label_of(self.memory, r.subject)} "
             f"{link.label_of(self.memory, r.predicate)} → "
             f"{link.label_of(self.memory, r.value)}" for r in id_records)
-        raw = generate.chat(message, id_block)
+        # KONUŞMA BAĞLAMI: son turları da ver → sohbet sürekliliği ("araştır"ın
+        # neyi, "ne yapıyorsun"un bağlamı korunur). Uydurma yine verify'da süzülür.
+        raw = generate.chat(message, id_block, history=self.history)
         # Sohbette allowed = yalnız KİMLİK olguları. anchor="value": özne öz-
         # referanslı zamir (ben/beni) çözülemez, NESNE'nin (rüzgar) izinli olması
         # yeter; dış uydurma (Google) yine düşer. Bkz. verify.verify.
