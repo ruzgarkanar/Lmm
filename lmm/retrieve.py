@@ -21,7 +21,13 @@ def gather(memory, subject_key, most=4, associative=True):
     """
     if subject_key is None:
         return []
-    direct = [r for r in memory.about(subject_key) if r.trust >= SPEAK]
+    # #inference istisnası: türetilmiş olgu (INFERRED 0.35) SPEAK(0.4) altında
+    # ama SUSMAK yanlış — graf iki-tanıklı geçişlilikle türetti ("zilfen→canlı")
+    # ve benchmark'ta cevap "kuştur"a kaçıyordu. Türetilmiş olgu KONUŞULUR ama
+    # güveni CERTAIN altında olduğundan _hedge çekince notu ekler: "çıkarımıma
+    # göre..." — dürüst hem de yeteneği saklamayan davranış.
+    direct = [r for r in memory.about(subject_key)
+              if r.trust >= SPEAK or r.source == "#inference"]
     records = list(direct)
     if associative:
         for r in direct:                    # bir-hop: değerlerin çevresi
