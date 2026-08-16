@@ -66,6 +66,12 @@ class Session:
         if self.memory.self_key is None:
             self.memory.self_key = self.memory.identify("#self")
         self._identity = self._seed_identity()
+        # NEDENSELLİK yüklemi — nedensel olgu (sebep→sonuç) NORMAL Record olarak
+        # bu ayrılmış yüklemle durur; tüm kapı/verify/ters-indeks/türetme makinesini
+        # bedava miras alır. is-a'dan (tür) FİZİKSEL olarak ayrı → verify/çelişki
+        # ilişki-tipini karıştırmasın. Etiket dil-nötr (#causes).
+        self._causes_key = link.resolve(self.memory, "#causes", self.vectors,
+                                        create=True)
 
     def _seed_identity(self):
         """KİMLİK grafa olgu olarak: (lmm → üretici → rüzgar). Böylece kimlik
@@ -122,6 +128,62 @@ class Session:
                     break
                 frontier = nxt
         return False
+
+    # --- NEDENSELLİK (ms, sembolik — sinirsel değil) -------------------
+    def learn_cause(self, cause_label, effect_label, source=None):
+        """Nedensel olgu öğret: sebep→sonuç, KAPIDAN geçerek (Qwen yazamaz).
+        #causes yüklemiyle normal Record → is-a'dan ayrı. Şimdilik doğrudan;
+        sonraki adımda extract nedensel cümleyi buraya bağlayacak."""
+        ck = link.resolve(self.memory, cause_label, self.vectors, create=True)
+        ek = link.resolve(self.memory, effect_label, self.vectors, create=True)
+        if ck is None or ek is None or ck == ek:
+            return False
+        record, _ = self.gate.admit(ck, self._causes_key, ek,
+                                    source or self.who, self.level)
+        return record is not None
+
+    def causes_of(self, effect_label):
+        """effect'in SEBEPLERİ (etiket). ms: by_value ters indeksi, O(gelen-derece).
+        Saf graf yürüyüşü — sinirsel üretim yok."""
+        ek = link.resolve(self.memory, effect_label, self.vectors)
+        if ek is None:
+            return []
+        return [link.label_of(self.memory, self.memory.records[k].subject)
+                for k in self.memory.by_value.get(ek, ())
+                if self.memory.records[k].predicate == self._causes_key]
+
+    def effects_of(self, cause_label):
+        """cause'un SONUÇLARI (etiket). ms: by_subject, O(giden-derece)."""
+        ck = link.resolve(self.memory, cause_label, self.vectors)
+        if ck is None:
+            return []
+        return [link.label_of(self.memory, self.memory.records[k].value)
+                for k in self.memory.by_subject.get(ck, ())
+                if self.memory.records[k].predicate == self._causes_key]
+
+    def root_causes(self, effect_label, depth=4):
+        """effect'e giden nedensel ZİNCİR — sınırlı-derinlik BFS (döngü-korumalı).
+        Kök sebeplere kadar geri yürür. Yol/ara-adımları döndürür; X→Z'yi OTOMATİK
+        YAZMAZ (nedensellik her zaman geçişli değil — condition-4 güvenli). ms."""
+        ek = link.resolve(self.memory, effect_label, self.vectors)
+        if ek is None:
+            return []
+        seen, frontier, chain = {ek}, [ek], []
+        for _ in range(depth):
+            nxt = []
+            for node in frontier:
+                for k in self.memory.by_value.get(node, ()):
+                    r = self.memory.records[k]
+                    if r.predicate != self._causes_key or r.subject in seen:
+                        continue
+                    seen.add(r.subject)
+                    chain.append((link.label_of(self.memory, r.subject),
+                                  link.label_of(self.memory, node)))
+                    nxt.append(r.subject)
+            if not nxt:
+                break
+            frontier = nxt
+        return chain            # [(sebep, sonuç)] kenarları — kök→yaprak zinciri
 
     def respond(self, message):
         """Bir mesaja cevap. Dönen daima metin; asla desteksiz olgu.
