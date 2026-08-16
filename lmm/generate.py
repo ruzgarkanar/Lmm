@@ -20,9 +20,12 @@ def answer(question, facts_block, warmth=0.2):
                             max_tokens=200, temperature=warmth)
 
 
-def chat(message, identity_block="", warmth=0.7):
+def chat(message, identity_block="", warmth=0.7, history=None):
     """Sohbet cevabı (selam, teşekkür, küçük konuşma). Olgu iddiası taşırsa
     verify süzer — yani doğal konuş, ama uydurulan olgu yine çıkışta düşer.
+
+    `history`: son turlar [{role,content}] — sohbet SÜREKLİLİĞİ (az önce ne
+    konuştuk). Böylece "ne yapıyorsun", takip soruları bağlamla cevaplanır.
 
     `identity_block`: kimlik olguları (graftan, ör. lmm→üretici→rüzgar).
     ENJEKTE edilir ki "seni kim yaptı" gibi sorular personaya değil GRAFA
@@ -42,7 +45,10 @@ def chat(message, identity_block="", warmth=0.7):
         # olguyu daha tutarlı söylesin (0.7 örneklemesi bazen sapıyordu, 0.2
         # ise fazla tutuk kalıp reddediyordu).
         warmth = 0.4
-    return runtime.generate(message, system=system,
+    # KONUŞMA BAĞLAMI: son turları messages'a kat, sonuna güncel mesaj.
+    messages = list(history or [])
+    messages.append({"role": "user", "content": message})
+    return runtime.generate(messages, system=system,
                             max_tokens=120, temperature=warmth)
 
 
@@ -170,6 +176,7 @@ def is_identity_question(message):
               "sen kimsin -> yes\nseni kim yaptı -> yes\nadın ne -> yes\n"
               "who are you -> yes\nwho made you -> yes\n"
               "kartal nedir -> no\npangolin nedir -> no\nwhat is a dog -> no\n"
+              "ne yapıyorsun -> no\nnaber -> no\nnasılsın -> no\n"
               "merhaba -> no\nteşekkürler -> no\nhava nasıl -> no")
     out = runtime.generate(message, system=system, max_tokens=3, temperature=0.0)
     return "yes" in out.strip().lower()
