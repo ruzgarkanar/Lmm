@@ -55,14 +55,20 @@ def _clean(triples):
     Qwen may give a triple both as a list [[s,p,v]] and as a dict
     [{"subject":..}] (dicts are likely with chat models) — both are accepted,
     otherwise a taught fact would silently drop.
+
+    The accepted KEY NAMES are the ones the prompt asks for, and nothing else.
+    Turkish aliases used to sit beside them ("özne"/"yüklem"/"değer"), because
+    a Turkish prompt sometimes came back with Turkish keys; with the prompt in
+    the codebase's own language that cannot happen, and keeping them would mean
+    one user language had a private channel into the parser that German and
+    Spanish did not.
     """
     out = []
     for t in triples or []:
         if isinstance(t, dict):
-            subject = t.get("subject") or t.get("özne") or ""
-            predicate = (t.get("predicate") or t.get("relation")
-                         or t.get("yüklem") or t.get("ilişki") or "")
-            value = t.get("value") or t.get("object") or t.get("değer") or ""
+            subject = t.get("subject") or ""
+            predicate = t.get("predicate") or t.get("relation") or ""
+            value = t.get("value") or t.get("object") or ""
             parts = [str(subject).strip(), str(predicate).strip(),
                      str(value).strip()]
         elif isinstance(t, (list, tuple)):

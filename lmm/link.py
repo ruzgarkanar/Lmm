@@ -57,10 +57,11 @@ def resolve(memory, label, vectors=None, create=False):
     if key is not None:
         return key
     # SAFE INFLECTION TOLERANCE: Qwen may deliver inflected forms
-    # ("organ"→"organdır"). The criterion is the SHARED one — `inflect`, one
-    # rule and one pair of constants for every organ that has to recognise an
-    # ending. It is the strict side of "fabrication 0": we don't loosen and take
-    # false positives, and the F5 hole (kart→kartal, organ→organizma) stays
+    # (a stem against its inflected form). The criterion is the SHARED one —
+    # `inflect`, one rule and one pair of constants for every organ that has to
+    # recognise an ending. It is the strict side of "fabrication 0": we don't
+    # loosen and take false positives, and the F5 hole (a short root sitting
+    # inside an unrelated longer word: cart~cartel, organ~organism) stays
     # closed by ROOT/TAIL alone.
     #
     # REMOVED: a special case admitting a 4-letter root with a one-letter tail
@@ -82,8 +83,8 @@ def resolve(memory, label, vectors=None, create=False):
     # have been opened inflected ("metaldir" arrived first as a value), then
     # the root arrives ("metal" as subject) — the one-way view opened two nodes
     # and broke the transitive chain. BUT on the verification/read path
-    # (create=False) this mapping is CLOSED: with only "şekersiz" in the graph,
-    # Qwen's "şeker ..." claim would count as "supported" by the wrong node's
+    # (create=False) this mapping is CLOSED: with only "sugarless" in the graph,
+    # Qwen's "sugar ..." claim would count as "supported" by the wrong node's
     # edge — a fabrication-0 hole (code-review finding #1). When matched while
     # writing, the root is added to the identity as an ALIAS; later reads find
     # it via legitimate label matching. F5 protections unchanged.
