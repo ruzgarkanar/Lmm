@@ -226,6 +226,221 @@ def covered(answer, block, question=""):
     return digits_ok(answer, block) and coverage(answer, block, question) == 1.0
 
 
+# --- a shattered table's ROWS -------------------------------------------------
+#
+# A PDF table arrives as one cell per line, so the row — the only thing a table
+# actually asserts — is gone. Rebuilding it by sliding a fixed-size window over
+# the cells was WRITING NEIGHBOURHOODS THE DOCUMENT NEVER STATES: the window
+# "POCUS ... · 3 · Orta · Orta · Orta · Kamera tabanlı düşme tespiti" spans two
+# rows, and the answer read out of it ("the camera's regulatory risk is medium")
+# contradicted the document's own row ("Yüksek (KVKK)"), which was in the store
+# too and lost. Nothing downstream can catch that: the claim IS in the evidence.
+# So the rows are reconstructed from the layout, or not claimed at all.
+
+CELL_CHARS = 40          # a line no longer than this is a table cell, not prose
+
+
+def _cell_runs(text):
+    """Consecutive runs of SHORT lines — a shattered table's cells.  The RAW
+    lines are kept: their indentation is the only surviving trace of the
+    columns' geometry."""
+    run, out = [], []
+    for line in text.split("\n") + [""]:
+        if line.strip() and len(line.strip()) <= CELL_CHARS:
+            run.append(line)
+        else:
+            if len(run) >= 3:
+                out.append(run)
+            run = []
+    return out
+
+
+def _period(cells):
+    """The run's ROW LENGTH, read off the data.
+
+    A table's columns hold cells of a characteristic width, so the cell-length
+    series repeats with the row period: at lag p the mean |Δ length| collapses.
+    The period is the SMALLEST lag that both dips below its two neighbours and
+    falls well under the run's own overall spread — smallest, because every
+    MULTIPLE of a period dips as well and only the fundamental is a row; and
+    measured against the spread, because that is what the same numbers look like
+    with no row structure at all. Both references are read off this run (the
+    neighbouring lags, the mean pairwise difference); nothing is known about the
+    document. Measured on the hospital table: 5.4 at lag 5, against 10.8 and 9.8
+    beside it and a spread of 9.1 — the table's true width is 5.
+    """
+    n = len(cells)
+    if n < 9:                       # under ~3 rows there is no period to see
+        return None
+    lengths = [len(c) for c in cells]
+    pairs = [abs(a - b) for i, a in enumerate(lengths) for b in lengths[i + 1:]]
+    spread = sum(pairs) / len(pairs) if pairs else 0
+    if spread <= 0:
+        return None
+    score = {}
+    for p in range(2, min(12, n // 3) + 1):
+        d = [abs(lengths[i + p] - lengths[i]) for i in range(n - p)]
+        score[p] = sum(d) / len(d)
+    for p in sorted(score):
+        if score[p] >= 0.75 * spread:
+            continue                # no better than the same cells unordered
+        if score[p] < min(score.get(p - 1, spread), score.get(p + 1, spread)):
+            return p
+    return None
+
+
+def _column_cells(raw, p):
+    """The cells of ONE column, found by their indentation.
+
+    The period says how LONG a row is but not where one BEGINS, and no statistic
+    of the cells can say: shifting a periodic series by one cell leaves every
+    column's statistics exactly as they were. The document's own layout breaks
+    the tie — a text dump keeps the leading space of a column set further right.
+    An indentation level whose cells are a minority of the run and recur at
+    exactly the period IS such a column, and every row holds one of its cells.
+    """
+    indents = [len(l) - len(l.lstrip()) for l in raw]
+    best = None
+    for level in sorted(set(indents)):
+        at = [i for i, v in enumerate(indents) if v == level]
+        if len(at) < 3 or len(at) * 2 > len(raw):
+            continue
+        gaps = {}
+        for a, b in zip(at, at[1:]):
+            gaps[b - a] = gaps.get(b - a, 0) + 1
+        modal = max(gaps, key=lambda g: gaps[g])
+        if modal == p and gaps[modal] * 2 >= len(at) - 1:
+            if best is None or len(at) > len(best):
+                best = at
+    return best
+
+
+def _cut(cells, p, column):
+    """Cut the run into rows: every row holds at most ONE cell of the anchor
+    column, and the row widths and the column width profile are solved together.
+
+    A row may come out a cell short or a cell long — a cell whose text WRAPPED
+    onto a second line makes its row longer, which is why no fixed stride can
+    work here. A cell that no row claims (the heading above the table, a caption
+    below it) is charged the average column width, so leaving cells out is
+    expensive and dropping the last row's last cell is not free.
+    """
+    n = len(cells)
+    lengths = [len(c) for c in cells]
+    anchor = set(column)
+    before = [0] * (n + 1)
+    for i in range(n):
+        before[i + 1] = before[i] + (1 if i in anchor else 0)
+    widths = [w for w in (p - 1, p, p + 1) if w >= 2]
+
+    def solve(profile):
+        """Cheapest cut under this profile (one pass, left to right)."""
+        loose = max(1.0, sum(profile) / len(profile))    # an unclaimed cell
+        cost = [None] * (n + 1)
+        back = [None] * (n + 1)
+        for i in range(column[0] + 1):
+            if before[i] == 0:                          # cells above the table
+                cost[i] = loose * i
+        for i in range(n):
+            if cost[i] is None:
+                continue
+            for w in widths:
+                j = i + w
+                if j > n or before[j] - before[i] > 1:
+                    continue
+                c = sum(abs(lengths[i + k] - profile[min(k, p - 1)])
+                        for k in range(w)) + loose * abs(w - p)
+                if before[j] == before[i]:
+                    c += loose          # a row with no cell of that column
+                if cost[j] is None or cost[i] + c < cost[j]:
+                    cost[j], back[j] = cost[i] + c, i
+            if before[n] == before[i] and (cost[n] is None
+                                           or cost[i] + loose * (n - i)
+                                           < cost[n]):
+                cost[n], back[n] = cost[i] + loose * (n - i), i
+        if cost[n] is None:
+            return None, None
+        rows, j = [], n
+        while j and back[j] is not None:
+            rows.append((back[j], j))
+            j = back[j]
+        rows.reverse()
+        return rows, cost[n]
+
+    def profile_of(rows):
+        columns = [[] for _ in range(p)]
+        for i, j in rows:
+            if j - i < p:
+                continue
+            for k in range(i, j):
+                columns[min(k - i, p - 1)].append(lengths[k])
+        return [sorted(c)[len(c) // 2] if c else 0 for c in columns]
+
+    # Every offset of an anchor cell is a possible phase; each is settled by
+    # alternating cut and profile, and the phases are compared on the cost of
+    # the SAME objective.
+    best, chosen = None, None
+    for start in {a - off for a in column for off in range(p)}:
+        if start < 0 or start + p > n:
+            continue
+        profile = [lengths[start + k] for k in range(p)]
+        rows = None
+        for _ in range(4):
+            nxt, _cost = solve(profile)
+            if nxt is None or nxt == rows:
+                break
+            rows, profile = nxt, profile_of(nxt)
+        if not rows:
+            continue
+        rows, total = solve(profile)
+        if rows and (best is None or total < best):
+            best, chosen = total, rows
+    return chosen
+
+
+def rows_of(raw):
+    """The rows of one shattered run, or None when its layout does not say
+    where a row begins. Returning None there is the point: guessing would put
+    two rows' cells side by side and call it evidence."""
+    p = _period([l.strip() for l in raw])
+    if not p:
+        return None
+    column = _column_cells(raw, p)
+    return _cut([l.strip() for l in raw], p, column) if column else None
+
+
+def table_windows(text):
+    """What a shattered table contributes to the evidence store.
+
+    Where the layout yields rows, ONE RECORD PER ROW: the cells the document
+    puts in one row and no others. Where it does not, the cells go in as
+    overlapping windows of consecutive lines, which claim only that the lines
+    follow one another — and the row's column names are prefixed either way, so
+    a detached value still says which attribute it is the value of.
+    """
+    out = []
+    for raw in _cell_runs(text):
+        cells = [l.strip() for l in raw]
+        rows = rows_of(raw)
+        if rows is None:
+            header = " · ".join(cells[:6])
+            for i in range(0, len(cells), 2):
+                window = cells[max(0, i - 1):i + 6]
+                if len(window) >= 2:
+                    row = " · ".join(window)
+                    out.append(f"{header} — {row}" if i else row)
+            continue
+        # With the rows known, the header is exactly the cells that come BEFORE
+        # the first row — a column name is a cell no row claims. (Without the
+        # rows there was no way to say where the header ended, and the first six
+        # cells had to stand in for it.)
+        header = " · ".join(cells[:rows[0][0]])
+        for nth, (i, j) in enumerate(rows):
+            row = " · ".join(cells[i:j])
+            out.append(f"{header} — {row}" if header else row)
+    return out
+
+
 class SentenceStore:
     """Sentence store + inverted index. Small and pure: list + dict."""
 

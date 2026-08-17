@@ -822,6 +822,80 @@ def h2():
         generate.answer, generate.refusal, lmm_verify.verify = real
 
 
+@test("H3 a repaired table row never neighbours cells from two rows")
+def h3():
+    """The claim this test defends is the whole promise of the evidence layer:
+    what is in the store is what the DOCUMENT says. The sliding-window repair
+    broke it — over a shattered table it emitted
+    "POCUS ... · 3 · Orta · Orta · Orta · Kamera tabanlı düşme tespiti", a
+    neighbourhood spanning two rows, and the answer read out of it ("the
+    camera's regulatory risk is medium") contradicted the document's own row
+    ("Yüksek (KVKK)"). No gate can catch that: the claim IS in the evidence.
+
+    Built here, not read from a document: a column-major dump of a table whose
+    rows are known, including one WRAPPED cell (the case a fixed stride cannot
+    survive) and a heading above and a caption below the table. The assertion is
+    that every cell pair inside an emitted row is a pair the table really has.
+    NO MODEL, no document-specific constant."""
+    from lmm import evidence
+    rows = [("Randevuya gelmeme tahmini", "Çok düşük", "Çok hızlı", "Yok"),
+            ("Fatura reddi tahmini", "Düşük", "Çok hızlı", "Yok"),
+            ("Sepsis erken uyarı", "Orta", "Orta", "Orta"),
+            ("Dijital patoloji", "Çok yüksek", "Yavaş", "Orta"),
+            ("POCUS / yapay zekâ rehberli ultrason", "Orta", "Orta", "Orta"),
+            ("Kamera tabanlı düşme tespiti", "Orta", "Orta", "Yüksek (KVKK)")]
+    lines = ["Bir tablo, hücre hücre dağılmış hâlde okunduğunda satırını "
+             "yitirir; asıl mesele budur.",
+             "Kullanım alanı", " Kademe", "Yatırım", "Geri dönüş"]
+    for nth, (name, *rest) in enumerate(rows):
+        if nth == 4:
+            name, tail = name.rsplit(" ", 1)         # the cell WRAPS in two
+            lines.append(name)
+            name = tail
+        lines.append(name)
+        lines.append(" %d" % (nth + 1))              # the indented column
+        lines.extend(rest)
+    lines.append("Tablo yukarıdaki gibi okunmalıdır ve sağ üst köşe önce "
+                 "hedeflenmelidir.")
+    text = "\n".join(lines)
+
+    windows = evidence.table_windows(text)
+    assert windows, windows
+    # the layout HAS a phase to read (period + indented column), so rows are
+    # reconstructed rather than guessed at
+    run = [l for l in text.split("\n") if l.strip() and len(l.strip()) <= 40]
+    assert evidence.rows_of(run) is not None
+
+    # every within-row cell pair must be a pair the table really states
+    true_pairs = set()
+    for nth, (name, *rest) in enumerate(rows):
+        cells = name.rsplit(" ", 1) if nth == 4 else [name]    # the wrapped one
+        cells += [str(nth + 1)] + list(rest)
+        for one in cells:
+            for other in cells:
+                true_pairs.add((one, other))
+    heading = {"Kullanım alanı", "Kademe", "Yatırım", "Geri dönüş"}
+    for window in windows:
+        cells = [c.strip() for c in window.split(" — ")[-1].split(" · ")]
+        cells = [c for c in cells if c not in heading]
+        for one in cells:
+            for other in cells:
+                assert one == other or (one, other) in true_pairs, \
+                    "the document never puts %r next to %r: %s" % (one, other,
+                                                                   window)
+    # and the row that was being corrupted comes out whole
+    assert any("Kamera tabanlı düşme tespiti" in w and "Yüksek (KVKK)" in w
+               for w in windows), windows
+    # a run whose layout gives NO phase is not carved into invented rows
+    flat = "\n".join(["Bir paragraf, tabloya benzemeyen düz yazıdır ve bu "
+                      "yüzden ölçüte girmez."]
+                     + ["satır %d" % i for i in range(12)]
+                     + ["Kapanış cümlesi de yeterince uzun olmak zorundadır "
+                        "ki koşu burada bitsin."])
+    flat_run = [l for l in flat.split("\n") if l.strip() and len(l.strip()) <= 40]
+    assert evidence.rows_of(flat_run) is None
+
+
 def main():
     failed = 0
     for name, function in PASSED:

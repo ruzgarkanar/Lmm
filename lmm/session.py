@@ -553,28 +553,17 @@ class Session:
         # TABLE REPAIR (evidence-only): PDF tables shatter row by row —
         # "Dijital patoloji" and the tier cell "3" land apart, the model grabs
         # the wrong number (hospital test finding; RAG made the same mistake
-        # on the same table). Consecutive SHORT lines (cells) are joined with
-        # a sliding window so row-adjacency stays preserved in the evidence.
-        # No language rule — length.
-        lines = [l.strip() for l in text.split("\n")]
-        run = []
-        for line in lines + [""]:
-            if line and len(line) <= 40:
-                run.append(line)
-            else:
-                if len(run) >= 3:
-                    # The table header row (the run's first cells) is prefixed
-                    # to every window — when column names detach from the row,
-                    # it was unknowable which attribute "Orta" was the value
-                    # of. If it isn't a header, it's harmless extra context.
-                    header = " · ".join(run[:6])
-                    for i in range(0, len(run), 2):
-                        window = run[max(0, i - 1):i + 6]
-                        if len(window) >= 2:
-                            row = " · ".join(window)
-                            self.evidence.add(f"{header} — {row}" if i else row,
-                                              source)
-                run = []
+        # on the same table). `evidence.table_windows` puts the ROWS back —
+        # reading the row length off the cell-length period and the row's start
+        # off the layout's own column indentation — and where the layout says
+        # nothing it falls back to windows of consecutive lines. The reason it
+        # is not simply a sliding window any more: a window that spanned two
+        # rows put cells side by side that the DOCUMENT NEVER PUT TOGETHER, and
+        # an answer read out of one of those ("the camera's regulatory risk is
+        # medium", against the document's "Yüksek (KVKK)") is past every gate
+        # by construction, because the claim really is in the evidence.
+        for window in evidence.table_windows(text):
+            self.evidence.add(window, source)
 
         # INSTANT-READY mode (deep=False): evidence layer only — ZERO model
         # calls, even 500 pages become QUERYABLE within seconds (answers via
