@@ -28,6 +28,7 @@ Nothing belonging to language exists.
 """
 from v3 import dynamics, geometry
 from v3.gate import Gate, SPEAK
+from v3.transitive import Transitivity
 from v3.memory import Memory, OPERATOR, STRANGER
 from v3.reader import ASK, PASS, Reader, WRITE
 from v3.speaker import Speaker, prompt_of
@@ -55,6 +56,7 @@ class Session:
         self.path = path
         self.memory = Memory.load(path) if path else Memory()
         self.gate = Gate(self.memory)
+        self._transitive = Transitivity(self.memory)
         self.reader = Reader()
         self.speaker = Speaker()
         # Who is speaking: the operator, or someone unrecognized. The level of
@@ -179,7 +181,7 @@ class Session:
         # spoken it is clearly an inference, not a fabrication. This is item
         # 5 of the architecture — geometry/the chain proposes, the gate
         # verifies. Its adding of its own interpretation comes from here.
-        self._learn_transitive(predicate)
+        self._learn_transitive(predicate, subject, value)
         if predicate in self.memory.transitive:
             self._derive(subject, predicate, value)
         # #SELF: every learned fact is also bound to #self — so the system
@@ -188,43 +190,16 @@ class Session:
                                       about=[subject, self.memory.self_key])
         return self._render([record])
 
-    def _learn_transitive(self, predicate):
-        """Is this predicate transitive — did the graph see a closed TRIANGLE.
+    def _learn_transitive(self, predicate, subject=None, value=None):
+        """Is this predicate transitive — did the graph see closed TRIANGLES.
 
-        Transitivity is not declared by hand, it is learned from data: if
-        with the same predicate A→B, B→C AND A→C are all WITNESSED
-        (taught/read, not inferred), that predicate is transitive. "tür"
-        learns from one is-a example; "sever" never — because the chain of
-        love does not close in the graph. The rule comes from the data
-        itself.
-
-        ONE triangle is NOT ENOUGH: a non-transitive relation like
-        "sever/yakın/tanır" can close a triangle once in the data by
-        coincidence (A loves B, B loves C, A loves C each taught
-        separately). With a single accident that predicate was counted
-        transitive for life and produced a wrong #inference from EVERY new
-        edge (the audit caught it, the "no fabrication" hole). At least TWO
-        independently witnessed triangles are required — in a truly
-        transitive predicate these are plentiful, in coincidence rare.
+        The rule and its reasoning live in `v3.transitive`; this is the seam.
+        It used to be a FULL SCAN of the graph per written fact, which made
+        ingestion quadratic (measured: 5x the cells, 28x the time). The
+        tracker asks the question once per edge and remembers the answer —
+        including the negative one.
         """
-        WITNESSED_TRIANGLES = 2
-        if predicate in self.memory.transitive:
-            return
-        edges = [r for records in self.memory.by_subject.values()
-                 for r in (self.memory.records[k] for k in records)
-                 if r.predicate == predicate and r.source != "#inference"]
-        forward = {}
-        for r in edges:
-            forward.setdefault(r.subject, set()).add(r.value)
-        triangles = 0
-        for a, bs in forward.items():
-            for b in bs:
-                for c in forward.get(b, ()):
-                    if c in bs:                 # A→B, B→C and A→C all witnessed
-                        triangles += 1
-                        if triangles >= WITNESSED_TRIANGLES:
-                            self.memory.transitive.add(predicate)
-                            return
+        self._transitive.observe(predicate, subject, value)
 
     def _derive(self, subject, predicate, value):
         """TWO-WAY chained inference around the new fact (subject→value).
@@ -521,8 +496,25 @@ class Session:
     # --- maintenance ----------------------------------------------------
 
     def sleep(self):
-        """The sleep round: distill, dampen, arbitrate. Returns the count dictionary."""
-        return dynamics.sleep(self.memory)
+        """The sleep round: judge, distill, dampen, arbitrate. Returns the counts.
+
+        The rivalry test is handed in so the suspicions deferred at write time
+        are settled here — sleep is the batch pass, which is where a test too
+        expensive per-write becomes affordable.
+        """
+        return dynamics.sleep(self.memory, verdict=self.verdict)
+
+    def verdict(self, old_value, new_value):
+        """Are these two values rivals — the test sleep judges suspicions with.
+
+        Without a wired `gate.rival` (plain v3) two different values in one
+        slot ARE a contradiction; that is the same rule the write path
+        applies, kept in one place so the deferred answer cannot differ from
+        the immediate one.
+        """
+        if self.gate.rival is None:
+            return True
+        return self.gate.rival(old_value, new_value)
 
     def curious(self, most=10):
         """The memory's gaps — where to look."""
