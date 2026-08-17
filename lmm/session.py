@@ -43,9 +43,9 @@ FALLBACK_DONT_KNOW = "I don't know."   # last-resort only: the normal
 def _grounded_in(value, message):
     """Does the VALUE to be taught actually appear in the user's MESSAGE — did
     Qwen not fabricate it? "You cannot teach what you didn't say". Fold + stem
-    matching (kuş~kuştur). This prevents extract from mistaking a question
-    ("atom nedir") for a WRITE and inventing a nonexistent value ("birleşik")
-    to write into the graph — language-agnostic."""
+    matching (a stem against its inflected form). This prevents extract from
+    mistaking a question ("what is an atom") for a WRITE and inventing a
+    nonexistent value to write into the graph — language-agnostic."""
     want = {fold(w) for w in re.findall(r"\w+", value) if len(w) >= 3}
     if not want:
         return True        # short/token-less value — don't block (rare)
@@ -66,7 +66,7 @@ class Session:
         # v3/transitive.py — the full re-scan per cell was quadratic).
         self._transitive = Transitivity(self.memory)
         # Wire the semantic RIVAL check for contradictions to Qwen (cached) —
-        # in the predicate-less case "kuş/yırtıcı" coexist, "kuş/balık" is a
+        # in the predicate-less case bird/predator coexist, bird/fish is a
         # contradiction. See _are_rivals.
         self._rival_cache = {}
         self.gate.rival = self._are_rivals
@@ -153,7 +153,7 @@ class Session:
         # are NOT rivals, they coexist — "a lion is both felid and mammal" is
         # hierarchy, not contradiction. Resolve with the graph without asking
         # Qwen (are_rivals was over-firing). Ask Qwen only for UNCONNECTED
-        # values (like kuş/balık).
+        # values (like bird/fish).
         if self._connected(old_key, new_key):
             self._rival_cache[ck] = False
             return False
@@ -412,7 +412,7 @@ class Session:
             subject_key = (link.resolve(self.memory, subject, self.vectors)
                            if subject else None)
             # IDENTITY ROUTE (architectural bridge): if the subject CANNOT BE
-            # RESOLVED (CHAT, or "seni kim yaptı" where extract can't resolve
+            # RESOLVED (CHAT, or "who made you" where extract can't resolve
             # "sen"), classify deterministically: is this an IDENTITY question?
             # If so SKIP extract's gamble and route into the path that
             # GUARANTEES fetching the identity fact from _lmm_key. Called only
@@ -476,7 +476,7 @@ class Session:
 
         Code-audit: a valueless half-triple is skipped (no None value must
         reach the gate); if the same triple arrives twice it is deduplicated
-        (no repeated 'Öğrendim').
+        (no repeated 'learned it').
         """
         wrote = []
         conflicts = []
@@ -486,7 +486,7 @@ class Session:
                 continue                       # half triple — don't write
             if not _grounded_in(value, message):
                 continue     # value not in message → Qwen fabricated it ("atom
-                             # nedir"→"birleşik"): the mistake-a-question-for-
+                             # is X" mistaken for a statement): the mistake-a-question-for-
                              # WRITE trap, don't write
             sk = link.resolve(self.memory, subject, self.vectors, create=True)
             vk = link.resolve(self.memory, value, self.vectors, create=True)
@@ -518,8 +518,8 @@ class Session:
                 # These are extract._clean output: folded, grounded in the
                 # message.
                 self.last_written.append((subject, predicate or "", value))
-                # DERIVATION (transitive reasoning): "kartal→kuş, kuş→hayvan ⊢
-                # kartal→hayvan". Transitivity is learned from data (triangle
+                # DERIVATION (transitive reasoning): "eagle→bird, bird→animal ⊢
+                # eagle→animal". Transitivity is learned from data (triangle
                 # with ≥2 witnesses), the inference is written with the
                 # #inference source at low trust. This is the "adds its own
                 # interpretation" mechanism — wrapped from v3.
@@ -770,7 +770,8 @@ class Session:
     def _learn_transitive(self, predicate, subject=None, value=None):
         """Is this predicate transitive — has the graph seen closed triangles
         with ≥2 witnesses. Transitivity is learned from DATA, not BY HAND:
-        "tür" learns from is-a examples; "sever" never does (love chains don't
+        an is-a relation learns from is-a examples; "loves" never does (love
+        chains don't
         close in the graph). One coincidental triangle isn't enough (wrong-
         inference hole) — at least two independent triangles.
 
@@ -1264,13 +1265,14 @@ class Session:
         """
         id_records = retrieve.gather(self.memory, self._lmm_key)
         # The IDENTITY block is PREDICATED (the maker must not be hidden) — so
-        # "kim yaptı" can be answered.
+        # "who made you" can be answered.
         id_block = "\n".join(
             f"{link.label_of(self.memory, r.subject)} "
             f"{link.label_of(self.memory, r.predicate)} → "
             f"{link.label_of(self.memory, r.value)}" for r in id_records)
         # CONVERSATION CONTEXT: give the recent turns too → conversation
-        # continuity (what "araştır" refers to, the context of "ne yapıyorsun"
+        # continuity (what "look it up" refers to, the context of "what are you
+        # doing"
         # is kept). Fabrication is still filtered in verify.
         raw = generate.chat(message, id_block, history=self.history)
         # In chat, allowed = ONLY the identity facts. anchor="value": the
@@ -1288,7 +1290,7 @@ class Session:
         `dynamics.gaps` (that organ existed in v3, unconnected to the lmm
         flow). The input of proactive research: 'I don't know this, shall I
         look it up'. Self/identity nodes excluded."""
-        # Don't count predicate nodes (relation labels like tür/özellik) as
+        # Don't count predicate nodes (relation labels like type/property) as
         # curiosity — they aren't concepts. Self/identity nodes excluded too.
         predicates = {r.predicate for r in self.memory.records.values()
                       if r.predicate is not None}

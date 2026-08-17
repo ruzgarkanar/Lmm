@@ -21,7 +21,7 @@ knob:
 
     inflection_of(form, root)  `form` is `root` plus an ending. Asymmetric on
                               purpose — on the READ path, matching a stored
-                              "şekersiz" from an incoming "şeker" would let the
+                              "sugarless" from an incoming "sugar" would let the
                               wrong node's edge vouch for a claim (a
                               fabrication hole), so read paths may only walk
                               this direction.
