@@ -1117,6 +1117,145 @@ def i2():
         assert not abstains(answer), answer
 
 
+# --- J  the typed value: number, range, unit ---------------------------------
+#
+# What the value IS was invisible to every organ: "15.6\" LCD" and "xubuntu"
+# were the same kind of thing, so whether two values in one slot can coexist
+# had to be asked of a language model, one round-trip per pair.
+
+
+@test("J1 a measurement is read off the data, symbols and ranges included")
+def j1():
+    """THE UNIT COMES FROM ADJACENCY, NOTHING ELSE.
+
+    No list of units exists anywhere in this system and none may be added. The
+    only rule is that the token standing next to a number is what the number is
+    measured in — which is why a SYMBOLIC unit works exactly like a lettered
+    one: '"' next to 15.6 is a token next to a number. The manual's screen line
+    is the measured loss class ('Ekran 15.6" LCD' — no letters in the unit at
+    all).
+
+    A separator is not a unit: in "100 V -240 V" and "%25 - %85" the symbol
+    stands BETWEEN two numbers, and a number begins again right after it. In
+    "5 °C - 40 °C" it does not — °C carries a letter and is a real unit — so
+    the test is positional, not a character list.
+    """
+    from v3.memory import measure
+    assert measure('Ekran 15.6" LCD') == (15.6, 15.6, '"')
+    assert measure("15,6 inç") == (15.6, 15.6, "inç")   # notation is not quantity
+    assert measure("100 V -240 V ~") == (100.0, 240.0, "v")     # a range
+    assert measure("5 °C - 40 °C") == (5.0, 40.0, "°c")
+    assert measure("-20 °C ~ 55 °C") == (-20.0, 55.0, "°c")     # below zero
+    assert measure("%25 - %85") == (25.0, 85.0, None)   # dash separates
+    assert measure("8 GB, DDR4") == (8.0, 8.0, "gb")    # punctuation is not a unit
+    # A DIFFERENT unit is a DIFFERENT measurement, not a wider range: the
+    # battery's line states a voltage and a capacity, and 14.4..6500 would be
+    # a quantity the document never claims.
+    assert measure("14.4 V / 6500 mAh") == (14.4, 14.4, "v")
+    # Not measurements: a version/section string (two fractional separators)
+    # and a text with no number at all.
+    assert measure("Çekirdek sürümü 1.2.3") is None
+    assert measure("xubuntu") is None
+
+
+@test("J2 the unit is an identity, and its bare token is not a way to name it")
+def j2():
+    """A unit is a concept of the graph, so it lives in the identity system —
+    the one place this architecture keeps meanings apart. But its label is
+    NAMESPACED, and that is not decoration: 'g' or 'v' as a plain label would
+    sit in the same label index as every name in the graph and would be
+    reachable by the inflection tolerance, which is the exact collision
+    (`kartal` the bird vs the district) this file was written to prevent."""
+    memory = Memory()
+    weight = memory.identify("7.8 kg")
+    record = memory.write(memory.identify("cihaz"), None, weight, "#doc")
+    low, high, unit = record.measure
+    assert (low, high) == (7.8, 7.8)
+    assert unit in memory.identities and memory.units["kg"] == unit
+    assert memory.candidates("kg") == []            # not addressable as a name
+    # The same unit sighted twice is ONE identity — a unit is not re-invented
+    # per record.
+    again = memory.write(memory.identify("çanta"), None,
+                         memory.identify("2 kg"), "#doc")
+    assert again.measure[2] == unit
+
+
+@test("J5 a file from the future is refused, and every older file still loads")
+def j5():
+    """THE VERSION BYTE WAS WRITTEN AND NEVER READ (audit finding F).
+
+    A .lmm marked FORMAT=99 loaded as if this build understood it, and the next
+    save() would then write the graph back without whatever that format added —
+    silent data loss. Refusing to read forward is not symmetric with refusing
+    to read backward: this build knows exactly what a FORMAT-3 file says, and
+    an old memory must keep opening. Both directions are asserted here,
+    including the oldest form of all, plain JSON.
+    """
+    import json
+    import struct
+    import tempfile
+    import zlib
+
+    memory = Memory()
+    device = memory.identify("cihaz")
+    memory.write(device, None, memory.identify('15.6" LCD'), "#doc")
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, "m.lmm")
+        memory.save(path)
+        with open(path, "rb") as handle:
+            raw = handle.read()
+        assert struct.unpack(">B", raw[4:5])[0] == 4        # FORMAT=4 written
+        back = Memory.load(path)
+        held = list(back.records.values())[0]
+        assert held.measure[:2] == (15.6, 15.6)
+        assert back.units and held.measure[2] in back.units.values()
+
+        # FROM THE FUTURE: header says 99 → refused, loudly.
+        payload = zlib.compress(zlib.decompress(raw[13:]), 9)
+        ahead = os.path.join(folder, "ahead.lmm")
+        with open(ahead, "wb") as handle:
+            handle.write(raw[:4] + struct.pack(">B", 99) + raw[5:])
+        try:
+            Memory.load(ahead)
+        except ValueError as broke:
+            assert "99" in str(broke), broke
+        else:
+            raise AssertionError("a FORMAT=99 file loaded silently")
+
+        # BACKWARD COMPATIBILITY, both older forms. A format-3 record has no
+        # typed value in the file; it gets the same typed view a new file
+        # would, derived from the value the file already holds.
+        old = {"format": 3, "next": 5, "self": None, "transitive": [],
+               "identities": [{"key": 1, "labels": ["cihaz"], "vector": None},
+                              {"key": 2, "labels": ['15.6" LCD'],
+                               "vector": None}],
+               "records": [{"key": 3, "subject": 1, "predicate": None,
+                            "value": 2, "source": "#doc", "level": 4,
+                            "trust": 0.6, "at": time.time(), "witnesses": 1,
+                            "links": [], "episodic": True,
+                            "sources": ["#doc"]}],
+               "experiences": []}
+        text = json.dumps(old, ensure_ascii=False).encode("utf-8")
+        plain = os.path.join(folder, "old.json.lmm")
+        with open(plain, "w", encoding="utf-8") as handle:
+            handle.write(text.decode("utf-8"))
+        binary = os.path.join(folder, "old3.lmm")
+        with open(binary, "wb") as handle:
+            handle.write(Memory.MAGIC
+                         + struct.pack(">BII", 3, len(text),
+                                       zlib.crc32(text) & 0xffffffff)
+                         + zlib.compress(text, 9))
+        for name in (plain, binary):
+            back = Memory.load(name)
+            held = back.records[3]
+            assert held.subject == 1 and held.value == 2 and held.level == 4
+            assert held.measure[:2] == (15.6, 15.6), name
+            # and re-saving migrates it to the current format without loss
+            again = os.path.join(folder, "again.lmm")
+            back.save(again)
+            assert Memory.load(again).records[3].value == 2
+
+
 def main():
     failed = 0
     for name, function in PASSED:
