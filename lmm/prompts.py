@@ -3,8 +3,14 @@ templates: the actual sentence is built by Qwen from its weights; we only say
 'what to do'. condition-5 (no hand-written language) is preserved in spirit —
 there is no template/affix/word list.
 
-NOTE: the prompt BODIES below deliberately keep their Turkish few-shot
-examples — they are FUNCTIONAL (classifier accuracy depends on them).
+NOTE: the prompt BODIES below carry few-shot examples — they are FUNCTIONAL
+(classifier accuracy depends on them). They used to be Turkish, ALL of them,
+which quietly made Turkish the language the system was built for: every
+classifier was shown the pattern in one language and had to generalise out of
+it. They are now MULTILINGUAL by design — English carries the instructions
+(the codebase's own language), and the examples are spread across languages so
+that what is demonstrated is the STRUCTURE and not one grammar's cue words. No
+language is privileged and none, Turkish included, is the only one.
 
 EVERY EXAMPLE HERE IS INVENTED. An example may demonstrate a FORMAT (what a
 record line looks like, what terse notation looks like, how an ordinal points at
@@ -24,35 +30,42 @@ benchmark.
 EXTRACT_SYSTEM = """You read one message (in the user's own language, ANY language) and output STRICT JSON only, nothing else.
 
 Classify `kind`:
-- "WRITE": the user states/teaches a fact  (e.g. "kartal bir kuştur")
-- "ASK":   the user asks about something    (e.g. "kartal nedir")
-- "CHAT":  greeting, thanks, small talk, no fact (e.g. "selam", "teşekkürler")
+- "WRITE": the user states/teaches a fact  (e.g. "an eagle is a bird")
+- "ASK":   the user asks about something    (e.g. "what is an eagle")
+- "CHAT":  greeting, thanks, small talk, no fact (e.g. "hi", "thanks")
 
 IMPORTANT: if the message ASKS anything — even when it mentions facts or
-numbers inside the question ("doluluğu %65'ten kaça çıkarmak gerekir?") —
+numbers inside the question ("how far must the occupancy rise from 65%?") —
 kind is "ASK", never "WRITE". A question is never teaching.
 
 ORDINALS: when the subject is referred to by POSITION rather than by name, in
 whatever language the user writes, put the subject in as the DIGIT of that
 position — records are numbered, so a position IS a subject:
-"üçüncü kayıtta hangi renk yazıyor" ->
-{"kind":"ASK","triples":[["3","renk",""]]} — the ordinal becomes "3".
+"which colour does the third record give" ->
+{"kind":"ASK","triples":[["3","colour",""]]} — the ordinal becomes "3".
 
 Extract fact triples [subject, relation, value]:
 - subject = the entity the message is about (a noun, lowercase)
-- relation = the relation word if clear (e.g. "tür", "özellik"), else ""
+- relation = the relation word if clear (a kind/type/property word), else ""
 - value = what is asserted (WRITE) or "" (ASK/CHAT)
+Write subject, relation and value in the MESSAGE'S OWN LANGUAGE — never
+translate them into English.
 
 Output ONLY this JSON, no explanation:
 {"kind":"WRITE|ASK|CHAT","triples":[["subject","relation","value"]]}
 
-Examples:
+Examples (several languages on purpose — the classification is about meaning,
+and the triple stays in the language it was written in):
+"an eagle is a bird of prey" -> {"kind":"WRITE","triples":[["eagle","type","bird"]]}
+"el corazón es un órgano que bombea sangre" -> {"kind":"WRITE","triples":[["corazón","tipo","órgano"]]}
+"Beton ist ein Baustoff" -> {"kind":"WRITE","triples":[["beton","art","baustoff"]]}
 "kartal yırtıcı bir kuş türüdür" -> {"kind":"WRITE","triples":[["kartal","tür","kuş"]]}
-"kalp kan pompalayan bir organdır" -> {"kind":"WRITE","triples":[["kalp","tür","organ"]]}
+"what is an eagle" -> {"kind":"ASK","triples":[["eagle","",""]]}
+"¿para qué sirve el corazón?" -> {"kind":"ASK","triples":[["corazón","",""]]}
 "kartal nedir" -> {"kind":"ASK","triples":[["kartal","",""]]}
-"kalp ne işe yarar" -> {"kind":"ASK","triples":[["kalp","",""]]}
-"selam" -> {"kind":"CHAT","triples":[]}
-"teşekkür ederim" -> {"kind":"CHAT","triples":[]}"""
+"hello" -> {"kind":"CHAT","triples":[]}
+"vielen Dank" -> {"kind":"CHAT","triples":[]}
+"selam" -> {"kind":"CHAT","triples":[]}"""
 
 
 # ANSWERING (layer-1 grounding): speak only from the given facts.
@@ -74,17 +87,20 @@ in stock -> name part 12).
 STYLE (important):
 - Answer in ONE short, natural sentence — a real sentence with a verb.
 - NEVER copy the raw fact rows: do not output the "→" arrow or the [n] numbers.
-  Rephrase the fact into fluent language (e.g. facts "[1] kartal → kuş" and the
-  question "kartal nedir" -> "Kartal bir kuştur.").
+  Rephrase the fact into fluent language (e.g. facts "[1] eagle → bird" and the
+  question "what is an eagle" -> "An eagle is a bird.").
 - Do NOT explain your reasoning or add meta-commentary about the question.
-- Reply ONLY in the SAME LANGUAGE as the question — never mix in another language.
+- Reply ONLY in the SAME LANGUAGE AS THE QUESTION — never in another one. The
+  facts may be stored in a different language from the question; answer in the
+  QUESTION'S language regardless (facts "[1] Beton → Baustoff" and the question
+  "was ist Beton" -> "Beton ist ein Baustoff.").
 - If facts are records with fields ("FIELD: value · FIELD: value") and the
   question asks for a specific field of a specific record, answer with THAT
   field's value from THAT record — not with another field, and never with a
   value from a different record.
-  Example: facts "[K1] NO: 1 · PARÇA: kapak menteşesi · DURUM: YENİ ·
-  RAF: B2." and the question asks for the DURUM of part 1 -> the
-  answer is "YENİ" (not the part description, not the shelf)."""
+  Example: facts "[R1] NO: 1 · PART: lid hinge · CONDITION: NEW ·
+  SHELF: B2." and the question asks for the CONDITION of part 1 -> the
+  answer is "NEW" (not the part description, not the shelf)."""
 
 
 # SUPPORT CHECK: the second tier when the coverage gate trips on a word —
@@ -110,12 +126,15 @@ if the claim attaches one record's value to another record's entity, answer
 "no". If a record lacks the asked field, the claim cannot borrow it from a
 neighboring record.
 
+(The examples below are written in several languages on purpose. You judge the
+same way in every language, including ones no example uses.)
+
 Example:
 EVIDENCE:
-[K1] NO: 1 · PARÇA: kapak menteşesi · RAF: B2.
-[K2] NO: 2 · PARÇA: taşıma kayışı.
-CLAIM: Taşıma kayışının rafı B2'dir.
-Answer: no   (record 2 has no RAF field; B2 belongs to record 1)
+[K1] NO: 1 · PART: lid hinge · SHELF: B2.
+[K2] NO: 2 · PART: carrying strap.
+CLAIM: The carrying strap's shelf is B2.
+Answer: no   (record 2 has no SHELF field; B2 belongs to record 1)
 
 ORDINALS: when the claim refers to a record by POSITION, in whatever language,
 it means the record whose NUMBER field equals that position — check THAT
@@ -127,15 +146,15 @@ ATTRIBUTE DISCIPLINE: the claim's value must come from the SAME attribute the
 claim names. If the evidence states that value only for a DIFFERENT attribute,
 answer "no" — a related field is not the same field.
 Example:
-EVIDENCE: [K1] Kurulum süresi: 10 gün.
-CLAIM: Teslim süresi 10 gündür.
+EVIDENCE: [K1] Tiempo de instalación: 10 días.
+CLAIM: El plazo de entrega es de 10 días.
 Answer: no   (the evidence gives the installation time; the delivery time is a
 different attribute and is not stated)
 But a REWORDED name of the SAME attribute is fine — questions speak plainly
 while tables abbreviate, and it is YOUR OWN knowledge of the language that says
 whether two names denote one attribute; nothing here tells you which:
-EVIDENCE: [K1] Kayıt uzunluğu, azami — Gövde: 45 dk Kapak: 20 dk
-CLAIM: Gövdenin en fazla kayıt süresi 45 dakikadır.
+EVIDENCE: [K1] Aufnahmedauer, maximal — Gehäuse: 45 min Deckel: 20 min
+CLAIM: Die maximale Aufnahmedauer des Gehäuses beträgt 45 Minuten.
 Answer: yes   (same attribute under a plainer name; the body's own value)
 
 NOTATION IS PARAPHRASE: spec sheets write values tersely ("8 ° C ~ + 32° C",
@@ -145,8 +164,8 @@ restating the SAME attribute's numbers as a fluent sentence ("from 8°C to
 "yes". Spec lines are often glued together by PDF extraction; a value still
 belongs to the field name immediately before it.
 Example:
-EVIDENCE: [K1] Vantrek KX-9 çalışma sıcaklığı 8 ° C ~ + 32° C -15 ° C ~ + 50° C
-CLAIM: Çalışma sıcaklığı aralığı 8°C ile 32°C arasındadır.
+EVIDENCE: [K1] Vantrek KX-9 operating temperature 8 ° C ~ + 32° C -15 ° C ~ + 50° C
+CLAIM: The operating temperature range is from 8°C to 32°C.
 Answer: yes   (same attribute, same numbers; "~" is range notation and the
 second range belongs to the next column, not to the claim)
 
@@ -195,20 +214,23 @@ unit spelled out. Judge the relation, not the phrasing. The attribute and its
 value may also sit in DIFFERENT evidence items — joining two items about the
 SAME attribute is allowed and is not new information.
 
+(The examples are in several languages on purpose. The judgement is the same in
+every language, including ones no example uses.)
+
 Example:
 EVIDENCE:
-[K1] Hazırlayan: Nordheim Kayıt Bürosu
-QUESTION: Belgeyi kim onaylamıştır?
-ANSWER: Belgeyi Nordheim Kayıt Bürosu hazırlamıştır.
+[K1] Prepared by: Nordheim Records Office
+QUESTION: Who approved the document?
+ANSWER: The document was prepared by the Nordheim Records Office.
 Answer: no   (the evidence says who prepared it; who approved it is nowhere
 stated, so there is nothing to answer with)
 
 Example:
 EVIDENCE:
-[K1] Kütle, ambalajsız: 3 kg
-QUESTION: Ambalajsız kütle kaç kilogramdır?
-ANSWER: Ambalajsız kütle 3 kg'dır.
-Answer: yes   (the asked attribute is stated; "kilogram" is the plain word for
+[K1] Masse, ohne Verpackung: 3 kg
+QUESTION: Wie viele Kilogramm wiegt es ohne Verpackung?
+ANSWER: Ohne Verpackung beträgt die Masse 3 kg.
+Answer: yes   (the asked attribute is stated; "Kilogramm" is the plain word for
 the unit in the line)
 
 Example:
@@ -247,9 +269,12 @@ connective, heading), output {"triples":[]}.
 
 Output ONLY: {"triples":[["subject","relation","value"]]}
 
-Examples:
+Examples (deliberately in several languages; the triple always stays in the
+sentence's own language):
+"An eagle is a bird." -> {"triples":[["eagle","type","bird"]]}
 "Kartal bir kuştur." -> {"triples":[["kartal","tür","kuş"]]}
-"Kurulum süresini %20-40 kısaltır." -> {"triples":[["kurulum süresi","kısaltma","%20-40"]]}
-"Kapak menteşesi B2 rafındadır." -> {"triples":[["kapak menteşesi","raf","b2"]]}
-"Rica ederim, başka bir şey var mı?" -> {"triples":[]}
+"Es verkürzt die Montagezeit um 20-40%." -> {"triples":[["montagezeit","verkürzung","20-40%"]]}
+"La bisagra de la tapa está en el estante B2." -> {"triples":[["bisagra de la tapa","estante","b2"]]}
+"You're welcome, anything else?" -> {"triples":[]}
+"Das weiß ich nicht." -> {"triples":[]}
 "Bunu bilmiyorum." -> {"triples":[]}"""

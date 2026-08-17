@@ -7,18 +7,25 @@ triples:[[concept, relation, target]]}) is a ready-made supervised example —
 NO NEED to ask Qwen, ~75k clean examples. condition-5 is preserved: the target
 triple comes from the structure of REAL DATA, not written by hand.
 
-It also produces QUESTION (ASK) examples: "{concept} nedir" → {kind:ASK,
-triples:[[concept,"",""]]} — so LoRA also learns the WRITE/ASK distinction
-(the bug of mistaking "what is X" for WRITE in chat was exactly this).
+It can also produce QUESTION (ASK) examples: a question built around each
+concept → {kind:ASK, triples:[[concept,"",""]]} — so LoRA also learns the
+WRITE/ASK distinction (the bug of mistaking "what is X" for WRITE in chat was
+exactly this). The QUESTION FORM IS NOT IN THIS FILE. It used to be, as a
+Turkish literal, which meant the code carried one language's grammar and the
+weights learned that a question looks Turkish. It is now `--ask-form`, supplied
+by whoever supplies the dataset, because the phrasing is a fact about the
+DATA's language and not about this tool: pass "{concept} nedir" with a Turkish
+source, "what is {concept}" with an English one. Without it, only WRITE
+examples are produced — nothing is invented to fill the gap.
 
 The real A100 training consumes this together with grounding self-distillation.
 
 Note: the JSON field names ("kavram", "ilişki", "hedef", "cümle") match the
-Turkish data file and must not be renamed; "{kavram} nedir" is the functional
-Turkish question form.
+Turkish data file's own format and must not be renamed.
 
 Usage:
-    python3.11 -m lmm.finetune.make_extract_data --out data/train/extract.jsonl
+    python3.11 -m lmm.finetune.make_extract_data --out data/train/extract.jsonl \
+        --ask-form "{concept} nedir"
 """
 import argparse
 import json
@@ -34,6 +41,10 @@ def main():
     ap.add_argument("--limit", type=int, default=0, help="0=all")
     ap.add_argument("--ask-ratio", type=float, default=0.4,
                     help="ratio of ASK examples per N WRITEs")
+    ap.add_argument("--ask-form", default="",
+                    help="question template in the SOURCE DATA'S language, "
+                         "with {concept} as the placeholder (e.g. "
+                         "'what is {concept}'). Omitted -> no ASK examples.")
     args = ap.parse_args()
     root = os.path.dirname(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__))))
@@ -60,11 +71,13 @@ def main():
             {"role": "assistant", "content": json.dumps(
                 {"kind": "WRITE", "triples": [triple]}, ensure_ascii=False)},
         ]})
-        # ASK: "{concept} nedir" → question (teach the WRITE/ASK distinction)
-        if args.ask_ratio and (i % max(1, int(1 / args.ask_ratio))) == 0:
+        # ASK: the caller's question form → question (teaches WRITE/ASK)
+        if (args.ask_form and args.ask_ratio
+                and (i % max(1, int(1 / args.ask_ratio))) == 0):
             rows.append({"messages": [
                 {"role": "system", "content": prompts.EXTRACT_SYSTEM},
-                {"role": "user", "content": f"{concept} nedir"},
+                {"role": "user",
+                 "content": args.ask_form.replace("{concept}", concept)},
                 {"role": "assistant", "content": json.dumps(
                     {"kind": "ASK", "triples": [[concept.lower(), "", ""]]},
                     ensure_ascii=False)},
