@@ -1042,6 +1042,49 @@ def h6():
          generate.refusal, generate.hedge_note) = real
 
 
+@test("I1 the same document and question always retrieve the same evidence")
+def i1():
+    """THE DETERMINISM CLAIM, ENFORCED.
+
+    This retrieval layer's whole argument against embedding similarity is that
+    it is deterministic and explainable, and it was neither: `qwords` is a SET
+    OF STRINGS and the stem groups were formed by walking it in length order,
+    so equal-length query words arrived in an order that depends on
+    PYTHONHASHSEED. Group formation is order-sensitive — the first surface form
+    seen becomes the anchor, the rest attach to it, and the group's IDF weight
+    is computed over whatever union that produced — so the same question
+    against the same document could retrieve DIFFERENT evidence between two
+    runs of byte-identical code (measured on bench/manual.txt: PYTHONHASHSEED=1
+    and =3 disagree about "Cihazın işletim sistemi nedir").
+
+    A property about hash seeds cannot be asserted from inside one interpreter,
+    so this runs the same retrieval in several children with different seeds and
+    demands the same block. The witness is minimal and reproduces the real
+    failure exactly: two query words of the SAME LENGTH ('ekran', 'bilgi') so
+    the length sort cannot order them, one sentence reachable from each so the
+    two groups have separate unions and therefore equal weight, and the two
+    sentences the same length so the length tie-break cannot separate them
+    either. On the old code these eight seeds return two different answers; the
+    real manual shows the same thing on a real question."""
+    import subprocess
+    program = (
+        "import sys, json;"
+        "sys.path.insert(0, %r);"
+        "from lmm import evidence;"
+        "store = evidence.SentenceStore();"
+        "store.add('Ekran onbes nokta altiii');"
+        "store.add('Bilgi yediyuz kirk sekiz');"
+        "print(json.dumps(store.find('ekran bilgi', most=1)))"
+    ) % os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    seen = set()
+    for seed in ("0", "1", "2", "3", "5", "7", "99", "12345"):
+        env = dict(os.environ, PYTHONHASHSEED=seed)
+        out = subprocess.run([sys.executable, "-c", program], env=env,
+                             capture_output=True, text=True, check=True)
+        seen.add(out.stdout.strip())
+    assert len(seen) == 1, seen
+
+
 @test("I2 the scorer reads a real abstention as one, and a value as a value")
 def i2():
     """THE MEASURING TOOL IS PART OF THE WORK.
