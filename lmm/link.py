@@ -7,6 +7,7 @@ Case-independent (`fold`), no language rule.
 """
 from v3 import geometry
 from v3.dataset import fold
+from lmm import inflect
 
 # INCREMENTAL LABEL INDEX — the tolerance scan below used to iterate ALL
 # identities per call: O(n) per new label, O(n²) per document. Invisible at
@@ -21,7 +22,7 @@ _INDEX = weakref.WeakKeyDictionary()    # memory -> {"n", "map", "pre5"}
 
 def _index_add(state, folded, key):
     state["map"].setdefault(folded, key)
-    state["pre5"].setdefault(folded[:5], []).append((folded, key))
+    state["pre5"].setdefault(folded[:inflect.ROOT], []).append((folded, key))
 
 
 def _label_index(memory):
@@ -56,27 +57,26 @@ def resolve(memory, label, vectors=None, create=False):
     if key is not None:
         return key
     # SAFE INFLECTION TOLERANCE: Qwen may deliver inflected forms
-    # ("organ"→"organdır"). The criterion is STRICT so the F5 hole
-    # (kart→kartal, organ→organizma) doesn't open:
-    #   root >=5 letters AND remainder <=3 letters.
-    #     organ(5)→organdır  remainder "dır"=3  ✓ matches (correct)
-    #     kart(4)→kartal      root 4<5           ✗ (mismatch closed)
-    #     organ(5)→organizma  remainder "izma"=4 ✗ (mismatch closed)
-    # The strict side of "fabrication 0": we don't loosen and take false positives.
+    # ("organ"→"organdır"). The criterion is the SHARED one — `inflect`, one
+    # rule and one pair of constants for every organ that has to recognise an
+    # ending. It is the strict side of "fabrication 0": we don't loosen and take
+    # false positives, and the F5 hole (kart→kartal, organ→organizma) stays
+    # closed by ROOT/TAIL alone.
+    #
+    # REMOVED: a special case admitting a 4-letter root with a one-letter tail
+    # ("probu"→"prob"), whose stated justification was that the benchmark
+    # manual's spec-table subjects are short. That is one document's shape
+    # deciding the strictness of an identity gate, so it is gone.
+    #
     # Both directions run over the INCREMENTAL INDEX in ~O(1) — the old full
     # scan was O(n) per call and turned document ingestion quadratic.
     index = _label_index(memory)
-    # forward: an existing ROOT is a prefix of the arriving label
-    # (root >=5, remainder 1..3) → the candidate roots are label[:cut].
-    # A 4-letter root is admitted ONLY with a single-letter remainder
-    # ("probu"→"prob"; measured need — spec-table subjects are short). The
-    # F5 hole stays closed: "kartal"→"kart" has remainder 2 and never
-    # matches.
-    for cut in range(max(4, len(label) - 3), len(label)):
-        if cut == 4 and len(label) - cut != 1:
-            continue
+    # forward: an existing ROOT is a prefix of the arriving label → the
+    # candidate roots are the label's own prefixes that a tail could have grown
+    # from.
+    for cut in range(max(inflect.ROOT, len(label) - inflect.TAIL), len(label)):
         other = index["map"].get(label[:cut])
-        if other is not None:
+        if other is not None and inflect.inflection_of(label, label[:cut]):
             return other
     # REVERSE DIRECTION — ONLY WHEN WRITING (create=True). An existing node may
     # have been opened inflected ("metaldir" arrived first as a value), then
@@ -87,10 +87,9 @@ def resolve(memory, label, vectors=None, create=False):
     # edge — a fabrication-0 hole (code-review finding #1). When matched while
     # writing, the root is added to the identity as an ALIAS; later reads find
     # it via legitimate label matching. F5 protections unchanged.
-    if create and len(label) >= 5:
-        for folded, other in index["pre5"].get(label[:5], ()):
-            if folded.startswith(label) \
-                    and 0 < len(folded) - len(label) <= 3:
+    if create and len(label) >= inflect.ROOT:
+        for folded, other in index["pre5"].get(label[:inflect.ROOT], ()):
+            if folded != label and inflect.inflection_of(folded, label):
                 key = memory.identify(label, same_as=other)
                 _index_add(index, label, key)   # alias: count unchanged, index now
                 return key

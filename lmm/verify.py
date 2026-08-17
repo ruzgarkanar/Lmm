@@ -25,10 +25,9 @@ future work.
 
 Mode: STRICT (an unsupported sentence drops) · ASSIST (marked ‹unverified›).
 """
-import os
 import re
 
-from lmm import extract, link
+from lmm import extract, inflect, link
 from v3.dataset import fold
 
 
@@ -75,19 +74,20 @@ def _has_edge(memory, sk, vk, v_label=None):
                         if len(w) >= 3}
                 for a in want:
                     for b in have:
-                        if a == b or a.startswith(b) or b.startswith(a):
-                            return True
-                        # SINGLE-LETTER GARBLING TOLERANCE: the engine can
-                        # write "meyvedir" as "meyvedır" (a LoRA vowel-harmony
-                        # error) and the CORRECT answer was dropping ("what is
-                        # an olive"→"I don't know"). The criterion is as strict
-                        # as link.resolve: common prefix >=5 AND both remainders
-                        # <=3. SAFE: still only looks at the subject's OWN
-                        # values — cannot fabricate a relation to another node
-                        # (blast radius = the same subject's values).
-                        common = os.path.commonprefix((a, b))
-                        if len(common) >= 5 and len(a) - len(common) <= 3 \
-                                and len(b) - len(common) <= 3:
+                        # ONE criterion (`inflect.same_stem`): either form may
+                        # arrive inflected, and the engine can also garble a
+                        # letter ("meyvedir" → "meyvedır", a LoRA vowel-harmony
+                        # error that was dropping a CORRECT answer). SAFE: this
+                        # still only looks at the subject's OWN values — it
+                        # cannot fabricate a relation to another node (blast
+                        # radius = the same subject's values).
+                        #
+                        # This REPLACES a bare `startswith` in either direction,
+                        # which had no length bound at all and was the loosest
+                        # of the four copies of this rule; the shared criterion
+                        # is stricter here, which is the safe direction for a
+                        # gate (a false negative is a refusal).
+                        if inflect.same_stem(a, b):
                             return True
     return False
 
