@@ -618,6 +618,94 @@ def g4():
     assert evidence.coverage("", block, "") == 0.0
 
 
+@test("G5 the answer is SELECTED at the gate, not taken on faith")
+def g5():
+    """GENERATE-AND-SELECT. One generation bound the answer to a single sample
+    of a sampling process; the measured residue was an unstable CHOICE, not
+    missing knowledge. Here the engine is a stub, so what is under test is the
+    SELECTOR: does the composite score prefer the grounded candidate, and does
+    it still refuse when every candidate breaks a gate."""
+    from lmm import generate, session as lmm_session
+    s = lmm_session.Session.__new__(lmm_session.Session)      # no engine needed
+    s.memory = Memory()
+    proof = ["Ekran 15.6 inç LCD ekran", "Cihaz taşınabilir bir sistemdir"]
+    block = "[K1] Ekran 15.6 inç LCD ekran\n[K2] Cihaz taşınabilir bir sistemdir"
+    said, order = {}, []
+    answers, supported = {}, [True]
+
+    def fake_answer(question, facts, warmth=0.2):
+        order.append(facts)
+        return answers.get(facts, "Ekran 15.6 inç")
+
+    def fake_supported(answer, facts):
+        said[answer] = said.get(answer, 0) + 1
+        return supported[0]
+
+    real = (generate.answer, generate.supported)
+    generate.answer, generate.supported = fake_answer, fake_supported
+    try:
+        # THE LADDER RUNS: one candidate per evidence subset, and each subset
+        # is a different block (2 of them for 2 evidence sentences).
+        chosen, tried = s._select("Ekran kaç inç", [], proof, "", block)
+        assert chosen == "Ekran 15.6 inç", chosen
+        assert len(order) == len(set(order)) >= 2, order
+        # A FABRICATED DIGIT IS VETOED even with the engine saying yes: the
+        # wide-block candidate invents 17, the narrow one stays grounded.
+        answers.clear()
+        answers[order[0]] = "Ekran 17 inçtir"
+        order.clear()
+        chosen, tried = s._select("Ekran kaç inç", [], proof, "", block)
+        assert chosen == "Ekran 15.6 inç", chosen
+        assert "Ekran 17 inçtir" in tried    # it was generated, and rejected
+        # EVERY candidate broken → honest refusal, no fallback to the least bad
+        answers.clear()
+        for facts in order:
+            answers[facts] = "Ekran 17 inçtir"
+        chosen, _tried = s._select("Ekran kaç inç", [], proof, "", block)
+        assert chosen is None
+        # The read-back keeps its veto: coverage alone cannot speak.
+        answers.clear()
+        supported[0] = False
+        chosen, _tried = s._select("Ekran kaç inç", [], proof, "", block)
+        assert chosen is None
+    finally:
+        generate.answer, generate.supported = real
+
+
+@test("G6 the read-back is asked about the evidence the claim rests on")
+def g6():
+    """The measured oscillation was the JUDGE, not the answer: the same claim
+    against the same 3000-character block came back False, True, False. The
+    narrow view is asked FIRST, and the wide one only if it fails — a haystack
+    the size of the needle."""
+    from lmm import generate, session as lmm_session
+    s = lmm_session.Session.__new__(lmm_session.Session)
+    proof = ["Ortam sıcaklığı 5 °C ~ +40 °C", "Barkod okuyucu isteğe bağlıdır",
+             "DICOM yazıcı kurulumu için kılavuza bakın"]
+    block = "\n".join(f"[K{i}] {s}" for i, s in enumerate(proof, 1))
+    asked = []
+    real = generate.supported
+
+    def fake(answer, view):
+        asked.append(view)
+        return view == block        # only the WIDE view says yes
+
+    generate.supported = fake
+    try:
+        claim = "Ortam sıcaklığı 5 °C ile +40 °C arasındadır"
+        assert s._read_back(claim, proof, block)
+        # first view: only the sentence the claim shares words with
+        assert "Ortam" in asked[0] and "DICOM" not in asked[0], asked[0]
+        assert len(asked) == 2 and asked[1] == block
+        # a confirmed narrow view ends it — the wide view is not even asked
+        asked.clear()
+        generate.supported = lambda answer, view: True
+        assert s._read_back(claim, proof, block)
+        assert len(asked) == 0
+    finally:
+        generate.supported = real
+
+
 def main():
     failed = 0
     for name, function in PASSED:

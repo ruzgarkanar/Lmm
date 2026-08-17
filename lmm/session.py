@@ -817,43 +817,23 @@ class Session:
             # block.
             records = [r for r in records
                        if not str(r.source).startswith("#doc")]
-        block = retrieve.facts_block(self.memory, records) if records else ""
-        if proof:
-            proof_block = "\n".join(f"[K{i}] {s}"
-                                    for i, s in enumerate(proof, 1))
-            block = (proof_block + "\n" + block) if block else proof_block
-        raw = generate.answer(question, block)
-        # WORD-COVERAGE gate (same principle as on the causal path): if all of
-        # the answer's content-words come from the given block+question there
-        # is NO new claim — fabrication is structurally impossible → pass.
-        # (Number/range answers from evidence sentences could never pass the
-        # old triple-verify; coverage lets them through.)
-        if evidence.covered(raw or "", block, question) and (
-                not proof or generate.supported(raw, block)):
-            # EVERY evidence-based answer goes through the support check (not
-            # just numeric ones): with table cells wandering column-less,
-            # "Orta" could stick to the wrong attribute — coverage sees words,
-            # the auditor sees the binding.
-            safe = raw
-        elif raw and proof and evidence.digits_present(raw, block) \
-                and generate.supported(raw, block):
-            # SECOND TIER: word-coverage tripped on innocent narration words
-            # ("olarak", "belirtilmiştir") but the digits are sound AND the
-            # engine's support check said "the evidence says this" → pass. A
-            # digit violation cannot be rescued by this tier (digits_ok first,
-            # non-negotiable).
-            safe = raw
-        else:
+        fact_block = retrieve.facts_block(self.memory, records) if records else ""
+        proof_block = "\n".join(f"[K{i}] {s}"
+                                for i, s in enumerate(proof, 1)) if proof else ""
+        block = ((proof_block + "\n" + fact_block) if proof_block and fact_block
+                 else (proof_block or fact_block))
+        # GENERATE AND SELECT AT THE GATE (see `_select`). One generation
+        # bound the answer to a single sample of a sampling process; the
+        # measured residue was not missing knowledge but an unstable CHOICE.
+        safe, tried = self._select(question, records, proof, fact_block, block)
+        if safe is None:
             allowed = verify.allowed_of(self.memory, records)
-            safe = verify.verify(self.memory, raw, allowed, self.mode,
-                                 anchor="edge")
+            safe = verify.verify(self.memory,
+                                 tried[0] if tried
+                                 else generate.answer(question, block),
+                                 allowed, self.mode, anchor="edge")
             if not safe:
-                # generation stumbled → retry once; if it falls again, safe refusal.
-                safe = verify.verify(self.memory,
-                                     generate.answer(question, block),
-                                     allowed, self.mode, anchor="edge")
-                if not safe:
-                    return generate.refusal(question) or FALLBACK_DONT_KNOW
+                return generate.refusal(question) or FALLBACK_DONT_KNOW
         # SOURCE-TRUST (strictest): if the weakest fact is below CERTAIN,
         # source+hedge.
         if records:
@@ -869,6 +849,157 @@ class Session:
             if note:
                 safe = f"{safe} {note}"
         return safe
+
+    # How many answers the answer step may generate. A BUDGET (model calls),
+    # not a threshold.
+    CANDIDATES = 3
+
+    def _subsets(self, records, proof, fact_block):
+        """The distinct EVIDENCE SUBSETS to answer from — at most CANDIDATES.
+
+        Candidates have to differ in something that MATTERS. Sampling the same
+        prompt again differs only in noise; what changes an answer's content is
+        WHICH EVIDENCE it rests on. Retrieval hands back a ranked list, so the
+        meaningful variation is a focus ladder: everything retrieved → the
+        better-ranked half → the single best sentence. Distraction and context
+        move in opposite directions along that ladder (the wide block carries
+        the composition questions, the narrow one stops a neighbouring table
+        row from attaching to the wrong attribute), and the gate score below
+        decides which of the two the question needed — instead of one fixed
+        width having to be right for every question.
+        """
+        sizes, subsets = [], []
+        for size in (len(proof), max(1, len(proof) // 2), 1):
+            if proof and size not in sizes:
+                sizes.append(size)
+                subsets.append(proof[:size])
+        blocks = []
+        for sub in subsets:
+            pb = "\n".join(f"[K{i}] {s}" for i, s in enumerate(sub, 1))
+            one = (pb + "\n" + fact_block) if fact_block else pb
+            if one not in blocks:
+                blocks.append(one)
+        if not proof:
+            # Graph-only path: the same ladder over the RECORDS, which are
+            # ordered by targeting and trust.
+            blocks.append(fact_block)
+            if len(records) > 1:
+                half = retrieve.facts_block(self.memory,
+                                            records[:len(records) // 2])
+                if half and half not in blocks:
+                    blocks.append(half)
+        return [b for b in blocks if b][:self.CANDIDATES]
+
+    def _select(self, question, records, proof, fact_block, block):
+        """Generate one answer per evidence subset, choose by GATE SCORE.
+
+        Returns `(chosen | None, [raw answers])`.
+
+            score = digit × coverage_ratio × evidence_use × supported
+
+        Every factor is a gate that already existed; what is new is that they
+        RANK instead of merely admitting or rejecting, so several candidates
+        can be compared on the same scale:
+
+        digit          VETO. `digits_ok` (digit present in the block AND in a
+                       same-neighbour bigram) → 1. If only the looser
+                       `digits_present` holds it scores 0.5 — the second tier
+                       the old code had, kept as a DISCOUNT so a
+                       strict-digit candidate always outranks it. A digit in
+                       neither → 0, the candidate is gone. Untouchable.
+        coverage_ratio how much of the answer comes from the block+question
+                       (`evidence.coverage`). The old binary `covered` is the
+                       special case ratio == 1.0.
+        evidence_use   how much of the answer comes from the EVIDENCE ITSELF
+                       rather than from echoing the question — this is what
+                       separates a real answer from a fluent restatement of
+                       the question, and it is the factor that pushes the
+                       narrow-block candidate down when it had nothing to say.
+        supported      the engine's read-back (`generate.supported`): does the
+                       evidence actually SAY this. 0 kills the candidate.
+
+        THE UNINVENTED-0 GUARANTEE IS UNCHANGED. A candidate with ratio < 1.0
+        speaks only if `supported` confirms it — exactly the old second tier.
+        On the graph-only path (no evidence sentences, so no read-back to
+        appeal to) full coverage is still REQUIRED. Everything eliminated →
+        `None`, and the caller refuses honestly.
+
+        Candidates are scored on the FULL block, not on the subset they were
+        given: the subset is a generation choice, the evidence we hold is what
+        the answer must be true against.
+        """
+        # the evidence WITHOUT the [K..] labels: the labels are scaffolding,
+        # and counting them as evidence words would credit an answer for
+        # quoting the scaffold.
+        evidence_text = "\n".join(proof) if proof else fact_block
+        graded, tried, seen = [], [], {}
+        for one in self._subsets(records, proof, fact_block):
+            # warmth 0: each candidate is the DETERMINISTIC answer to its own
+            # evidence, so the differences between candidates carry
+            # information (which evidence) instead of sampling noise.
+            raw = (generate.answer(question, one, warmth=0.0) or "").strip()
+            if not raw:
+                continue
+            tried.append(raw)
+            key = fold(raw)
+            if key in seen:
+                seen[key][0] += 1       # agreement across subsets — tiebreak
+                continue
+            if evidence.digits_ok(raw, block):
+                digit = 1.0
+            elif proof and evidence.digits_present(raw, block):
+                digit = 0.5
+            else:
+                continue                # digit veto — not negotiable
+            ratio = evidence.coverage(raw, block, question)
+            if not proof and ratio < 1.0:
+                continue                # no read-back to appeal to → strict
+            use = evidence.coverage(raw, evidence_text) if evidence_text else 1.0
+            entry = [1, digit * ratio * use, raw]
+            seen[key] = entry
+            graded.append(entry)
+        # `supported` is a model call, so ask in descending order of the
+        # score-so-far: it can only multiply by 1 or 0, so the first candidate
+        # it confirms IS the maximum — the rest need not be asked.
+        graded.sort(key=lambda e: (-e[1], -e[0]))
+        for agree, score, raw in graded:
+            if score <= 0:
+                break
+            if not proof or self._read_back(raw, proof, block):
+                return raw, tried
+        return None, tried
+
+    def _read_back(self, raw, proof, block):
+        """Does the evidence SAY this — asked of the evidence it RESTS ON.
+
+        This is where the measured oscillation actually lives. Traced on the
+        manual with every candidate identical and temperature 0, the same
+        claim against the same block came back False, then True, then False:
+        the answers were stable and the JUDGE was not. A judge is being asked
+        to find one line inside three thousand characters of flattened PDF, and
+        that search — not the answer — is what wobbles. Two questions from the
+        manual were losing that coin flip.
+
+        So the claim is judged first against the evidence sentences it actually
+        DRAWS ON (the ones sharing content words with it), and only if that
+        fails against everything retrieved. Same judge, same veto, a haystack
+        the size of the needle. It also fixes the opposite failure — a claim
+        that IS in the block verbatim ('İŞLEMCİ : Intel Celeron G 3902') was
+        being denied because it sat buried in unrelated spec noise.
+
+        The narrow view can only be a SUBSET of the retrieved evidence, so
+        nothing outside what the gate already admitted can be confirmed here.
+        """
+        words = set(evidence._words(raw))
+        overlap = sorted(proof, key=lambda s: -len(words
+                                                   & set(evidence._words(s))))
+        focus = [s for s in overlap[:2] if words & set(evidence._words(s))]
+        views = []
+        for view in ("\n".join(f"[K{i}] {s}" for i, s in enumerate(focus, 1)),
+                     block):
+            if view and view not in views:
+                views.append(view)
+        return any(generate.supported(raw, view) for view in views)
 
     def _hedge(self, answer, record, message):
         """Appends a hedging NOTE to a VERIFIED answer resting on a low-trust
