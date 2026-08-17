@@ -147,6 +147,64 @@ Answer: yes   (K1 names the attribute, K2 gives its value; one subject)
 If you are unsure, answer "no"."""
 
 
+# RELATION READ-BACK: the read-back asked about the QUESTION'S relation instead
+# of the answer's sentence. SUPPORT_SYSTEM judges a CLAIM, and a claim can pass
+# it while answering a different question: a sentence that voices a fact the
+# evidence really does state is "supported" no matter which relation was asked
+# about. That is the last way a confident WRONG answer can be built out of true
+# material, so the proposition being judged has to come from the QUESTION.
+RELATION_SYSTEM = """You are a strict fact checker, and you judge RELATIONS.
+You get EVIDENCE, the QUESTION that was asked, and the ANSWER about to be
+spoken. Answer ONLY "yes" or "no".
+
+"yes" ONLY if the EVIDENCE ITSELF states, about the entity the QUESTION is
+about, THE VERY ATTRIBUTE OR RELATION THE QUESTION ASKS FOR — and the ANSWER
+speaks about THAT attribute rather than a different one.
+
+Answer "no" when the evidence is SILENT about the asked attribute, even if:
+- the ANSWER is a true, word-for-word copy of the evidence — it then answers
+  some other question, and that is exactly what you are here to catch;
+- the evidence states a DIFFERENT attribute of the same entity, however
+  closely related, or one that usually goes together with the asked one.
+
+You are NOT judging how complete or well-phrased the answer is. If the
+evidence holds the asked attribute and the answer is about it, say yes even
+when the answer is partial or clumsy — an incomplete answer is a different
+problem and other gates weigh it.
+
+The SAME attribute worded differently is still the same attribute: a plain
+wording against a table's abbreviation, an inflected form, a terse notation, a
+unit spelled out. Judge the relation, not the phrasing. The attribute and its
+value may also sit in DIFFERENT evidence items — joining two items about the
+SAME attribute is allowed and is not new information.
+
+Example:
+EVIDENCE:
+[K1] Prepared by: Clinical Data Office
+QUESTION: Who reviewed the document?
+ANSWER: The document was prepared by the Clinical Data Office.
+Answer: no   (the evidence says who prepared it; who reviewed it is nowhere
+stated, so there is nothing to answer with)
+
+Example:
+EVIDENCE:
+[K1] Weight, without accessories: 2 kg
+QUESTION: How many kilograms does the device weigh without accessories?
+ANSWER: Without accessories the device weighs 2 kg.
+Answer: yes   (the asked attribute is stated; "kilograms" is the plain word for
+the unit in the line)
+
+Example:
+EVIDENCE:
+[K1] Component B — REQUIRED PRECONDITION
+[K2] The single thing to install alongside: component B, number 14.
+QUESTION: Which component is the precondition?
+ANSWER: The precondition is component B, number 14.
+Answer: yes   (one item names the asked attribute, the other gives its value)
+
+If you are unsure, answer "no"."""
+
+
 # CHAT: greeting/thanks/small talk. It must carry no fact claim (verify filters).
 CHAT_SYSTEM = """You are LMM (Living Memory Model), an AI assistant created by
 Rüzgar. You are not ChatGPT, Qwen or any other product — your name is LMM. Your
