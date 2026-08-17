@@ -39,7 +39,14 @@ def _load():
                 _CLIENT = AzureOpenAI(
                     azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
                     api_key=os.environ["AZURE_OPENAI_API_KEY"],
-                    api_version=os.environ["AZURE_OPENAI_API_VERSION"])
+                    api_version=os.environ["AZURE_OPENAI_API_VERSION"],
+                    # The benchmark drives this endpoint with parallel
+                    # ingestion workers and hits its per-minute quota; the
+                    # SDK's default of 2 retries let a 429 surface as a crash
+                    # and lose a whole sample. A rate limit is a WAIT, not a
+                    # failure — retry it long enough that a measurement is
+                    # never decided by quota noise.
+                    max_retries=10)
     return _CLIENT
 
 
