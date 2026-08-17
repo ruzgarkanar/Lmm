@@ -943,8 +943,16 @@ class Session:
             tried.append(raw)
             key = fold(raw)
             if key in seen:
-                seen[key][0] += 1       # agreement across subsets — tiebreak
-                continue
+                continue                # already scored — a subset re-derived it
+                #
+                # AGREEMENT IS NOT EVIDENCE HERE, and counting it cost two
+                # corpus questions. The subsets are NESTED, so the candidates
+                # are not independent witnesses, and narrow evidence
+                # systematically produces the vaguer answer: with the wide
+                # block saying "Morlan bir kuştur" and both narrow ones saying
+                # "Morlan bir canlıdır", a vote handed the answer to the
+                # generic one — twice as many voices, all reading less of the
+                # document. Both claims are true; only one of them answers.
             if evidence.digits_ok(raw, block):
                 digit = 1.0
             elif proof and evidence.digits_present(raw, block):
@@ -955,16 +963,45 @@ class Session:
             if not proof and ratio < 1.0:
                 continue                # no read-back to appeal to → strict
             use = evidence.coverage(raw, evidence_text) if evidence_text else 1.0
-            entry = [1, digit * ratio * use, raw]
+            # THE TIE-BREAK: does the answer NAME WHAT WAS ASKED. `coverage`
+            # with the roles swapped measures how much of the QUESTION the
+            # answer accounts for, and that is what separates two claims the
+            # score cannot: asked "torvanit bir madde midir", "Torvanit bir
+            # maddedir" answers and "Torvanit bir metaldir" changes the
+            # subject, though both are true and both fully grounded. It is
+            # only a tie-break — it can never rescue a candidate a gate
+            # rejected, so a false-premise echo gains nothing by it (the
+            # question's digits are excluded from coverage, and the read-back
+            # still has to confirm). The same targeting the graph path already
+            # does with `targeted` records, applied to the choice of answer.
+            target = evidence.coverage(question, raw)
+            # last resort: the candidate that read the MOST evidence, which is
+            # the order the subsets were built in.
+            entry = [digit * ratio * use, target, len(graded), raw]
             seen[key] = entry
             graded.append(entry)
-        # `supported` is a model call, so ask in descending order of the
-        # score-so-far: it can only multiply by 1 or 0, so the first candidate
-        # it confirms IS the maximum — the rest need not be asked.
-        graded.sort(key=lambda e: (-e[1], -e[0]))
-        for agree, score, raw in graded:
-            if score <= 0:
-                break
+        # GROUNDEDNESS ELIMINATES, RELEVANCE RANKS.
+        #
+        # Ranking the survivors by the groundedness score itself was measured
+        # to be wrong: it prefers the candidate that COPIES the block, and the
+        # answer prompt asks for a fluent sentence. Asked "torvanit bir madde
+        # midir", "Evet, torvanit bir maddedir" scores below "Torvanit bir
+        # metaldir" — for the word 'evet', which claims nothing — and the
+        # question goes unanswered though both sentences are true. Corpus
+        # median fell 15 -> 13 that way.
+        #
+        # Groundedness is a GATE property, not a quality ranking: once two
+        # candidates are both admissible, being more literal does not make one
+        # a better answer. So the score's job is elimination (a digit veto, and
+        # under full coverage the read-back's confirmation), and among what
+        # survives the order is: answers the question · more grounded · read
+        # more of the evidence.
+        graded = [e for e in graded if e[0] > 0]
+        # `supported` is a model call, so ask in that order: it can only
+        # multiply by 1 or 0, so the first candidate it confirms is the choice
+        # and the rest need not be asked.
+        graded.sort(key=lambda e: (-e[1], -e[0], e[2]))
+        for _score, _target, _rank, raw in graded:
             if not proof or self._read_back(raw, proof, block):
                 return raw, tried
         return None, tried
