@@ -268,6 +268,14 @@ sentence's own language. value may be a number, a range, or a phrase.
 If the sentence makes no factual claim (greeting, opinion, "I don't know",
 connective, heading), output {"triples":[]}.
 
+A STATEMENT ABOUT KNOWING IS NOT A CLAIM ABOUT THE WORLD. If the ONLY thing a
+sentence says is that something is or is not known, recorded, stated or
+certain — "I don't know", "the document does not say", "there is no reliable
+information about X", "this is uncertain" — it asserts no fact: output
+{"triples":[]}. Absence of information about X is not a property of X. But a
+sentence that hedges AND states something ("as far as I know, X is 5") does
+make the claim it hedges, and that claim must be extracted.
+
 Output ONLY: {"triples":[["subject","relation","value"]]}
 
 Examples (deliberately in several languages; the triple always stays in the
@@ -278,4 +286,8 @@ sentence's own language):
 "La bisagra de la tapa está en el estante B2." -> {"triples":[["bisagra de la tapa","estante","b2"]]}
 "You're welcome, anything else?" -> {"triples":[]}
 "Das weiß ich nicht." -> {"triples":[]}
-"Bunu bilmiyorum." -> {"triples":[]}"""
+"Bunu bilmiyorum." -> {"triples":[]}
+"There is no reliable information about the capital of Nortlann." -> {"triples":[]}
+"No se indica el peso en el documento." -> {"triples":[]}
+"Kılavuzda bu konuda kesin bilgi yoktur." -> {"triples":[]}
+"Bildiğim kadarıyla kapak menteşesi B2 rafındadır." -> {"triples":[["kapak menteşesi","raf","b2"]]}"""
