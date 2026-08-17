@@ -23,15 +23,15 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from score import fold, ABSTAIN                                # noqa: E402
+from score import abstains, fold                                # noqa: E402
 
 
 def correct(question, answer):
     """Same criterion as score.py: gold keyword present, or — for absence
     questions — a refusal."""
-    ans = fold(answer or "")
     if question["altin"] is None:
-        return any(fold(word) in ans for word in ABSTAIN)
+        return abstains(answer or "")
+    ans = fold(answer or "")
     return any(fold(gold) in ans for gold in question["altin"])
 
 

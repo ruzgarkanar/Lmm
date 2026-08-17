@@ -1042,6 +1042,38 @@ def h6():
          generate.refusal, generate.hedge_note) = real
 
 
+@test("I2 the scorer reads a real abstention as one, and a value as a value")
+def i2():
+    """THE MEASURING TOOL IS PART OF THE WORK.
+
+    The absence criterion was a literal-substring search over a list of Turkish
+    phrases, and it failed on the most ordinary sentence the engine produces:
+    "Bu bilgiye HENÜZ sahip değilim" is an abstention, and one inserted adverb
+    put it outside "bilgiye sahip değil". It cost a real measurement a point —
+    a tool that miscounts is worse than a slow one.
+
+    Matching the pattern's stems in order inside a bounded window fixes that,
+    and it opens exactly one hole, which the value check closes: with gaps
+    allowed, "bu bilgi kılavuzda yok AMA garanti 2 yıldır" would match 'bilgi
+    ... yok'. An answer that names a figure is not abstaining. The engine's own
+    provenance footnote is not a claim, so it is stripped before that test —
+    otherwise a source filename's digits read as a fabricated value (measured:
+    24 genuine abstentions across five historical result files)."""
+    sys.path.insert(0, os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bench"))
+    from score import abstains
+    for answer in ("Bu bilgiye henüz sahip değilim.",
+                   "Bu konuda şu anda bilgim yok.",
+                   "Kılavuzda garanti süresi belirtilmemiştir.",
+                   "Bilmiyorum. (Bu bilgi kesin değildir; #pdf:M30_70 v2.pdf)"):
+        assert abstains(answer), answer
+    for answer in ("Garanti süresi 2 yıldır.",
+                   "Bu bilgi kılavuzda yok ama garanti süresi 2 yıldır.",
+                   "Cihazın koruma türü Sınıf I ekipmandır.",
+                   "Kılavuz bu konuyu başka bir bölümde anlatıyor."):
+        assert not abstains(answer), answer
+
+
 def main():
     failed = 0
     for name, function in PASSED:
