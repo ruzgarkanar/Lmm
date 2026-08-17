@@ -706,6 +706,48 @@ def g6():
         generate.supported = real
 
 
+@test("G7 among grounded candidates the one that ANSWERS wins")
+def g7():
+    """Two measured corpus losses, both from ranking the survivors wrongly.
+    Counting agreement handed 'Morlan bir canlıdır' the answer because two
+    NESTED subsets said it — narrower evidence, vaguer claim, twice as many
+    voices. Ranking by groundedness handed 'Torvanit bir metaldir' the answer
+    over 'Evet, torvanit bir maddedir', which was penalised for the word
+    'evet'. Both claims in each pair are true; only one of each answers."""
+    from lmm import generate, session as lmm_session
+    s = lmm_session.Session.__new__(lmm_session.Session)
+    generate_real = (generate.answer, generate.supported)
+    proof = ["Morlan bir kuştur.", "Kuş bir canlıdır.", "Morlan bir canlıdır."]
+    block = "\n".join(f"[K{i}] {t}" for i, t in enumerate(proof, 1))
+    wide = {}
+
+    def answer(question, facts, warmth=0.2):
+        # the widest block answers specifically, the narrow ones generically
+        return ("Morlan bir kuştur." if len(facts) == max(wide, default=0)
+                else "Morlan bir canlıdır.")
+
+    generate.supported = lambda a, b: True
+    generate.answer = answer
+    try:
+        for one in s._subsets([], proof, ""):
+            wide[len(one)] = one
+        assert len(wide) >= 2, wide
+        chosen, _tried = s._select("morlan nedir", [], proof, "", block)
+        assert chosen == "Morlan bir kuştur.", chosen
+        # ...and the more literal candidate does not outrank the one that
+        # answers the question asked
+        pair = ["Torvanit bir metaldir.", "Metal bir maddedir."]
+        pair_block = "\n".join(f"[K{i}] {t}" for i, t in enumerate(pair, 1))
+        replies = iter(["Torvanit bir metaldir.", "Evet, torvanit bir maddedir.",
+                        "Evet, torvanit bir maddedir."])
+        generate.answer = lambda q, f, warmth=0.2: next(replies)
+        chosen, _tried = s._select("torvanit bir madde midir", [], pair, "",
+                                   pair_block)
+        assert chosen == "Evet, torvanit bir maddedir.", chosen
+    finally:
+        generate.answer, generate.supported = generate_real
+
+
 def main():
     failed = 0
     for name, function in PASSED:
