@@ -656,11 +656,24 @@ class SentenceStore:
             dup = False
             for entry in kept:
                 inter = len(words & entry[0])
-                # Jaccard on content-words. NOT containment: two spec windows
-                # can differ by 3 tokens where those 3 tokens ARE the answer
-                # ("14.4 V / 6500 mAh" tail) — containment suppressed the
-                # only window carrying them (measured).
-                if inter and inter / max(1, len(words | entry[0])) >= 0.75:
+                # SAME REGION, two ways of overlapping. Jaccard catches two
+                # windows of nearly the same width; CONTAINMENT catches the
+                # window scales, which are NESTED — the 3-sentence window sits
+                # inside the 6- and that inside the 12-, and nesting makes the
+                # union large while the intersection stays whole, so Jaccard
+                # reads two views of one paragraph as two regions. Measured
+                # (hospital, "ilk 6 ayda ... yüksek öncelik işaretlidir"): all
+                # SIX seats went to nested views of the one SONUÇ paragraph, and
+                # the section that actually carries the marker never got in —
+                # the monopoly this filter exists to prevent. Containment was
+                # once tried INSTEAD of Jaccard and cost a spec window that
+                # differed by the 3 tokens holding the answer; the lesson was
+                # about the SEAT COUNT, not the measure, and REGION_CAP=2 keeps
+                # that window. So: either measure marks the region, and a region
+                # still gets two seats.
+                if inter and (inter / max(1, len(words | entry[0])) >= 0.75
+                              or inter / max(1, min(len(words),
+                                                    len(entry[0]))) >= 0.75):
                     if entry[1] < REGION_CAP:
                         entry[1] += 1       # corroborating variant — admit
                         break

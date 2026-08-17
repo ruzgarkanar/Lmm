@@ -896,6 +896,44 @@ def h3():
     assert evidence.rows_of(flat_run) is None
 
 
+@test("H4 nested views of one paragraph cannot take every evidence seat")
+def h4():
+    """A question whose answer needs TWO sections gets one chance: both have to
+    be among the sentences retrieved. The near-duplicate filter exists so that no
+    single region monopolises those seats, but it measured overlap by Jaccard
+    only — and the window scales are NESTED, so the same paragraph seen at three
+    widths has a large union and reads as three regions. Measured (hospital,
+    "ilk 6 ayda önerilen projelerden hangisi yüksek öncelik işaretlidir"): all
+    SIX seats went to views of the one closing paragraph, and the section holding
+    the marker was never retrieved, so no candidate answer could rest on it and
+    the read-back rejected — correctly — every answer that was offered.
+
+    No model: the store is built here, one paragraph indexed at several widths
+    plus one other section that shares the question's rarer word."""
+    from lmm import evidence
+    store = evidence.SentenceStore()
+    core = ("İlk 6 ay için önerilen üç proje: 02 · 03 · 07 randevu, fatura ve "
+            "insidental bulgu takip döngüsü.")
+    store.add(core, "#doc")                                  # the narrow view
+    store.add(core + " Üçü de mevcut veriyle çalışır.", "#doc")
+    store.add("SONUÇ Nereden başlanmalı " + core + " Üçü de mevcut veriyle "
+              "çalışır ve birkaç ay içinde ölçülebilir sonuç üretir.", "#doc")
+    store.add("SONUÇ Nereden başlanmalı " + core, "#doc")
+    other = ("07 insidental bulgu takip döngüsünün kapatılması YÜKSEK ÖNCELİK "
+             "işaretlidir.")
+    store.add(other, "#doc")
+    found = store.find("İlk 6 ayda önerilen projelerden hangisi yüksek "
+                       "öncelik işaretlidir", most=4)
+    assert other in found, found
+    # the region is still CORROBORATED — the cap is two seats, not one
+    assert sum(1 for s in found if s.startswith(("İlk", "SONUÇ"))) >= 2, found
+    # and a region that is genuinely alone still fills the list
+    store2 = evidence.SentenceStore()
+    for tail in ("yüksek", "orta", "düşük", "belirsiz"):
+        store2.add("Zilfen madde %s bir torvanit değeri taşır." % tail, "#doc")
+    assert len(store2.find("zilfen torvanit değeri", most=4)) >= 2
+
+
 def main():
     failed = 0
     for name, function in PASSED:
