@@ -17,12 +17,24 @@ import re
 import unicodedata
 
 from v3.dataset import fold
+from lmm import inflect
 
 _WORD = re.compile(r"\w+", re.UNICODE)
 
 # The length at which a token is a content word on its own. Everything shorter
 # has to EARN its place (see `_words`).
 CONTENT = 3
+
+# WINDOW SCALES — the widths at which neighbouring lines are indexed together as
+# each other's context (a heading and the line it governs have to meet in one
+# window, and they can sit several sentences apart). A GEOMETRIC LADDER, each
+# scale twice the one below it, starting from a sentence and its two neighbours:
+# scale-free by construction, so no width is the "right" one for a document, and
+# there is nothing here to tune per document. WINDOW is the middle scale, the
+# widest at which two lines are still plainly one another's context; the cell
+# windows of a table whose rows cannot be read use the same one.
+SCALES = (3, 6, 12)
+WINDOW = SCALES[1]
 
 
 def _boundaries(text):
@@ -204,9 +216,10 @@ def coverage(answer, block, question=""):
         if w in given or w.isdigit():
             hit += 1
             continue
-        if any((len(g) >= 5 and w.startswith(g) and len(w) - len(g) <= 3)
-               or (len(w) >= 5 and g.startswith(w) and len(g) - len(w) <= 3)
-               for g in given):
+        # ONE criterion for "same word, different ending" — `inflect`. Two
+        # organs used to spell this out with their own constants; now the gate's
+        # strictness cannot depend on which organ asks.
+        if any(inflect.same_stem(w, g) for g in given):
             hit += 1
             continue
         # THE UNIT ANCHOR. The prefix rule above needs a root of 5 letters, and
@@ -259,16 +272,60 @@ def covered(answer, block, question=""):
 # too and lost. Nothing downstream can catch that: the claim IS in the evidence.
 # So the rows are reconstructed from the layout, or not claimed at all.
 
-CELL_CHARS = 40          # a line no longer than this is a table cell, not prose
+def _cell_bound(lines):
+    """How long a line may be and still be a table CELL — read off the document.
+
+    This used to be the constant 40, and 40 was a number somebody chose while
+    looking at one PDF: on a document whose lines run narrower it lets prose in,
+    on a wider one it throws cells away.
+
+    The document says it instead, and it says it in the SHAPE of its line
+    lengths. A text dump of a document with tables in it is bimodal: prose is
+    wrapped to the page width and clusters high, cells are a few words and
+    cluster low. The split between two clusters of a one-dimensional sample is
+    not something to guess — take the threshold that MAXIMISES THE SEPARATION
+    between the two groups it makes (between-class variance, the standard
+    parameter-free criterion), and the document's own two populations decide
+    where the line falls. No number to tune, and nothing here has been looked up
+    in any particular document: the median would have been simpler but breaks on
+    a text that is MOSTLY cells, where half the cells sit above it.
+
+    A document with no second cluster still returns a split — every sample does.
+    That is safe, because a run of short lines is only ever read as a table if
+    its cell lengths turn out to be PERIODIC and its layout says where a row
+    begins; `rows_of` returns None otherwise, and the run goes in as plain
+    consecutive-line windows that claim only adjacency.
+    """
+    lengths = sorted(len(l.strip()) for l in lines if l.strip())
+    if len(set(lengths)) < 2:
+        return lengths[-1] if lengths else 0
+    total = sum(lengths)
+    best, cut = None, lengths[-1]
+    below = count = 0
+    for i, length in enumerate(lengths):
+        below += length
+        count += 1
+        if i + 1 == len(lengths) or lengths[i + 1] == length:
+            continue                    # a threshold must fall BETWEEN values
+        rest = len(lengths) - count
+        spread = count * rest * (below / count - (total - below) / rest) ** 2
+        if best is None or spread > best:
+            best, cut = spread, length
+    return cut
 
 
 def _cell_runs(text):
     """Consecutive runs of SHORT lines — a shattered table's cells.  The RAW
     lines are kept: their indentation is the only surviving trace of the
-    columns' geometry."""
+    columns' geometry.
+
+    A run under three lines is not a table: nothing periodic can be read off two
+    cells (`_period` needs three rows' worth before it will answer at all)."""
+    lines = text.split("\n")
+    bound = _cell_bound(lines)
     run, out = [], []
-    for line in text.split("\n") + [""]:
-        if line.strip() and len(line.strip()) <= CELL_CHARS:
+    for line in lines + [""]:
+        if line.strip() and len(line.strip()) <= bound:
             run.append(line)
         else:
             if len(run) >= 3:
@@ -445,9 +502,16 @@ def table_windows(text):
         cells = [l.strip() for l in raw]
         rows = rows_of(raw)
         if rows is None:
-            header = " · ".join(cells[:6])
+            # NO ROW STRUCTURE: the cells go in as overlapping windows, at the
+            # SAME scale the prose windows use (`session.WINDOW`) — the widest
+            # scale at which neighbouring lines are still one another's context.
+            # It is one named scale shared by both window makers rather than a
+            # second number invented here, and with no rows to read there is
+            # nothing better available: the header stands in as the run's first
+            # window's worth of cells.
+            header = " · ".join(cells[:WINDOW])
             for i in range(0, len(cells), 2):
-                window = cells[max(0, i - 1):i + 6]
+                window = cells[max(0, i - 1):i + WINDOW]
                 if len(window) >= 2:
                     row = " · ".join(window)
                     out.append(f"{header} — {row}" if i else row)
@@ -469,7 +533,8 @@ class SentenceStore:
     def __init__(self):
         self.sentences = []                 # id -> (sentence, source)
         self.index = {}                     # folded word -> set(id)
-        self.key_index = {}                 # folded FIELD-NAME word -> set(id)
+        self._key_index = None              # lazy — see the `key_index` property
+        self._bounds = None                 # lazy — see `_record_bounds`
         self._seen = set()                  # folded sentence — duplicate-evidence guard
         self.last_sources = []              # sources of the last find() (hedge)
         # SHORT tokens the corpus itself showed standing next to a number —
@@ -530,8 +595,48 @@ class SentenceStore:
                                 if n * 2 > self._qall.get(w, 0)}
         return self._quantities
 
+    def _record_bounds(self):
+        """What "a SHORT line" means IN THIS CORPUS — (characters, tokens).
+
+        The record-shape test below needs to know when a segment is a table cell
+        or a spec line rather than prose. That used to be three constants (at
+        most 80 characters, at most 12 tokens, the first digit within the first
+        4) chosen while reading one PDF; on a corpus of shorter or longer lines
+        the same numbers mean something entirely different. The corpus itself
+        says where its short lines end: the MEDIAN sentence is the middle of what
+        this document writes, and a record is at or below it. Nothing is known
+        about the document — the bound is read off the material, the way the
+        table's row period and this store's units already are.
+        """
+        if self._bounds is None:
+            chars = sorted(len(s) for s, _src in self.sentences)
+            toks = sorted(len(_tokens(s)) for s, _src in self.sentences)
+            self._bounds = ((chars[len(chars) // 2], toks[len(toks) // 2])
+                            if chars else (0, 0))
+        return self._bounds
+
+    @property
+    def key_index(self):
+        """folded FIELD-NAME word -> set(id), built lazily.
+
+        It is built on demand rather than per `add` because the record-shape test
+        is corpus-relative (`_record_bounds`): the answer to "is this line short"
+        is not knowable while the corpus is still arriving, and an index built
+        incrementally would have depended on the order the sentences came in.
+        Built once the corpus is complete, it is order-independent — which is the
+        property this whole layer's determinism argument rests on."""
+        if self._key_index is None:
+            limit_chars, limit_toks = self._record_bounds()
+            index = {}
+            for sid, (sentence, _src) in enumerate(self.sentences):
+                for w in set(self._key_words(sentence, limit_chars,
+                                             limit_toks)):
+                    index.setdefault(w, set()).add(sid)
+            self._key_index = index
+        return self._key_index
+
     @staticmethod
-    def _key_words(sentence):
+    def _key_words(sentence, limit_chars, limit_toks):
         """FIELD-NAME words of a record-shaped sentence — via FORMAT cues only
         (no language list): (1) up to 3 words immediately BEFORE a colon
         ("Bellek: 8 g" → bellek); (2) in a SHORT segment (a table cell /
@@ -546,20 +651,22 @@ class SentenceStore:
             keys += _words(m.group(1))[-3:]
         for seg in re.split(r"[·—;|]", sentence):
             seg = seg.strip()
-            if not seg or len(seg) > 80:
+            if not seg or len(seg) > limit_chars:
                 continue
-            # RECORD SHAPE, not just "contains a number": few tokens in
-            # total and the digit arrives early (field name + value and
-            # little else). A prose sentence that merely cites a figure
-            # ("see section 11.8 ...") must not get its words keyed.
+            # RECORD SHAPE, not just "contains a number": SHORT for this corpus
+            # and the digit arrives in the leading MINORITY of the tokens (field
+            # name first, then value — the name is not most of the line). A prose
+            # sentence that merely cites a figure ("see section 11.8 ...") must
+            # not get its words keyed.
             toks = _tokens(seg)
-            if not toks or len(toks) > 12:
+            if not toks or len(toks) > limit_toks:
                 continue
             first_digit = next((i for i, t in enumerate(toks)
                                 if t.isdigit()), None)
-            if first_digit is None or first_digit == 0 or first_digit > 4:
+            if first_digit is None or first_digit == 0 \
+                    or first_digit * 2 > len(toks):
                 continue
-            m = re.match(r"([^\d:]{1,60}?)\s*\d", seg)
+            m = re.match(r"([^\d:]+?)\s*\d", seg)
             if m:
                 keys += _words(m.group(1))[-3:]
         return [k for k in keys if not k.isdigit()]
@@ -587,10 +694,10 @@ class SentenceStore:
                 self._near[w] = self._near.get(w, 0) + 1
         self._units = None
         self._quantities = None
+        self._bounds = None
+        self._key_index = None      # the record-shape bound moved — rebuild
         for w in set(_words(sentence)):
             self.index.setdefault(w, set()).add(sid)
-        for w in set(self._key_words(sentence)):
-            self.key_index.setdefault(w, set()).add(sid)
         return sid
 
     def find(self, query, most=4):
@@ -640,11 +747,17 @@ class SentenceStore:
             # ("Boyutlar 360 mm ...") whenever the inflected form happened to
             # exist verbatim elsewhere — the answer-carrying sentence never
             # entered the candidate set (measured, manual trace).
-            # Prefix tolerance — two-way (root>=4 forward, >=3 reverse:
-            # "inçtir" must reach the index word "inç"). STEM matching too:
-            # "hazırlandı"~"hazırlanma" are not each other's prefix but share
-            # an 8/10 stem — in an agglutinative language, the same concept
-            # (the criterion is proportional, no language-list).
+            # INFLECTION TOLERANCE — the SHARED criterion (`inflect`), which is
+            # the same one the identity gate and the coverage gate use.
+            #
+            # REMOVED: three separate rules that lived here — a >=4-letter
+            # forward prefix, a >=3-letter reverse prefix ("inçtir" reaching the
+            # index word "inç"), and a proportional 70%-stem clause beside them.
+            # Each was widened or narrowed against one document's trace, and
+            # together they made this the loosest of the four copies of the rule.
+            # The shared criterion is stricter, and a short unit like 'inç' is no
+            # longer reachable from an inflected query word by prefix alone —
+            # that is a measured cost, not a free cleanup.
             cand = {}
             for qw in group:
                 if qw in self.index:
@@ -652,22 +765,8 @@ class SentenceStore:
                 for w, ids in self.index.items():
                     if w in cand:
                         continue
-                    if len(qw) >= 4 and w.startswith(qw):
+                    if inflect.same_stem(qw, w):
                         cand[w] = ids
-                    elif len(w) >= 3 and qw.startswith(w):
-                        cand[w] = ids
-                    else:
-                        # PROPORTIONAL stem criterion: the shared stem must
-                        # cover >=70% of the longer form too — "hazırlandı"~
-                        # "hazırlanma" (8/10) is the same concept, but
-                        # "işlemi"~"işlemcisi" (5/9) is a DIFFERENT word whose
-                        # crowd was leaking into the rare word's group and
-                        # burying the spec row (measured, manual trace).
-                        common = os.path.commonprefix((qw, w))
-                        if len(common) >= max(4, min(len(qw), len(w)) - 2,
-                                              (max(len(qw), len(w)) * 7 + 9)
-                                              // 10):
-                            cand[w] = ids
             if not cand:
                 continue
             # ONE weight for the whole stem group, over the UNION of its
@@ -706,20 +805,26 @@ class SentenceStore:
         ranked = sorted(scores.items(),
                         key=lambda kv: (-kv[1], -len(self.sentences[kv[0]][0]),
                                         kv[0]))
-        # noise floor: anything below half the best score drops. SHORT-query
-        # exception (review #4): in a question with 1-2 content-words ("what is
-        # karvel") a score of 1 is legitimate — with a floor of 2 it would
-        # return empty while evidence exists. Window/table lines can inflate
-        # best; the floor lowers as the query shortens.
+        # NOISE FLOOR: anything scoring below half the best score drops.
+        #
+        # It used to read `max(1 if len(qwords) <= 2 else 2, best // 2)`, which
+        # compared a SCORE to a COUNT: `best` is a sum of IDF weights (nats),
+        # while the 1 and the 2 were numbers of matching words, left over from a
+        # version where the score WAS a count. Mixing the units makes the
+        # absolute term meaningless — its severity is whatever the log weights
+        # happen to be worth in this corpus — and `best // 2` silently floored a
+        # float, so the floor moved in steps. The proportional half is the whole
+        # rule and it is scale-free, so it needs no companion term and no
+        # per-query-length exception.
         best = ranked[0][1]
-        floor = max(1 if len(qwords) <= 2 else 2, best // 2)
+        floor = best / 2
         # NEAR-DUPLICATE SUPPRESSION: the same content is indexed at several
         # window scales (raw line, 3-window, 6-window) — without this, one
         # strong-but-wrong region filled ALL top slots and the answer-carrying
         # row never got a seat (measured, manual trace). Overlap is a set view
         # (Jaccard on content-words), no language rule.
         #
-        # A region may hold at most REGION_CAP seats, not exactly one. The
+        # A region may hold at most a FRACTION OF THE SEATS, not exactly one. The
         # purpose of this filter is that no single region MONOPOLISES the top
         # list; suppressing every variant went further than that purpose and
         # removed CORROBORATION. Measured (hospital trace, "regülasyon riski"):
@@ -727,9 +832,17 @@ class SentenceStore:
         # occurs in two overlapping table windows; with one seat only, the
         # support check saw a single flattened row and rejected the CORRECT
         # answer, and the question fell to an abstention. With two seats the
-        # binding is confirmed twice and the answer passes. The anti-monopoly
-        # guarantee survives: 2 < `most`, so a region can never take every seat.
-        REGION_CAP = 2
+        # binding is confirmed twice and the answer passes.
+        #
+        # TWO IS NOT A TUNED NUMBER, IT IS WHAT CORROBORATION IS: one view of a
+        # region states the binding, a second independent view confirms it, and a
+        # third adds no information that the second did not already add. What WAS
+        # wrong with writing it as a bare constant is that it silently became
+        # "every seat" whenever a caller asked for two seats or fewer — the
+        # monopoly this filter exists to prevent, reappearing at small block
+        # sizes. So the cap is stated with the guarantee attached: at most one
+        # corroboration, and never the whole block.
+        region_cap = max(1, min(2, most - 1))
         keep = []
         kept = []                           # [[wordset, seats_taken], ...]
         for sid, sc in ranked:
@@ -751,13 +864,18 @@ class SentenceStore:
                 # the monopoly this filter exists to prevent. Containment was
                 # once tried INSTEAD of Jaccard and cost a spec window that
                 # differed by the 3 tokens holding the answer; the lesson was
-                # about the SEAT COUNT, not the measure, and REGION_CAP=2 keeps
-                # that window. So: either measure marks the region, and a region
-                # still gets two seats.
-                if inter and (inter / max(1, len(words | entry[0])) >= 0.75
+                # about the SEAT COUNT, not the measure. So: either measure marks
+                # the region, and a region still gets its share of seats.
+                #
+                # THE BOUNDARY IS THE MAJORITY, not 0.75. Two texts are views of
+                # one region when they share MORE than they differ — that is what
+                # "the same region" means, and it is the only boundary on a
+                # similarity ratio that is not a dial. The 0.75 was three
+                # quarters because three quarters worked on one trace.
+                if inter and (inter / max(1, len(words | entry[0])) > 0.5
                               or inter / max(1, min(len(words),
-                                                    len(entry[0]))) >= 0.75):
-                    if entry[1] < REGION_CAP:
+                                                    len(entry[0]))) > 0.5):
+                    if entry[1] < region_cap:
                         entry[1] += 1       # corroborating variant — admit
                         break
                     dup = True
@@ -816,14 +934,20 @@ class SentenceStore:
         # index lookup uses ("inçtir" reaches the corpus's "inç"), because the
         # question's word arrives inflected and the corpus's does not.
         quantities = self.quantities
+        # The same one relaxation as in `find`, and the same license: `q` is a
+        # token THIS CORPUS binds to numbers, so a question word that carries it
+        # as its root is asking for that quantity ("inçtir" → "inç"). Below the
+        # shared root bound only because the corpus vouched for the token.
         asks = {w for w in qwords
-                if w in quantities or any(len(q) >= CONTENT and w.startswith(q)
+                if w in quantities or any(inflect.same_stem(w, q)
+                                          or w.startswith(q)
                                           for q in quantities)}
         if not asks:
             return None
         held = set(keep)
         words = [set(_words(self.sentences[sid][0])) for sid in keep]
         best = None
+        limit_chars, limit_toks = self._record_bounds()
         SCAN = 300              # the seat is a rescue, not a second search
         for sid, _score in ranked[:SCAN]:
             if sid in held or sid not in named:
@@ -835,7 +959,7 @@ class SentenceStore:
             # prose windows and table crumbs that happen to name a field and
             # carry a number: measured, and they are noise in the block, which
             # is the one thing an extra seat must not add.
-            if len(sentence) > 80 or len(_tokens(sentence)) > 12:
+            if len(sentence) > limit_chars or len(_tokens(sentence)) > limit_toks:
                 continue
             found = measure(sentence)
             if found is None or found[2] is None:
@@ -864,13 +988,12 @@ class SentenceStore:
             # refuses to make. Measured: without this the seat handed a "hangi
             # tier" question a TIER 2 heading line while the answer was Tier 3
             # — a plausible wrong answer, planted in the block by the rescue.
-            if any(w == q or w.startswith(q) or q.startswith(w)
-                   for q in asks for w in mine):
+            if any(inflect.same_stem(w, q) for q in asks for w in mine):
                 continue
             # The seat is for evidence that is MISSING, not for one more view of
-            # what is already there (the region rule the seat list itself obeys).
-            if any(len(mine & other)
-                   >= 0.75 * max(1, min(len(mine), len(other)))
+            # what is already there (the region rule the seat list itself obeys,
+            # at the same majority boundary).
+            if any(len(mine & other) > 0.5 * max(1, min(len(mine), len(other)))
                    for other in words):
                 continue
             # AMONG SPEC LINES, THE DENSEST ONE. Score order cannot choose here:
@@ -886,8 +1009,7 @@ class SentenceStore:
             # already a record-shaped line and the question is which record.)
             hit = sum(1 for w in mine
                       if w.isdigit() or w in qwords
-                      or any(len(q) >= 4 and (w.startswith(q) or q.startswith(w))
-                             for q in qwords))
+                      or any(inflect.same_stem(w, q) for q in qwords))
             rank = (hit / max(1, len(mine)), hit, -len(mine), -sid)
             if best is None or rank > best[0]:
                 best = (rank, sid)
