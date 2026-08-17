@@ -776,6 +776,13 @@ class Session:
             # the graph really holds, so there is nothing to ration. The block
             # is bounded downstream (evidence outranks document triples, and
             # `retrieve.specific` prunes), and a question has only so many words.
+            #
+            # THE ORDER IS A TOTAL ONE, and that is a determinism fix of the same
+            # family as the one in `evidence.find`: this sorted a SET OF STRINGS
+            # by length alone, so equal-length question words came out in
+            # PYTHONHASHSEED order — and the first of them becomes the SUBJECT of
+            # the whole answer. Byte-identical code could pick a different
+            # subject between two runs.
             for w in sorted(set(evidence._words(question)),
                             key=lambda t: (-len(t), t)):
                 cand = link.resolve(self.memory, w)
