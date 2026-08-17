@@ -1406,6 +1406,165 @@ def j6():
     assert store.find(plain, most=6) == reference.find(plain, most=6)
 
 
+# --- K  language independence ------------------------------------------------
+#
+# The system claimed to be language-independent while three things quietly made
+# Turkish its home language: every answer was framed by hand-written Turkish
+# labels, every few-shot example in every classifier was Turkish, and the
+# BENCHMARK SCORER recognised an abstention by a list of Turkish phrases — so a
+# document in any other language would have scored every honest refusal as a
+# fabrication. These tests hold each of the three closed, and none of them
+# needs a model.
+
+
+@test("K1 the scorer reads the system's own abstention stamp, in any language")
+def k1():
+    """THE MEASUREMENT MUST NOT SPEAK ONE LANGUAGE.
+
+    `score.abstains` is a Turkish phrase list, and it is now the FALLBACK. The
+    criterion is the stamp the session puts on the turn it refused
+    (`Session.last_abstained`, written into the result file as "abstained"),
+    which is a fact the code knows rather than a wording a reader guesses at.
+
+    Here is what that buys, stated as the assertions below: a German and a
+    Spanish refusal — invisible to every pattern in the list — are read as
+    abstentions, and a Turkish one still is. The value check survives the
+    stamp: an "abstention" that names a figure is a fabrication whichever path
+    the engine thinks it took, so a stamped turn that supplies 2 años is not
+    counted as a refusal. Rows with no stamp (the RAG baseline's, every
+    historical file on disk) fall back to the patterns unchanged."""
+    sys.path.insert(0, os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bench"))
+    from score import abstains, declined
+    foreign = ("Das weiß ich leider nicht.",
+               "No tengo esa información.",
+               "That is not stated in the document.")
+    for answer in foreign:
+        # the pattern list is blind to all three — that is the whole problem
+        assert not abstains(answer), answer
+        assert declined({"cevap": answer, "abstained": True}), answer
+        assert not declined({"cevap": answer, "abstained": False}), answer
+    # Turkish keeps working through the same door.
+    assert declined({"cevap": "Bu bilgiye henüz sahip değilim.",
+                     "abstained": True})
+    # A stamp cannot launder a fabricated value.
+    assert not declined({"cevap": "La garantía es de 2 años.",
+                         "abstained": True})
+    # No stamp -> the old reading, unchanged (back-compat for RAG/old files).
+    assert declined({"cevap": "Bu konuda bilgim yok."})
+    assert not declined({"cevap": "No tengo esa información."})
+
+
+@test("K2 every refusal leaves by one door, and that door raises the flag")
+def k2():
+    """ONE DOOR, OR THE FLAG IS A LIE.
+
+    `last_abstained` is only worth reading if no refusal can slip past the
+    method that sets it. The session had nine separate
+    `generate.refusal(...) or FALLBACK_DONT_KNOW` sites; a flag set at eight of
+    them measures nothing. This is a SOURCE-level assertion because that is the
+    level the property lives on: `generate.refusal` may be called from exactly
+    one place, `Session._refuse`, and the two fallback returns that bypass the
+    engine entirely (the crash path, the research offer) must raise the flag
+    themselves."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    source = open(os.path.join(root, "lmm", "session.py"),
+                  encoding="utf-8").read()
+    body = source.split("def _refuse(")[1].split("\n    def ")[0]
+    assert "self.last_abstained = True" in body
+    assert body.count("generate.refusal(") == 1
+    assert source.count("generate.refusal(") == 1, "a refusal bypasses _refuse"
+    # Everything that returns the last-resort constant flags itself too.
+    for line_no, line in enumerate(source.splitlines()):
+        if "return FALLBACK_DONT_KNOW" not in line:
+            continue
+        window = "\n".join(source.splitlines()[max(0, line_no - 6):line_no])
+        assert "self.last_abstained = True" in window, line_no
+
+
+@test("K3 the answer frame is structure, not a language")
+def k3():
+    """NO ANSWER PASSES THROUGH A TURKISH SKELETON.
+
+    Every answer this system has ever produced was built as
+    "OLGULAR:\\n...\\n\\nSORU: ..." — two Turkish words wrapped around a
+    question that might be in any language, and around a no-facts branch that
+    told the model in Turkish not to invent. The labels are field names for the
+    engine, so they belong in the codebase's own language; what must NOT leak
+    is a sentence of any user language. Captured here without a model: the
+    frame is inspected directly."""
+    from lmm import generate, runtime
+    seen = []
+    real = runtime.generate
+
+    def capture(user, **kw):
+        seen.append(user)
+        return "…"
+    runtime.generate = capture
+    try:
+        generate.answer("¿qué es el vorlin?", "[1] vorlin → bebida")
+        generate.answer("was ist Beton?", "")
+    finally:
+        runtime.generate = real
+    with_facts, without_facts = seen
+    assert with_facts.startswith("FACTS:")
+    assert "\n\nQUESTION: ¿qué es el vorlin?" in with_facts
+    assert without_facts.startswith("QUESTION: was ist Beton?")
+    # The no-facts branch instructs in the codebase's language and hands the
+    # ANSWER's language back to the question.
+    assert "SAME LANGUAGE" in without_facts
+    turkish = ("OLGULAR", "SORU:", "Belleğinde", "bilmediğini", "Uydurma")
+    for frame in seen:
+        for word in turkish:
+            assert word not in frame, (word, frame)
+
+
+@test("K4 no classifier learns its pattern in one language")
+def k4():
+    """FEW-SHOTS IN ONE LANGUAGE TEACH THAT LANGUAGE.
+
+    Every example in every classifier prompt was Turkish, which is how a system
+    with no word list in it still ended up with a home language: shown "sigara
+    kansere neden olur" and nothing else, a model generalises from Turkish
+    causal grammar. The examples are now spread across languages, and this test
+    keeps them spread — it asserts that each few-shot prompt demonstrates its
+    pattern in at least THREE languages, so no single one can quietly become
+    the pattern again. Signatures are distinctive orthography/function words,
+    never content, so rewording an example does not break the test."""
+    from lmm import prompts
+    import lmm.generate as gen_src
+    signatures = {
+        "en": ("what is", "who are you", "an eagle", "You're welcome",
+               "operating temperature", "Prepared by", "smoking causes"),
+        "de": ("ist ein", "was ist", "führt zu", "Aufnahmedauer", "weiß ich",
+               "wer hat dich", "wie geht es", "Kilogramm", "verkürzt"),
+        "es": ("¿", "es un", "provoca", "Tiempo de instalación", "órgano",
+               "gracias", "bisagra"),
+        "tr": ("nedir", "bir kuştur", "merhaba", "selam", "yol açar",
+               "kırmızı", "menteşesi", "bilmiyorum"),
+    }
+
+    def languages(text):
+        low = text.lower()
+        return {tag for tag, marks in signatures.items()
+                if any(m.lower() in low for m in marks)}
+
+    source = open(gen_src.__file__, encoding="utf-8").read()
+    few_shot = {
+        "EXTRACT_SYSTEM": prompts.EXTRACT_SYSTEM,
+        "REEXTRACT_SYSTEM": prompts.REEXTRACT_SYSTEM,
+        "SUPPORT_SYSTEM": prompts.SUPPORT_SYSTEM,
+        "RELATION_SYSTEM": prompts.RELATION_SYSTEM,
+    }
+    for name, body in few_shot.items():
+        assert len(languages(body)) >= 3, (name, languages(body))
+    # The classifiers whose few-shots live inside generate.py, taken from the
+    # source so that no model call is needed to see them.
+    for name in ("def is_causal(", "def is_causal_question(",
+                 "def is_identity_question(", "def are_rivals("):
+        body = source.split(name)[1].split("\ndef ")[0]
+        assert len(languages(body)) >= 3, (name, languages(body))
+
 def main():
     failed = 0
     for name, function in PASSED:
