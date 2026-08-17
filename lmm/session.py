@@ -325,11 +325,54 @@ class Session:
         self.last_kind = ""
         self.last_subject = ""
         said = self._respond(message)
+        if said and not self.last_abstained:
+            # A REFUSAL DOES NOT ONLY COME OUT OF THE REFUSAL DOOR. The engine
+            # can decline inside a perfectly normal answer — handed evidence
+            # that does not cover the question, the answer prompt is instructed
+            # to say it doesn't know, and that sentence passes every gate
+            # because it claims nothing. Measured: three of the corpus's four
+            # absence questions abstain exactly this way, and `_refuse` never
+            # sees them.
+            #
+            # So the flag's real definition is not "which branch ran" but "did
+            # this turn ASSERT anything", and the system already owns the organ
+            # that answers it: the same re-extractor the fabrication gate
+            # trusts to find the claims in a generated sentence. No claims in
+            # what was spoken = nothing was asserted = an abstention, in
+            # whatever language it was written. One short model call per
+            # answering turn, and only on turns that did not already refuse.
+            self.last_abstained = not self._asserted_a_fact(said)
         if message and message.strip():
             self.history.append({"role": "user", "content": message})
             self.history.append({"role": "assistant", "content": said or ""})
             self.history = self.history[-12:]     # last ~6 turns (sliding window)
         return said
+
+    def _asserted_a_fact(self, said):
+        """Did the spoken answer CLAIM anything — the language-free half of the
+        abstention reading.
+
+        The engine's own annotations are not claims: a parenthetical hedge and
+        a '#source' tag are the answer's footnote, and reading them as
+        assertions would make every sourced refusal look like a statement. That
+        is FORMAT, not language — parentheses and a '#' prefix — and it is the
+        same distinction the benchmark scorer draws.
+
+        Errs towards ASSERTED: if the re-extractor cannot be reached, the turn
+        is treated as having spoken, because claiming an abstention that did
+        not happen is the damaging direction (it would let a wrong answer be
+        scored as an honest refusal)."""
+        text = re.sub(r"\([^)]*\)", " ", said)
+        text = " ".join(w for w in text.split() if not w.startswith("#"))
+        if not text.strip():
+            return False
+        try:
+            for sentence in re.split(r"(?<=[.!?])\s+", text.strip()):
+                if sentence.strip() and extract.reextract(sentence):
+                    return True
+        except Exception:                                   # noqa: BLE001
+            return True
+        return False
 
     def _refuse(self, message):
         """DECLINE to answer — the single door every refusal leaves by.
