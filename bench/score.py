@@ -31,10 +31,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # language dependency the engine does not have.
 #
 # So the judgement moved to the only place that does not have to guess: the
-# system itself. `Session._refuse` is the single door every refusal leaves by,
-# and it stamps `last_abstained` on the turn; `bench/lmm_side.py` writes that
-# stamp into the result file as "abstained", and `declined()` below reads it
-# first. The patterns stay for result files that carry no stamp — the RAG
+# system itself. `Session.last_abstained` says whether the turn ASSERTED
+# ANYTHING — raised by the single refusal door and, for the answers that
+# decline without ever reaching it, by re-extracting the claims out of what was
+# actually spoken. `bench/lmm_side.py` writes that stamp into the result file
+# as "abstained", and `declined()` below reads it first. The patterns stay for result files that carry no stamp — the RAG
 # baseline's, and every historical run already on disk — and for those the old
 # structural care still applies: ordered word STEMS inside a bounded window, so
 # morphology and inserted adverbs cost nothing.
