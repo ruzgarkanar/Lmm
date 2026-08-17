@@ -5,6 +5,19 @@ there is no template/affix/word list.
 
 NOTE: the prompt BODIES below deliberately keep their Turkish few-shot
 examples — they are FUNCTIONAL (classifier accuracy depends on them).
+
+EVERY EXAMPLE HERE IS INVENTED. An example may demonstrate a FORMAT (what a
+record line looks like, what terse notation looks like, how an ordinal points at
+a record) and nothing else. It may not carry the content of any document the
+system is measured on, and it may not teach a DOMAIN EQUIVALENCE ("rating X is
+really attribute Y") — deciding whether two names denote one attribute is the
+engine's own language knowledge, not something we hand it. Earlier revisions of
+this file did both: they quoted the benchmark manual's own voltages, dimensions,
+battery and temperature figures, named a hospital document's tiers and a
+spreadsheet's owner, and spelled out that a particular ingress-protection code
+means water protection. That is teaching to the test, and it is gone. The
+fictional 'Vantrek KX-9' scanner and 'Nordheim' records below appear in no
+benchmark.
 """
 
 # EXTRACTION: classify the message + extract fact triples. STRICT JSON.
@@ -19,10 +32,11 @@ IMPORTANT: if the message ASKS anything — even when it mentions facts or
 numbers inside the question ("doluluğu %65'ten kaça çıkarmak gerekir?") —
 kind is "ASK", never "WRITE". A question is never teaching.
 
-ORDINALS: when the subject is referred to by position in any language
-("third finding", "üçüncü tespit", "el segundo registro"), write the subject
-as the DIGIT: "üçüncü tespitte hangi yönetmelik geçiyor" ->
-{"kind":"ASK","triples":[["3","yönetmelik",""]]} — the ordinal becomes "3".
+ORDINALS: when the subject is referred to by POSITION rather than by name, in
+whatever language the user writes, put the subject in as the DIGIT of that
+position — records are numbered, so a position IS a subject:
+"üçüncü kayıtta hangi renk yazıyor" ->
+{"kind":"ASK","triples":[["3","renk",""]]} — the ordinal becomes "3".
 
 Extract fact triples [subject, relation, value]:
 - subject = the entity the message is about (a noun, lowercase)
@@ -50,11 +64,12 @@ know — never invent.
 
 SPECIFICITY: if the question asks for a SPECIFIC item (a name, a number, a
 date, a place) and the facts do not CONTAIN that specific item, say you don't
-know. Do not answer with a generic restatement ("it was prepared for a
-hospital" is NOT an answer to "which hospital?").
+know. Do not answer with a generic restatement (naming the CATEGORY of the
+thing asked for is not naming the thing: "it is stored on a shelf" is NOT an
+answer to "which shelf?").
 When facts from several list rows together imply the answer, COMBINE them
-(e.g. one row says project 07 is high priority, another lists 07 among the
-recommended projects -> name project 07).
+(e.g. one row says part 12 is the spare part, another lists 12 among the parts
+in stock -> name part 12).
 
 STYLE (important):
 - Answer in ONE short, natural sentence — a real sentence with a verb.
@@ -67,13 +82,21 @@ STYLE (important):
   question asks for a specific field of a specific record, answer with THAT
   field's value from THAT record — not with another field, and never with a
   value from a different record.
-  Example: facts "[K1] NO: 1 · ISSUE: fire exit blocked · STATUS: NEW ·
-  OWNER: Ersin." and the question asks for the STATUS of issue 1 -> the
-  answer is "NEW" (not the issue description, not the owner)."""
+  Example: facts "[K1] NO: 1 · PARÇA: kapak menteşesi · DURUM: YENİ ·
+  RAF: B2." and the question asks for the DURUM of part 1 -> the
+  answer is "YENİ" (not the part description, not the shelf)."""
 
 
 # SUPPORT CHECK: the second tier when the coverage gate trips on a word —
 # "does the evidence really say this claim". Strict: when in doubt, no.
+#
+# WHY "COMBINING EVIDENCE IS ALLOWED" IS IN THE PROMPT (the note used to be in
+# the prompt BODY, where the model paid for reading it): without it ATTRIBUTE
+# DISCIPLINE over-applied and rejected answers assembled from two evidence
+# lines — exactly what ANSWER_SYSTEM instructs the answerer to produce, so the
+# two prompts contradicted each other and correct answers fell to abstentions.
+# Measured when it was added: corpus 13/17 -> 16/17, with no loosening of the
+# gate (a swapped value and an invented cost both still scored 0/3).
 SUPPORT_SYSTEM = """You are a strict fact checker. You get EVIDENCE and a CLAIM.
 Answer ONLY "yes" or "no".
 
@@ -89,41 +112,41 @@ neighboring record.
 
 Example:
 EVIDENCE:
-[K1] NO: 1 · ISSUE: fire exit blocked · OWNER: Ersin.
-[K2] NO: 2 · ISSUE: missing helmets.
-CLAIM: The owner of the missing-helmets issue is Ersin.
-Answer: no   (record 2 has no OWNER field; Ersin belongs to record 1)
+[K1] NO: 1 · PARÇA: kapak menteşesi · RAF: B2.
+[K2] NO: 2 · PARÇA: taşıma kayışı.
+CLAIM: Taşıma kayışının rafı B2'dir.
+Answer: no   (record 2 has no RAF field; B2 belongs to record 1)
 
-ORDINALS: when the claim refers to a record by position in ANY language
-("third finding", "üçüncü tespit", "el segundo"), it means the record whose
-NUMBER field equals that ordinal — check THAT record's fields, not another's.
-CLAIM: The third finding cites regulation X — but [NO: 3]'s own line lists
-regulation Y -> answer no.
+ORDINALS: when the claim refers to a record by POSITION, in whatever language,
+it means the record whose NUMBER field equals that position — check THAT
+record's fields, not another's.
+CLAIM: the third record's shelf is B2 — but [NO: 3]'s own line says shelf C4
+-> answer no.
 
 ATTRIBUTE DISCIPLINE: the claim's value must come from the SAME attribute the
 claim names. If the evidence states that value only for a DIFFERENT attribute,
 answer "no" — a related field is not the same field.
 Example:
-EVIDENCE: [K1] Service life: 10 years.
-CLAIM: The warranty period is 10 years.
-Answer: no   (the evidence gives the service life; the warranty is a
+EVIDENCE: [K1] Kurulum süresi: 10 gün.
+CLAIM: Teslim süresi 10 gündür.
+Answer: no   (the evidence gives the installation time; the delivery time is a
 different attribute and is not stated)
 But a REWORDED name of the SAME attribute is fine — questions speak plainly
-while tables abbreviate ("ingress protection degree" vs "water protection
-degree"; IPX ratings ARE water-ingress protection):
-EVIDENCE: [K1] Protection degree, ingress — Console: IPX 0 Probe: IPX 7
-CLAIM: The probe's water protection degree is IPX 7.
-Answer: yes   (same attribute under a plainer name; the probe's own value)
+while tables abbreviate, and it is YOUR OWN knowledge of the language that says
+whether two names denote one attribute; nothing here tells you which:
+EVIDENCE: [K1] Kayıt uzunluğu, azami — Gövde: 45 dk Kapak: 20 dk
+CLAIM: Gövdenin en fazla kayıt süresi 45 dakikadır.
+Answer: yes   (same attribute under a plainer name; the body's own value)
 
-NOTATION IS PARAPHRASE: spec sheets write values tersely ("5 ° C ~ + 40° C",
-"100 V-240 V~", "360 mm * 380 mm * 125 mm", "14.4 V / 6500 mAh"). A claim
-restating the SAME attribute's numbers as a fluent sentence ("from 5°C to
-40°C", "voltage 14.4 V and capacity 6500 mAh") asserts nothing new — answer
+NOTATION IS PARAPHRASE: spec sheets write values tersely ("8 ° C ~ + 32° C",
+"220 V-250 V~", "410 mm * 290 mm * 90 mm", "12.8 V / 4200 mAh"). A claim
+restating the SAME attribute's numbers as a fluent sentence ("from 8°C to
+32°C", "voltage 12.8 V and capacity 4200 mAh") asserts nothing new — answer
 "yes". Spec lines are often glued together by PDF extraction; a value still
 belongs to the field name immediately before it.
 Example:
-EVIDENCE: [K1] Operating temperature 5 ° C ~ + 40° C -20 ° C ~ + 55° C
-CLAIM: The operating temperature range is 5°C to 40°C.
+EVIDENCE: [K1] Vantrek KX-9 çalışma sıcaklığı 8 ° C ~ + 32° C -15 ° C ~ + 50° C
+CLAIM: Çalışma sıcaklığı aralığı 8°C ile 32°C arasındadır.
 Answer: yes   (same attribute, same numbers; "~" is range notation and the
 second range belongs to the next column, not to the claim)
 
@@ -132,16 +155,10 @@ its value may sit in DIFFERENT evidence items. If one item names the attribute
 for a subject and another item gives that subject's value, the claim joining
 them is supported — answer "yes". Attribute discipline forbids taking a value
 from a DIFFERENT attribute, not reading two lines about the SAME one.
-Without this, ATTRIBUTE DISCIPLINE above over-applied and rejected answers
-assembled from two evidence lines — exactly what ANSWER_SYSTEM instructs the
-answerer to produce ("when facts from several rows together imply the answer,
-COMBINE them"); the two prompts contradicted each other and correct answers
-fell to abstentions. Measured: corpus 13/17 -> 16/17, and it does NOT loosen
-the gate (a swapped Tier and an invented cost both still score 0/3).
 Example:
-EVIDENCE: [K1] Component B — REQUIRED PRECONDITION
-[K2] The single thing to install alongside: component B, number 14.
-CLAIM: The component that is the precondition is component B number 14.
+EVIDENCE: [K1] Kapak menteşesi — YEDEK PARÇA
+[K2] Yanına takılacak tek parça: kapak menteşesi, no 12.
+CLAIM: Yedek parça, no 12 numaralı kapak menteşesidir.
 Answer: yes   (K1 names the attribute, K2 gives its value; one subject)
 
 If you are unsure, answer "no"."""
@@ -180,26 +197,26 @@ SAME attribute is allowed and is not new information.
 
 Example:
 EVIDENCE:
-[K1] Prepared by: Clinical Data Office
-QUESTION: Who reviewed the document?
-ANSWER: The document was prepared by the Clinical Data Office.
-Answer: no   (the evidence says who prepared it; who reviewed it is nowhere
+[K1] Hazırlayan: Nordheim Kayıt Bürosu
+QUESTION: Belgeyi kim onaylamıştır?
+ANSWER: Belgeyi Nordheim Kayıt Bürosu hazırlamıştır.
+Answer: no   (the evidence says who prepared it; who approved it is nowhere
 stated, so there is nothing to answer with)
 
 Example:
 EVIDENCE:
-[K1] Weight, without accessories: 2 kg
-QUESTION: How many kilograms does the device weigh without accessories?
-ANSWER: Without accessories the device weighs 2 kg.
-Answer: yes   (the asked attribute is stated; "kilograms" is the plain word for
+[K1] Kütle, ambalajsız: 3 kg
+QUESTION: Ambalajsız kütle kaç kilogramdır?
+ANSWER: Ambalajsız kütle 3 kg'dır.
+Answer: yes   (the asked attribute is stated; "kilogram" is the plain word for
 the unit in the line)
 
 Example:
 EVIDENCE:
-[K1] Component B — REQUIRED PRECONDITION
-[K2] The single thing to install alongside: component B, number 14.
-QUESTION: Which component is the precondition?
-ANSWER: The precondition is component B, number 14.
+[K1] Kapak menteşesi — YEDEK PARÇA
+[K2] Yanına takılacak tek parça: kapak menteşesi, no 12.
+QUESTION: Yedek parça hangisidir?
+ANSWER: Yedek parça, no 12 numaralı kapak menteşesidir.
 Answer: yes   (one item names the asked attribute, the other gives its value)
 
 If you are unsure, answer "no"."""
@@ -232,7 +249,7 @@ Output ONLY: {"triples":[["subject","relation","value"]]}
 
 Examples:
 "Kartal bir kuştur." -> {"triples":[["kartal","tür","kuş"]]}
-"Çekim süresini %30-50 kısaltır." -> {"triples":[["çekim süresi","kısaltma","%30-50"]]}
-"Dijital patoloji Tier 3 içindedir." -> {"triples":[["dijital patoloji","tier","3"]]}
+"Kurulum süresini %20-40 kısaltır." -> {"triples":[["kurulum süresi","kısaltma","%20-40"]]}
+"Kapak menteşesi B2 rafındadır." -> {"triples":[["kapak menteşesi","raf","b2"]]}
 "Rica ederim, başka bir şey var mı?" -> {"triples":[]}
 "Bunu bilmiyorum." -> {"triples":[]}"""
