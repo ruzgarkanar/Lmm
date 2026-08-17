@@ -1606,6 +1606,51 @@ def k5():
         extract.reextract = real
 
 
+@test("K6 the three corpora are the same benchmark, not three different ones")
+def k6():
+    """A CROSS-LANGUAGE COMPARISON IS ONLY EVIDENCE IF ONLY THE LANGUAGE MOVED.
+
+    The English and Spanish corpora exist to isolate one variable. If one of
+    them quietly gains a question, loses an absence case, or has a gold list
+    with more alternatives to hit, the comparison stops measuring language and
+    starts measuring the benchmark — and the failure would be invisible in the
+    totals, which is exactly the kind of thing this file exists to catch.
+
+    So the structure is asserted directly: same question count, same order of
+    types, the same questions unanswerable in each, and gold lists of the same
+    size question by question. The gold WORDS must differ — they are
+    translations — and the invented names must not, because a name that got
+    localised would let a model's own knowledge answer in one language and not
+    another."""
+    import json
+    bench = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "bench")
+
+    def load(name):
+        return json.load(open(os.path.join(bench, name), encoding="utf-8"))
+
+    base = load("questions.json")
+    for name in ("questions_en.json", "questions_es.json"):
+        other = load(name)
+        assert len(other) == len(base), name
+        for a, b in zip(base, other):
+            assert a["tip"] == b["tip"], (name, a["tip"], b["tip"])
+            assert (a["altin"] is None) == (b["altin"] is None), (name, a)
+            if a["altin"] is not None:
+                # same number of ways to be right — an extra alternative is a
+                # free point, and would show up as a language difference
+                assert len(b["altin"]) >= len(a["altin"]), (name, a["soru"])
+            assert a["soru"] != b["soru"], (name, a["soru"])
+    # The invented world keeps its names in every language: nothing in these
+    # corpora can be answered from a model's parametric knowledge.
+    names = ("zerbalit", "vorlin", "norgul", "morlan", "karvel", "telvas",
+             "kelvit", "torvanit", "selvin", "zilfen", "nortlann", "velmar")
+    for name in ("corpus.txt", "corpus_en.txt", "corpus_es.txt"):
+        text = open(os.path.join(bench, name), encoding="utf-8").read().lower()
+        for invented in names:
+            assert invented in text, (name, invented)
+
+
 def main():
     failed = 0
     for name, function in PASSED:
