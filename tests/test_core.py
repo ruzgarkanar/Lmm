@@ -1336,6 +1336,76 @@ def j5():
             assert Memory.load(again).records[3].value == 2
 
 
+@test("J6 a question asking for a quantity gets the spec line, and nothing moves")
+def j6():
+    """THE UNIT THE DOCUMENT DOES NOT SPELL (measured manual loss).
+
+    The manual states `Ekran 15.6" LCD` and the question asks "kaç inçtir".
+    The unit on the line is a quotation mark — no letters — so the lexical
+    channel has nothing of 'inç' to match, and the line is reachable only
+    through 'ekran', which the manual also uses on dozens of menu lines: it
+    ranked 33rd. Reweighting the field-name channel does rescue it and was
+    measured to cost hospital two points, because five of its sixteen blocks
+    changed. So the rescue APPENDS: the ranking is final before it runs, and
+    this test asserts both halves — the spec line arrives, and the six seats
+    that were there are still there, in order.
+
+    Nothing here knows that 15.6" is inches. The question is recognised as
+    asking for a quantity because the corpus itself binds 'inç' to a number
+    somewhere else ("(12 inç)"), and the line is recognised as an answer
+    because it names the asked field and states a measurement whose unit is one
+    this corpus characteristically writes next to numbers.
+    """
+    from lmm import evidence
+    store = evidence.SentenceStore()
+    # the crowd: prose that shares the question's field word
+    crowd = [
+        "Cihazın ekranı açıldığında oturum kutusu görünür ve yönetici "
+        "parolası istenir; parolayı girdikten sonra devam edin.",
+        "Cihazın ekranı temizlenirken yumuşak bez kullanılmalı, çözücü "
+        "içeren sıvılar kesinlikle uygulanmamalıdır bu yüzeye.",
+        "Cihazın ekranı koruyucusu etkinleştirildiğinde bekleme süresi "
+        "dolduğunda arayüz kararır ve tuşa basıldığında geri döner.",
+        "Cihazın ekranı üzerindeki durum çubuğundan ağ bağlantısı durumu "
+        "izlenebilir; bağlantı koptuğunda simge değişir hemen.",
+        "Cihazın ekranı yansımayı azaltmak için doğrudan güneş ışığı almayan "
+        "bir konumda konumlandırılmalıdır çalışırken.",
+        "Cihazın ekranı üzerinde ölçüm sonuçları, yorumlar ve gövde "
+        "işaretleri ters sırada temizlenebilir düğmeyle.",
+        "Cihazın ekranı bölme düzeninde iki görüntü yan yana gösterilir ve "
+        "etkin pencere çerçeveyle belirtilir kullanıcıya.",
+    ]
+    class WithoutTheSeat(evidence.SentenceStore):
+        """The same store with the mechanism inert — a corpus that never binds
+        any token to a number cannot recognise a question as asking for a
+        quantity. This is the reference the ranking must be unchanged against."""
+        quantities = property(lambda self: set())
+
+    corpus = crowd + [
+        'Ekran 15.6" LCD',
+        "Taşınabilir RF cihazları ultrasona 30 cm'den (12 inç) daha yakın "
+        "kullanılmamalıdır.",
+        "Ekran koruyucu ayarını açın.",
+        "Ekran menüsünü ayarlardan yeniden düzenleyin.",
+        "Ekran parlaklığı bölümüne bakın.",
+    ]
+    store, reference = evidence.SentenceStore(), WithoutTheSeat()
+    for one in corpus:
+        store.add(one, "#doc")
+        reference.add(one, "#doc")
+    question = "Cihazın ekranı kaç inçtir"
+    before = reference.find(question, most=6)
+    found = store.find(question, most=6)
+    assert 'Ekran 15.6" LCD' not in before, before       # the measured loss
+    # THE RANKING DID NOT MOVE: the seats that were there are there, in order,
+    # and the spec line is appended after them.
+    assert found == before + ['Ekran 15.6" LCD'], found
+    # A question that asks for no quantity gets no seat at all — the mechanism
+    # is inert outside its loss class.
+    plain = "Ekran koruyucu nasıl açılır"
+    assert store.find(plain, most=6) == reference.find(plain, most=6)
+
+
 def main():
     failed = 0
     for name, function in PASSED:

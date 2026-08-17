@@ -96,6 +96,28 @@ def _words(text, known=()):
     return out
 
 
+# A SYMBOL IS A TOKEN TOO. `_tokens` reads words (\w+), which is right for the
+# lexical channel and blind exactly where a measurement's unit is symbolic:
+# 15.6" loses its unit entirely, and the manual's screen line is that case. This
+# tokenization keeps numbers, letter runs AND symbol runs, so "which tokens does
+# this corpus put next to numbers" can be asked about '"', '%' and '°' as well.
+_UNIT_TOKEN = re.compile(r"\d+(?:[.,]\d+)?|[^\W\d_]+|[^\w\s]+", re.UNICODE)
+
+
+def _quantity_tokens(text):
+    """(token, is it beside a number) over the symbol-aware tokenization."""
+    text = unicodedata.normalize("NFC", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    toks = [fold(t) for t in _UNIT_TOKEN.findall(_boundaries(text))]
+    out = []
+    for i, t in enumerate(toks):
+        if not t or t[0].isdigit():
+            continue
+        out.append((t, (i > 0 and toks[i - 1][:1].isdigit())
+                    or (i + 1 < len(toks) and toks[i + 1][:1].isdigit())))
+    return out
+
+
 def _anchors(text):
     """token -> the numeric tokens it stands NEXT TO.
 
@@ -469,6 +491,24 @@ class SentenceStore:
         self._near = {}                     # short token -> beside-a-number count
         self._all = {}                      # short token -> total count
         self._units = None                  # cache, invalidated by add()
+        # THE SAME MEASUREMENT, COUNTED FOR TOKENS OF EVERY LENGTH. `units`
+        # above exists to rescue a SHORT query token from the content-word
+        # length test, so it only ever counted short tokens. But "does this
+        # token name a quantity" is a separate question from "is this token
+        # long enough to be content", and it has to be asked of long tokens
+        # too: 'inç' names a quantity in this manual (the corpus binds it to a
+        # number: "(12 inç)"), which is how a question can be recognised as
+        # ASKING FOR A MEASUREMENT without any list of units existing anywhere.
+        self._qnear = {}
+        self._qall = {}
+        self._quantities = None
+        # NOTATION MARKS: symbol runs this corpus writes BETWEEN two digits —
+        # the decimal point of 15.6, the dots of section 1.2.3. Adjacency alone
+        # cannot tell such a mark from a symbolic unit ('"', '%'), because both
+        # live next to numbers; what separates them is that a notation mark also
+        # appears INSIDE a number, and a unit never does. Read off the corpus,
+        # like everything else here.
+        self._notation = set()
 
     @property
     def units(self):
@@ -478,6 +518,17 @@ class SentenceStore:
             self._units = {w for w, n in self._near.items()
                            if n * 2 > self._all.get(w, 0)}
         return self._units
+
+    @property
+    def quantities(self):
+        """The tokens this corpus uses to NAME A QUANTITY — the ones whose life
+        is next to a number, at any token length (see __init__). The majority
+        rule is the same one `units` uses, and for the same reason: in a
+        flattened PDF numbers stand next to everything once."""
+        if self._quantities is None:
+            self._quantities = {w for w, n in self._qnear.items()
+                                if n * 2 > self._qall.get(w, 0)}
+        return self._quantities
 
     @staticmethod
     def _key_words(sentence):
@@ -520,6 +571,12 @@ class SentenceStore:
         self._seen.add(key)
         sid = len(self.sentences)
         self.sentences.append((sentence, source))
+        for mark in re.findall(r"(?<=\d)([^\w\s]+)(?=\d)", sentence):
+            self._notation.add(fold(mark))
+        for w, beside in _quantity_tokens(sentence):
+            self._qall[w] = self._qall.get(w, 0) + 1
+            if beside:
+                self._qnear[w] = self._qnear.get(w, 0) + 1
         toks = _tokens(sentence)            # this document's measured units
         for i, w in enumerate(toks):
             if len(w) >= CONTENT or w.isdigit():
@@ -529,6 +586,7 @@ class SentenceStore:
                     i + 1 < len(toks) and toks[i + 1].isdigit()):
                 self._near[w] = self._near.get(w, 0) + 1
         self._units = None
+        self._quantities = None
         for w in set(_words(sentence)):
             self.index.setdefault(w, set()).add(sid)
         for w in set(self._key_words(sentence)):
@@ -574,6 +632,7 @@ class SentenceStore:
             else:
                 groups.append([qw])
         scores = {}
+        named = set()       # sentences where a query word is the FIELD NAME
         for group in groups:
             # Candidate index words of the whole group. ALWAYS expand (no
             # exact-hit shortcut): with only the exact form, an inflected
@@ -622,6 +681,7 @@ class SentenceStore:
             keyed = set()
             for w, ids in cand.items():
                 keyed |= ids & self.key_index.get(w, set())
+            named |= keyed
             for sid in union:
                 # FIELD-NAME match doubles the group's weight: the same word
                 # as a kv KEY names the record's slot, in prose it is mere
@@ -714,8 +774,124 @@ class SentenceStore:
             # chance whatsoever; weak evidence is filtered anyway by the
             # coverage+support checks.
             keep = [sid for sid, _sc in ranked[:2]]
+        seat = self._measurement_seat(qwords, ranked, keep, named)
+        if seat is not None:
+            keep.append(seat)
         self.last_sources = [self.sentences[sid][1] for sid in keep]
         return [self.sentences[sid][0] for sid in keep]
+
+    def _measurement_seat(self, qwords, ranked, keep, named):
+        """ONE EXTRA seat, for a question that asks for a MEASUREMENT.
+
+        The measured loss class: the manual states `Ekran 15.6" LCD` and the
+        question asks "kaç inçtir". The unit in the document is a QUOTATION
+        MARK — it has no letters, so the lexical channel has nothing of the
+        question's 'inç' to match, and the spec line is reachable only through
+        'ekran', a word the manual uses on forty menu lines. It ranked 33rd.
+
+        Two structural facts are enough to find it, and neither needs a word
+        list. First, the question ASKS FOR A QUANTITY: one of its words is a
+        token this corpus binds to numbers (`quantities` — the manual writes
+        "(12 inç)" elsewhere). Second,
+        the answer is a line where another question word is the FIELD NAME and
+        which STATES A MEASUREMENT — a typed value, number and unit, read by
+        the core (`v3.memory.measure`). Nothing here knows that 15.6" is
+        inches; it knows that the question wants a quantity and that this line
+        is the one naming the asked-about field with a quantity in it.
+
+        WHY A SEAT AND NOT A WEIGHT. Reweighting the field-name channel was
+        tried and measured: it does rescue this question and it took the manual
+        to 29/30 — while dropping hospital 16/16 → 14/16, because five of the
+        sixteen blocks changed underneath. The lesson from that was about the
+        BLOCK: an ordering change anywhere is a change everywhere. So this
+        mechanism cannot reorder anything. It appends, after the ranking is
+        final, and the existing seats come out of `find` in exactly the order
+        and the number they had before — a question that asks for no quantity,
+        or one whose field is already in its block, is untouched byte for byte.
+        """
+        from v3.memory import measure
+        if not named:
+            return None
+        # ASKS FOR A QUANTITY — inflection-tolerant in the same two-way form the
+        # index lookup uses ("inçtir" reaches the corpus's "inç"), because the
+        # question's word arrives inflected and the corpus's does not.
+        quantities = self.quantities
+        asks = {w for w in qwords
+                if w in quantities or any(len(q) >= CONTENT and w.startswith(q)
+                                          for q in quantities)}
+        if not asks:
+            return None
+        held = set(keep)
+        words = [set(_words(self.sentences[sid][0])) for sid in keep]
+        best = None
+        SCAN = 300              # the seat is a rescue, not a second search
+        for sid, _score in ranked[:SCAN]:
+            if sid in held or sid not in named:
+                continue
+            sentence = self.sentences[sid][0]
+            # RECORD SHAPE, the same test the field-name reader uses. The seat
+            # is for the SPEC LINE — a line that is a field and its quantity and
+            # nothing else. Without this bound the seat filled itself with
+            # prose windows and table crumbs that happen to name a field and
+            # carry a number: measured, and they are noise in the block, which
+            # is the one thing an extra seat must not add.
+            if len(sentence) > 80 or len(_tokens(sentence)) > 12:
+                continue
+            found = measure(sentence)
+            if found is None or found[2] is None:
+                continue        # a bare number is not a measurement's answer
+            # AND ITS UNIT MUST BE A UNIT OF THIS CORPUS — the same majority
+            # test, applied to the other side. Adjacency read off a single line
+            # is generous by design ("Ameliyathane çizelgeleme 1 Düşük" states
+            # a 1 measured in 'Düşük'), and generous is fine for indexing but
+            # not for handing an answer an extra line: here the token has to be
+            # one the WHOLE corpus characteristically binds to numbers. That is
+            # what separates '"' and 'mm' from a rating word that happened to
+            # follow a digit once.
+            unit = found[2]
+            if unit in self._notation:
+                continue        # a decimal point is not a unit of weight
+            parts = {unit} | {p for p, _ in _quantity_tokens(unit)}
+            if not (parts & quantities):
+                continue
+            mine = set(_words(sentence))
+            # THE SEAT IS ONLY FOR AN UNSPELLABLE UNIT. Its whole justification
+            # is that the question names a quantity the answer line does not
+            # SPELL — 15.6" against "inç" — so the lexical channel had nothing
+            # to match and never could have. If the line does spell that word,
+            # the ordinary ranking saw it and placed it where it placed it, and
+            # overriding that is exactly the ordering change this mechanism
+            # refuses to make. Measured: without this the seat handed a "hangi
+            # tier" question a TIER 2 heading line while the answer was Tier 3
+            # — a plausible wrong answer, planted in the block by the rescue.
+            if any(w == q or w.startswith(q) or q.startswith(w)
+                   for q in asks for w in mine):
+                continue
+            # The seat is for evidence that is MISSING, not for one more view of
+            # what is already there (the region rule the seat list itself obeys).
+            if any(len(mine & other)
+                   >= 0.75 * max(1, min(len(mine), len(other)))
+                   for other in words):
+                continue
+            # AMONG SPEC LINES, THE DENSEST ONE. Score order cannot choose here:
+            # it is the very ordering that buried the answer, and every
+            # candidate at this point has already passed the same filters. What
+            # separates "Ekran 15.6\" LCD" from "Demo ekranının ayrıntıları için
+            # 11.8 Resim Demosu" is that the first is ABOUT the asked field and
+            # nothing else — its words are the question's words plus the
+            # quantity — while the second spends most of itself elsewhere.
+            # (Density is the wrong measure for the main ranking and was
+            # measured to be: a claim's evidence overlaps the claim MORE, so
+            # dividing by length rewards crumbs. Here every candidate is
+            # already a record-shaped line and the question is which record.)
+            hit = sum(1 for w in mine
+                      if w.isdigit() or w in qwords
+                      or any(len(q) >= 4 and (w.startswith(q) or q.startswith(w))
+                             for q in qwords))
+            rank = (hit / max(1, len(mine)), hit, -len(mine), -sid)
+            if best is None or rank > best[0]:
+                best = (rank, sid)
+        return best[1] if best is not None else None
 
     # --- persistence (JSON side-file) ----------------------------------
     def save(self, memory_path):
