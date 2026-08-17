@@ -499,9 +499,26 @@ class Session:
         # precise matching, wide (6) for the heading↔content bridge (so the
         # word in a section heading and the Warning line at the section's end
         # meet in the same window — the "kamera ... KVKK" class).
-        for size, step in ((3, 2), (6, 2)):
+        # A third, RECORD scale (12): a document record is a heading plus its
+        # labelled lines ("Ne:/Neden:/Kâr:/Uyarı:") and runs longer than 6
+        # sentences. Measured (hospital trace, "sepsis ... uyarısı"): the
+        # heading sits 8 sentences above its "Uyarı:" line, so NO window at
+        # either narrower scale held both the subject and its answer — the
+        # answer was unreachable at every commit in this history.
+        #
+        # RECORD_CHARS guards it. A record is made of SHORT lines; 12 LONG
+        # sentences are prose, which the 6-window already covers, and indexing
+        # them only dilutes — a diluted wide window displaced a precise spec
+        # line and cost the manual a point (measured: manual 27->26 with the
+        # scale ungated, hospital 12->13 with it). The bound is what "short
+        # lines" means: 12 sentences averaging under ~58 characters. Length
+        # only — no language rule, no document-specific rule.
+        RECORD_CHARS = 700
+        for size, step in ((3, 2), (6, 2), (12, 4)):
             for i in range(0, max(1, len(sentences) - size + 1), step):
                 window = " ".join(sentences[i:i + size])
+                if size >= 12 and len(window) > RECORD_CHARS:
+                    continue
                 if len(window) > len(sentences[i]):
                     self.evidence.add(window, source)
         # TABLE REPAIR (evidence-only): PDF tables shatter row by row —

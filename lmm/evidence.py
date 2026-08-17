@@ -278,28 +278,42 @@ class SentenceStore:
         # window scales (raw line, 3-window, 6-window) — without this, one
         # strong-but-wrong region filled ALL top slots and the answer-carrying
         # row never got a seat (measured, manual trace). Overlap is a set view
-        # (Jaccard on content-words), no language rule; the best-scoring
-        # variant of each region survives.
+        # (Jaccard on content-words), no language rule.
+        #
+        # A region may hold at most REGION_CAP seats, not exactly one. The
+        # purpose of this filter is that no single region MONOPOLISES the top
+        # list; suppressing every variant went further than that purpose and
+        # removed CORROBORATION. Measured (hospital trace, "regülasyon riski"):
+        # the answer binding "Kamera tabanlı düşme tespiti ... Yüksek (KVKK)"
+        # occurs in two overlapping table windows; with one seat only, the
+        # support check saw a single flattened row and rejected the CORRECT
+        # answer, and the question fell to an abstention. With two seats the
+        # binding is confirmed twice and the answer passes. The anti-monopoly
+        # guarantee survives: 2 < `most`, so a region can never take every seat.
+        REGION_CAP = 2
         keep = []
-        kept_words = []
+        kept = []                           # [[wordset, seats_taken], ...]
         for sid, sc in ranked:
             if sc < floor and keep:
                 break
             words = set(_words(self.sentences[sid][0]))
             dup = False
-            for kw in kept_words:
-                inter = len(words & kw)
+            for entry in kept:
+                inter = len(words & entry[0])
                 # Jaccard on content-words. NOT containment: two spec windows
                 # can differ by 3 tokens where those 3 tokens ARE the answer
                 # ("14.4 V / 6500 mAh" tail) — containment suppressed the
                 # only window carrying them (measured).
-                if inter and inter / max(1, len(words | kw)) >= 0.75:
+                if inter and inter / max(1, len(words | entry[0])) >= 0.75:
+                    if entry[1] < REGION_CAP:
+                        entry[1] += 1       # corroborating variant — admit
+                        break
                     dup = True
                     break
             if dup:
                 continue
             keep.append(sid)
-            kept_words.append(words)
+            kept.append([words, 1])
             if len(keep) >= most:
                 break
         if not keep:
