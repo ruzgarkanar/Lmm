@@ -641,8 +641,10 @@ def g5():
         said[answer] = said.get(answer, 0) + 1
         return supported[0]
 
-    real = (generate.answer, generate.supported)
+    real = (generate.answer, generate.supported, generate.answers_asked)
     generate.answer, generate.supported = fake_answer, fake_supported
+    # the RELATION gate has its own test (H5); here it stays out of the way
+    generate.answers_asked = lambda question, answer, view: True
     try:
         # THE LADDER RUNS: one candidate per evidence subset, and each subset
         # is a different block (2 of them for 2 evidence sentences).
@@ -669,7 +671,8 @@ def g5():
         chosen, _tried = s._select("Ekran kaç inç", [], proof, "", block)
         assert chosen is None
     finally:
-        generate.answer, generate.supported = real
+        (generate.answer, generate.supported,
+         generate.answers_asked) = real
 
 
 @test("G6 the read-back is asked about the evidence the claim rests on")
@@ -716,7 +719,9 @@ def g7():
     'evet'. Both claims in each pair are true; only one of each answers."""
     from lmm import generate, session as lmm_session
     s = lmm_session.Session.__new__(lmm_session.Session)
-    generate_real = (generate.answer, generate.supported)
+    generate_real = (generate.answer, generate.supported,
+                     generate.answers_asked)
+    generate.answers_asked = lambda question, answer, view: True
     proof = ["Morlan bir kuştur.", "Kuş bir canlıdır.", "Morlan bir canlıdır."]
     block = "\n".join(f"[K{i}] {t}" for i, t in enumerate(proof, 1))
     wide = {}
@@ -745,7 +750,8 @@ def g7():
                                    pair_block)
         assert chosen == "Evet, torvanit bir maddedir.", chosen
     finally:
-        generate.answer, generate.supported = generate_real
+        (generate.answer, generate.supported,
+         generate.answers_asked) = generate_real
 
 
 @test("H1 of two true answers the graph's is-a chain picks the specific one")
@@ -932,6 +938,108 @@ def h4():
     for tail in ("yüksek", "orta", "düşük", "belirsiz"):
         store2.add("Zilfen madde %s bir torvanit değeri taşır." % tail, "#doc")
     assert len(store2.find("zilfen torvanit değeri", most=4)) >= 2
+
+
+@test("H5 the question, not the answer, is what the last read-back asks about")
+def h5():
+    """THE SHAPE of the new condition, with no engine in it.
+
+    `generate.supported` is handed a CLAIM, and a claim carries only what it
+    chooses to say, so an answer that voices a true fact from the evidence
+    passes it no matter what was asked. `generate.answers_asked` is handed the
+    QUESTION as well, and that is the whole difference: the proposition being
+    judged is "does this evidence state the relation that was ASKED", which an
+    answer cannot satisfy by leaving the relation out. Here the runtime is
+    stubbed to record what each check is shown."""
+    from lmm import generate, prompts, runtime
+    seen = []
+    real = runtime.generate
+
+    def fake(user, system=None, max_tokens=None, temperature=None):
+        seen.append((system, user))
+        return "no"
+
+    runtime.generate = fake
+    try:
+        block = "[K1] Hazırlayan: Kalite Ofisi"
+        claim = "Raporu Kalite Ofisi hazırlamıştır."
+        assert generate.supported(claim, block) is False
+        system, user = seen[-1]
+        assert system == prompts.SUPPORT_SYSTEM
+        assert "QUESTION" not in user, user      # the claim is judged alone
+        assert generate.answers_asked("Raporu kim imzalamıştır", claim,
+                                      block) is False
+        system, user = seen[-1]
+        assert system == prompts.RELATION_SYSTEM
+        # the asked relation is IN the proposition, so an answer that never
+        # mentions it can no longer slip past
+        assert "imzalam" in user and claim in user and block in user, user
+        # a "yes" is a yes — the gate admits, it does not merely reject
+        runtime.generate = lambda *a, **k: "yes"
+        assert generate.answers_asked("Raporu kim hazırlamıştır", claim, block)
+    finally:
+        runtime.generate = real
+
+
+@test("H6 an answer to a question nobody asked does not get spoken")
+def h6():
+    """The last route to a confident WRONG answer, closed end to end.
+
+    Measured (hospital, "Dokümanı kim imzalamıştır"): the document states who
+    PREPARED it and never says who signed it, so the answer voiced the preparer
+    field. Every gate passed and each was right to: the claim is in the evidence
+    word for word, coverage 1.0, and the read-back confirmed it. Nothing that
+    judges the ANSWER'S OWN CLAIM can catch this, because the claim never
+    mentions the relation it fails to be about.
+
+    The store is built WITHOUT a model (learn_text deep=False) over a synthetic
+    document, and the engine's verdict is stood in for, so what is under test is
+    the GATE'S WIRING rather than a model's judgement: a "no" abstains, no later
+    path speaks what it refused, and the same setup with the condition satisfied
+    still answers. The witness that this condition is what abstains: with the
+    judge saying yes — the state before this commit — the wrong answer IS
+    returned, over the same evidence, past every other gate."""
+    from lmm import generate, session as lmm_session
+    s = lmm_session.Session(None)
+    s.learn_text("Bu rapor Hat B kalite denetimi için düzenlenmiştir.\n"
+                 "Hazırlayan: Kalite Ofisi\n"
+                 "Denetim sırasında ölçülen sıcaklık 42 santigrat derece "
+                 "olarak kaydedilmiştir.\n", deep=False)
+    wrong = "Hazırlayan: Kalite Ofisi"
+    real = (generate.answer, generate.supported, generate.answers_asked,
+            generate.refusal, generate.hedge_note)
+    views = []
+
+    def judge(question, answer, view):
+        """The engine's verdict, stood in for: the document states who prepared
+        the report and no other relation about it."""
+        views.append(view)
+        return "hazırlayan" in question.lower()
+
+    try:
+        generate.answer = lambda question, facts, warmth=0.2: wrong
+        generate.supported = lambda answer, view: True     # as measured
+        generate.answers_asked = judge
+        generate.refusal = lambda question: "REFUSED"
+        generate.hedge_note = lambda source, message: ""
+        # the relation the document does not state -> abstention, and the
+        # graph/verify fallback does not resurrect it
+        for question in ("Raporu kim imzalamıştır",
+                         "Raporu kim onaylamıştır",
+                         "Rapor hangi fabrika için düzenlenmiştir",
+                         "Denetimin maliyeti kaç liradır"):
+            assert s._answer(question, None) == "REFUSED", question
+        # the judge is asked about the evidence the answer DRAWS ON, and the
+        # question travels with it (that is the whole point of the check)
+        assert views and all("Hazırlayan" in v for v in views), views
+        # the asked relation IS stated -> the same machinery answers
+        assert s._answer("Raporun hazırlayanı kimdir", None).startswith(wrong)
+        # THE WITNESS: before this condition existed, the wrong answer spoke
+        generate.answers_asked = lambda question, answer, view: True
+        assert s._answer("Raporu kim imzalamıştır", None).startswith(wrong)
+    finally:
+        (generate.answer, generate.supported, generate.answers_asked,
+         generate.refusal, generate.hedge_note) = real
 
 
 def main():

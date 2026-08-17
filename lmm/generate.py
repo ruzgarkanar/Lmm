@@ -100,6 +100,24 @@ def supported(answer, block):
     return out.strip().lower().startswith("yes")
 
 
+def answers_asked(question, answer, block):
+    """THE RELATION READ-BACK: does the evidence state the relation THE QUESTION
+    ASKS — not merely everything the answer happens to assert.
+
+    `supported` judges a CLAIM, and a claim carries only what it chooses to say.
+    An answer that voices a true fact from the evidence passes it whatever was
+    asked, so the one remaining way to a confident WRONG answer stayed open:
+    answer a different relation with real material (measured — asked who SIGNED
+    the document, the answer gave the PREPARER field, coverage 1.0, read-back
+    yes). Here the proposition comes from the QUESTION, so an answer can no
+    longer pass by leaving out what was asked for. Strict: unsure = no, and no
+    means the turn abstains."""
+    out = runtime.generate(
+        f"EVIDENCE:\n{block}\n\nQUESTION: {question}\n\nANSWER: {answer}",
+        system=prompts.RELATION_SYSTEM, max_tokens=4, temperature=0.0)
+    return out.strip().lower().startswith("yes")
+
+
 def hedge_note(source_label, message):
     """Produces a SHORT caveat NOTE in the user's language (NO facts; only the
     meaning 'this information is from this source, I'm not certain'). It is

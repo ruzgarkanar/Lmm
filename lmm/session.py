@@ -839,9 +839,19 @@ class Session:
         # measured residue was not missing knowledge but an unstable CHOICE.
         safe, tried = self._select(question, records, proof, fact_block, block)
         if safe is None:
+            # THE FALLBACK CANNOT UNDO THE RELATION GATE. This path re-verifies
+            # the first candidate against the GRAPH, and the graph holds the
+            # unasked relation as a perfectly good edge ("document → preparer →
+            # X"), so the answer the relation gate just refused would be spoken
+            # anyway — and so would a freshly generated one, since it answers
+            # the same unasked question. Everything else keeps its old second
+            # chance; only what THIS gate refused is out.
+            spare = [t for t in tried if fold(t) not in self._refused]
+            if tried and not spare:
+                return generate.refusal(question) or FALLBACK_DONT_KNOW
             allowed = verify.allowed_of(self.memory, records)
             safe = verify.verify(self.memory,
-                                 tried[0] if tried
+                                 spare[0] if spare
                                  else generate.answer(question, block),
                                  allowed, self.mode, anchor="edge")
             if not safe:
@@ -1013,10 +1023,68 @@ class Session:
         # multiply by 1 or 0, so the first candidate it confirms is the choice
         # and the rest need not be asked.
         graded.sort(key=lambda e: (-e[1], -e[0], e[2]))
+        self._refused = set()
         for _score, _target, _rank, raw in graded:
-            if not proof or self._read_back(raw, proof, block):
-                return raw, tried
+            if proof and not self._read_back(raw, proof, block):
+                continue
+            # THE RELATION MUST BE THE ASKED ONE. Every gate up to here judges
+            # the answer's own claim, and a claim built out of true material can
+            # answer a question nobody asked — the last route to a confident
+            # wrong answer. See `_relation_held`. Refusal is remembered so the
+            # fallback below cannot speak it after all.
+            if proof and not self._relation_held(question, raw, proof, block):
+                self._refused.add(fold(raw))
+                continue
+            return raw, tried
         return None, tried
+
+    def _relation_held(self, question, raw, proof, block):
+        """Does the evidence carry THE RELATION THE QUESTION ASKS FOR.
+
+        The remaining failure class had nothing wrong with its evidence: asked
+        who SIGNED the document, the answer gave the document's PREPARER field.
+        The claim is in the evidence word for word, so coverage is 1.0 and the
+        read-back rightly says yes — a true fact answering a question nobody
+        asked. Nothing that judges the ANSWER'S OWN CLAIM can see this, because
+        the claim never mentions the relation it fails to be about; the
+        proposition being judged has to come from the QUESTION
+        (`generate.answers_asked`).
+
+        WHY THIS IS STRUCTURAL, not a list of relation pairs. What the document
+        asserts is a SLOT and its value — a field name in a record line, a
+        predicate on a graph edge — and the question names a slot too. The
+        condition is that those two slots be the same one. The structure says
+        where the slots are (`evidence.field_names`, format only) and whether
+        the answer is voicing an unasked one (`evidence.voices_other_slot`);
+        deciding whether two NAMES are one slot needs meaning, since a question
+        speaks plainly where a table abbreviates, and that is the engine's part.
+        No pair of relations is written down anywhere, and nothing here knows a
+        word of any language.
+
+        The views mirror the read-back's, for the same measured reason (a judge
+        searching 3000 characters wobbles): the evidence the answer DRAWS ON
+        first, everything retrieved only if that fails.
+        """
+        views = [v for v in (self._focus_view(raw, proof), block) if v]
+        return any(generate.answers_asked(question, raw, view)
+                   for view in dict.fromkeys(views))
+
+    def _focus_view(self, raw, proof, first=()):
+        """The evidence a claim DRAWS ON: the retrieved sentences it shares
+        content words with, most-shared first. A judge asked to find one line
+        inside three thousand characters wobbles; this is the haystack the size
+        of the needle. It can only ever be a SUBSET of what the gate already
+        admitted.
+
+        `first`: sentences to place at the head of the view whatever their
+        overlap count — see `_relation_held`."""
+        words = set(evidence._words(raw))
+        overlap = sorted(proof, key=lambda s: -len(words
+                                                   & set(evidence._words(s))))
+        focus = list(first)
+        focus += [s for s in overlap[:2]
+                  if s not in focus and words & set(evidence._words(s))]
+        return "\n".join(f"[K{i}] {s}" for i, s in enumerate(focus, 1))
 
     def _read_back(self, raw, proof, block):
         """Does the evidence SAY this — asked of the evidence it RESTS ON.
@@ -1039,13 +1107,8 @@ class Session:
         The narrow view can only be a SUBSET of the retrieved evidence, so
         nothing outside what the gate already admitted can be confirmed here.
         """
-        words = set(evidence._words(raw))
-        overlap = sorted(proof, key=lambda s: -len(words
-                                                   & set(evidence._words(s))))
-        focus = [s for s in overlap[:2] if words & set(evidence._words(s))]
         views = []
-        for view in ("\n".join(f"[K{i}] {s}" for i, s in enumerate(focus, 1)),
-                     block):
+        for view in (self._focus_view(raw, proof), block):
             if view and view not in views:
                 views.append(view)
         return any(generate.supported(raw, view) for view in views)
