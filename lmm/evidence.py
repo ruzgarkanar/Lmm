@@ -20,6 +20,10 @@ from v3.dataset import fold
 
 _WORD = re.compile(r"\w+", re.UNICODE)
 
+# The length at which a token is a content word on its own. Everything shorter
+# has to EARN its place (see `_words`).
+CONTENT = 3
+
 
 def _boundaries(text):
     """FORMAT-boundary splitter (no language rule): PDF flattening glues
@@ -28,27 +32,87 @@ def _boundaries(text):
     boundaries: lowercase→UPPERCASE (camel seam between glued cells) and
     digit↔letter (a number fused to the next cell's word). Without this the
     digit gate cannot see a legitimate "7" hiding inside "7Ayak" and drops a
-    CORRECT answer (measured: the IPX7 loss)."""
+    CORRECT answer (measured: the IPX7 loss).
+
+    THE CAMEL SEAM NEEDS A LEFT SIDE THAT IS ITSELF A WORD. A glued cell
+    contributes a whole token before the seam ("Güç|Adaptörü"); a UNIT PREFIX
+    does not ("mAh", "kWh", "mmHg", "µF"). Splitting the latter destroyed both
+    halves — "6500 mAh" became 6500 + m + Ah, and since neither fragment
+    reaches content-word length, the capacity's unit disappeared from the
+    index entirely (measured: "kaç mAh" found nothing). So the seam only cuts when
+    the run of letters before it is long enough to be a content word on its
+    own; below that it is read as a unit prefix and the token stays whole.
+    The bound is the SAME structural constant the content-word test uses — it
+    is not a second, tunable threshold."""
     out = []
     prev = ""
+    run = 0                     # letters since the last boundary
     for ch in text:
-        if prev and ((prev.islower() and ch.isupper())
-                     or (prev.isdigit() and ch.isalpha())
-                     or (prev.isalpha() and ch.isdigit())):
+        cut = bool(prev) and (
+            (prev.islower() and ch.isupper() and run >= CONTENT)
+            or (prev.isdigit() and ch.isalpha())
+            or (prev.isalpha() and ch.isdigit()))
+        if cut:
             out.append(" ")
+            run = 0
         out.append(ch)
+        run = run + 1 if ch.isalnum() else 0
         prev = ch
     return "".join(out)
 
 
-def _words(text):
-    """Content words: folded, combining-mark-free, >=3 letters OR a digit.
+def _words(text, known=()):
+    """Content words: folded, combining-mark-free, >=3 letters OR a digit — OR
+    a short token that a NUMBER vouches for.
+
     The digit exception is critical: if the 3 of "Tier 3" is dropped, the
-    coverage gate cannot see a number swap (a fabricated "Tier 1")."""
+    coverage gate cannot see a number swap (a fabricated "Tier 1").
+
+    THE UNIT EXCEPTION (measured loss class: "how many inches", "how many kg",
+    "6500 mAh"). A length test is a proxy for "does this token carry content",
+    and it is wrong exactly where a measurement lives: kg, ml, mm, V, Hz, VA
+    are the part of "2 kg" that says WHAT the 2 is. The structural signal is
+    ADJACENCY: a token standing next to a numeric token is that number's unit,
+    so it is content regardless of its length. Without this `_words("Ağırlık 2
+    kg")` lost the kg and the number floated unattached.
+
+    `known`: short tokens the STORE has already seen standing next to a number
+    (`SentenceStore.units`). A QUESTION carries no number — "kaç kg" has no 2
+    for the kg to lean on — so the vouching has to come from the corpus, where
+    the same token was measured to be a unit. Derived from data, not a list:
+    nothing is a unit here until some indexed sentence made it one."""
     text = unicodedata.normalize("NFC", text)
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
-    return [fold(w) for w in _WORD.findall(_boundaries(text))
-            if len(w) >= 3 or w.isdigit()]
+    toks = [fold(w) for w in _WORD.findall(_boundaries(text))]
+    out = []
+    for i, t in enumerate(toks):
+        if len(t) >= CONTENT or t.isdigit():
+            out.append(t)
+            continue
+        near = (i > 0 and toks[i - 1].isdigit()) or (
+            i + 1 < len(toks) and toks[i + 1].isdigit())
+        if near or t in known:
+            out.append(t)
+    return out
+
+
+def _anchors(text):
+    """token -> the numeric tokens it stands NEXT TO.
+
+    A measurement binds a number and its unit into one thing; this records
+    that binding so two texts can be asked whether they are talking about the
+    SAME measurement. Used by the coverage gate — see `coverage`."""
+    toks = _tokens(text)
+    out = {}
+    for i, t in enumerate(toks):
+        near = set()
+        if i > 0 and toks[i - 1].isdigit():
+            near.add(toks[i - 1])
+        if i + 1 < len(toks) and toks[i + 1].isdigit():
+            near.add(toks[i + 1])
+        if near:
+            out.setdefault(t, set()).update(near)
+    return out
 
 
 def _tokens(text):
@@ -93,6 +157,59 @@ def digits_present(answer, block):
     return all(t in block_digits for t in _tokens(answer) if t.isdigit())
 
 
+def coverage(answer, block, question=""):
+    """WHAT FRACTION of the answer's content-words comes from the given block
+    (+question) — the ratio form of `covered`, digits aside.
+
+    `covered` is this measure thresholded at 1.0. It exists as a ratio because
+    a binary verdict cannot RANK: with several candidate answers to choose
+    between, "0.9 of it is grounded" and "0.3 of it is grounded" are the same
+    'False', and the selector had nothing to prefer. The uninvented-0
+    guarantee is not weakened by the split — a candidate below 1.0 is still
+    only speakable if the support check (generate.supported) confirms it; see
+    session._answer.
+
+    Word matching is prefix-tolerant (inflection: "bandındadır"~"bandında")
+    and, for measurements, ANCHOR-tolerant — see below."""
+    given_text = block + " " + question
+    given = set(_words(given_text))
+    words = set(_words(answer))
+    if not words:
+        return 0.0
+    here = there = None
+    hit = 0
+    for w in words:
+        if w in given or w.isdigit():
+            hit += 1
+            continue
+        if any((len(g) >= 5 and w.startswith(g) and len(w) - len(g) <= 3)
+               or (len(w) >= 5 and g.startswith(w) and len(g) - len(w) <= 3)
+               for g in given):
+            hit += 1
+            continue
+        # THE UNIT ANCHOR. The prefix rule above needs a root of 5 letters, and
+        # a unit does not have five: "Ekran 15.6 inçtir" (a fluent sentence,
+        # which is exactly what the answer prompt ASKS for) failed against
+        # "Ekran 15.6 inç" because inç is 3 letters — the gate was punishing
+        # the behaviour it demands. Lowering the bound by length alone cannot
+        # work: kart→kartal is a SHORTER step than inç→inçtir, so any purely
+        # metric loosening lets a different word in.
+        #
+        # The signal that separates them is not length, it is the NUMBER. Both
+        # texts bind the token to the same numeric neighbour (…15.6 inç…,
+        # …15.6 inçtir…): they are talking about one measurement, and the
+        # shared prefix is then the same unit inflected. kart/kartal,
+        # organ/organizma, şeker/şekersiz have no number holding them
+        # together, and stay rejected.
+        if here is None:
+            here, there = _anchors(answer), _anchors(given_text)
+        mine = here.get(w)
+        if mine and any((g.startswith(w) or w.startswith(g))
+                        and (there.get(g) or set()) & mine for g in given):
+            hit += 1
+    return hit / len(words)
+
+
 def covered(answer, block, question=""):
     """Do ALL of the answer's content-words come from the given block —
     prefix-tolerant (inflection: "bandındadır"~"bandında"). No new content-word =
@@ -106,20 +223,7 @@ def covered(answer, block, question=""):
     Known residue: prefix tolerance cannot distinguish a negation suffix
     ("azalma"~"azalmaz") — since language-lists are forbidden, this cannot be
     closed at the word-set level; engine-level checking is v-next."""
-    if not digits_ok(answer, block):
-        return False
-    given = set(_words(block + " " + question))
-    words = set(_words(answer))
-    if not words:
-        return False
-    for w in words:
-        if w in given or w.isdigit():
-            continue
-        if not any((len(g) >= 5 and w.startswith(g) and len(w) - len(g) <= 3)
-                   or (len(w) >= 5 and g.startswith(w) and len(g) - len(w) <= 3)
-                   for g in given):
-            return False
-    return True
+    return digits_ok(answer, block) and coverage(answer, block, question) == 1.0
 
 
 class SentenceStore:
@@ -131,6 +235,34 @@ class SentenceStore:
         self.key_index = {}                 # folded FIELD-NAME word -> set(id)
         self._seen = set()                  # folded sentence — duplicate-evidence guard
         self.last_sources = []              # sources of the last find() (hedge)
+        # SHORT tokens the corpus itself showed standing next to a number —
+        # the units of this document (kg, ml, mm, V, Hz, VA...). Learned, not
+        # listed: a question ("kaç kg") carries no number of its own, so the
+        # only thing that can vouch for its short token is a sentence where
+        # that token WAS a unit. Without it the query word was dropped and the
+        # search ran on "kaç" alone.
+        #
+        # ONE SIGHTING IS NOT A UNIT — MAJORITY IS. In a flattened PDF numbers
+        # sit next to everything, so "standing next to a number at least once"
+        # made 'bu', 'de' and bare letters units and let them into queries as
+        # content (measured on the manual: 200+ 'units', most of them noise).
+        # A unit is a token whose LIFE is next to numbers: it must appear
+        # beside a number MORE OFTEN THAN NOT. That boundary is not a tuned
+        # threshold — it is the definition of "characteristically", and it
+        # separates kg (nearly always) from bu (nearly never) without knowing
+        # a word of the language.
+        self._near = {}                     # short token -> beside-a-number count
+        self._all = {}                      # short token -> total count
+        self._units = None                  # cache, invalidated by add()
+
+    @property
+    def units(self):
+        """The short tokens this corpus uses AS UNITS — beside a number more
+        often than not (see __init__)."""
+        if self._units is None:
+            self._units = {w for w, n in self._near.items()
+                           if n * 2 > self._all.get(w, 0)}
+        return self._units
 
     @staticmethod
     def _key_words(sentence):
@@ -173,6 +305,15 @@ class SentenceStore:
         self._seen.add(key)
         sid = len(self.sentences)
         self.sentences.append((sentence, source))
+        toks = _tokens(sentence)            # this document's measured units
+        for i, w in enumerate(toks):
+            if len(w) >= CONTENT or w.isdigit():
+                continue
+            self._all[w] = self._all.get(w, 0) + 1
+            if (i > 0 and toks[i - 1].isdigit()) or (
+                    i + 1 < len(toks) and toks[i + 1].isdigit()):
+                self._near[w] = self._near.get(w, 0) + 1
+        self._units = None
         for w in set(_words(sentence)):
             self.index.setdefault(w, set()).add(sid)
         for w in set(self._key_words(sentence)):
@@ -183,7 +324,7 @@ class SentenceStore:
         """Sentences whose content-words intersect the query the MOST.
         Prefix-tolerant (inflection: "doluluğu"~"doluluk"). Score = number of
         intersecting words; on a tie the short sentence wins (denser evidence)."""
-        qwords = set(_words(query))
+        qwords = set(_words(query, known=self.units))
         if not qwords:
             return []
         # IDF: frequent words count little, rare words a lot ("screen" occurs

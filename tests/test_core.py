@@ -565,6 +565,59 @@ def f4():
                                 "[K1] test Tier 3 proje 5 yıl", "")
 
 
+@test("G1 a unit is content no matter how short it is")
+def g1():
+    """UNIT BLINDNESS — the largest measured single loss class. A token
+    standing next to a NUMBER is that number's unit; dropping it for being
+    under three letters lost 'kg', and splitting the camel seam inside 'mAh'
+    lost the capacity's unit twice over."""
+    from lmm import evidence
+    assert "kg" in evidence._words("Ağırlık 2 kg")
+    assert "mah" in evidence._words("Batarya 14.4 V / 6500 mAh")
+    assert "v" in evidence._words("Batarya 14.4 V / 6500 mAh")
+    # the camel seam still cuts glued CELLS (the left side is a word there)
+    assert "adaptörü" in evidence._words("GüçAdaptörüPil")
+    # a short token with no number next to it is still not content
+    assert "ve" not in evidence._words("ekran ve klavye")
+
+
+@test("G2 a question with no number of its own still reaches the unit")
+def g2():
+    """'kaç kg' carries no 2 for the kg to lean on — the corpus has to vouch
+    for it. Learned from the indexed sentences, never a word list."""
+    from lmm import evidence
+    store = evidence.SentenceStore()
+    store.add("Ağırlık (aksesuarsız) 7.8 kg")
+    store.add("Ekran 15.6 inç LCD")
+    store.add("Cihaz taşınabilir bir sistemdir")
+    assert "kg" in store.units
+    assert store.find("kaç kg") == ["Ağırlık (aksesuarsız) 7.8 kg"]
+
+
+@test("G3 the unit anchor admits inflection without opening a hole")
+def g3():
+    """A fluent sentence ('15.6 inçtir') must pass against '15.6 inç' — the
+    same NUMBER binds both. Words that no number holds together stay out,
+    even when their prefix step is smaller."""
+    from lmm import evidence
+    assert evidence.covered("Ekran 15.6 inçtir.", "Ekran 15.6 inç LCD", "")
+    assert not evidence.covered("kartal", "kart", "")
+    assert not evidence.covered("organizma", "organ", "")
+    # ...and the anchor needs the SAME number, not just any number
+    assert not evidence.covered("Ekran 17 inçtir.", "Ekran 15.6 inç LCD", "")
+
+
+@test("G4 coverage is the ratio whose 1.0 is the old binary gate")
+def g4():
+    from lmm import evidence
+    block = "[K1] Ekran 15.6 inç LCD"
+    assert evidence.coverage("Ekran 15.6 inç", block, "") == 1.0
+    part = evidence.coverage("Ekran 15.6 inç panelde gösterilir", block, "")
+    assert 0.0 < part < 1.0
+    assert not evidence.covered("Ekran 15.6 inç panelde gösterilir", block, "")
+    assert evidence.coverage("", block, "") == 0.0
+
+
 def main():
     failed = 0
     for name, function in PASSED:
