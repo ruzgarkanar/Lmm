@@ -534,6 +534,8 @@ class SentenceStore:
         self.sentences = []                 # id -> (sentence, source)
         self.index = {}                     # folded word -> set(id)
         self._key_index = None              # lazy — see the `key_index` property
+        self._key_bounds = None             # the bound it was built under
+        self._key_at = 0                    # how many sentences are in it
         self._bounds = None                 # lazy — see `_record_bounds`
         self._seen = set()                  # folded sentence — duplicate-evidence guard
         self.last_sources = []              # sources of the last find() (hedge)
@@ -625,14 +627,23 @@ class SentenceStore:
         incrementally would have depended on the order the sentences came in.
         Built once the corpus is complete, it is order-independent — which is the
         property this whole layer's determinism argument rests on."""
-        if self._key_index is None:
-            limit_chars, limit_toks = self._record_bounds()
-            index = {}
-            for sid, (sentence, _src) in enumerate(self.sentences):
-                for w in set(self._key_words(sentence, limit_chars,
-                                             limit_toks)):
-                    index.setdefault(w, set()).add(sid)
-            self._key_index = index
+        bounds = self._record_bounds()
+        if self._key_index is not None and bounds == self._key_bounds:
+            # The bound did not move, so everything already indexed was indexed
+            # under this same bound: only the new sentences are missing, and
+            # adding them gives exactly what a rebuild would (a 350-page manual
+            # rebuilds in ~0.2 s, which a conversation should not pay per turn).
+            for sid in range(self._key_at, len(self.sentences)):
+                for w in set(self._key_words(self.sentences[sid][0], *bounds)):
+                    self._key_index.setdefault(w, set()).add(sid)
+            self._key_at = len(self.sentences)
+            return self._key_index
+        index = {}
+        for sid, (sentence, _src) in enumerate(self.sentences):
+            for w in set(self._key_words(sentence, *bounds)):
+                index.setdefault(w, set()).add(sid)
+        self._key_index, self._key_bounds = index, bounds
+        self._key_at = len(self.sentences)
         return self._key_index
 
     @staticmethod
@@ -694,8 +705,9 @@ class SentenceStore:
                 self._near[w] = self._near.get(w, 0) + 1
         self._units = None
         self._quantities = None
-        self._bounds = None
-        self._key_index = None      # the record-shape bound moved — rebuild
+        self._bounds = None         # the corpus grew: the record-shape bound
+        #                             may have moved, and `key_index` rebuilds
+        #                             itself if it did (see the property)
         for w in set(_words(sentence)):
             self.index.setdefault(w, set()).add(sid)
         return sid
