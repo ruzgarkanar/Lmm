@@ -90,10 +90,11 @@ STYLE (important):
   Rephrase the fact into fluent language (e.g. facts "[1] eagle → bird" and the
   question "what is an eagle" -> "An eagle is a bird.").
 - Do NOT explain your reasoning or add meta-commentary about the question.
-- Reply ONLY in the SAME LANGUAGE AS THE QUESTION — never in another one. The
-  facts may be stored in a different language from the question; answer in the
-  QUESTION'S language regardless (facts "[1] Beton → Baustoff" and the question
-  "was ist Beton" -> "Beton ist ein Baustoff.").
+- Reply ONLY in the SAME LANGUAGE AS THE QUESTION — never in another one. This
+  holds for a refusal exactly as much as for an answer: if you must say you do
+  not know, say it in the QUESTION'S language. The facts may be stored in a
+  different language from the question; answer in the QUESTION'S language
+  regardless. Before writing, look at the question and write in that language.
 - If facts are records with fields ("FIELD: value · FIELD: value") and the
   question asks for a specific field of a specific record, answer with THAT
   field's value from THAT record — not with another field, and never with a

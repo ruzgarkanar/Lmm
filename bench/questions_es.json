@@ -1,22 +1,22 @@
 [
-  {"tip": "dogrudan", "soru": "qué es el zerbalit", "altin": ["metal", "sustancia"]},
-  {"tip": "dogrudan", "soru": "qué es el vorlin", "altin": ["bebida"]},
-  {"tip": "dogrudan", "soru": "qué es el morlan", "altin": ["ave"]},
-  {"tip": "dogrudan", "soru": "qué es el norgul", "altin": ["planta"]},
-  {"tip": "dogrudan", "soru": "qué es el karvel", "altin": ["pez", "ser vivo"]},
-  {"tip": "dogrudan", "soru": "qué es el kelvit", "altin": ["metal"]},
-  {"tip": "dogrudan", "soru": "qué es el selvin", "altin": ["bebida", "líquido", "liquido"]},
-  {"tip": "dogrudan", "soru": "qué es Velmar", "altin": ["pueblo"]},
+  {"tip": "dogrudan", "soru": "¿qué es el zerbalit?", "altin": ["metal", "sustancia"]},
+  {"tip": "dogrudan", "soru": "¿qué es el vorlin?", "altin": ["bebida"]},
+  {"tip": "dogrudan", "soru": "¿qué es el morlan?", "altin": ["ave"]},
+  {"tip": "dogrudan", "soru": "¿qué es el norgul?", "altin": ["planta"]},
+  {"tip": "dogrudan", "soru": "¿qué es el karvel?", "altin": ["pez", "ser vivo"]},
+  {"tip": "dogrudan", "soru": "¿qué es el kelvit?", "altin": ["metal"]},
+  {"tip": "dogrudan", "soru": "¿qué es el selvin?", "altin": ["bebida", "líquido", "liquido"]},
+  {"tip": "dogrudan", "soru": "¿qué es Velmar?", "altin": ["pueblo"]},
 
-  {"tip": "cok-adim", "soru": "el vorlin es un líquido", "altin": ["líquido", "liquido"]},
-  {"tip": "cok-adim", "soru": "el zilfen es un ser vivo", "altin": ["ser vivo"]},
-  {"tip": "cok-adim", "soru": "el torvanit es una sustancia", "altin": ["sustancia"]},
+  {"tip": "cok-adim", "soru": "¿es el vorlin un líquido?", "altin": ["líquido", "liquido"]},
+  {"tip": "cok-adim", "soru": "¿es el zilfen un ser vivo?", "altin": ["ser vivo"]},
+  {"tip": "cok-adim", "soru": "¿es el torvanit una sustancia?", "altin": ["sustancia"]},
 
-  {"tip": "nedensel", "soru": "qué pasa si llueve", "altin": ["pantano"]},
-  {"tip": "nedensel", "soru": "qué pasa si el norgul se multiplica", "altin": ["morlan"]},
+  {"tip": "nedensel", "soru": "¿qué pasa si llueve?", "altin": ["pantano"]},
+  {"tip": "nedensel", "soru": "¿qué pasa si el norgul se multiplica?", "altin": ["morlan"]},
 
-  {"tip": "yokluk", "soru": "qué es el melvarit", "altin": null},
-  {"tip": "yokluk", "soru": "cuál es la capital de Nortlann", "altin": null},
-  {"tip": "yokluk", "soru": "a cuántos grados hierve el vorlin", "altin": null},
-  {"tip": "yokluk", "soru": "cuál es la población de la isla", "altin": null}
+  {"tip": "yokluk", "soru": "¿qué es el melvarit?", "altin": null},
+  {"tip": "yokluk", "soru": "¿cuál es la capital de Nortlann?", "altin": null},
+  {"tip": "yokluk", "soru": "¿a cuántos grados hierve el vorlin?", "altin": null},
+  {"tip": "yokluk", "soru": "¿cuál es la población de la isla?", "altin": null}
 ]
