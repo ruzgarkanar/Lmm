@@ -1178,6 +1178,20 @@ def j2():
     again = memory.write(memory.identify("çanta"), None,
                          memory.identify("2 kg"), "#doc")
     assert again.measure[2] == unit
+    # AND THE REST OF THE GRAPH IS NUMBERED AS IF THE UNIT WERE NOT THERE.
+    # Units count down from -1 for this reason: taking keys out of the shared
+    # counter would renumber every identity opened after a measurement, and key
+    # order is a tie-break in more than one organ — the same document would then
+    # answer differently for a reason that has nothing to do with measurements.
+    # Two identical histories, one writing a MEASUREMENT and one writing a plain
+    # value: the typed one opens a unit, and the next key either graph hands out
+    # is the same either way.
+    plain, typed = Memory(), Memory()
+    for held, value in ((plain, "xubuntu"), (typed, "7.8 kg")):
+        held.write(held.identify("cihaz"), None, held.identify(value), "#doc")
+    assert typed.units and min(typed.units.values()) < 0, typed.units
+    assert not plain.units
+    assert typed.identify("sonra") == plain.identify("sonra")
 
 
 @test("J3 two numbers in one slot are judged by arithmetic, with no model")
