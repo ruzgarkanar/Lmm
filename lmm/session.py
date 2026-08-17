@@ -21,6 +21,7 @@ from v3 import dynamics
 from v3.dataset import fold
 from v3.gate import Gate
 from v3.memory import Memory, OPERATOR, STRANGER, DOCUMENT
+from v3.transitive import Transitivity
 from lmm import evidence, extract, generate, link, research, retrieve, verify
 
 SLEEP_EVERY = 50   # sleep every N turns (distill/fade/adjudicate) — v3 §117
@@ -58,6 +59,9 @@ class Session:
         self.memory = (Memory.load(path) if path and os.path.exists(path)
                        else Memory())
         self.gate = Gate(self.memory)
+        # Transitivity tracker: learns from data, incrementally (see
+        # v3/transitive.py — the full re-scan per cell was quadratic).
+        self._transitive = Transitivity(self.memory)
         # Wire the semantic RIVAL check for contradictions to Qwen (cached) —
         # in the predicate-less case "kuş/yırtıcı" coexist, "kuş/balık" is a
         # contradiction. See _are_rivals.
@@ -104,18 +108,25 @@ class Session:
     def _are_rivals(self, old_key, new_key):
         """Are two values semantic RIVALS (same slot, mutually exclusive)? Qwen
         judges (language-agnostic), the verdict is cached — the same pair never
-        calls the model again. gate._contradiction uses this in the
-        predicate-less contradiction decision."""
+        calls the model again. The gate uses this for the contradiction
+        decision.
+
+        THREE-VALUED: True (rivals) · False (they coexist) · None (cannot
+        judge right now → the gate records a SUSPECT link and sleep judges it
+        in bulk)."""
         ck = frozenset((old_key, new_key))
         if ck in self._rival_cache:
             return self._rival_cache[ck]
         # BULK STRUCTURAL INGESTION: no engine calls per cell — tables
         # legitimately attach many values to one subject (a repeated 'Note:'
         # key made EVERY cell an engine round-trip: minutes for one manual).
-        # Treat as coexisting now; contradiction arbitration for document data
-        # runs at sleep time (dynamics.arbitrate), not inline.
+        # The answer here is PENDING, not "they coexist". It used to be False,
+        # and the audit measured what that cost: paris and berlin written into
+        # one slot in bulk ended with no link, no pressure and both speakable —
+        # the deferral had silently become an acquittal. The gate now keeps the
+        # suspicion and `dynamics.sleep(verdict=...)` settles the batch.
         if getattr(self, "_bulk", False):
-            return False
+            return None
         # HIERARCHICAL LINK (GRAPH — LMM's strength): if the two values are
         # connected by an is-a chain (kedigil→memeli: a felid is a mammal) they
         # are NOT rivals, they coexist — "a lion is both felid and mammal" is
@@ -302,7 +313,7 @@ class Session:
         self.turns += 1
         if self.turns % SLEEP_EVERY == 0:
             try:
-                dynamics.sleep(self.memory)
+                self.sleep()
             except Exception:                               # noqa: BLE001
                 pass
         try:
@@ -445,7 +456,7 @@ class Session:
                 # with ≥2 witnesses), the inference is written with the
                 # #inference source at low trust. This is the "adds its own
                 # interpretation" mechanism — wrapped from v3.
-                self._learn_transitive(pk)
+                self._learn_transitive(pk, sk, vk)
                 if pk in self.memory.transitive:
                     self._derive(sk, pk, vk)
         if not wrote:
@@ -617,7 +628,7 @@ class Session:
                     skipped += 1
                     continue
                 wrote += 1
-                self._learn_transitive(pk)
+                self._learn_transitive(pk, sk, vk)
                 if pk in self.memory.transitive:
                     self._derive(sk, pk, vk)
             if wrote == wrote_before:
@@ -641,7 +652,7 @@ class Session:
         record, _ = self.gate.admit(sk, pk, vk, source, DOCUMENT)
         if record is None:
             return 0
-        self._learn_transitive(pk)
+        self._learn_transitive(pk, sk, vk)
         if pk in self.memory.transitive:
             self._derive(sk, pk, vk)
         return 1
@@ -681,32 +692,20 @@ class Session:
         return wrote
 
     # --- derivation (transitive reasoning — from v3) -------------------
-    def _learn_transitive(self, predicate):
-        """Is this predicate transitive — has the graph seen a closed triangle
+    def _learn_transitive(self, predicate, subject=None, value=None):
+        """Is this predicate transitive — has the graph seen closed triangles
         with ≥2 witnesses. Transitivity is learned from DATA, not BY HAND:
         "tür" learns from is-a examples; "sever" never does (love chains don't
         close in the graph). One coincidental triangle isn't enough (wrong-
-        inference hole) — at least two independent triangles."""
-        WITNESSED = 2
-        if predicate is None or predicate in self.memory.transitive:
-            return
-        # INVERSE INDEX: walk ONLY the records with this predicate, not the
-        # whole graph (O(N)→O(degree)).
-        edges = [r for r in (self.memory.records[k]
-                             for k in self.memory.by_predicate.get(predicate, ()))
-                 if r.source != "#inference"]
-        forward = {}
-        for r in edges:
-            forward.setdefault(r.subject, set()).add(r.value)
-        triangles = 0
-        for _a, bs in forward.items():
-            for b in bs:
-                for c in forward.get(b, ()):
-                    if c in bs:
-                        triangles += 1
-                        if triangles >= WITNESSED:
-                            self.memory.transitive.add(predicate)
-                            return
+        inference hole) — at least two independent triangles.
+
+        The rule lives in `v3.transitive`; this is the seam. Even walking only
+        the inverse index, this was a RE-SCAN of the whole predicate per
+        written cell, and a table's columns are a handful of predicates
+        carrying every row: measured 2000 cells 0.91s vs 10000 cells 25.6s —
+        quadratic. The tracker counts only what the NEW EDGE closes and keeps
+        the running answer, negative included."""
+        self._transitive.observe(predicate, subject, value)
 
     def _derive(self, subject, predicate, value):
         """TWO-DIRECTIONAL chain inference around the new edge. The derived
@@ -959,14 +958,16 @@ class Session:
         contradictions (subject, [rival values]). Wraps `dynamics.pressure`.
         Can be surfaced to the user as 'I hold contradictory knowledge about
         this'."""
-        from v3.memory import CONTRA
+        from v3.memory import CONTRA, SUSPECT
         out, seen = [], set()
         for rkey, _p in dynamics.pressure(self.memory):
             r = self.memory.records.get(rkey)
             if r is None or rkey in seen:
                 continue
-            rivals = [self.memory.records[k] for kind, k in r.links
-                      if kind == CONTRA and k in self.memory.records]
+            # SUSPECTED rivals count too: a contradiction whose verdict is
+            # still pending is exactly something to be uneasy about, and
+            # bulk-ingested data holds nothing else until the next sleep.
+            rivals = self.memory.rivals_of(r, (CONTRA, SUSPECT))
             seen.add(rkey)
             seen.update(x.key for x in rivals)
             subject = link.label_of(self.memory, r.subject)
@@ -978,6 +979,27 @@ class Session:
         return out
 
     # --- maintenance ---------------------------------------------------
+    def sleep(self):
+        """The sleep round — distill, fade, arbitrate, AND settle the deferred
+        contradiction suspicions.
+
+        Bulk ingestion cannot afford the rivalry test per cell, so it defers
+        the verdict (a SUSPECT link). Sleep is the batch pass and pays that
+        debt: the test runs here, once per suspected PAIR, and the field is
+        arbitrated afterwards. Without this the deferral was a leak — the
+        suspicion was recorded and then nobody ever came back for it."""
+        return dynamics.sleep(self.memory, verdict=self.verdict)
+
+    def verdict(self, old_value, new_value):
+        """The rivalry test as sleep asks it: OUTSIDE bulk mode, so the answer
+        is a real verdict rather than another deferral."""
+        prev = getattr(self, "_bulk", False)
+        self._bulk = False
+        try:
+            return self._are_rivals(old_value, new_value)
+        finally:
+            self._bulk = prev
+
     def save(self):
         if self.path:
             self.memory.save(self.path)

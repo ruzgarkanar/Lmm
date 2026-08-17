@@ -54,7 +54,7 @@ class Mind:
         if derived:
             return {"action": "derive", "derived": derived}
         # 3) DISTILL — sleep (settle/fade/prune). If nothing changes, saturated.
-        report = dynamics.sleep(self.memory)
+        report = self.session.sleep()   # sleep also settles SUSPECT verdicts
         return {"action": "distill", **report}
 
     def _derive_closure(self):

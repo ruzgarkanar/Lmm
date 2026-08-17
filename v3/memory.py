@@ -34,6 +34,16 @@ import zlib
 # does the matching.
 CAUSE, THEN, IF, CONTRA = 1, 2, 3, 4
 
+# SUSPECT — a contradiction that is SUSPECTED but NOT YET JUDGED. The rivalry
+# test (semantic, model-backed in LMM) is not always available at write time:
+# during bulk structural ingestion it costs one model round-trip per cell, so
+# it is deferred. Deferring must not mean FORGETTING — the audit measured the
+# hole: with the test unavailable the rivalry silently became "not a rival",
+# the CONTRA link was never made and the debt disappeared. A PENDING verdict
+# is now recorded as this link, `dynamics.sleep` judges those in BULK (sleep
+# is already a batch pass) and turns them into CONTRA or clears them.
+SUSPECT = 5
+
 # Source levels. A higher number means the word carries more weight. A single
 # sentence from a stranger must not crush a verified document — in the old
 # memory this was measured and it could crush it.
@@ -288,6 +298,25 @@ class Memory:
         if (kind, other) not in held.links:
             held.links.append((kind, other))
         return held
+
+    def unlink(self, one, other, kind):
+        """Removes a link. Used when a SUSPECT is judged: the suspicion either
+        becomes CONTRA or is cleared — an unjudged suspicion must not linger
+        as pressure forever."""
+        held = self.records.get(one)
+        if held is not None and (kind, other) in held.links:
+            held.links.remove((kind, other))
+        return held
+
+    def rivals_of(self, record, kinds=(CONTRA,)):
+        """The records this one is bound to by the given link kinds.
+
+        One place for the walk, because three organs (arbitration, pressure,
+        the gate) used to each write their own comprehension and they drifted
+        apart.
+        """
+        return [self.records[key] for kind, key in record.links
+                if kind in kinds and key in self.records]
 
     def about(self, subject, touch=True):
         """The records about an identity.
