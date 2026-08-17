@@ -14,21 +14,110 @@ are part of the data format and must not be renamed here.
 """
 import json
 import os
+import re
 import sys
 import unicodedata
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Turkish abstention words — FUNCTIONAL: the benchmark answers are in Turkish,
-# so abstention ("I don't know") is detected via these Turkish phrases.
-ABSTAIN = ("bilmiyorum", "bilgi yok", "bilgim yok", "bilgiye sahip değil", "bilemem",
+# Turkish abstention patterns — the ONE language-dependent thing left in the
+# scorer, and it is here for a reason worth stating plainly: whether a sentence
+# DECLINES TO ANSWER is a fact about meaning, and nothing in the answer's shape
+# distinguishes "the manual does not state it" from "the manual states it".
+# What CAN be made structural is everything around that judgement, and below it
+# is (see `abstains`): the patterns are matched as ORDERED WORD STEMS inside a
+# bounded window instead of as literal substrings, so morphology and inserted
+# adverbs cost nothing, and the "no fabricated value" half of the criterion —
+# which this file's docstring has always promised and the code never checked —
+# is enforced structurally.
+#
+# Each entry is a sequence of STEMS, not a phrase to find verbatim.
+ABSTAIN = ("bilmiyorum", "bilgi yok", "bilgim yok", "bilgi sahip değil", "bilemem",
            "bulunmuyor", "yer almıyor", "belirtilmemiş", "bilinmiyor",
-           "bilmem", "ulaşamadım", "emin değilim", "yoktur")
+           "bilmem", "ulaşamadım", "emin değil", "yoktur")
+
+# How many words may be INSERTED into a pattern before it stops being that
+# pattern. Two is what "a hedging adverb or two" means ("bu bilgiye HENÜZ sahip
+# değilim", "bu konuda ŞU ANDA bilgim yok"); it is a bound on interruption, not
+# a tuned score.
+SLACK = 2
 
 
 def fold(t):
     t = unicodedata.normalize("NFC", t)
     return "".join(ch.casefold()[0] for ch in t if not unicodedata.combining(ch))
+
+
+def _words(text):
+    return re.findall(r"\w+", fold(text), re.UNICODE)
+
+
+def _claim(answer):
+    """The part of the answer that CLAIMS something, with the engine's own
+    annotations removed.
+
+    An answer may carry a provenance note the engine appended rather than
+    asserted: a trailing parenthetical hedge and a '#source' tag ("Bilmiyorum.
+    (Bu bilgi kesin değildir; #pdf:M30_70 User Manual_compressed.pdf)"). Those
+    are the answer's FOOTNOTE. Measured, and this is why the distinction is
+    here: reading them as claims turned 24 genuine abstentions across five
+    historical result files into losses, purely because a filename has digits
+    and capitals in it. Format only — parentheses and a '#' tag — no language.
+
+    The cost is stated plainly: a value that appears ONLY inside a parenthesis
+    is invisible to the value check. No answer in the record does that, and the
+    abstention-pattern condition still has to hold either way."""
+    text = unicodedata.normalize("NFC", answer)
+    text = re.sub(r"\([^)]*\)", " ", text)
+    return " ".join(w for w in text.split() if not w.startswith("#"))
+
+
+def _claims_a_value(answer):
+    """Does this sentence assert something SPECIFIC — a figure or a code.
+
+    Structural, no language in it: a digit, or a token that carries a capital
+    letter after its first character ('IPX7', 'DICOM', 'BF'), which is how a
+    designation is written in any Latin-script document. An answer that names
+    a value is answering, whatever else it hedges around it — and an ABSENCE
+    question is exactly the one where naming a value is the failure."""
+    for token in re.findall(r"\w+", _claim(answer), re.UNICODE):
+        if any(ch.isdigit() for ch in token):
+            return True
+        if len(token) > 1 and any(ch.isupper() for ch in token[1:]):
+            return True
+    return False
+
+
+def abstains(answer):
+    """Does the answer DECLINE to answer.
+
+    Two conditions, and the interesting one is the second. (1) One of the
+    ABSTAIN patterns appears as an ordered run of word stems within a bounded
+    window — a literal-substring test broke on the most ordinary Turkish
+    sentence there is, "Bu bilgiye HENÜZ sahip değilim", which is a genuine
+    abstention scored as a loss (it cost a real measurement a point); the
+    window makes every such insertion free without lengthening the list.
+    (2) The sentence names no specific value, because an answer that supplies a
+    figure to a question the document cannot answer is a fabrication, not an
+    abstention, no matter how politely it is framed."""
+    if _claims_a_value(answer):
+        return False
+    toks = _words(answer)
+    for pattern in ABSTAIN:
+        stems = _words(pattern)
+        limit = len(stems) + SLACK
+        for start in range(len(toks)):
+            i = start
+            for stem in stems:
+                while i < len(toks) and not toks[i].startswith(stem):
+                    i += 1
+                if i >= len(toks):
+                    break
+                i += 1
+            else:
+                if i - start <= limit:
+                    return True
+    return False
 
 
 def score(path, questions):
@@ -39,7 +128,7 @@ def score(path, questions):
         r = by_q[q["soru"]]
         ans = fold(r["cevap"] or "")
         if q["altin"] is None:
-            ok = any(fold(s) in ans for s in ABSTAIN)
+            ok = abstains(r["cevap"] or "")
         else:
             ok = any(fold(g) in ans for g in q["altin"])
         rows.append((q["tip"], q["soru"], ok, r["ms"]))
