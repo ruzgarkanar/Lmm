@@ -1,0 +1,34 @@
+Guía de naturaleza y recursos de la isla Nortlann
+
+El zerbalit es un metal. El metal es una sustancia. El zerbalit es una sustancia.
+El kelvit es un metal. El kelvit es una sustancia.
+El torvanit es un metal. El zerbalit es azul. El kelvit es gris.
+Si se calienta el torvanit, sale una llama verde.
+
+El vorlin es una bebida. La bebida es un líquido. El selvin es una bebida.
+El selvin es un líquido. El vorlin se hace con la planta norgul.
+El selvin se bebe frío. El vorlin se bebe caliente.
+
+El morlan es un ave. El ave es un ser vivo. El morlan es un ser vivo.
+El zilfen es un ave. El karvel es un pez. El pez es un ser vivo.
+El karvel es un ser vivo. El morlan vuela de noche. El zilfen vuela de día.
+El karvel vive en aguas profundas. El morlan come semillas de norgul.
+
+El norgul es una planta. La planta es un ser vivo. El norgul es un ser vivo.
+El telvas es una planta. El telvas es un ser vivo. El norgul crece en el pantano.
+El telvas crece en las rocas. El norgul abre flores blancas.
+El telvas abre flores rojas.
+
+Nortlann es una isla. Velmar es un pueblo. Doruk es un pueblo.
+Velmar está en el norte de la isla. Doruk está en el sur de la isla.
+El zerbalit se extrae cerca de Velmar. El kelvit se extrae cerca de Doruk.
+
+Si llueve, el pantano crece. Si el pantano crece, el norgul se multiplica.
+Si el norgul se multiplica, el morlan se multiplica. Si hay sequía, el telvas se seca.
+
+La isla tiene cuatro estaciones. En invierno cae nieve. En verano hay tormentas.
+En el pueblo de Velmar se pesca. En el pueblo de Doruk se extrae mineral.
+En el centro de la isla hay un lago grande. El agua del lago es dulce.
+El karvel también se ve en el lago. El zilfen anida en la orilla del lago.
+A la isla se llega en barco. La isla parece pequeña en los mapas.
+La guía se actualiza cada año. Los isleños escriben la guía.

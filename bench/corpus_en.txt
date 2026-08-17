@@ -1,0 +1,34 @@
+Nortlann Island Nature and Resource Guide
+
+Zerbalit is a metal. A metal is a substance. Zerbalit is a substance.
+Kelvit is a metal. Kelvit is a substance.
+Torvanit is a metal. Zerbalit is blue. Kelvit is grey.
+If torvanit is heated, a green flame comes out.
+
+Vorlin is a drink. A drink is a liquid. Selvin is a drink.
+Selvin is a liquid. Vorlin is made from the norgul plant.
+Selvin is drunk cold. Vorlin is drunk hot.
+
+Morlan is a bird. A bird is a creature. Morlan is a creature.
+Zilfen is a bird. Karvel is a fish. A fish is a creature.
+Karvel is a creature. Morlan flies at night. Zilfen flies by day.
+Karvel lives in deep water. Morlan eats norgul seeds.
+
+Norgul is a plant. A plant is a creature. Norgul is a creature.
+Telvas is a plant. Telvas is a creature. Norgul grows in the marsh.
+Telvas grows on the rocks. Norgul opens white flowers.
+Telvas opens red flowers.
+
+Nortlann is an island. Velmar is a village. Doruk is a village.
+Velmar is in the north of the island. Doruk is in the south of the island.
+Zerbalit is mined near Velmar. Kelvit is mined near Doruk.
+
+If it rains, the marsh grows. If the marsh grows, norgul multiplies.
+If norgul multiplies, morlan multiplies. If there is a drought, telvas dries.
+
+The island has four seasons. In winter snow falls. In summer storms happen.
+In the village of Velmar people fish. In the village of Doruk people mine.
+In the middle of the island there is a large lake. The lake's water is fresh.
+Karvel is seen in the lake too. Zilfen nests on the lake shore.
+The island is reached by boat. The island looks small on maps.
+The guide is updated every year. The islanders write the guide.
