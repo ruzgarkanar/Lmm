@@ -779,6 +779,49 @@ def h1():
     assert len(kept) == 2, kept
 
 
+@test("H2 a causal question with nothing to say falls through, not refuses")
+def h2():
+    """The causal route was the only ONE-WAY DOOR in _respond: every other
+    branch treats its own failure as a misreading and lets the normal path try
+    (see the WRITE branch), but a causal question whose graph block produced
+    nothing speakable ended the turn in a refusal. Measured (corpus, "norgul
+    çoğalırsa ne olur"): the causal edge exists so the route is taken, verify
+    drops its sentence, and the turn refuses — while the evidence path, traced
+    on the same question, answers "Norgul çoğalırsa morlan çoğalır." and passes
+    digits_ok, coverage 1.0 AND the read-back. No gate is loosened: the
+    fall-through lands on _answer, which applies the same gates."""
+    from lmm import generate, session as lmm_session
+    s = lmm_session.Session.__new__(lmm_session.Session)
+    s.memory = Memory()
+    s.mode = "strict"
+    s._causes_key = s.memory.identify("#causes")
+    s.vectors = {}
+    # no causal edge at all -> None (a refusal would have ended the turn)
+    assert s._causal_answer("norgul cogalirsa ne olur", "effects",
+                            "norgul") is None
+    cause = s.memory.identify("norgul")
+    effect = s.memory.identify("morlan")
+    s.memory.write(cause, s._causes_key, effect, "#doc", DOCUMENT)
+    from lmm import verify as lmm_verify
+    real = generate.answer, generate.refusal, lmm_verify.verify
+    try:
+        # the engine produces a sentence stepping OUTSIDE the block: the gate
+        # must still drop it, but as a fall-through and not as a refusal.
+        # verify is stubbed to its VERDICT (dropped) — this test is about what
+        # the route does with that verdict, and it must need no model.
+        generate.answer = lambda q, f, warmth=0.2: "Norgul zerbalit uretir."
+        generate.refusal = lambda q: "REFUSED"
+        lmm_verify.verify = lambda *a, **k: ""
+        assert s._causal_answer("norgul cogalirsa ne olur", "effects",
+                                "norgul") is None
+        # a grounded sentence is still spoken by this route
+        generate.answer = lambda q, f, warmth=0.2: "norgul morlan"
+        assert s._causal_answer("norgul cogalirsa ne olur", "effects",
+                                "norgul") == "norgul morlan"
+    finally:
+        generate.answer, generate.refusal, lmm_verify.verify = real
+
+
 def main():
     failed = 0
     for name, function in PASSED:

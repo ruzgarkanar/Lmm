@@ -212,7 +212,7 @@ class Session:
         else:
             edges = [(subject, e) for e in self.effects_of(subject)]
         if not edges:
-            return generate.refusal(message) or FALLBACK_DONT_KNOW
+            return None                 # nothing causal to say — fall through
         # CAUSE/EFFECT-labeled block (internal scaffold) — so on a REVERSE-
         # direction question like "kanserin sebebi ne" the model can flip the
         # arrow and find the cause (it stumbled on unlabeled arrows). The label
@@ -233,7 +233,21 @@ class Session:
             allowed.add(link.resolve(self.memory, c))
             allowed.add(link.resolve(self.memory, e))
         safe = verify.verify(self.memory, raw, allowed, self.mode, anchor="edge")
-        return safe or generate.refusal(message) or FALLBACK_DONT_KNOW
+        # NOT A REFUSAL — None, so the caller falls through to the evidence
+        # path. This route was the only ONE-WAY DOOR in `_respond`: every other
+        # branch treats its own failure as "the reading was wrong, try the
+        # normal path" (see the WRITE branch's fall-through), but a causal
+        # question whose graph block produced nothing speakable ended the turn
+        # in a refusal, even when the DOCUMENT said the answer plainly.
+        #
+        # Measured (corpus, "norgul çoğalırsa ne olur"): the causal edge exists,
+        # so this route is taken; its verify drops the sentence and the turn
+        # refuses — while the evidence path, traced on the same question,
+        # produces "Norgul çoğalırsa morlan çoğalır." and passes EVERY gate
+        # (digits_ok, coverage 1.0, read-back). The answer was reachable and
+        # the door was shut. Nothing is loosened: the fall-through lands on
+        # `_answer`, which applies the same gates.
+        return safe or None
 
     def causes_of(self, effect_label):
         """The effect's CAUSES (labels). ms: by_value inverse index,
@@ -375,7 +389,11 @@ class Session:
                 except Exception:                           # noqa: BLE001
                     cq = None
                 if cq:
-                    return self._causal_answer(message, cq[0], cq[1])
+                    said = self._causal_answer(message, cq[0], cq[1])
+                    if said:
+                        return said
+                    # the causal route had nothing speakable → the normal
+                    # retrieval path still gets its turn (see _causal_answer)
             if op["kind"] in (extract.WRITE, extract.ASK):
                 return self._answer(message, subject)
             return self._chat(message)
