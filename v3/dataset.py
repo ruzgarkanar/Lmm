@@ -11,7 +11,7 @@ The labels are NOT HAND-WRITTEN, they come from ALIGNMENT: we hold a
 and the letters are marked with that role. No suffix list, pattern or word
 class is used.
 
-    "Kartal, yırtıcı bir kuş türüdür."   +   (kartal, tür, kuş)
+    "An eagle is a kind of bird of prey."   +   (eagle, type, bird)
      1111110000000000000033300000000         WRITE
 
 The labels for question sentences come by the same road: a question is the

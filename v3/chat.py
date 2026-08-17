@@ -30,10 +30,10 @@ def main():
     memory_path = os.path.join("models", "v3", "sohbet.lmm3")
 
     session = Session(memory_path)
-    print(f"# bellek: {memory_path} ({len(session.memory.records)} kayıt)")
-    print(f"# günlük: {log_path}")
-    print(f"# okuyucu: {session.reader.ready} · konuşucu: {session.speaker.ready}")
-    print("# çıkış: Ctrl+C ya da Ctrl+D\n")
+    print(f"# memory: {memory_path} ({len(session.memory.records)} records)")
+    print(f"# log: {log_path}")
+    print(f"# reader: {session.reader.ready} · speaker: {session.speaker.ready}")
+    print("# exit: Ctrl+C or Ctrl+D\n")
 
     log = open(log_path, "a", encoding="utf-8")
     try:
@@ -65,8 +65,8 @@ def main():
     finally:
         session.save()
         log.close()
-        print(f"\n# bellek kaydedildi ({len(session.memory.records)} kayıt)"
-              f" · günlük: {log_path}")
+        print(f"\n# memory saved ({len(session.memory.records)} records)"
+              f" · log: {log_path}")
 
 
 if __name__ == "__main__":
