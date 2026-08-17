@@ -45,6 +45,48 @@ def gather(memory, subject_key, most=4, associative=True):
     return uniq[:most]
 
 
+def specific(memory, records, keep=()):
+    """Drop the VAGUER of two true answers about the same subject.
+
+    The graph derives its is-a chain, so both "norgul is a plant" and "norgul
+    is a living thing" end up as records about norgul — both true, and only one
+    of them ANSWERS "what is a norgul". Which is which is not a matter of
+    trust or of wording: the graph itself knows, because it holds the edge
+    plant→living-thing. A value that is an ANCESTOR of another value present
+    under the same subject and predicate is the more general claim, and the
+    descendant is what the question wanted.
+
+    Measured (corpus, "norgul nedir"): the answer came back "norgul is a
+    living thing" at every commit in this history. The cause is structural
+    rather than a ranking accident — the evidence path removes #doc triples
+    from the block, so the SPECIFIC observation (norgul→plant, read from the
+    document) leaves and its VAGUE derived conclusion (norgul→living, source
+    #inference) stays. The filter kept the conclusion and discarded the
+    premise, and the conclusion is always the more general one.
+
+    `keep`: record keys that must survive regardless — a question that NAMES
+    the general value ("is a zilfen a living thing") is asking for exactly the
+    general claim, and the caller's targeting already knows which those are.
+    Pure graph: one edge lookup per pair, no model call, no language.
+    """
+    drop = set()
+    for one in records:
+        if not isinstance(one.value, int):
+            continue
+        # the values the graph places ABOVE this one, on the same relation
+        above = {r.value for r in memory.about(one.value, touch=False)
+                 if r.predicate == one.predicate}
+        if not above:
+            continue
+        for other in records:
+            if (other.key not in keep and other.key != one.key
+                    and other.subject == one.subject
+                    and other.predicate == one.predicate
+                    and other.value in above):
+                drop.add(other.key)
+    return [r for r in records if r.key not in drop]
+
+
 def facts_block(memory, records):
     """Converts records into the numbered text handed to Qwen. The source label
     (#operator etc.) stays INSIDE, it is not put in the injected text —

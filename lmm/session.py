@@ -802,6 +802,11 @@ class Session:
                 targeted.append(r)
         if targeted:
             records = targeted + [r for r in records if r not in targeted]
+        # SPECIFICITY: with two true answers about one subject, the graph's own
+        # is-a chain says which one answers (see retrieve.specific). It runs
+        # AFTER targeting, so a question that NAMES the general value keeps it.
+        records = retrieve.specific(self.memory, records,
+                                    keep={r.key for r in targeted})
         # Facts and/or EVIDENCE exist → grounded answer + output gate.
         # EVIDENCE FIRST: it carries the full sentence; triples extracted from
         # prose can be crumbs ("projeler → en kolay") and, sitting at the

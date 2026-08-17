@@ -748,6 +748,37 @@ def g7():
         generate.answer, generate.supported = generate_real
 
 
+@test("H1 of two true answers the graph's is-a chain picks the specific one")
+def h1():
+    """Measured (corpus, "norgul nedir"): the answer came back "norgul is a
+    LIVING THING" at every commit in this history, while the document says
+    "norgul is a PLANT". Both records are in the graph and both are true; the
+    vague one won because the evidence path removes #doc triples from the block
+    and so discards the specific PREMISE while keeping its derived, general
+    CONCLUSION. The graph itself holds the edge that settles it: plant→living."""
+    from lmm import retrieve
+    memory = Memory()
+    norgul = memory.identify("norgul")
+    plant = memory.identify("bitki")
+    living = memory.identify("canli")
+    specific_r = memory.write(norgul, None, plant, "#doc", DOCUMENT)
+    vague_r = memory.write(norgul, None, living, "#inference", INFERRED)
+    memory.write(plant, None, living, "#doc", DOCUMENT)   # the is-a chain
+    kept = retrieve.specific(memory, [vague_r, specific_r])
+    assert [r.key for r in kept] == [specific_r.key], \
+        [(r.value, r.source) for r in kept]
+    # A question that NAMES the general value is asking for exactly that claim
+    # ("is a norgul a living thing"), so targeting protects it.
+    kept = retrieve.specific(memory, [vague_r, specific_r],
+                             keep={vague_r.key})
+    assert {r.key for r in kept} == {vague_r.key, specific_r.key}
+    # Unrelated values are not each other's ancestors — nothing is dropped.
+    blue = memory.identify("mavi")
+    colour_r = memory.write(norgul, None, blue, "#doc", DOCUMENT)
+    kept = retrieve.specific(memory, [specific_r, colour_r])
+    assert len(kept) == 2, kept
+
+
 def main():
     failed = 0
     for name, function in PASSED:
