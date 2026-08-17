@@ -1180,6 +1180,72 @@ def j2():
     assert again.measure[2] == unit
 
 
+@test("J3 two numbers in one slot are judged by arithmetic, with no model")
+def j3():
+    """THE COST DECISION AND THE EPISTEMIC ONE COME APART.
+
+    Whether two values in a slot exclude each other used to be a question for
+    the language model, at one round-trip per pair — expensive enough that bulk
+    ingestion switched it off and deferred every verdict to sleep. For
+    measurements the question is arithmetic: disjoint ranges exclude each
+    other, overlapping ones do not. Here the semantic test is wired to a
+    function that RAISES if called, which is the assertion: these verdicts cost
+    no model call at all.
+    """
+    def must_not_be_asked(one, other):
+        raise AssertionError("the semantic test was called for a measurement")
+
+    memory = Memory()
+    gate = Gate(memory)
+    gate.rival = must_not_be_asked
+    device = memory.identify("cihaz")
+    what = memory.identify("gerilim")
+    gate.admit(device, what, memory.identify("100 V -240 V"), "#doc")
+    # 220 V lies INSIDE the stated range — one fact stated twice, no rivalry.
+    friend, _ = gate.admit(device, what, memory.identify("220 V"), "#doc")
+    assert not links_of(friend, CONTRA), friend.links
+    assert not links_of(friend, SUSPECT), friend.links
+    # 12 V is outside it — a contradiction, decided without the model, and NOT
+    # left as a suspicion for sleep to pick up.
+    clash, _ = gate.admit(device, what, memory.identify("12 V"), "#doc")
+    assert links_of(clash, CONTRA), clash.links
+    assert not links_of(clash, SUSPECT), clash.links
+
+
+@test("J4 arithmetic keeps quiet where it is not entitled to speak")
+def j4():
+    """The typed layer is a NEW SOURCE of verdicts, not a replacement for the
+    semantic one. Bare numbers with no unit ("Tier 3" vs "Tier 1") and two
+    DIFFERENT units ("7.8 kg" vs "17 lb", which may well be the same weight)
+    are cases where arithmetic alone cannot decide, and answering them anyway
+    would be the same mistake the audit found in the other direction: a cost
+    decision wearing an epistemic decision's clothes. So the semantic test must
+    still be consulted for those."""
+    asked = []
+
+    def semantic(one, other):
+        asked.append((one, other))
+        return False
+
+    memory = Memory()
+    gate = Gate(memory)
+    gate.rival = semantic
+    row = memory.identify("dijital patoloji")
+    tier = memory.identify("tier")
+    gate.admit(row, tier, memory.identify("tier 3"), "#doc")
+    gate.admit(row, tier, memory.identify("tier 1"), "#doc")
+    assert len(asked) == 1, asked                   # unit-less: still asked
+    weight = memory.identify("agirlik")
+    gate.admit(weight, None, memory.identify("7.8 kg"), "#doc")
+    gate.admit(weight, None, memory.identify("17 lb"), "#doc")
+    assert len(asked) == 2, asked                   # units differ: still asked
+    # And a value with no measurement in it at all is untouched by this layer.
+    system = memory.identify("isletim sistemi")
+    gate.admit(system, None, memory.identify("xubuntu"), "#doc")
+    gate.admit(system, None, memory.identify("windows"), "#doc")
+    assert len(asked) == 3, asked
+
+
 @test("J5 a file from the future is refused, and every older file still loads")
 def j5():
     """THE VERSION BYTE WAS WRITTEN AND NEVER READ (audit finding F).

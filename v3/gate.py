@@ -151,13 +151,46 @@ class Gate:
                 continue
             if self._chained(held.value, value, predicate):
                 continue          # hierarchy, not rivalry — see below
-            verdict = True if self.rival is None else self.rival(held.value,
-                                                                 value)
+            verdict = self._measured(held.value, value)
+            if verdict is None:
+                verdict = True if self.rival is None else self.rival(held.value,
+                                                                     value)
             if verdict is None:
                 suspects.append(held)
             elif verdict:
                 rivals.append(held)
         return rivals, suspects
+
+    # How many rivalry questions this gate answered by ARITHMETIC, split by
+    # verdict, and how many it had to hand to the semantic test. Kept because
+    # the cost of the semantic test is the reason bulk ingestion switched it
+    # off, and a claim about that cost has to be measurable.
+    decided = {"excluded": 0, "compatible": 0, "asked": 0}
+
+    def _measured(self, one, other, count=True):
+        """Rivalry BY ARITHMETIC — True, False, or None for "not my call".
+
+        Two values in one slot that both state a measurement IN THE SAME UNIT
+        need no language model and no deferral: disjoint numbers exclude each
+        other, overlapping ones do not. 100..240 V and 220 V are one fact
+        stated twice; 220 V and 12 V are a contradiction. That verdict is
+        available at write time, for free, in bulk, offline — which is exactly
+        what the semantic test is not.
+
+        None is returned whenever the arithmetic is not entitled to speak: a
+        value with no measurement in it, a bare number with no unit, or two
+        different units (see `memory.overlap`). Then the semantic test decides
+        as it always did — this is a new source of verdicts, not a replacement.
+        """
+        from v3.memory import overlap
+        get = getattr(self.memory, "measure_of", None)
+        if get is None:                                     # pragma: no cover
+            return None
+        room = overlap(get(one), get(other))
+        if count:
+            Gate.decided["asked" if room is None
+                         else ("compatible" if room else "excluded")] += 1
+        return None if room is None else not room
 
     def _chained(self, one, other, predicate, depth=6):
         """Are these two values links of the SAME CHAIN under this predicate.
