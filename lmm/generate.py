@@ -7,25 +7,35 @@ import re
 from lmm import prompts, runtime
 
 
+def answer_prompt(question, facts_block):
+    """The user turn an answering call is built from — ONE definition.
+
+    STRUCTURAL LABELS, NOT LANGUAGE. The two words framing this prompt used to
+    be Turkish ("OLGULAR"/"SORU"), which made every answer in the system pass
+    through a Turkish skeleton — a question in German was answered from a
+    Turkish-labelled frame. They are field names for the engine, so they are in
+    the one language the whole codebase already speaks. The ANSWER LANGUAGE is
+    not affected by them: ANSWER_SYSTEM binds the reply to the question's own
+    language, and the no-facts branch repeats it, because that branch has no
+    facts to borrow a language from.
+
+    It is a function rather than two f-strings because the LoRA data builder
+    has to reproduce this frame EXACTLY — it was a hand-copied duplicate, and
+    when the frame changed here the training data kept teaching the old one.
+    """
+    if facts_block.strip():
+        return f"FACTS:\n{facts_block}\n\nQUESTION: {question}"
+    return (f"QUESTION: {question}\n\n"
+            "(There is NO recorded fact about this in your memory. Do not "
+            "invent anything; say that you do not know — writing that in "
+            "the SAME LANGUAGE as the question above.)")
+
+
 def answer(question, facts_block, warmth=0.2):
     """Answer the question fluently, using only the given facts. If there is no
     fact, the model is steered to say 'I don't know' (system prompt)."""
-    # STRUCTURAL LABELS, NOT LANGUAGE. The two words framing the prompt used to
-    # be Turkish ("OLGULAR"/"SORU"), which made every answer in the system pass
-    # through a Turkish skeleton — a question in German was answered from a
-    # Turkish-labelled frame. They are field names for the engine, so they are
-    # in the one language the whole codebase already speaks. The ANSWER
-    # LANGUAGE is not affected by them: ANSWER_SYSTEM binds the reply to the
-    # question's own language, and the no-facts branch below repeats it,
-    # because that branch has no facts to borrow a language from.
-    if facts_block.strip():
-        user = f"FACTS:\n{facts_block}\n\nQUESTION: {question}"
-    else:
-        user = (f"QUESTION: {question}\n\n"
-                "(There is NO recorded fact about this in your memory. Do not "
-                "invent anything; say that you do not know — writing that in "
-                "the SAME LANGUAGE as the question above.)")
-    return runtime.generate(user, system=prompts.ANSWER_SYSTEM,
+    return runtime.generate(answer_prompt(question, facts_block),
+                            system=prompts.ANSWER_SYSTEM,
                             max_tokens=200, temperature=warmth)
 
 
