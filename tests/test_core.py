@@ -1565,6 +1565,47 @@ def k4():
         body = source.split(name)[1].split("\ndef ")[0]
         assert len(languages(body)) >= 3, (name, languages(body))
 
+@test("K5 an answer that asserts nothing is an abstention, whatever it says")
+def k5():
+    """THE REFUSAL DOOR IS NOT THE ONLY WAY OUT.
+
+    Measured on the fictional corpus: three of its four absence questions never
+    reach `_refuse` at all. Evidence IS retrieved, the answer prompt is told to
+    say it doesn't know when the evidence doesn't cover the question, and that
+    sentence walks through every gate because it claims nothing. A flag set
+    only at the refusal door reads all three as confident answers.
+
+    So the flag means "this turn asserted nothing", and the test for that is
+    the re-extractor the fabrication gate already relies on — no phrase list,
+    no language. Here it is stubbed, so the assertion is about the WIRING: a
+    sentence with claims counts as spoken, one without counts as an abstention,
+    the engine's parenthetical hedge and #source footnote are not claims, and a
+    re-extractor that throws is read as having spoken (the safe direction — the
+    damaging error is calling a wrong answer an honest refusal)."""
+    from lmm import extract, session as session_module
+    blank = session_module.Session.__new__(session_module.Session)
+    real = extract.reextract
+    try:
+        extract.reextract = lambda s: [("morlan", "type", "bird")]
+        assert blank._asserted_a_fact("Morlan bir kuştur.")
+        extract.reextract = lambda s: []
+        assert not blank._asserted_a_fact("Das weiß ich leider nicht.")
+        assert not blank._asserted_a_fact("No lo sé.")
+        # the footnote is not a claim: with no claims in the sentence itself,
+        # a hedge and a source tag cannot turn a refusal into an assertion
+        assert not blank._asserted_a_fact(
+            "Bilmiyorum. (Bu bilgi kesin değildir; #doc:corpus)")
+        # an empty answer asserts nothing either
+        assert not blank._asserted_a_fact("   ")
+
+        def broken(_sentence):
+            raise RuntimeError("engine down")
+        extract.reextract = broken
+        assert blank._asserted_a_fact("Anything at all.")
+    finally:
+        extract.reextract = real
+
+
 def main():
     failed = 0
     for name, function in PASSED:
