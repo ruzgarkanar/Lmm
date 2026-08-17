@@ -19,21 +19,38 @@ embedding-based RAG for factual work:
 | Tables / spreadsheets | flattened into text | **rows go straight into the graph** — zero model calls |
 | A 350-page manual | seconds of embedding, lossy retrieval | **queryable in ~0.5 s** (instant-ready mode) |
 
-## Measured (four benchmarks, same questions to both sides)
+## Measured (same questions to both sides)
 
-RAG baseline: LangChain + multilingual embeddings + Chroma + **gpt-4o-mini**
-(a stronger engine than LMM's local default), best-practice grounding prompt.
+RAG baseline: LangChain + multilingual embeddings + Chroma + **gpt-4o-mini**,
+best-practice grounding prompt. LMM's engine here is the same gpt-4o-mini, so
+the column compares ARCHITECTURES, not model sizes. LMM numbers are medians of
+three samples of the same configuration (these benchmarks are noisy; a single
+run is not a measurement).
 
 | Benchmark | RAG | LMM |
 |---|---|---|
-| Fictional corpus (17 q — no parametric leakage possible) | 14/17 | **15/17** |
-| Real strategy PDF (16 q) | 13/16 | **15/16** |
+| Fictional corpus (17 q — no parametric leakage possible) | 14/17 | **17/17** |
+| Real strategy PDF (16 q) | 13/16 | **14/16** |
+| 350-page device manual (30 q) | 14/30 | **28/30** — ingested in **2.3 s** vs 9.2 s |
 | Site-inspection spreadsheet (15 q) | 15/15 | 14/15 — ingested in **86 ms** vs 4.7 s |
-| 350-page device manual (30 q) | 14/30 | **22/30** — ingested in **0.44 s** vs 9.2 s |
 | Wrong facts asserted across all runs | 1 | **0** |
 
 The pattern: the bigger the document, the wider the gap — retrieval collapse
 is RAG's structural ceiling, composition is LMM's structural strength.
+
+**These numbers are lower than the ones this file used to show for the manual
+and the strategy PDF, and that is the point.** An audit went through the code
+looking for anything that had been fitted to the three documents being scored:
+few-shot examples that quoted the manual's own voltages and dimensions and told
+the engine what a particular ingress-protection code means, a prompt clause that
+taught the very warranty-vs-service-life distinction one absence question turns
+on, and numeric thresholds (a 700-character record window, a 40-character table
+cell, a 0.75 similarity, an inflection rule with a special case for short
+spec-table subjects) that had been chosen while reading one PDF. All of it is
+gone; thresholds that survive are either read off the material at hand or stated
+as what they mean. The honest cost, measured step by step: **62/63 → 59/63**,
+of which the prompt content alone was 4 points — that was the share of the score
+that came from having seen the test.
 
 ## Architecture (one screen)
 
@@ -89,8 +106,15 @@ Engines: local Qwen (default, `models/qwen-3b` + optional LoRA in
 - Answer *selection* can still pick a true-but-off-target sentence; the gate
   guarantees non-fabrication, not perfect relevance.
 - Spec lines only reachable through very common words ("how many inches is
-  the screen") are a lexical-retrieval ceiling; the PDF-table adapter
-  (tables → graph, like xlsx) is the planned fix.
+  the screen") are a lexical-retrieval ceiling. One such line is rescued by an
+  append-only mechanism (a question that asks for a quantity gets one extra
+  evidence seat); the class is not closed.
+- Two questions are stable failures and are named rather than hidden: a manual
+  question whose answer sits in a table row sharing only one stem with the
+  question, and a strategy-document question whose answer needs a heading and a
+  line eight sentences below it in one window — the widest window scale now
+  refuses to index prose that long, and this document's records fall on the
+  wrong side of the bound it derives.
 - The coverage gate cannot distinguish negation affixes at the word level
   (language lists are forbidden by design); the engine-level support check
   covers most of this class.
