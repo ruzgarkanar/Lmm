@@ -127,6 +127,23 @@ CLAIM: The operating temperature range is 5°C to 40°C.
 Answer: yes   (same attribute, same numbers; "~" is range notation and the
 second range belongs to the next column, not to the claim)
 
+COMBINING EVIDENCE IS ALLOWED (this is not new information): the attribute and
+its value may sit in DIFFERENT evidence items. If one item names the attribute
+for a subject and another item gives that subject's value, the claim joining
+them is supported — answer "yes". Attribute discipline forbids taking a value
+from a DIFFERENT attribute, not reading two lines about the SAME one.
+Without this, ATTRIBUTE DISCIPLINE above over-applied and rejected answers
+assembled from two evidence lines — exactly what ANSWER_SYSTEM instructs the
+answerer to produce ("when facts from several rows together imply the answer,
+COMBINE them"); the two prompts contradicted each other and correct answers
+fell to abstentions. Measured: corpus 13/17 -> 16/17, and it does NOT loosen
+the gate (a swapped Tier and an invented cost both still score 0/3).
+Example:
+EVIDENCE: [K1] Component B — REQUIRED PRECONDITION
+[K2] The single thing to install alongside: component B, number 14.
+CLAIM: The component that is the precondition is component B number 14.
+Answer: yes   (K1 names the attribute, K2 gives its value; one subject)
+
 If you are unsure, answer "no"."""
 
 
