@@ -30,11 +30,16 @@ quality we do NOT use the real source sentence either, because it contains
 facts NOT in the block (extra facts would teach the model to fabricate). Only
 the fact in the block enters the target.
 
-Note on Turkish literals: prompt/question strings ("{concept} nedir",
-"OLGULAR:/SORU:", the identity questions, the "rüzgar"/"lmm" check) are
-FUNCTIONAL — the system operates in Turkish and they must match the inference
-format exactly. The JSON field names ("kavram", "hedef") match the
-tanim-temiz.jsonl data file.
+NOTHING HERE IS WRITTEN IN A USER LANGUAGE ANY MORE. The answering frame was a
+hand-copied Turkish duplicate of generate.answer's ("OLGULAR:/SORU:"), so when
+the frame changed at inference the training data went on teaching the old one;
+it now calls `generate.answer_prompt`, the single definition. The question form
+and the leakage-filter word list moved to --ask-form and --reject-words,
+because both are facts about the SOURCE DATASET'S language and not about this
+tool. The identity questions stay a multilingual list on purpose: identity is
+the one behaviour that must answer the same in every language, so the list
+demonstrates several and privileges none. The JSON field names ("kavram",
+"hedef") match the tanim-temiz.jsonl data file's own format.
 """
 import argparse
 import json
@@ -49,25 +54,37 @@ def _tick(kind, n, total):
     print(f"  [{kind}] {n}/{total} produced", file=sys.stderr, flush=True)
 
 # LANGUAGE FILTER: self-distillation also captures the system's current FLAKY
-# outputs (Chinese/English leakage). We DROP those examples from the training
-# data so LoRA learns clean target-language behavior. This is a DATA-CLEANING
-# filter — not runtime language generation (not a condition-5 violation).
+# outputs (script and vocabulary leakage). We DROP those examples from the
+# training data so LoRA learns clean behaviour. This is a DATA-CLEANING filter
+# — not runtime language generation (not a condition-5 violation).
+#
+# The CJK test is SCRIPT-level and holds for every source language: a target in
+# a script the dataset does not use is leakage whatever the dataset is. The
+# vocabulary test is not, and it used to be a hard-coded list of English
+# function words, which silently assumed the data was Turkish and that drifting
+# into English was the failure — run on an English dataset it would have thrown
+# away every correct example. It is now --reject-words, supplied with the
+# dataset that knows which drift to look for.
 _CJK = re.compile(r"[　-鿿가-힯぀-ヿ]")
-_EN = re.compile(r"\b(the|and|is|are|was|were|of|to|this|that|with|not|for|"
-                 r"you|your|according|source)\b", re.I)
 
 
-def _tr_ok(text):
-    """Is the Turkish-input target clean (no Chinese, no heavy English leakage)?"""
+def _clean(text, reject=()):
+    """Is the self-distilled target usable: non-empty, no foreign script, and
+    fewer than two tokens from the caller's reject list."""
     if not text or not text.strip():
         return False
     if _CJK.search(text):
         return False
-    return len(_EN.findall(text)) < 2
+    if not reject:
+        return True
+    hits = sum(1 for w in re.findall(r"\w+", text, re.UNICODE)
+               if w.casefold() in reject)
+    return hits < 2
 
 
 def _no_cjk(text):
-    """Identity lines may be TR or EN — only eliminate CJK leakage."""
+    """Identity lines are deliberately multilingual — only script leakage is
+    eliminated."""
     return bool(text and text.strip()) and not _CJK.search(text)
 
 from lmm import prompts, retrieve, link, generate
@@ -75,7 +92,7 @@ from v3.memory import Memory, OPERATOR
 from v3.gate import Gate
 
 
-def _grounding_rows(limit):
+def _grounding_rows(limit, ask_form, reject):
     """From tanim-temiz.jsonl: for each concept, (fact block + question) →
     self-distilled short grounded sentence. The block carries only ONE fact;
     the target cannot stray from it."""
@@ -91,13 +108,14 @@ def _grounding_rows(limit):
             continue
         # Single-fact block — exactly the facts_block format (same input as inference).
         block = f"[1] {concept.lower()} → {value.lower()}"
-        question = f"{concept} nedir"
+        question = ask_form.replace("{concept}", concept)
         target = generate.answer(question, block)      # SELF-DISTILLATION (Qwen produces it)
-        if not _tr_ok(target):                          # LANGUAGE FILTER
+        if not _clean(target, reject):                  # LEAKAGE FILTER
             continue
         yield {"messages": [
             {"role": "system", "content": prompts.ANSWER_SYSTEM},
-            {"role": "user", "content": f"OLGULAR:\n{block}\n\nSORU: {question}"},
+            # THE ONE FRAME: the same builder inference uses, never a copy.
+            {"role": "user", "content": generate.answer_prompt(question, block)},
             {"role": "assistant", "content": target},
         ]}
         n += 1
@@ -105,7 +123,7 @@ def _grounding_rows(limit):
             _tick("grounding", n, limit)
 
 
-def _refusal_rows(limit):
+def _refusal_rows(limit, ask_form, reject):
     """Unknown questions → "I don't know" (in the model's own words). Input has no facts."""
     src = os.path.join("data", "train", "tanim-temiz.jsonl")
     with open(src, encoding="utf-8") as f:
@@ -117,15 +135,14 @@ def _refusal_rows(limit):
         concept = rec.get("kavram", "").strip()
         if not concept:
             continue
-        question = f"{concept} nedir"
+        question = ask_form.replace("{concept}", concept)
         target = generate.refusal(question)
-        if not _tr_ok(target):                          # LANGUAGE FILTER
+        if not _clean(target, reject):                  # LEAKAGE FILTER
             continue
         yield {"messages": [
             {"role": "system", "content": prompts.ANSWER_SYSTEM},
-            {"role": "user", "content":
-             f"SORU: {question}\n\n(Belleğinde bu konuda kayıtlı olgu YOK. "
-             "Uydurma; bilmediğini söyle.)"},
+            # The no-facts frame, from the same builder inference uses.
+            {"role": "user", "content": generate.answer_prompt(question, "")},
             {"role": "assistant", "content": target},
         ]}
         n += 1
@@ -138,13 +155,14 @@ def _refusal_rows(limit):
 # QUESTION list (user input), not hand-written ANSWERS — the target is still
 # produced by Qwen (condition-5: no answer templates).
 _IDENTITY_Q = [
-    "sen kimsin", "kimsin sen", "sen nesin", "adın ne", "kendini tanıt",
-    "sen kimsin?", "senin adın ne",
-    "seni kim yaptı", "seni kim üretti", "seni kim geliştirdi", "üreticin kim",
-    "kim yarattı seni", "seni kim yazdı", "seni kim yaptı?", "yapımcın kim",
-    "who are you", "what are you", "who made you", "who created you",
-    "who built you", "what is your name",
-    "wer bist du", "wer hat dich gemacht",
+    "who are you", "what are you", "what is your name", "introduce yourself",
+    "who made you", "who created you", "who built you", "who developed you",
+    "wer bist du", "was bist du", "wie heißt du",
+    "wer hat dich gemacht", "wer hat dich entwickelt",
+    "¿quién eres?", "¿qué eres?", "¿cómo te llamas?",
+    "¿quién te hizo?", "¿quién te creó?",
+    "sen kimsin", "sen nesin", "adın ne", "kendini tanıt",
+    "seni kim yaptı", "seni kim geliştirdi", "üreticin kim",
 ]
 
 
@@ -158,7 +176,7 @@ def _identity_rows(samples=2):
     gate = Gate(m)
     lmm = link.resolve(m, "lmm", {}, create=True)
     ruz = link.resolve(m, "rüzgar", {}, create=True)
-    mk = link.resolve(m, "üretici", {}, create=True)
+    mk = link.resolve(m, "creator", {}, create=True)
     gate.admit(lmm, mk, ruz, "#operator", OPERATOR)
     recs = retrieve.gather(m, lmm)
     idb = "\n".join(f"{link.label_of(m, r.subject)} "
@@ -187,7 +205,17 @@ def main():
     ap.add_argument("--limit", type=int, default=400,
                     help="number of concepts for grounding+refusal (each)")
     ap.add_argument("--out", default="data/train/lora.jsonl")
+    ap.add_argument("--ask-form", default="what is {concept}",
+                    help="question template in the SOURCE DATASET'S language, "
+                         "with {concept} as the placeholder (e.g. "
+                         "'{concept} nedir' for a Turkish dataset)")
+    ap.add_argument("--reject-words", default="",
+                    help="comma-separated function words of the language the "
+                         "target must NOT drift into; two or more hits drop "
+                         "the example. Empty -> only the script filter runs.")
     args = ap.parse_args()
+    reject = {w.strip().casefold() for w in args.reject_words.split(",")
+              if w.strip()}
     os.chdir(os.path.dirname(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__)))))
     # CRASH-SAFE: write + flush every example IMMEDIATELY (even to Drive). If
@@ -195,9 +223,10 @@ def main():
     # everything at the end → a drop lost everything). The trainer shuffles
     # anyway, no final shuffle needed.
     import itertools
-    stream = itertools.chain(_grounding_rows(args.limit),
-                             _refusal_rows(args.limit // 2),
-                             _identity_rows())
+    stream = itertools.chain(
+        _grounding_rows(args.limit, args.ask_form, reject),
+        _refusal_rows(args.limit // 2, args.ask_form, reject),
+        _identity_rows())
     n = 0
     with open(args.out, "w", encoding="utf-8") as f:
         for row in stream:
