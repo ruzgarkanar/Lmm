@@ -27,10 +27,13 @@ from lmm import evidence, extract, generate, link, research, retrieve, verify
 SLEEP_EVERY = 50   # sleep every N turns (distill/fade/adjudicate) — v3 §117
 
 # SOURCE-TRUST threshold: a fact spoken with trust BELOW this gets TAGGED in the
-# answer (hedge + source). Operator teaching (0.75) is certain → untagged;
-# document (0.6), distillation (0.5), web (low) → "I'm not sure, according to
-# ...". "Strictest" would be misinformation.
-CERTAIN = 0.7
+# answer (hedge + source). Operator teaching is certain → untagged; document,
+# distillation and the web → "I'm not sure, according to ...". "Strictest" would
+# be misinformation.
+#
+# It is not a number of its own: it is the LINE BETWEEN THE TWO BANDS the core
+# defines, so it moves with them instead of having to be kept in step by hand.
+CERTAIN = (Memory.trust_of(OPERATOR) + Memory.trust_of(DOCUMENT)) / 2
 
 FALLBACK_DONT_KNOW = "I don't know."   # last-resort only: the normal
 # refusal is engine-generated in the USER'S language; this string is hit
@@ -521,7 +524,8 @@ class Session:
         # (representation-narrowness fix).
         for sent in sentences:
             self.evidence.add(sent, source)
-        # CONTEXT WINDOWS: neighboring sentences are indexed together too —
+        # CONTEXT WINDOWS (`evidence.SCALES` — a geometric ladder, defined with
+        # the store): neighboring sentences are indexed together too —
         # the sentence "Uyarı: Eşik ayarı..." doesn't carry the word 'sepsis'
         # but carries the section; single-sentence granularity was losing the
         # section context (hospital finding). Two scales: narrow (3) for
@@ -535,18 +539,30 @@ class Session:
         # either narrower scale held both the subject and its answer — the
         # answer was unreachable at every commit in this history.
         #
-        # RECORD_CHARS guards it. A record is made of SHORT lines; 12 LONG
-        # sentences are prose, which the 6-window already covers, and indexing
-        # them only dilutes — a diluted wide window displaced a precise spec
-        # line and cost the manual a point (measured: manual 27->26 with the
-        # scale ungated, hospital 12->13 with it). The bound is what "short
-        # lines" means: 12 sentences averaging under ~58 characters. Length
-        # only — no language rule, no document-specific rule.
-        RECORD_CHARS = 700
-        for size, step in ((3, 2), (6, 2), (12, 4)):
+        # THE WIDEST SCALE IS FOR RECORDS, AND THE DOCUMENT SAYS WHAT ONE IS.
+        # A record is made of SHORT lines; the same number of LONG sentences is
+        # prose, which the middle scale already covers, and indexing it only
+        # dilutes — a diluted wide window displaced a precise spec line and cost
+        # the manual a point (measured: manual 27->26 with the scale ungated,
+        # hospital 12->13 with it).
+        #
+        # That guard used to be `len(window) > 700`, and 700 was this document's
+        # measurement: twelve sentences of about fifty-eight characters, counted
+        # off the PDF in front of whoever wrote it. The document supplies the
+        # bound instead — the MEDIAN sentence is the middle of what this text
+        # writes, so a window of `size` sentences is a record when it is no
+        # longer than `size` median sentences, and prose, whose sentences are the
+        # long half, is above it. Nothing about any document is known here.
+        typical = sorted(len(s) for s in sentences)
+        median = typical[len(typical) // 2] if typical else 0
+        widest = evidence.SCALES[-1]
+        for size in evidence.SCALES:
+            step = max(2, size // 3)        # a constant overlap, not a per-scale
+            #                                 choice: each window starts a third
+            #                                 of a width after the last
             for i in range(0, max(1, len(sentences) - size + 1), step):
                 window = " ".join(sentences[i:i + size])
-                if size >= 12 and len(window) > RECORD_CHARS:
+                if size >= widest and len(window) > size * median:
                     continue
                 if len(window) > len(sentences[i]):
                     self.evidence.add(window, source)
@@ -688,7 +704,13 @@ class Session:
                 continue
             rich = max((kv for kv in cells[1:]), default=None,
                        key=lambda kv: len(kv[1]))
-            if rich and len(rich[1]) >= 8:
+            # AN ALIAS HAS TO BE A NAME, and a name is a PHRASE — more than one
+            # word. The test used to be "at least 8 characters", a length picked
+            # off a spreadsheet; what it was reaching for is that a code, a date
+            # or a status word ("NEW", "2026-03-01") is not what anyone would
+            # call the row by, while "yangın ekipmanı tespiti" is. Word count
+            # says that without measuring any document.
+            if rich and len(rich[1].split()) >= 2:
                 self.memory.identify(fold(rich[1]), same_as=sk)
             for col, val in cells[1:]:
                 wrote += self.learn_cell(anchor, col, val, source)
@@ -748,14 +770,18 @@ class Session:
             # not first-match: with only the first hit, a generic word
             # ('cihazın'→cihaz) shadowed the field node ('ekranı'→ekran) and
             # the answer-carrying fact never entered the block (measured).
+            # No CAP on how many of the question's words may contribute: it used
+            # to stop at three, which is a number with no argument behind it —
+            # every one of these is a word the QUESTION itself used and a node
+            # the graph really holds, so there is nothing to ration. The block
+            # is bounded downstream (evidence outranks document triples, and
+            # `retrieve.specific` prunes), and a question has only so many words.
             for w in sorted(set(evidence._words(question)),
-                            key=len, reverse=True):
+                            key=lambda t: (-len(t), t)):
                 cand = link.resolve(self.memory, w)
                 if cand is not None and cand not in fallback_keys \
                         and self.memory.by_subject.get(cand):
                     fallback_keys.append(cand)
-                    if len(fallback_keys) >= 3:
-                        break
             if fallback_keys:
                 subject = fallback_keys[0]
         # associative=False: the answer is built ONLY from direct facts
@@ -771,15 +797,21 @@ class Session:
         # intersecting the question — numbers/ranges/nuance that don't fit a
         # triple come from here. The graph is structure, the sentence is
         # evidence.
-        proof = self.evidence.find(f"{subject_label or ''} {question}", most=6)
-        if proof and len(proof) < 4:
-            # TWO-HOP (only when evidence is SCARCE): a second search with the
-            # best evidence's words — composition questions want the union of
-            # two separate sections. When the first search was already full,
-            # the second hop added table-crumbs and derailed the answer
-            # (hospital trace) — don't touch when there's plenty.
-            for extra in self.evidence.find(f"{proof[0]} {question}", most=4):
-                if extra not in proof and len(proof) < 6:
+        seats = evidence.WINDOW
+        proof = self.evidence.find(f"{subject_label or ''} {question}",
+                                   most=seats)
+        if proof and len(proof) < seats:
+            # TWO-HOP (only when the first search did not FILL the block): a
+            # second search with the best evidence's words — composition
+            # questions want the union of two separate sections. When the first
+            # search was already full, the second hop added table-crumbs and
+            # derailed the answer (hospital trace) — don't touch when there's
+            # plenty. "Scarce" used to be the constant 4 against a block of 6;
+            # what it means is that retrieval came back UNDER-SUBSCRIBED, which
+            # is a comparison with the number of seats asked for, not a number.
+            for extra in self.evidence.find(f"{proof[0]} {question}",
+                                            most=seats - len(proof)):
+                if extra not in proof and len(proof) < seats:
                     proof.append(extra)
         # TRUE GAP (gaps signal) — if the graph holds NO fact at all about
         # this subject, offer research BEFORE GENERATION. That way the model's
