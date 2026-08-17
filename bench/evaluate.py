@@ -23,15 +23,18 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from score import abstains, fold                                # noqa: E402
+from score import declined, fold                                # noqa: E402
 
 
-def correct(question, answer):
+def correct(question, row):
     """Same criterion as score.py: gold keyword present, or — for absence
-    questions — a refusal."""
+    questions — a refusal. `row` is the whole result record, not just its text,
+    because the abstention reading starts from the system's own "abstained"
+    stamp and falls back to wording only when the file has none (see
+    score.declined) — that is what makes the score language-independent."""
     if question["altin"] is None:
-        return abstains(answer or "")
-    ans = fold(answer or "")
+        return declined(row)
+    ans = fold(row.get("cevap") or "")
     return any(fold(gold) in ans for gold in question["altin"])
 
 
@@ -43,8 +46,7 @@ def main():
     samples = []
     for path in sys.argv[2:]:
         data = json.load(open(path, encoding="utf-8"))
-        samples.append({row["soru"]: row.get("cevap", "")
-                        for row in data["cevaplar"]})
+        samples.append({row["soru"]: row for row in data["cevaplar"]})
 
     totals = []
     hits = {q["soru"]: 0 for q in questions}

@@ -24,8 +24,12 @@ def main():
                   encoding="utf-8").read()
     s = Session(None)               # fresh memory — no disk writes
     m = Mind(s)
+    # INSTANT-READY vs DEEP ingestion: a 350-page manual is read shallow (the
+    # evidence index answers it), a small corpus deep (facts into the graph, so
+    # derivation can compose). LMM_DEEP=0 selects the shallow mode.
+    deep = os.environ.get("LMM_DEEP", "1") != "0"
     t0 = time.time()
-    wrote, skipped = s.learn_text(corpus, source="#doc:korpus")
+    wrote, skipped = s.learn_text(corpus, source="#doc:corpus", deep=deep)
     m.run()                         # derivations (ms) — multi-hop forms here
     ingest_ms = round((time.time() - t0) * 1000)
     derived = sum(1 for r in s.memory.records.values()
@@ -42,7 +46,14 @@ def main():
         t0 = time.time()
         said = s.respond(q["soru"])
         ms = round((time.time() - t0) * 1000)
-        results.append({"soru": q["soru"], "cevap": said, "ms": ms})
+        # THE SYSTEM'S OWN ABSTENTION SIGNAL. Whether a turn declined to answer
+        # is something the session knows for certain (it took the refusal
+        # path); reading it back out of the refusal SENTENCE means recognising
+        # "I don't know" in whichever language the engine wrote it, which is
+        # how the scorer came to hold a list of Turkish phrases. Carrying the
+        # flag here makes the measurement work on a document in any language.
+        results.append({"soru": q["soru"], "cevap": said, "ms": ms,
+                        "abstained": bool(s.last_abstained)})
         print(f"> {q['soru']}\n  {said}   ({ms}ms)", flush=True)
 
     out = sys.argv[3] if len(sys.argv) > 3 else os.path.join(ROOT, "bench", "result_lmm.json")

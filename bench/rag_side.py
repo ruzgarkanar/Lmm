@@ -5,9 +5,17 @@ otherwise say you don't know". The engine is FAR stronger than ours (cloud
 4o-mini vs local 3B) — the comparison is tilted against us; if a gap still
 shows up, the claim is solid.
 
-The system prompt is in Turkish (FUNCTIONAL: the benchmark corpus and
-questions are Turkish), and the output JSON field names ('soru', 'cevap',
-'ms', 'ingest_ms', 'cevaplar') match the Turkish benchmark data format.
+The system prompt used to be Turkish, because the first benchmark corpus was;
+that made the BASELINE language-dependent too, and a baseline that only works
+on one language cannot be run against the English and Spanish corpora the LMM
+side is now measured on. It is now an English instruction that binds the reply
+to the QUESTION's language — the same discipline the LMM side's ANSWER_SYSTEM
+carries. The RAG numbers recorded in README were measured with the older
+Turkish prompt and have NOT been re-run since; they are the Turkish-corpus
+baseline and are labelled as such.
+
+The output JSON field names ('soru', 'cevap', 'ms', 'ingest_ms', 'cevaplar')
+match the benchmark data format and must not be renamed.
 
 Output: bench/sonuc_rag.json  [{soru, cevap, ms}]
 """
@@ -70,10 +78,11 @@ def main():
         docs = store.similarity_search(q["soru"], k=4)
         context = "\n".join(d.page_content for d in docs)
         msg = llm.invoke([
-            ("system", "Yalnızca verilen bağlamdaki bilgiyle cevap ver. "
-                       "Bağlamda yoksa 'Bilmiyorum' de; asla tahmin etme. "
-                       "Kısa cevap ver."),
-            ("user", f"Bağlam:\n{context}\n\nSoru: {q['soru']}"),
+            ("system", "Answer using ONLY the information in the given "
+                       "context. If it is not in the context, say that you do "
+                       "not know; never guess. Answer briefly, and ONLY in "
+                       "the SAME LANGUAGE as the question."),
+            ("user", f"CONTEXT:\n{context}\n\nQUESTION: {q['soru']}"),
         ])
         ms = round((time.time() - t0) * 1000)
         results.append({"soru": q["soru"], "cevap": msg.content, "ms": ms})

@@ -20,16 +20,24 @@ import unicodedata
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Turkish abstention patterns — the ONE language-dependent thing left in the
-# scorer, and it is here for a reason worth stating plainly: whether a sentence
-# DECLINES TO ANSWER is a fact about meaning, and nothing in the answer's shape
-# distinguishes "the manual does not state it" from "the manual states it".
-# What CAN be made structural is everything around that judgement, and below it
-# is (see `abstains`): the patterns are matched as ORDERED WORD STEMS inside a
-# bounded window instead of as literal substrings, so morphology and inserted
-# adverbs cost nothing, and the "no fabricated value" half of the criterion —
-# which this file's docstring has always promised and the code never checked —
-# is enforced structurally.
+# Turkish abstention patterns — the FALLBACK, and no longer the criterion.
+#
+# Whether a sentence DECLINES TO ANSWER is a fact about meaning, and nothing in
+# the answer's shape distinguishes "the manual does not state it" from "the
+# manual states it". Read from OUTSIDE, that leaves only the wording, and a
+# wording list is a list in ONE language: measured against an English or a
+# German document, every honest abstention this system produced would have been
+# scored as a fabricated answer, and the benchmark would have reported a
+# language dependency the engine does not have.
+#
+# So the judgement moved to the only place that does not have to guess: the
+# system itself. `Session._refuse` is the single door every refusal leaves by,
+# and it stamps `last_abstained` on the turn; `bench/lmm_side.py` writes that
+# stamp into the result file as "abstained", and `declined()` below reads it
+# first. The patterns stay for result files that carry no stamp — the RAG
+# baseline's, and every historical run already on disk — and for those the old
+# structural care still applies: ordered word STEMS inside a bounded window, so
+# morphology and inserted adverbs cost nothing.
 #
 # Each entry is a sequence of STEMS, not a phrase to find verbatim.
 ABSTAIN = ("bilmiyorum", "bilgi yok", "bilgim yok", "bilgi sahip değil", "bilemem",
@@ -120,6 +128,21 @@ def abstains(answer):
     return False
 
 
+def declined(row):
+    """Did this turn DECLINE to answer — the language-independent reading.
+
+    The system's own stamp first ("abstained", written by the engine that took
+    the refusal path), the wording heuristic only when there is no stamp. The
+    value check survives the stamp on purpose: an "abstention" that names a
+    figure is a fabrication however the engine classified its own path, and
+    that half of the criterion is structural in every language.
+    """
+    answer = row.get("cevap") or ""
+    if "abstained" in row:
+        return bool(row["abstained"]) and not _claims_a_value(answer)
+    return abstains(answer)
+
+
 def score(path, questions):
     data = json.load(open(path, encoding="utf-8"))
     by_q = {r["soru"]: r for r in data["cevaplar"]}
@@ -128,7 +151,7 @@ def score(path, questions):
         r = by_q[q["soru"]]
         ans = fold(r["cevap"] or "")
         if q["altin"] is None:
-            ok = abstains(r["cevap"] or "")
+            ok = declined(r)
         else:
             ok = any(fold(g) in ans for g in q["altin"])
         rows.append((q["tip"], q["soru"], ok, r["ms"]))
