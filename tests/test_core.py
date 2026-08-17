@@ -559,10 +559,10 @@ def f4():
     memory3 = Memory()
     memory3.identify("organ")
     assert link.resolve(memory3, "organizma", create=False) is None
-    assert not evidence.covered("Dijital patoloji Tier 1",
-                                "[K1] Dijital patoloji Tier 3", "tier 1 mi")
-    assert not evidence.covered("test Tier 5",
-                                "[K1] test Tier 3 proje 5 yıl", "")
+    assert not evidence.covered("Kapak menteşesi Seviye 1",
+                                "[K1] Kapak menteşesi Seviye 3", "seviye 1 mi")
+    assert not evidence.covered("test Seviye 5",
+                                "[K1] test Seviye 3 parça 5 yıl", "")
 
 
 @test("G1 a unit is content no matter how short it is")
@@ -572,11 +572,11 @@ def g1():
     under three letters lost 'kg', and splitting the camel seam inside 'mAh'
     lost the capacity's unit twice over."""
     from lmm import evidence
-    assert "kg" in evidence._words("Ağırlık 2 kg")
-    assert "mah" in evidence._words("Batarya 14.4 V / 6500 mAh")
-    assert "v" in evidence._words("Batarya 14.4 V / 6500 mAh")
+    assert "kg" in evidence._words("Kütle 2 kg")
+    assert "mah" in evidence._words("Akü 12.8 V / 4200 mAh")
+    assert "v" in evidence._words("Akü 12.8 V / 4200 mAh")
     # the camel seam still cuts glued CELLS (the left side is a word there)
-    assert "adaptörü" in evidence._words("GüçAdaptörüPil")
+    assert "kapağı" in evidence._words("GövdeKapağıKayış")
     # a short token with no number next to it is still not content
     assert "ve" not in evidence._words("ekran ve klavye")
 
@@ -587,34 +587,34 @@ def g2():
     for it. Learned from the indexed sentences, never a word list."""
     from lmm import evidence
     store = evidence.SentenceStore()
-    store.add("Ağırlık (aksesuarsız) 7.8 kg")
-    store.add("Ekran 15.6 inç LCD")
+    store.add("Kütle (ambalajsız) 3.4 kg")
+    store.add("Gösterge 21.5 inç OLED")
     store.add("Cihaz taşınabilir bir sistemdir")
     assert "kg" in store.units
-    assert store.find("kaç kg") == ["Ağırlık (aksesuarsız) 7.8 kg"]
+    assert store.find("kaç kg") == ["Kütle (ambalajsız) 3.4 kg"]
 
 
 @test("G3 the unit anchor admits inflection without opening a hole")
 def g3():
-    """A fluent sentence ('15.6 inçtir') must pass against '15.6 inç' — the
+    """A fluent sentence ('21.5 inçtir') must pass against '21.5 inç' — the
     same NUMBER binds both. Words that no number holds together stay out,
     even when their prefix step is smaller."""
     from lmm import evidence
-    assert evidence.covered("Ekran 15.6 inçtir.", "Ekran 15.6 inç LCD", "")
+    assert evidence.covered("Gösterge 21.5 inçtir.", "Gösterge 21.5 inç OLED", "")
     assert not evidence.covered("kartal", "kart", "")
     assert not evidence.covered("organizma", "organ", "")
     # ...and the anchor needs the SAME number, not just any number
-    assert not evidence.covered("Ekran 17 inçtir.", "Ekran 15.6 inç LCD", "")
+    assert not evidence.covered("Gösterge 17 inçtir.", "Gösterge 21.5 inç OLED", "")
 
 
 @test("G4 coverage is the ratio whose 1.0 is the old binary gate")
 def g4():
     from lmm import evidence
-    block = "[K1] Ekran 15.6 inç LCD"
-    assert evidence.coverage("Ekran 15.6 inç", block, "") == 1.0
-    part = evidence.coverage("Ekran 15.6 inç panelde gösterilir", block, "")
+    block = "[K1] Gösterge 21.5 inç OLED"
+    assert evidence.coverage("Gösterge 21.5 inç", block, "") == 1.0
+    part = evidence.coverage("Gösterge 21.5 inç panelde gösterilir", block, "")
     assert 0.0 < part < 1.0
-    assert not evidence.covered("Ekran 15.6 inç panelde gösterilir", block, "")
+    assert not evidence.covered("Gösterge 21.5 inç panelde gösterilir", block, "")
     assert evidence.coverage("", block, "") == 0.0
 
 
@@ -628,14 +628,14 @@ def g5():
     from lmm import generate, session as lmm_session
     s = lmm_session.Session.__new__(lmm_session.Session)      # no engine needed
     s.memory = Memory()
-    proof = ["Ekran 15.6 inç LCD ekran", "Cihaz taşınabilir bir sistemdir"]
-    block = "[K1] Ekran 15.6 inç LCD ekran\n[K2] Cihaz taşınabilir bir sistemdir"
+    proof = ["Gösterge 21.5 inç OLED gösterge", "Cihaz taşınabilir bir sistemdir"]
+    block = "[K1] Gösterge 21.5 inç OLED gösterge\n[K2] Cihaz taşınabilir bir sistemdir"
     said, order = {}, []
     answers, supported = {}, [True]
 
     def fake_answer(question, facts, warmth=0.2):
         order.append(facts)
-        return answers.get(facts, "Ekran 15.6 inç")
+        return answers.get(facts, "Gösterge 21.5 inç")
 
     def fake_supported(answer, facts):
         said[answer] = said.get(answer, 0) + 1
@@ -649,7 +649,7 @@ def g5():
         # THE LADDER RUNS: one candidate per evidence subset, and each subset
         # is a different block (2 of them for 2 evidence sentences).
         chosen, tried = s._select("Ekran kaç inç", [], proof, "", block)
-        assert chosen == "Ekran 15.6 inç", chosen
+        assert chosen == "Gösterge 21.5 inç", chosen
         assert len(order) == len(set(order)) >= 2, order
         # A FABRICATED DIGIT IS VETOED even with the engine saying yes: the
         # wide-block candidate invents 17, the narrow one stays grounded.
@@ -657,7 +657,7 @@ def g5():
         answers[order[0]] = "Ekran 17 inçtir"
         order.clear()
         chosen, tried = s._select("Ekran kaç inç", [], proof, "", block)
-        assert chosen == "Ekran 15.6 inç", chosen
+        assert chosen == "Gösterge 21.5 inç", chosen
         assert "Ekran 17 inçtir" in tried    # it was generated, and rejected
         # EVERY candidate broken → honest refusal, no fallback to the least bad
         answers.clear()
@@ -683,8 +683,8 @@ def g6():
     the size of the needle."""
     from lmm import generate, session as lmm_session
     s = lmm_session.Session.__new__(lmm_session.Session)
-    proof = ["Ortam sıcaklığı 5 °C ~ +40 °C", "Barkod okuyucu isteğe bağlıdır",
-             "DICOM yazıcı kurulumu için kılavuza bakın"]
+    proof = ["Ortam sıcaklığı 8 °C ~ +32 °C", "Barkod okuyucu isteğe bağlıdır",
+             "Barkod yazıcı kurulumu için kılavuza bakın"]
     block = "\n".join(f"[K{i}] {s}" for i, s in enumerate(proof, 1))
     asked = []
     real = generate.supported
@@ -695,10 +695,10 @@ def g6():
 
     generate.supported = fake
     try:
-        claim = "Ortam sıcaklığı 5 °C ile +40 °C arasındadır"
+        claim = "Ortam sıcaklığı 8 °C ile +32 °C arasındadır"
         assert s._read_back(claim, proof, block)
         # first view: only the sentence the claim shares words with
-        assert "Ortam" in asked[0] and "DICOM" not in asked[0], asked[0]
+        assert "Ortam" in asked[0] and "Barkod" not in asked[0], asked[0]
         assert len(asked) == 2 and asked[1] == block
         # a confirmed narrow view ends it — the wide view is not even asked
         asked.clear()
@@ -833,10 +833,10 @@ def h3():
     """The claim this test defends is the whole promise of the evidence layer:
     what is in the store is what the DOCUMENT says. The sliding-window repair
     broke it — over a shattered table it emitted
-    "POCUS ... · 3 · Orta · Orta · Orta · Kamera tabanlı düşme tespiti", a
+    "Uzatma kablosu ... · 3 · Orta · Orta · Orta · Taşıma kayışı", a
     neighbourhood spanning two rows, and the answer read out of it ("the
-    camera's regulatory risk is medium") contradicted the document's own row
-    ("Yüksek (KVKK)"). No gate can catch that: the claim IS in the evidence.
+    strap's stock risk is medium") contradicted the document's own row
+    ("Yüksek (sınırlı)"). No gate can catch that: the claim IS in the evidence.
 
     Built here, not read from a document: a column-major dump of a table whose
     rows are known, including one WRAPPED cell (the case a fixed stride cannot
@@ -844,12 +844,12 @@ def h3():
     that every cell pair inside an emitted row is a pair the table really has.
     NO MODEL, no document-specific constant."""
     from lmm import evidence
-    rows = [("Randevuya gelmeme tahmini", "Çok düşük", "Çok hızlı", "Yok"),
-            ("Fatura reddi tahmini", "Düşük", "Çok hızlı", "Yok"),
-            ("Sepsis erken uyarı", "Orta", "Orta", "Orta"),
-            ("Dijital patoloji", "Çok yüksek", "Yavaş", "Orta"),
-            ("POCUS / yapay zekâ rehberli ultrason", "Orta", "Orta", "Orta"),
-            ("Kamera tabanlı düşme tespiti", "Orta", "Orta", "Yüksek (KVKK)")]
+    rows = [("Kapak menteşesi yenilemesi", "Çok düşük", "Çok hızlı", "Yok"),
+            ("Vida seti tamamlama", "Düşük", "Çok hızlı", "Yok"),
+            ("Gösterge camı değişimi", "Orta", "Orta", "Orta"),
+            ("Gövde boyası yenileme", "Çok yüksek", "Yavaş", "Orta"),
+            ("Uzatma kablosu / yedek besleme ünitesi", "Orta", "Orta", "Orta"),
+            ("Taşıma kayışı", "Orta", "Orta", "Yüksek (sınırlı)")]
     lines = ["Bir tablo, hücre hücre dağılmış hâlde okunduğunda satırını "
              "yitirir; asıl mesele budur.",
              "Kullanım alanı", " Kademe", "Yatırım", "Geri dönüş"]
@@ -890,7 +890,7 @@ def h3():
                     "the document never puts %r next to %r: %s" % (one, other,
                                                                    window)
     # and the row that was being corrupted comes out whole
-    assert any("Kamera tabanlı düşme tespiti" in w and "Yüksek (KVKK)" in w
+    assert any("Taşıma kayışı" in w and "Yüksek (sınırlı)" in w
                for w in windows), windows
     # a run whose layout gives NO phase is not carved into invented rows
     flat = "\n".join(["Bir paragraf, tabloya benzemeyen düz yazıdır ve bu "
@@ -909,7 +909,7 @@ def h4():
     single region monopolises those seats, but it measured overlap by Jaccard
     only — and the window scales are NESTED, so the same paragraph seen at three
     widths has a large union and reads as three regions. Measured (hospital,
-    "ilk 6 ayda önerilen projelerden hangisi yüksek öncelik işaretlidir"): all
+    "ilk 6 ayda önerilen parçalardan hangisi yüksek öncelik işaretlidir"): all
     SIX seats went to views of the one closing paragraph, and the section holding
     the marker was never retrieved, so no candidate answer could rest on it and
     the read-back rejected — correctly — every answer that was offered.
@@ -918,17 +918,17 @@ def h4():
     plus one other section that shares the question's rarer word."""
     from lmm import evidence
     store = evidence.SentenceStore()
-    core = ("İlk 6 ay için önerilen üç proje: 02 · 03 · 07 randevu, fatura ve "
-            "insidental bulgu takip döngüsü.")
+    core = ("İlk 6 ay için önerilen üç parça: 02 · 03 · 07 menteşe, vida ve "
+            "taşıma kayışı yenilemesi.")
     store.add(core, "#doc")                                  # the narrow view
     store.add(core + " Üçü de mevcut veriyle çalışır.", "#doc")
     store.add("SONUÇ Nereden başlanmalı " + core + " Üçü de mevcut veriyle "
               "çalışır ve birkaç ay içinde ölçülebilir sonuç üretir.", "#doc")
     store.add("SONUÇ Nereden başlanmalı " + core, "#doc")
-    other = ("07 insidental bulgu takip döngüsünün kapatılması YÜKSEK ÖNCELİK "
+    other = ("07 taşıma kayışı yenilemesinin tamamlanması YÜKSEK ÖNCELİK "
              "işaretlidir.")
     store.add(other, "#doc")
-    found = store.find("İlk 6 ayda önerilen projelerden hangisi yüksek "
+    found = store.find("İlk 6 ayda önerilen parçalardan hangisi yüksek "
                        "öncelik işaretlidir", most=4)
     assert other in found, found
     # the region is still CORROBORATED — the cap is two seats, not one
@@ -961,8 +961,8 @@ def h5():
 
     runtime.generate = fake
     try:
-        block = "[K1] Hazırlayan: Kalite Ofisi"
-        claim = "Raporu Kalite Ofisi hazırlamıştır."
+        block = "[K1] Hazırlayan: Nordheim Kayıt Bürosu"
+        claim = "Raporu Nordheim Kayıt Bürosu hazırlamıştır."
         assert generate.supported(claim, block) is False
         system, user = seen[-1]
         assert system == prompts.SUPPORT_SYSTEM
@@ -1002,10 +1002,10 @@ def h6():
     from lmm import generate, session as lmm_session
     s = lmm_session.Session(None)
     s.learn_text("Bu rapor Hat B kalite denetimi için düzenlenmiştir.\n"
-                 "Hazırlayan: Kalite Ofisi\n"
+                 "Hazırlayan: Nordheim Kayıt Bürosu\n"
                  "Denetim sırasında ölçülen sıcaklık 42 santigrat derece "
                  "olarak kaydedilmiştir.\n", deep=False)
-    wrong = "Hazırlayan: Kalite Ofisi"
+    wrong = "Hazırlayan: Nordheim Kayıt Bürosu"
     real = (generate.answer, generate.supported, generate.answers_asked,
             generate.refusal, generate.hedge_note)
     views = []
@@ -1119,7 +1119,7 @@ def i2():
 
 # --- J  the typed value: number, range, unit ---------------------------------
 #
-# What the value IS was invisible to every organ: "15.6\" LCD" and "xubuntu"
+# What the value IS was invisible to every organ: "21.5\" OLED" and "okonos"
 # were the same kind of thing, so whether two values in one slot can coexist
 # had to be asked of a language model, one round-trip per pair.
 
@@ -1131,8 +1131,8 @@ def j1():
     No list of units exists anywhere in this system and none may be added. The
     only rule is that the token standing next to a number is what the number is
     measured in — which is why a SYMBOLIC unit works exactly like a lettered
-    one: '"' next to 15.6 is a token next to a number. The manual's screen line
-    is the measured loss class ('Ekran 15.6" LCD' — no letters in the unit at
+    one: '"' next to 21.5 is a token next to a number. A spec sheet's display line
+    is the measured loss class ('Gösterge 21.5" OLED' — no letters in the unit at
     all).
 
     A separator is not a unit: in "100 V -240 V" and "%25 - %85" the symbol
@@ -1141,21 +1141,21 @@ def j1():
     the test is positional, not a character list.
     """
     from v3.memory import measure
-    assert measure('Ekran 15.6" LCD') == (15.6, 15.6, '"')
-    assert measure("15,6 inç") == (15.6, 15.6, "inç")   # notation is not quantity
+    assert measure('Gösterge 21.5" OLED') == (21.5, 21.5, '"')
+    assert measure("21,5 inç") == (21.5, 21.5, "inç")   # notation is not quantity
     assert measure("100 V -240 V ~") == (100.0, 240.0, "v")     # a range
     assert measure("5 °C - 40 °C") == (5.0, 40.0, "°c")
     assert measure("-20 °C ~ 55 °C") == (-20.0, 55.0, "°c")     # below zero
     assert measure("%25 - %85") == (25.0, 85.0, None)   # dash separates
     assert measure("8 GB, DDR4") == (8.0, 8.0, "gb")    # punctuation is not a unit
     # A DIFFERENT unit is a DIFFERENT measurement, not a wider range: the
-    # battery's line states a voltage and a capacity, and 14.4..6500 would be
+    # battery's line states a voltage and a capacity, and 12.8..4200 would be
     # a quantity the document never claims.
-    assert measure("14.4 V / 6500 mAh") == (14.4, 14.4, "v")
+    assert measure("12.8 V / 4200 mAh") == (12.8, 12.8, "v")
     # Not measurements: a version/section string (two fractional separators)
     # and a text with no number at all.
     assert measure("Çekirdek sürümü 1.2.3") is None
-    assert measure("xubuntu") is None
+    assert measure("okonos") is None
 
 
 @test("J2 the unit is an identity, and its bare token is not a way to name it")
@@ -1167,10 +1167,10 @@ def j2():
     reachable by the inflection tolerance, which is the exact collision
     (`kartal` the bird vs the district) this file was written to prevent."""
     memory = Memory()
-    weight = memory.identify("7.8 kg")
+    weight = memory.identify("3.4 kg")
     record = memory.write(memory.identify("cihaz"), None, weight, "#doc")
     low, high, unit = record.measure
-    assert (low, high) == (7.8, 7.8)
+    assert (low, high) == (3.4, 3.4)
     assert unit in memory.identities and memory.units["kg"] == unit
     assert memory.candidates("kg") == []            # not addressable as a name
     # The same unit sighted twice is ONE identity — a unit is not re-invented
@@ -1187,7 +1187,7 @@ def j2():
     # value: the typed one opens a unit, and the next key either graph hands out
     # is the same either way.
     plain, typed = Memory(), Memory()
-    for held, value in ((plain, "xubuntu"), (typed, "7.8 kg")):
+    for held, value in ((plain, "okonos"), (typed, "3.4 kg")):
         held.write(held.identify("cihaz"), None, held.identify(value), "#doc")
     assert typed.units and min(typed.units.values()) < 0, typed.units
     assert not plain.units
@@ -1230,7 +1230,7 @@ def j3():
 def j4():
     """The typed layer is a NEW SOURCE of verdicts, not a replacement for the
     semantic one. Bare numbers with no unit ("Tier 3" vs "Tier 1") and two
-    DIFFERENT units ("7.8 kg" vs "17 lb", which may well be the same weight)
+    DIFFERENT units ("3.4 kg" vs "17 lb", which may well be the same weight)
     are cases where arithmetic alone cannot decide, and answering them anyway
     would be the same mistake the audit found in the other direction: a cost
     decision wearing an epistemic decision's clothes. So the semantic test must
@@ -1244,18 +1244,18 @@ def j4():
     memory = Memory()
     gate = Gate(memory)
     gate.rival = semantic
-    row = memory.identify("dijital patoloji")
+    row = memory.identify("kapak menteşesi")
     tier = memory.identify("tier")
     gate.admit(row, tier, memory.identify("tier 3"), "#doc")
     gate.admit(row, tier, memory.identify("tier 1"), "#doc")
     assert len(asked) == 1, asked                   # unit-less: still asked
     weight = memory.identify("agirlik")
-    gate.admit(weight, None, memory.identify("7.8 kg"), "#doc")
+    gate.admit(weight, None, memory.identify("3.4 kg"), "#doc")
     gate.admit(weight, None, memory.identify("17 lb"), "#doc")
     assert len(asked) == 2, asked                   # units differ: still asked
     # And a value with no measurement in it at all is untouched by this layer.
     system = memory.identify("isletim sistemi")
-    gate.admit(system, None, memory.identify("xubuntu"), "#doc")
+    gate.admit(system, None, memory.identify("okonos"), "#doc")
     gate.admit(system, None, memory.identify("windows"), "#doc")
     assert len(asked) == 3, asked
 
@@ -1278,7 +1278,7 @@ def j5():
 
     memory = Memory()
     device = memory.identify("cihaz")
-    memory.write(device, None, memory.identify('15.6" LCD'), "#doc")
+    memory.write(device, None, memory.identify('21.5" OLED'), "#doc")
     with tempfile.TemporaryDirectory() as folder:
         path = os.path.join(folder, "m.lmm")
         memory.save(path)
@@ -1287,7 +1287,7 @@ def j5():
         assert struct.unpack(">B", raw[4:5])[0] == 4        # FORMAT=4 written
         back = Memory.load(path)
         held = list(back.records.values())[0]
-        assert held.measure[:2] == (15.6, 15.6)
+        assert held.measure[:2] == (21.5, 21.5)
         assert back.units and held.measure[2] in back.units.values()
 
         # FROM THE FUTURE: header says 99 → refused, loudly.
@@ -1307,7 +1307,7 @@ def j5():
         # would, derived from the value the file already holds.
         old = {"format": 3, "next": 5, "self": None, "transitive": [],
                "identities": [{"key": 1, "labels": ["cihaz"], "vector": None},
-                              {"key": 2, "labels": ['15.6" LCD'],
+                              {"key": 2, "labels": ['21.5" OLED'],
                                "vector": None}],
                "records": [{"key": 3, "subject": 1, "predicate": None,
                             "value": 2, "source": "#doc", "level": 4,
@@ -1329,7 +1329,7 @@ def j5():
             back = Memory.load(name)
             held = back.records[3]
             assert held.subject == 1 and held.value == 2 and held.level == 4
-            assert held.measure[:2] == (15.6, 15.6), name
+            assert held.measure[:2] == (21.5, 21.5), name
             # and re-saving migrates it to the current format without loss
             again = os.path.join(folder, "again.lmm")
             back.save(again)
@@ -1340,17 +1340,17 @@ def j5():
 def j6():
     """THE UNIT THE DOCUMENT DOES NOT SPELL (measured manual loss).
 
-    The manual states `Ekran 15.6" LCD` and the question asks "kaç inçtir".
+    A spec sheet states `Gösterge 21.5" OLED` and the question asks "kaç inçtir".
     The unit on the line is a quotation mark — no letters — so the lexical
     channel has nothing of 'inç' to match, and the line is reachable only
-    through 'ekran', which the manual also uses on dozens of menu lines: it
+    through 'gösterge', which the document also uses on dozens of menu lines: it
     ranked 33rd. Reweighting the field-name channel does rescue it and was
     measured to cost hospital two points, because five of its sixteen blocks
     changed. So the rescue APPENDS: the ranking is final before it runs, and
     this test asserts both halves — the spec line arrives, and the six seats
     that were there are still there, in order.
 
-    Nothing here knows that 15.6" is inches. The question is recognised as
+    Nothing here knows that 21.5" is inches. The question is recognised as
     asking for a quantity because the corpus itself binds 'inç' to a number
     somewhere else ("(12 inç)"), and the line is recognised as an answer
     because it names the asked field and states a measurement whose unit is one
@@ -1360,19 +1360,19 @@ def j6():
     store = evidence.SentenceStore()
     # the crowd: prose that shares the question's field word
     crowd = [
-        "Cihazın ekranı açıldığında oturum kutusu görünür ve yönetici "
+        "Cihazın göstergesi açıldığında oturum kutusu görünür ve yönetici "
         "parolası istenir; parolayı girdikten sonra devam edin.",
-        "Cihazın ekranı temizlenirken yumuşak bez kullanılmalı, çözücü "
+        "Cihazın göstergesi temizlenirken yumuşak bez kullanılmalı, çözücü "
         "içeren sıvılar kesinlikle uygulanmamalıdır bu yüzeye.",
-        "Cihazın ekranı koruyucusu etkinleştirildiğinde bekleme süresi "
+        "Cihazın göstergesi koruyucusu etkinleştirildiğinde bekleme süresi "
         "dolduğunda arayüz kararır ve tuşa basıldığında geri döner.",
-        "Cihazın ekranı üzerindeki durum çubuğundan ağ bağlantısı durumu "
+        "Cihazın göstergesi üzerindeki durum çubuğundan ağ bağlantısı durumu "
         "izlenebilir; bağlantı koptuğunda simge değişir hemen.",
-        "Cihazın ekranı yansımayı azaltmak için doğrudan güneş ışığı almayan "
+        "Cihazın göstergesi yansımayı azaltmak için doğrudan güneş ışığı almayan "
         "bir konumda konumlandırılmalıdır çalışırken.",
-        "Cihazın ekranı üzerinde ölçüm sonuçları, yorumlar ve gövde "
+        "Cihazın göstergesi üzerinde ölçüm sonuçları, yorumlar ve gövde "
         "işaretleri ters sırada temizlenebilir düğmeyle.",
-        "Cihazın ekranı bölme düzeninde iki görüntü yan yana gösterilir ve "
+        "Cihazın göstergesi bölme düzeninde iki görüntü yan yana gösterilir ve "
         "etkin pencere çerçeveyle belirtilir kullanıcıya.",
     ]
     class WithoutTheSeat(evidence.SentenceStore):
@@ -1382,27 +1382,27 @@ def j6():
         quantities = property(lambda self: set())
 
     corpus = crowd + [
-        'Ekran 15.6" LCD',
-        "Taşınabilir RF cihazları ultrasona 30 cm'den (12 inç) daha yakın "
+        'Gösterge 21.5" OLED',
+        "Taşınabilir vericiler tarayıcıya 30 cm'den (12 inç) daha yakın "
         "kullanılmamalıdır.",
-        "Ekran koruyucu ayarını açın.",
-        "Ekran menüsünü ayarlardan yeniden düzenleyin.",
-        "Ekran parlaklığı bölümüne bakın.",
+        "Gösterge koruyucu ayarını açın.",
+        "Gösterge menüsünü ayarlardan yeniden düzenleyin.",
+        "Gösterge parlaklığı bölümüne bakın.",
     ]
     store, reference = evidence.SentenceStore(), WithoutTheSeat()
     for one in corpus:
         store.add(one, "#doc")
         reference.add(one, "#doc")
-    question = "Cihazın ekranı kaç inçtir"
+    question = "Cihazın göstergesi kaç inçtir"
     before = reference.find(question, most=6)
     found = store.find(question, most=6)
-    assert 'Ekran 15.6" LCD' not in before, before       # the measured loss
+    assert 'Gösterge 21.5" OLED' not in before, before       # the measured loss
     # THE RANKING DID NOT MOVE: the seats that were there are there, in order,
     # and the spec line is appended after them.
-    assert found == before + ['Ekran 15.6" LCD'], found
+    assert found == before + ['Gösterge 21.5" OLED'], found
     # A question that asks for no quantity gets no seat at all — the mechanism
     # is inert outside its loss class.
-    plain = "Ekran koruyucu nasıl açılır"
+    plain = "Gösterge koruyucu nasıl açılır"
     assert store.find(plain, most=6) == reference.find(plain, most=6)
 
 

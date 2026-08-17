@@ -18,17 +18,43 @@ import re
 import pandas as pd
 
 from v3.dataset import fold
+from lmm import evidence
 
 
 def _header_row(rows, columns):
+    """Which row names the columns — the one most filled with SHORT TEXT.
+
+    Two numbers used to be in here and both were guesses about somebody's
+    spreadsheet: a header cell was text "at most 40 characters" long, and only
+    the first 10 rows were considered. The sheet answers both. What counts as
+    short is the split in ITS OWN cell lengths (`evidence._cell_bound`, the same
+    derivation the shattered-table reader uses), and the header cannot be below
+    the point where DATA begins — the first row whose filled cells are mostly not
+    text. Neither bound is a number we chose.
+    """
+    text_cells = [c.strip() for r in rows for c in r
+                  if isinstance(c, str) and c.strip()
+                  and not c.startswith("Unnamed")]
+    bound = evidence._cell_bound(text_cells) if text_cells else 0
+
     def fullness(cells):
         return sum(1 for c in cells
-                   if isinstance(c, str) and 0 < len(c.strip()) <= 40
+                   if isinstance(c, str) and 0 < len(c.strip()) <= bound
                    and not c.startswith("Unnamed"))
-    candidates = [(-fullness(r), i) for i, r in enumerate(rows[:10])]
-    candidates.append((-fullness(columns), -1))
-    candidates.sort()
-    return candidates[0][1]
+
+    def is_data(cells):
+        filled = [c for c in cells if not pd.isna(c) and str(c).strip()]
+        return bool(filled) and sum(
+            1 for c in filled if not isinstance(c, str)) * 2 > len(filled)
+
+    top = []
+    for i, row in enumerate(rows):
+        if is_data(row):
+            break
+        top.append((-fullness(row), i))
+    top.append((-fullness(columns), -1))
+    top.sort()
+    return top[0][1]
 
 
 def read_xlsx(path):
@@ -67,8 +93,8 @@ _KV = re.compile(rf"((?:{_KEY_TOKEN}[ \t]+){{0,2}}{_KEY_TOKEN})\s*:\s*")
 
 
 def split_kv_text(text):
-    """Split a COMPOSITE cell on colon FORMAT boundaries: 'Konsol: IPX0 Prob:
-    IPX7 Ayak Anahtarı: IPX4' → three (key, value) pairs. The colon is a
+    """Split a COMPOSITE cell on colon FORMAT boundaries: 'Gövde: A1 Kapak: A2
+    Kayış: A3' → three (key, value) pairs. The colon is a
     format separator (allowed); the only other cue is typographic: key words
     carry no digits, so a value's tail ('IPX0') cannot be mistaken for the
     next key. No language rule."""
@@ -84,27 +110,36 @@ def split_kv_text(text):
 
 
 def _split_leading_value(text):
-    """'Boyutlar 360 mm * 380 mm * 125 mm' → ('Boyutlar', '360 mm * ...').
-    FORMAT cue only: a short record cell whose leading words carry no digit
-    and whose value starts at the first digit. None if the shape doesn't
-    match (prose stays prose)."""
+    """'Ölçüler 410 mm * 290 mm * 90 mm' → ('Ölçüler', '410 mm * ...').
+    FORMAT cue only: a record cell whose leading words carry no digit and whose
+    value starts at the first digit. None if the shape doesn't match (prose stays
+    prose).
+
+    The shape test used to be "between 2 and 12 words, first digit within the
+    first 3" — two bounds off one spec sheet. What it is reaching for is that the
+    FIELD NAME is the short part and the VALUE is the rest, which is a
+    comparison inside the cell and needs no absolute size: the leading no-digit
+    run has to be a minority of the words, so a text whose figure arrives only in
+    its second half is not read as a field and its value."""
     words = text.split()
-    if not 2 <= len(words) <= 12:
+    if len(words) < 2:
         return None
     first_digit = next((i for i, w in enumerate(words)
                         if any(ch.isdigit() for ch in w)), None)
-    if not first_digit or first_digit > 3:
+    if not first_digit or first_digit * 2 > len(words):
         return None
     return " ".join(words[:first_digit]), " ".join(words[first_digit:])
 
 
 def _drop_sparse_column(clean):
     """A wide table whose FIRST column is a section label spanning many rows
-    ('Güç Gereksinimi') comes back mostly empty in that column — dropping it
-    exposes the real key/value pairs. Structural criterion: ≤1/3 filled."""
+    comes back mostly empty in that column — dropping it exposes the real
+    key/value pairs. Structural criterion: the column is filled in a MINORITY of
+    the rows (it was "at most a third", a fraction with nothing behind it; a
+    label column's defining property is that most rows do not repeat it)."""
     while clean and len(clean[0]) > 2:
         filled = sum(1 for row in clean if row and row[0])
-        if filled <= max(1, len(clean) // 3):
+        if filled * 2 < len(clean):
             clean = [row[1:] for row in clean]
         else:
             break
@@ -131,10 +166,12 @@ def read_pdf(path):
         # every pair; instead each row IS a (key, value) pair.
         widths = [sum(1 for c in raw if c) for raw in clean if any(raw)]
         # MAJORITY, not unanimity: one messy multi-cell row (a wrapped
-        # remark) must not disqualify a whole spec sheet — if ≥2/3 of the
+        # remark) must not disqualify a whole spec sheet — if MOST of the
         # rows are (key, value)-shaped the table is kv; a wider row joins
-        # its extra cells into the value.
-        if widths and sum(1 for w in widths if w <= 2) * 3 >= len(widths) * 2:
+        # its extra cells into the value. (It read "at least two thirds"; the
+        # majority is the boundary the sentence above actually describes, and
+        # two thirds was a fraction chosen while looking at one spec sheet.)
+        if widths and sum(1 for w in widths if w <= 2) * 2 > len(widths):
             pairs = []
             for raw in clean:
                 cells = [c for c in raw if c]
