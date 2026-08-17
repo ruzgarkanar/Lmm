@@ -10,12 +10,21 @@ from lmm import prompts, runtime
 def answer(question, facts_block, warmth=0.2):
     """Answer the question fluently, using only the given facts. If there is no
     fact, the model is steered to say 'I don't know' (system prompt)."""
+    # STRUCTURAL LABELS, NOT LANGUAGE. The two words framing the prompt used to
+    # be Turkish ("OLGULAR"/"SORU"), which made every answer in the system pass
+    # through a Turkish skeleton — a question in German was answered from a
+    # Turkish-labelled frame. They are field names for the engine, so they are
+    # in the one language the whole codebase already speaks. The ANSWER
+    # LANGUAGE is not affected by them: ANSWER_SYSTEM binds the reply to the
+    # question's own language, and the no-facts branch below repeats it,
+    # because that branch has no facts to borrow a language from.
     if facts_block.strip():
-        user = f"OLGULAR:\n{facts_block}\n\nSORU: {question}"
+        user = f"FACTS:\n{facts_block}\n\nQUESTION: {question}"
     else:
-        user = (f"SORU: {question}\n\n"
-                "(Belleğinde bu konuda kayıtlı olgu YOK. Uydurma; "
-                "bilmediğini söyle.)")
+        user = (f"QUESTION: {question}\n\n"
+                "(There is NO recorded fact about this in your memory. Do not "
+                "invent anything; say that you do not know — writing that in "
+                "the SAME LANGUAGE as the question above.)")
     return runtime.generate(user, system=prompts.ANSWER_SYSTEM,
                             max_tokens=200, temperature=warmth)
 
@@ -70,11 +79,14 @@ def are_rivals(a, b):
         "a color + a shape). Two labels filling the SAME dimension (two species, "
         "two cities as the one capital, two opposite sizes) are exclusive.\n"
         "Answer ONE word: COEXIST or EXCLUSIVE.\n"
+        # The examples are deliberately in SEVERAL languages: the judgement is
+        # about meaning, not about English, and a single-language example set
+        # teaches the pattern in that language only.
         "bird + predator -> COEXIST\n"
-        "organ + muscle -> COEXIST\n"
-        "red + round -> COEXIST\n"
+        "órgano + músculo -> COEXIST\n"
+        "kırmızı + yuvarlak -> COEXIST\n"
         "bird + fish -> EXCLUSIVE\n"
-        "big + small -> EXCLUSIVE\n"
+        "groß + klein -> EXCLUSIVE\n"
         "Paris + Berlin -> EXCLUSIVE")
     out = runtime.generate(f"{a} + {b}", system=system,
                            max_tokens=4, temperature=0.0)
@@ -89,8 +101,9 @@ def are_rivals(a, b):
 
 def supported(answer, block):
     """SECOND-TIER support check: does the evidence block REALLY say this answer
-    — called when the coverage gate trips on innocent narrative words ('olarak',
-    'belirtilmiştir'). The digit discipline (digits_ok) comes BEFORE this check
+    — called when the coverage gate trips on innocent narrative words (the
+    connectives and reporting verbs any language sprinkles through a sentence).
+    The digit discipline (digits_ok) comes BEFORE this check
     and is non-negotiable; this only judges word-level residue. Strict: when in
     doubt, no → the answer drops (false-negative is safe, false-positive is
     dangerous)."""
@@ -155,11 +168,16 @@ def is_causal(message):
               "to / results in Y). If yes, output exactly 'CAUSE: <cause> -> "
               "EFFECT: <effect>' using the head nouns, CAUSE first. If it is NOT "
               "causal (a definition, a question, small talk), output 'NONE'.\n"
-              "sigara kansere neden olur -> CAUSE: sigara -> EFFECT: kanser\n"
-              "aşırı stres kalp krizine yol açar -> CAUSE: stres -> EFFECT: kalp krizi\n"
+              # MULTILINGUAL BY DESIGN: the examples must not teach the pattern
+              # in one language, or the classifier learns that language's cue
+              # words instead of the relation. Every sentence here is invented
+              # and belongs to no document this system is measured on.
               "smoking causes cancer -> CAUSE: smoking -> EFFECT: cancer\n"
-              "kartal bir kuştur -> NONE\n"
-              "kanser nedir -> NONE\n"
+              "la sequía provoca hambruna -> CAUSE: sequía -> EFFECT: hambruna\n"
+              "Frost führt zu Rissen im Beton -> CAUSE: Frost -> EFFECT: Risse\n"
+              "aşırı gürültü uykusuzluğa yol açar -> CAUSE: gürültü -> EFFECT: uykusuzluk\n"
+              "an eagle is a bird -> NONE\n"
+              "was ist Beton -> NONE\n"
               "merhaba -> NONE")
     out = runtime.generate(message, system=system, max_tokens=30, temperature=0.0)
     m = re.search(r"CAUSE:\s*(.+?)\s*->\s*EFFECT:\s*(.+)", out, re.I)
@@ -176,13 +194,17 @@ def is_causal_question(message):
     language lives in Qwen. Called only if the subject has a causal edge (an ms
     pre-check) — no wasted model call."""
     system = ("Is this asking about the CAUSES or the EFFECTS of something?\n"
-              "- what CAUSES X (why X, X'in sebebi ne, X neden olur) -> 'CAUSES: X'\n"
-              "- what X CAUSES (X neye yol açar, X'in sonucu, what happens if X) "
+              "- what CAUSES X (why X, what X comes from) -> 'CAUSES: X'\n"
+              "- what X CAUSES (what X leads to, what happens if X) "
               "-> 'EFFECTS: X'\n- otherwise -> 'NONE'\n"
-              "kanserin sebebi ne -> CAUSES: kanser\n"
-              "sigara neye yol açar -> EFFECTS: sigara\n"
-              "stresin sonucu nedir -> EFFECTS: stres\n"
-              "kanser nedir -> NONE\nmerhaba -> NONE")
+              # Invented examples, several languages — the direction of a
+              # causal question is carried by grammar, and each language
+              # carries it differently.
+              "what causes rust -> CAUSES: rust\n"
+              "¿qué provoca la hambruna? -> CAUSES: hambruna\n"
+              "was bewirkt Frost -> EFFECTS: Frost\n"
+              "gürültü neye yol açar -> EFFECTS: gürültü\n"
+              "what is rust -> NONE\nhola -> NONE")
     out = runtime.generate(message, system=system, max_tokens=20, temperature=0.0)
     m = re.search(r"(CAUSES|EFFECTS):\s*(.+)", out, re.I)
     if not m:
@@ -214,11 +236,16 @@ def is_identity_question(message):
     system = ("Classify if the message asks the responder ABOUT ITSELF — its "
               "identity, name, nature, or who made/created it. A question about "
               "some OTHER thing ('what is X') is NO. Output ONLY yes/no.\n"
-              "sen kimsin -> yes\nseni kim yaptı -> yes\nadın ne -> yes\n"
-              "who are you -> yes\nwho made you -> yes\n"
-              "kartal nedir -> no\npangolin nedir -> no\nwhat is a dog -> no\n"
-              "ne yapıyorsun -> no\nnaber -> no\nnasılsın -> no\n"
-              "merhaba -> no\nteşekkürler -> no\nhava nasıl -> no")
+              # Several languages on BOTH sides of the boundary, so that
+              # "asking about you" is learned as a meaning and not as a set of
+              # English pronouns.
+              "who are you -> yes\nwho made you -> yes\nwhat is your name -> yes\n"
+              "wer hat dich erschaffen -> yes\n¿cómo te llamas? -> yes\n"
+              "sen kimsin -> yes\n"
+              "what is a dog -> no\nwas ist Beton -> no\n"
+              "¿qué es una brújula? -> no\nkartal nedir -> no\n"
+              "how are you -> no\nwie geht es dir -> no\ngracias -> no\n"
+              "merhaba -> no\nnaber -> no")
     out = runtime.generate(message, system=system, max_tokens=3, temperature=0.0)
     return "yes" in out.strip().lower()
 

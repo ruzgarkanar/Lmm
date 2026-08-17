@@ -45,21 +45,24 @@ def main():
                 break
             if not line:
                 continue
-            # AUTONOMOUS MIND — self-awareness + self-growth commands
-            # (legacy Turkish command names still accepted):
-            if line in ("?wonder", "?curiosity", "?merak"):
+            # AUTONOMOUS MIND — self-awareness + self-growth commands. The
+            # command names are English, like every other identifier in this
+            # codebase; the CONVERSATION is in whatever language the user
+            # speaks. The Turkish aliases that used to sit beside them made one
+            # user language part of the interface, and are gone.
+            if line in ("?wonder", "?curiosity"):
                 w = mind.wonder()           # much-used-but-undefined (refined)
                 print("# I wonder about (things I keep using but don't know): "
                       + (", ".join(w) if w else "—")
                       + ("  →  ?research <topic>" if w else ""))
                 continue
-            if line.startswith("?research ") or line.startswith("?araştır "):
+            if line.startswith("?research "):
                 topic = line.split(" ", 1)[1].strip()
                 print(f"# researching {topic} (web, low trust)...")
                 ok = mind.research(topic)
                 print(f"# {'learned ✓ (sourced)' if ok else 'not found'}")
                 continue
-            if line in ("?tension", "?çelişki"):
+            if line == "?tension":
                 tens = session.tension()
                 if tens:
                     for subj, vals in tens:
@@ -95,6 +98,14 @@ def main():
                 # (sentence → triple pairs; not the model's raw output, but what
                 # the gate accepted). finetune/consolidate.py harvests these.
                 "learned": session.last_written,
+                # WHAT THE TURN WAS, from the session rather than from the
+                # wording. `kind`+`subject` let the harvest take its ASK
+                # examples from REAL questions, in the languages they were
+                # really asked in — it used to synthesise them from a
+                # hand-written Turkish question template.
+                "kind": session.last_kind,
+                "subject": session.last_subject,
+                "abstained": session.last_abstained,
                 "records": len(session.memory.records),
                 "ms": round((time.time() - started) * 1000),
             }, ensure_ascii=False) + "\n")

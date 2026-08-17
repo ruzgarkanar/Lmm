@@ -72,6 +72,15 @@ class Session:
         self.gate.rival = self._are_rivals
         self._pending = None    # subject offered for research (ask-first flow)
         self.last_written = []  # triples the gate admitted this turn (harvest)
+        # WHAT THIS TURN DID, in the session's own words. These are not
+        # features of the conversation; they are the session REPORTING ITSELF,
+        # so that a reader (a benchmark, a harvest) does not have to infer from
+        # the answer's WORDING what the code already knows. `last_abstained` in
+        # particular is the structural replacement for guessing at refusal
+        # phrases in one language — see `_refuse`.
+        self.last_abstained = False
+        self.last_kind = ""     # extract's classification: WRITE / ASK / CHAT
+        self.last_subject = ""  # the subject label the turn was about, if any
         self.history = []       # SHORT-TERM conversation context (last N turns) —
         # the graph is long-term memory; this is the "what did we just talk
         # about" context (conversation continuity)
@@ -96,13 +105,22 @@ class Session:
         self.evidence = evidence.SentenceStore.load(path)
 
     def _seed_identity(self):
-        """IDENTITY as a fact in the graph: (lmm → üretici → rüzgar). This way
+        """IDENTITY as a fact in the graph: (lmm → creator → rüzgar). This way
         identity too is 'known knowledge' — it passes through the gate and is
         spoken language-independently. The persona (prompts.CHAT_SYSTEM) gives
-        Qwen its name; this seed keeps it in the graph."""
+        Qwen its name; this seed keeps it in the graph.
+
+        The RELATION label is English, like every other identifier here — it
+        used to be Turkish, and a Turkish relation node in the seed graph meant
+        the one fact the system holds about itself was stored in a language a
+        German or Spanish user never uses. The graph's labels are read by the
+        engine, which answers in the QUESTION'S language whatever language the
+        fact is stored in (that is exactly what the mixed-language corpora
+        measure). The owner's NAME stays as it is spelled: a name is not a
+        word to be translated."""
         lmm = link.resolve(self.memory, "lmm", self.vectors, create=True)
         owner = link.resolve(self.memory, "rüzgar", self.vectors, create=True)
-        maker = link.resolve(self.memory, "üretici", self.vectors, create=True)
+        maker = link.resolve(self.memory, "creator", self.vectors, create=True)
         if self.gate.behind(lmm, maker, owner) is None:
             self.gate.admit(lmm, maker, owner, "#operator", OPERATOR)
         self._lmm_key = lmm    # identity subject — _chat gather uses this
@@ -303,12 +321,34 @@ class Session:
         admitted this turn — for the consolidation harvest (gate-approved =
         trustworthy training target; NOT the model's own raw output)."""
         self.last_written = []
+        self.last_abstained = False
+        self.last_kind = ""
+        self.last_subject = ""
         said = self._respond(message)
         if message and message.strip():
             self.history.append({"role": "user", "content": message})
             self.history.append({"role": "assistant", "content": said or ""})
             self.history = self.history[-12:]     # last ~6 turns (sliding window)
         return said
+
+    def _refuse(self, message):
+        """DECLINE to answer — the single door every refusal leaves by.
+
+        The refusal SENTENCE is engine-generated in the user's language, which
+        is right for the user and useless for a measurement: to score whether
+        the system abstained, a reader had to recognise "I don't know" in
+        whatever language it came out in, and the benchmark scorer did that
+        with a list of Turkish phrases. That made the MEASUREMENT
+        language-dependent even where the system was not — an English document
+        would have scored every honest abstention as a fabrication.
+
+        The session already knows. Routing every refusal through one method
+        turns that knowledge into a fact on the object (`last_abstained`), and
+        the scorer reads the fact instead of guessing at the words. No gate
+        moves: this method only records what the code was already doing.
+        """
+        self.last_abstained = True
+        return generate.refusal(message) or FALLBACK_DONT_KNOW
 
     def _respond(self, message):
         """Answer one message. The return is always text; never an unsupported
@@ -335,6 +375,7 @@ class Session:
                 pass
         try:
             op = extract.extract(message)
+            self.last_kind = op.get("kind") or ""
             # RESEARCH APPROVAL (architecture — content decides): if last turn
             # offered "shall I research?", is this message NEW CONTENT
             # (teaching/question) or a pure affirmation — EXTRACT tells. New
@@ -367,6 +408,7 @@ class Session:
                 # fabricating, treat it like a QUESTION → retrieve/refuse.
                 # Falls through.
             subject = op["triples"][0][0] if op["triples"] else None
+            self.last_subject = subject or ""
             subject_key = (link.resolve(self.memory, subject, self.vectors)
                            if subject else None)
             # IDENTITY ROUTE (architectural bridge): if the subject CANNOT BE
@@ -401,6 +443,10 @@ class Session:
                 return self._answer(message, subject)
             return self._chat(message)
         except Exception:                                   # noqa: BLE001
+            # A crashed turn says nothing, which is an abstention like any
+            # other — and the flag has to say so, or a benchmark would read
+            # the fallback sentence as an answer.
+            self.last_abstained = True
             return FALLBACK_DONT_KNOW
 
     # --- identity (deterministic route) --------------------------------
@@ -421,7 +467,7 @@ class Session:
         raw = generate.identity_answer(message, name, id_block)
         safe = verify.verify(self.memory, raw, self._identity, self.mode,
                              anchor="value")
-        return safe or generate.refusal(message) or FALLBACK_DONT_KNOW
+        return safe or self._refuse(message)
 
     # --- writing -------------------------------------------------------
     def _write(self, triples, message):
@@ -830,9 +876,14 @@ class Session:
         if not records and not proof:
             if subject_label:
                 self._pending = (subject_label, question)   # ask-first
+                # The research OFFER is an abstention that ends in a question
+                # mark: it states no fact and declines the one that was asked.
+                # It is flagged as such, so the "did it abstain" reading does
+                # not depend on the offer's wording either.
+                self.last_abstained = True
                 offer = generate.offer_research(subject_label, question)
-                return offer or generate.refusal(question) or FALLBACK_DONT_KNOW
-            return generate.refusal(question) or FALLBACK_DONT_KNOW
+                return offer or self._refuse(question)
+            return self._refuse(question)
         # TARGETED EDGE (multi-hop — benchmark finding): if the question
         # mentions a second KNOWN concept ("zilfen bir canlı mıdır" → 'canlı')
         # and the graph knows that edge (derived included), move that record
@@ -887,14 +938,14 @@ class Session:
             # chance; only what THIS gate refused is out.
             spare = [t for t in tried if fold(t) not in self._refused]
             if tried and not spare:
-                return generate.refusal(question) or FALLBACK_DONT_KNOW
+                return self._refuse(question)
             allowed = verify.allowed_of(self.memory, records)
             safe = verify.verify(self.memory,
                                  spare[0] if spare
                                  else generate.answer(question, block),
                                  allowed, self.mode, anchor="edge")
             if not safe:
-                return generate.refusal(question) or FALLBACK_DONT_KNOW
+                return self._refuse(question)
         # SOURCE-TRUST (strictest): if the weakest fact is below CERTAIN,
         # source+hedge.
         if records:
@@ -1186,7 +1237,7 @@ class Session:
         'I know it' but source-stamped+low trust (condition-4)."""
         text, url = research.wiki_summary(subject_label)
         if not text:
-            return generate.refusal(question) or FALLBACK_DONT_KNOW
+            return self._refuse(question)
         # Extract ONE plain category (the essence, not taxonomic clutter) →
         # clean fact, clean answer. Many values/Latin terms were drowning the
         # small model.
@@ -1195,7 +1246,7 @@ class Session:
         vk = (link.resolve(self.memory, value, self.vectors, create=True)
               if value else None)
         if not value or sk is None or vk is None:
-            return generate.refusal(question) or FALLBACK_DONT_KNOW
+            return self._refuse(question)
         # #web stamp + DOCUMENT (0.6 < CERTAIN) → source-tagged in the answer.
         self.gate.admit(sk, None, vk, f"#web:{url}", DOCUMENT)
         self.memory.lived(f"web:{subject_label}", outcome=1.0,
@@ -1228,7 +1279,7 @@ class Session:
         # fabrication (Google) still falls. See verify.verify.
         safe = verify.verify(self.memory, raw, self._identity, self.mode,
                              anchor="value")
-        return safe or generate.refusal(message) or FALLBACK_DONT_KNOW
+        return safe or self._refuse(message)
 
     # --- LMM strength: self-awareness (curiosity + contradiction pressure)
     def curiosity(self, most=5):

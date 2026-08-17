@@ -12,9 +12,14 @@ pairs:
 (chat.py writes them into each turn's "learned" field). So the targets come
 from the graph itself — condition-5 clean, no hand-written language.
 
-It also derives ASK examples ("{subject} nedir" → ASK) so the WRITE/ASK
-distinction stays fresh — the subject label comes from real data; the sentence
-is a template but the fact is not.
+ASK examples keep the WRITE/ASK distinction fresh, and they are HARVESTED, not
+manufactured: this file used to build them by pasting the subject into a
+hand-written Turkish question ("{subject} nedir"), which taught the engine that
+a question looks like Turkish — a language dependency smuggled into the
+weights. Now chat.py logs what the turn actually was (`kind`/`subject`), so the
+ASK examples are real questions in the languages users really asked them in.
+Logs written before that field existed contribute WRITE pairs only; nothing is
+invented to fill the gap.
 
 Usage (the trigger is HUMAN-approved; it never starts training automatically —
 guardrail):
@@ -55,14 +60,21 @@ def harvest(log_dir="logs", state_path=None):
                 turn = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            learned = turn.get("learned") or []
             message = (turn.get("in") or "").strip()
-            if not (message and learned):
-                continue            # nothing passed the gate that turn → no harvest
+            if not message:
+                continue
+            learned = turn.get("learned") or []
             triples = [[s, p, v] for s, p, v in
                        (t[:3] for t in learned if len(t) >= 3) if s and v]
             if triples:
-                pairs.append((message, triples))
+                pairs.append(("WRITE", message, triples))
+            elif turn.get("kind") == "ASK" and (turn.get("subject") or "").strip():
+                # A real question, in the user's own language, with the
+                # subject the extractor resolved. Nothing passed the gate that
+                # turn — an ASK writes nothing — so the target is the
+                # classification itself.
+                subject = turn["subject"].strip()
+                pairs.append(("ASK", message, [[subject, "", ""]]))
         state[name] = len(lines)
     return pairs, state
 
@@ -76,28 +88,18 @@ def commit_state(state_path, state):
         json.dump(state, f)
 
 
-def rows_from(pairs, ask_ratio=0.4):
-    """(sentence, triples) → SFT rows in the SAME format as make_extract_data."""
+def rows_from(pairs):
+    """(kind, sentence, triples) → SFT rows in the SAME format as
+    make_extract_data. Every row is a turn that really happened — the sentence
+    the user wrote and the classification the session gave it."""
     rows = []
-    acc = 0.0                # accumulated ratio: make ask_ratio ACTUALLY that ratio
-    for message, triples in pairs:
+    for kind, message, triples in pairs:
         rows.append({"messages": [
             {"role": "system", "content": prompts.EXTRACT_SYSTEM},
             {"role": "user", "content": message},
             {"role": "assistant", "content": json.dumps(
-                {"kind": "WRITE", "triples": triples}, ensure_ascii=False)},
+                {"kind": kind, "triples": triples}, ensure_ascii=False)},
         ]})
-        acc += ask_ratio
-        if acc >= 1.0:
-            acc -= 1.0
-            subject = triples[0][0]
-            rows.append({"messages": [
-                {"role": "system", "content": prompts.EXTRACT_SYSTEM},
-                {"role": "user", "content": f"{subject} nedir"},
-                {"role": "assistant", "content": json.dumps(
-                    {"kind": "ASK", "triples": [[subject, "", ""]]},
-                    ensure_ascii=False)},
-            ]})
     return rows
 
 
