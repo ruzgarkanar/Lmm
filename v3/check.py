@@ -11,6 +11,14 @@ Four things are audited and all four return as numbers:
     WIRING     which module imports which · if nobody calls it, it is dead
     USAGE      is every public function called from another file
     CLEANLINESS Turkish identifier · word list · letter rule — all must be 0
+
+THE ONE THING THAT CANNOT REACH 0 is a data file's own FIELD NAMES: dataset.py
+reads a Turkish JSONL whose keys are Turkish words, and renaming them here
+would simply stop the file from loading. The audit counts them because it
+cannot tell a key from a sentence; two is the count, and it is the whole
+remainder. Everything else — printed output, examples, identifiers — is in the
+codebase's own language, so that nothing the SYSTEM says or does depends on
+one user language.
     LAYER      its place in the architecture: memory · continuous · gate · dynamics · network
 
 Usage:
@@ -112,7 +120,7 @@ def word_lists(tree):
 
 def main():
     held = modules()
-    print(f"\n=== {len(held)} modül ===\n")
+    print(f"\n=== {len(held)} modules ===\n")
 
     # Who calls whom
     graph = {name: imports_of(tree) & set(held)
@@ -123,7 +131,7 @@ def main():
             if target in used_by:
                 used_by[target].add(name)
 
-    print("  modül        katman   çağırdıkları              çağıranlar")
+    print("  module       layer    calls                     called by")
     for name in sorted(held, key=lambda one: (LAYERS.index(one)
                                               if one in LAYERS else 99)):
         layer = LAYERS.index(name) if name in LAYERS else -1
@@ -133,36 +141,36 @@ def main():
 
     # Architectural direction: the lower layer must call the upper, the
     # reverse is a break
-    print("\n  YÖN DENETİMİ")
+    print("\n  DIRECTION AUDIT")
     broken = 0
     for name, targets in graph.items():
         if name not in LAYERS:
             continue
         for target in targets:
             if target in LAYERS and LAYERS.index(target) > LAYERS.index(name):
-                print(f"    TERS BAĞIMLILIK: {name} -> {target}")
+                print(f"    REVERSED DEPENDENCY: {name} -> {target}")
                 broken += 1
-    print(f"    ters bağımlılık: {broken}")
+    print(f"    reversed dependencies: {broken}")
 
     # Dead modules and unused functions
-    print("\n  BAĞLANTI")
+    print("\n  WIRING")
     every_call = set()
     for _, (_, tree) in held.items():
         every_call |= called_names(tree)
     dead = [name for name in held
             if not used_by[name] and name not in ("check", "session")]
-    print(f"    hiç çağrılmayan modül: {dead or '—'}")
+    print(f"    never called: {dead or '—'}")
     for name, (_, tree) in sorted(held.items()):
         if name == "check":
             continue
         unused = sorted(public_names(tree) - every_call)
         if unused:
-            print(f"    {name}: dışarıdan çağrılmayan {unused}")
+            print(f"    {name}: never called from outside {unused}")
 
     # Cleanliness
-    print("\n  TEMİZLİK (hepsi 0 olmalı)")
-    totals = {"türkçe dizgi": 0, "türkçe ad": 0, "kelime listesi": 0,
-              "harf kuralı": 0}
+    print("\n  CLEANLINESS (every count must be 0)")
+    totals = {"turkish string": 0, "turkish name": 0, "word list": 0,
+              "letter rule": 0}
     for name, (path, tree) in sorted(held.items()):
         if name == "check":
             continue
@@ -170,17 +178,17 @@ def main():
         names = turkish_identifiers(tree)
         lists = word_lists(tree)
         rules = len([one for one in VOWEL_RULE.findall(open(path).read())])
-        totals["türkçe dizgi"] += len(strings)
-        totals["türkçe ad"] += len(names)
-        totals["kelime listesi"] += len(lists)
-        totals["harf kuralı"] += rules
+        totals["turkish string"] += len(strings)
+        totals["turkish name"] += len(names)
+        totals["word list"] += len(lists)
+        totals["letter rule"] += rules
         if strings or names or lists:
-            print(f"    {name}: dizgi {len(strings)} · ad {len(names)} "
-                  f"· liste {len(lists)}")
+            print(f"    {name}: strings {len(strings)} · names {len(names)} "
+                  f"· lists {len(lists)}")
             for line, items in lists:
-                print(f"       satır {line}: {items}")
+                print(f"       line {line}: {items}")
     for key, count in totals.items():
-        mark = "TAMAM" if not count else "BAK"
+        mark = "OK" if not count else "LOOK"
         print(f"    {key:<16} {count:>3}   {mark}")
     print()
     return 0 if not any(totals.values()) and not broken else 1
