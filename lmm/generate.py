@@ -104,10 +104,24 @@ def are_rivals(a, b):
 
 
 # --- DYNAMIC SYSTEM UTTERANCES (language-independent) ---------------------
-# System sentences like "I don't know this", "Learned" are NOT hand-written in
-# Turkish — Qwen produces them in the user's language. So the thesis (all
-# languages, no hand-written language) holds in the system's own mouth too:
-# speak English, get an English confirmation/refusal; German, German.
+# System sentences like "I don't know this", "Learned" are NOT hand-written —
+# Qwen produces them in the user's language. So the thesis (all languages, no
+# hand-written language) holds in the system's own mouth too: speak English,
+# get an English confirmation/refusal; German, German.
+#
+# WHICH ONLY HOLDS IF THE ENGINE ACTUALLY MATCHES. Measured on the English
+# corpus: asked "what is melvarit", the research offer came back in DUTCH, and
+# before the answer prompt was tightened the English absence questions were
+# answered "Ich weiß es nicht." These utterances carry no evidence sentence to
+# take their language from — the user's message is the only cue, and a rule
+# buried at the end of an instruction was not enough. _MATCH_LANGUAGE goes
+# FIRST in every one of them, and says what to do rather than what to be: look
+# at the message, identify its language, write in that one.
+_MATCH_LANGUAGE = (
+    "FIRST look at the user's message below and identify what language it is "
+    "written in. Write your entire reply in THAT language and no other — not "
+    "English unless the message is English, not a language that merely "
+    "resembles it. ")
 
 def supported(answer, block):
     """SECOND-TIER support check: does the evidence block REALLY say this answer
@@ -148,7 +162,8 @@ def hedge_note(source_label, message):
     hedge step can never add fabrication (only a note, and since it carries no
     fact it also passes verify). condition-5: Qwen composes the note, no
     hand-written template."""
-    system = ("In the SAME LANGUAGE as the user's message, write ONE very short "
+    system = (_MATCH_LANGUAGE +
+              "Write ONE very short "
               "caveat, in parentheses, meaning: the statement is not certain and "
               f"comes from this source: {source_label}. Contain NO facts — only "
               "the caveat and the source. Keep it under 8 words.")
@@ -227,10 +242,11 @@ def confirm_cause(cause, effect, message):
     """In the user's language: confirm that the causal fact was learned. The
     fact was written to the graph (with a source) — confirming is safe.
     condition-5: Qwen composes the sentence."""
-    system = (f"The user taught you a CAUSE→EFFECT fact and you stored it: "
-              f"'{cause}' causes '{effect}'. In the SAME LANGUAGE as their message, "
-              "give a short, positive acknowledgement that you learned this causal "
-              "relation. One short sentence, only in that language. No extra facts.")
+    system = (_MATCH_LANGUAGE +
+              f"The user taught you a CAUSE→EFFECT fact and you stored it: "
+              f"'{cause}' causes '{effect}'. Give a short, positive "
+              "acknowledgement that you learned this causal relation. One short "
+              "sentence. No extra facts.")
     return runtime.generate(message, system=system, max_tokens=50, temperature=0.3)
 
 
@@ -289,19 +305,20 @@ def is_affirmative(message):
 
 def offer_research(subject, message):
     """In the user's language: 'I don't know this, shall I look it up?' (ask-first)."""
-    system = (f"You do NOT have information about '{subject}' in your memory. In "
-              "the SAME LANGUAGE as the user's message, briefly say you don't know "
-              "it yet and ASK whether you should look it up. One short sentence, "
-              "phrased as an offer/question. Invent no facts.")
+    system = (_MATCH_LANGUAGE +
+              f"You do NOT have information about '{subject}' in your memory. "
+              "Briefly say you don't know it yet and ASK whether you should look "
+              "it up. One short sentence, phrased as an offer/question. Invent "
+              "no facts.")
     return runtime.generate(message, system=system, max_tokens=40, temperature=0.3)
 
 
 def refusal(message):
     """In the user's language: 'I don't have this information'. No fabrication, short."""
-    system = ("The user asked about something that is NOT in your memory. Reply "
-              "ONLY in the SAME LANGUAGE as their message (never switch to "
-              "another language), briefly and honestly saying you don't have "
-              "that information yet. Do NOT invent any fact. One short sentence.")
+    system = (_MATCH_LANGUAGE +
+              "The user asked about something that is NOT in your memory. Reply "
+              "briefly and honestly, saying you don't have that information yet. "
+              "Do NOT invent any fact. One short sentence.")
     return runtime.generate(message, system=system, max_tokens=50,
                             temperature=0.3)
 
@@ -313,16 +330,17 @@ def confirm(learned, conflicts, message):
     facts were already written to the graph (supported) — confirming is safe.
     """
     facts = "; ".join(f"{s} = {v}" for s, v in learned)
-    system = (f"The user taught you a new fact and you have stored it in your "
-              f"memory: {facts}. In the SAME LANGUAGE as their message, give a "
-              f"short, positive acknowledgement that you learned and remembered "
-              f"it. Do NOT apologize. Do NOT say you forgot.")
+    system = (_MATCH_LANGUAGE +
+              f"The user taught you a new fact and you have stored it in your "
+              f"memory: {facts}. Give a short, positive acknowledgement that you "
+              f"learned and remembered it. Do NOT apologize. Do NOT say you "
+              f"forgot.")
     if conflicts:
         clash = "; ".join(f"{s}: previously '{o}', now '{n}'"
                           for s, o, n in conflicts)
         system += (f" Note: this conflicts with what you already knew: {clash}. "
                    f"Gently mention the conflict.")
-    system += (" One or two short, natural sentences, ONLY in the same language "
-               "as the user — never mix languages. Do NOT add any other facts.")
+    system += (" One or two short, natural sentences, in the user's language "
+               "— never mix languages. Do NOT add any other facts.")
     return runtime.generate(message, system=system, max_tokens=90,
                             temperature=0.3)
