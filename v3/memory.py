@@ -385,6 +385,16 @@ class Memory:
         # table's key, and it is what the document said.
         self.units = {}
         self._next = 1
+        # UNITS COUNT DOWN FROM -1, and that is not decoration either. Every
+        # other identity's key comes from `_next`, and a unit taking numbers out
+        # of that counter would RENUMBER every identity opened after it: the same
+        # document, read by this build and the one before it, would produce
+        # graphs whose keys disagree. Key order is a tie-break in more than one
+        # organ, so that alone can move an answer — and then a measurement of
+        # this change would be measuring the renumbering. A separate counter
+        # makes the typed value provably neutral: with the units removed, the
+        # graph is key-for-key what it was.
+        self._unit_next = -1
         # Derived-view cache: value -> measurement. A value is read many times
         # (every rivalry test in its slot) and the reading is pure.
         self._measured = {}
@@ -425,7 +435,11 @@ class Memory:
         token = fold(token)
         key = self.units.get(token)
         if key is None:
-            key = self.identify("#unit:" + token)
+            label = "#unit:" + token
+            key = self._unit_next
+            self._unit_next -= 1
+            self.identities[key] = Identity(key, [label])
+            self.by_label.setdefault(label, []).append(key)
             self.units[token] = key
         return key
 
@@ -578,6 +592,7 @@ class Memory:
                 "self": self.self_key,
                 "transitive": sorted(self.transitive),
                 "units": {token: key for token, key in self.units.items()},
+                "unit_next": self._unit_next,
                 "identities": [one.to_dict()
                                for one in self.identities.values()],
                 "records": [one.to_dict() for one in self.records.values()],
@@ -626,6 +641,8 @@ class Memory:
         found.transitive = set(held.get("transitive", ()))
         found.units = {token: key
                        for token, key in held.get("units", {}).items()}
+        found._unit_next = held.get("unit_next",
+                                    min(found.units.values(), default=0) - 1)
         for one in held.get("identities", ()):
             made = Identity.from_dict(one)
             found.identities[made.key] = made
