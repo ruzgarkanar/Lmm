@@ -552,8 +552,21 @@ class SentenceStore:
         # are ONE anchor — counted separately, a generic stem contributed twice
         # and its prose crowd outweighed the answer-carrying spec row
         # (measured, manual trace).
+        # A TOTAL ORDER, NOT JUST BY LENGTH — one half of a determinism fix.
+        # `qwords` is a SET OF STRINGS, so `sorted(..., key=len)` left
+        # equal-length query words in whatever order the set iterated, which
+        # depends on PYTHONHASHSEED. That order is the order the groups are
+        # processed in, which is the order sentence ids first enter `scores`,
+        # which used to decide the ranking whenever two sentences tied — see the
+        # tie-break below. Net effect: the same question against the same
+        # document retrieved DIFFERENT evidence between two runs of
+        # byte-identical code (measured on bench/manual.txt: PYTHONHASHSEED=1
+        # and =3 disagree about "Cihazın işletim sistemi nedir"). This layer is
+        # documented as deterministic — that is its whole argument against
+        # embedding similarity — so some of the run-to-run oscillation this
+        # benchmark has been fighting was the retrieval, not the engine.
         groups = []
-        for qw in sorted(qwords, key=len):
+        for qw in sorted(qwords, key=lambda w: (len(w), w)):
             for g in groups:
                 if any(qw.startswith(m) or m.startswith(qw) for m in g):
                     g.append(qw)
@@ -621,8 +634,18 @@ class SentenceStore:
         # on a tie the LONG one wins: a short table crumb ("Orta · 3") must not
         # beat a context-carrying prose window — a cell value wandering without
         # context was attaching to the wrong attribute (the camera/KVKK case).
+        # ...and the ranking's last tie-break is the sentence id — the other
+        # half, and the one that closes the hole at the point where it bit.
+        # Two sentences of equal score AND equal length were ordered by their
+        # insertion order in `scores`, i.e. by group order, i.e. by hash seed.
+        # Either fix alone makes the manual reproducible across seeds
+        # (verified: query order and this tie-break each independently take the
+        # differing-block count to zero); both are kept because they close
+        # different links of the same chain, and neither can change WHICH
+        # sentences score what.
         ranked = sorted(scores.items(),
-                        key=lambda kv: (-kv[1], -len(self.sentences[kv[0]][0])))
+                        key=lambda kv: (-kv[1], -len(self.sentences[kv[0]][0]),
+                                        kv[0]))
         # noise floor: anything below half the best score drops. SHORT-query
         # exception (review #4): in a question with 1-2 content-words ("what is
         # karvel") a score of 1 is legitimate — with a floor of 2 it would
