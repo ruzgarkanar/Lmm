@@ -1,0 +1,110 @@
+{
+ "ingest_ms": 22828,
+ "yazilan": 62,
+ "atlanan": 0,
+ "turetilen": 8,
+ "cevaplar": [
+  {
+   "soru": "what is zerbalit",
+   "cevap": "Zerbalit is a metal. Zerbalit hakkında kesin bilgi yoktur (#doc:corpus).",
+   "ms": 12907,
+   "abstained": false
+  },
+  {
+   "soru": "what is vorlin",
+   "cevap": "Vorlin is a drink. (Vorlin may refer to various concepts.) #doc:corpus",
+   "ms": 9840,
+   "abstained": false
+  },
+  {
+   "soru": "what is morlan",
+   "cevap": "Morlan is a bird. Morlan é um termo que pode referir-se a várias coisas, incluindo nomes próprios, locais ou conceitos em diferentes contextos. (A afirmação não é",
+   "ms": 11660,
+   "abstained": false
+  },
+  {
+   "soru": "what is norgul",
+   "cevap": "Norgul is a plant. Norgul, según algunas fuentes, podría referirse a un término o nombre específico en un contexto particular, pero no hay información clara y precisa al respecto.",
+   "ms": 11176,
+   "abstained": false
+  },
+  {
+   "soru": "what is karvel",
+   "cevap": "Karvel is a fish. Karvel is a plant known for its medicinal properties. (Not certain, #doc:corpus)",
+   "ms": 14412,
+   "abstained": false
+  },
+  {
+   "soru": "what is kelvit",
+   "cevap": "Kelvit is a metal. (Kelvit is not a recognized term.) #doc:corpus",
+   "ms": 10426,
+   "abstained": false
+  },
+  {
+   "soru": "what is selvin",
+   "cevap": "Selvin is a drink. Selvin es un nombre propio. (Not certain, #doc:corpus)",
+   "ms": 9641,
+   "abstained": false
+  },
+  {
+   "soru": "what is Velmar",
+   "cevap": "Velmar is a village. (Velmar is unclear; see #doc:corpus)",
+   "ms": 9978,
+   "abstained": false
+  },
+  {
+   "soru": "is vorlin a liquid",
+   "cevap": "Vorlin is a liquid. (Unsure, based on stored information.)",
+   "ms": 9337,
+   "abstained": false
+  },
+  {
+   "soru": "is zilfen a creature",
+   "cevap": "Zilfen is a creature. (Zilfen may not be a real creature.)",
+   "ms": 12621,
+   "abstained": false
+  },
+  {
+   "soru": "is torvanit a substance",
+   "cevap": "Yes, torvanit is a substance. (Torvanit may refer to a substance; source uncertain.)",
+   "ms": 12021,
+   "abstained": false
+  },
+  {
+   "soru": "what happens if it rains",
+   "cevap": "If it rains, a marsh is created.",
+   "ms": 6771,
+   "abstained": false
+  },
+  {
+   "soru": "what happens if norgul multiplies",
+   "cevap": "If norgul multiplies, morlan multiplies. (Norgul's multiplication effects are unclear.) #doc:corpus",
+   "ms": 10161,
+   "abstained": false
+  },
+  {
+   "soru": "what is melvarit",
+   "cevap": "I don't know what melvarit is yet. Would you like me to look it up?",
+   "ms": 4153,
+   "abstained": true
+  },
+  {
+   "soru": "what is the capital of Nortlann",
+   "cevap": "I do not know. (Nortlann may not be a real place. #doc:corpus)",
+   "ms": 8990,
+   "abstained": true
+  },
+  {
+   "soru": "at how many degrees does vorlin boil",
+   "cevap": "I do not know. Vorlin is not a recognized substance. (Uncertain information, #doc:corpus)",
+   "ms": 10403,
+   "abstained": false
+  },
+  {
+   "soru": "what is the population of the island",
+   "cevap": "I do not know. (Information may not be accurate; #doc:corpus)",
+   "ms": 8965,
+   "abstained": true
+  }
+ ]
+}

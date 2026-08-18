@@ -17,16 +17,18 @@ this.
 """
 import os
 import sys
+import tempfile
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from v3 import dynamics                                          # noqa: E402
-from v3.gate import Gate, SPEAK                                  # noqa: E402
-from v3.memory import (CONTRA, DOCUMENT, INFERRED, Memory,       # noqa: E402
+from lmm.core import dynamics                                          # noqa: E402
+from lmm.core.gate import Gate, SPEAK                                  # noqa: E402
+from lmm.core.memory import (CONTRA, DOCUMENT, INFERRED, Memory,       # noqa: E402
                        OPERATOR, STRANGER, SUSPECT)
-from v3.session import Session as V3Session                      # noqa: E402
-from v3.transitive import Transitivity                           # noqa: E402
+from lmm.core.session import Session as V3Session                      # noqa: E402
+from lmm.core.transitive import Transitivity                           # noqa: E402
 
 PASSED = []
 
@@ -1054,7 +1056,7 @@ def i1():
     seen becomes the anchor, the rest attach to it, and the group's IDF weight
     is computed over whatever union that produced — so the same question
     against the same document could retrieve DIFFERENT evidence between two
-    runs of byte-identical code (measured on bench/manual.txt: PYTHONHASHSEED=1
+    runs of byte-identical code (measured on a 350-page manual: PYTHONHASHSEED=1
     and =3 disagree about "Cihazın işletim sistemi nedir").
 
     A property about hash seeds cannot be asserted from inside one interpreter,
@@ -1075,7 +1077,7 @@ def i1():
         "store.add('Ekran onbes nokta altiii');"
         "store.add('Bilgi yediyuz kirk sekiz');"
         "print(json.dumps(store.find('ekran bilgi', most=1)))"
-    ) % os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ) % os.path.join(ROOT, "src")
     seen = set()
     for seed in ("0", "1", "2", "3", "5", "7", "99", "12345"):
         env = dict(os.environ, PYTHONHASHSEED=seed)
@@ -1102,8 +1104,7 @@ def i2():
     provenance footnote is not a claim, so it is stripped before that test —
     otherwise a source filename's digits read as a fabricated value (measured:
     24 genuine abstentions across five historical result files)."""
-    sys.path.insert(0, os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bench"))
+    sys.path.insert(0, os.path.join(ROOT, "benchmarks"))
     from score import abstains
     for answer in ("Bu bilgiye henüz sahip değilim.",
                    "Bu konuda şu anda bilgim yok.",
@@ -1140,7 +1141,7 @@ def j1():
     "5 °C - 40 °C" it does not — °C carries a letter and is a real unit — so
     the test is positional, not a character list.
     """
-    from v3.memory import measure
+    from lmm.core.memory import measure
     assert measure('Gösterge 21.5" OLED') == (21.5, 21.5, '"')
     assert measure("21,5 inç") == (21.5, 21.5, "inç")   # notation is not quantity
     assert measure("100 V -240 V ~") == (100.0, 240.0, "v")     # a range
@@ -1433,8 +1434,7 @@ def k1():
     the engine thinks it took, so a stamped turn that supplies 2 años is not
     counted as a refusal. Rows with no stamp (the RAG baseline's, every
     historical file on disk) fall back to the patterns unchanged."""
-    sys.path.insert(0, os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bench"))
+    sys.path.insert(0, os.path.join(ROOT, "benchmarks"))
     from score import abstains, declined
     foreign = ("Das weiß ich leider nicht.",
                "No tengo esa información.",
@@ -1467,8 +1467,7 @@ def k2():
     one place, `Session._refuse`, and the two fallback returns that bypass the
     engine entirely (the crash path, the research offer) must raise the flag
     themselves."""
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    source = open(os.path.join(root, "lmm", "session.py"),
+    source = open(os.path.join(ROOT, "src", "lmm", "session.py"),
                   encoding="utf-8").read()
     body = source.split("def _refuse(")[1].split("\n    def ")[0]
     assert "self.last_abstained = True" in body
@@ -1623,8 +1622,7 @@ def k6():
     localised would let a model's own knowledge answer in one language and not
     another."""
     import json
-    bench = os.path.join(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__))), "bench")
+    bench = os.path.join(ROOT, "benchmarks")
 
     def load(name):
         return json.load(open(os.path.join(bench, name), encoding="utf-8"))

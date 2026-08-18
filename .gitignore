@@ -13,30 +13,30 @@
 # owners, contain named individuals, and are NOT redistributable. Only the
 # aggregate scores are published. Keep them out of the repository.
 #
-# The publishable half of the benchmark is the INVENTED corpus (bench/corpus*.txt
+# The publishable half of the benchmark is the INVENTED corpus (benchmarks/corpus*.txt
 # and its question sets), which is force-included below.
 # ---------------------------------------------------------------------------
-bench/manual.txt
-bench/hospital.txt
-bench/site.txt
-bench/manual_questions.json
-bench/hospital_questions.json
-bench/site_questions.json
-bench/result_*manual*
-bench/result_*hospital*
-bench/result_*site*
-bench/bisect_hospital/
+benchmarks/manual.txt
+benchmarks/hospital.txt
+benchmarks/site.txt
+benchmarks/manual_questions.json
+benchmarks/hospital_questions.json
+benchmarks/site_questions.json
+benchmarks/result_*manual*
+benchmarks/result_*hospital*
+benchmarks/result_*site*
+benchmarks/bisect_hospital/
 *.pdf
 *.docx
 *.xlsx
 *.doc
 
-!bench/corpus.txt
-!bench/corpus_en.txt
-!bench/corpus_es.txt
-!bench/questions.json
-!bench/questions_en.json
-!bench/questions_es.json
+!benchmarks/corpus.txt
+!benchmarks/corpus_en.txt
+!benchmarks/corpus_es.txt
+!benchmarks/questions.json
+!benchmarks/questions_en.json
+!benchmarks/questions_es.json
 
 # ---------------------------------------------------------------------------
 # Derivable data. Reproduced by the download/prepare scripts; carrying it in
@@ -56,7 +56,10 @@ models/
 *.pt
 *.gguf
 *.safetensors
-core/
+# A downloaded pre-built engine, at the repository root. Anchored with a
+# leading slash: unanchored, this rule also swallowed src/lmm/core, which is
+# the package's own substrate.
+/core/
 
 # llama.cpp: the GGUF convert/quantize toolchain. A clone — derived, not committed.
 llama.cpp/

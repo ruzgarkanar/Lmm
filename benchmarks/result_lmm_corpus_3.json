@@ -1,0 +1,110 @@
+{
+ "ingest_ms": 21404,
+ "yazilan": 61,
+ "atlanan": 0,
+ "turetilen": 8,
+ "cevaplar": [
+  {
+   "soru": "zerbalit nedir",
+   "cevap": "Zerbalit bir metaldir. Zerbalit, genellikle bir tür sözlü veya yazılı iletişim tarzını ifade eder. (Bu ifade kesin değildir; #doc:corpus",
+   "ms": 14629,
+   "abstained": false
+  },
+  {
+   "soru": "vorlin nedir",
+   "cevap": "Vorlin bir içecektir. Vorlin, genellikle bir tür dil veya iletişim aracı olarak tanımlanabilir. (Bu ifade kesin değildir; #doc:corpus)",
+   "ms": 13035,
+   "abstained": false
+  },
+  {
+   "soru": "morlan nedir",
+   "cevap": "Morlan bir kuştur. Morlan, genellikle bir tür bitki veya ağaç olarak bilinir. (Bu ifade kesin değil, #doc:corpus)",
+   "ms": 13043,
+   "abstained": false
+  },
+  {
+   "soru": "norgul nedir",
+   "cevap": "Norgul bir bitkidir. Norgul, genellikle fantastik kurgu eserlerinde yer alan bir terimdir. (Bu ifade kesin değildir; #doc:corpus)",
+   "ms": 13859,
+   "abstained": false
+  },
+  {
+   "soru": "karvel nedir",
+   "cevap": "Karvel bir balıktır. Karvel, genellikle bir bitki türü olarak bilinir. (Bu bilgi kesin değil, #doc:corpus)",
+   "ms": 12152,
+   "abstained": false
+  },
+  {
+   "soru": "kelvit nedir",
+   "cevap": "Kelvit bir metaldir. Kelvit, genellikle bir tür bitki veya ot olarak bilinir. (Bu ifade kesin değil, #doc:corpus)",
+   "ms": 12351,
+   "abstained": false
+  },
+  {
+   "soru": "selvin nedir",
+   "cevap": "Selvin bir içecektir. Selvin, genellikle bir isim veya soyadı olarak kullanılır. (Bu ifade kesin değildir; #doc:corpus)",
+   "ms": 11898,
+   "abstained": false
+  },
+  {
+   "soru": "Velmar nedir",
+   "cevap": "Velmar bir köydür. Velmar, genellikle bir isim veya marka olarak kullanılır. (Bu ifade kesin değil, #doc:corpus)",
+   "ms": 11782,
+   "abstained": false
+  },
+  {
+   "soru": "vorlin bir sıvı mıdır",
+   "cevap": "Evet, vorlin bir sıvıdır. (Doğruluk payı olabilir; kaynak: depolanmış veri)",
+   "ms": 11899,
+   "abstained": false
+  },
+  {
+   "soru": "zilfen bir canlı mıdır",
+   "cevap": "Zilfen bir canlıdır. Zilfen, bir canlı değildir. (Kesin bilgi değil, kaynak: depolanmış)",
+   "ms": 13214,
+   "abstained": false
+  },
+  {
+   "soru": "torvanit bir madde midir",
+   "cevap": "Evet, torvanit bir maddedir. (Emin değilim, kaynak: depolanmış bilgi)",
+   "ms": 12514,
+   "abstained": false
+  },
+  {
+   "soru": "yağmur yağarsa ne olur",
+   "cevap": "Yağmur yağarsa bataklık büyür. Yağmur yağarsa toprak sulanır. (Not certain, #doc:corpus)",
+   "ms": 13298,
+   "abstained": false
+  },
+  {
+   "soru": "norgul çoğalırsa ne olur",
+   "cevap": "Morlan olur.",
+   "ms": 6571,
+   "abstained": false
+  },
+  {
+   "soru": "melvarit nedir",
+   "cevap": "Melvarit hakkında bilgim yok. Bakmamı ister misiniz?",
+   "ms": 4288,
+   "abstained": true
+  },
+  {
+   "soru": "Nortlann'ın başkenti neresidir",
+   "cevap": "Bilmiyorum. Nortlann'ın başkenti hakkında kesin bilgi yoktur (#doc:corpus).",
+   "ms": 11799,
+   "abstained": true
+  },
+  {
+   "soru": "vorlin kaç derecede kaynar",
+   "cevap": "Bilmiyorum. (Veri kaynağına dayanmaktadır: #doc:corpus)",
+   "ms": 10629,
+   "abstained": true
+  },
+  {
+   "soru": "adanın nüfusu kaçtır",
+   "cevap": "Bilmiyorum. (Veri kesin değildir, #doc:corpus)",
+   "ms": 13286,
+   "abstained": true
+  }
+ ]
+}

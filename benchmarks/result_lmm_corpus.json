@@ -1,0 +1,90 @@
+{
+ "ingest_ms": 21915,
+ "cevaplar": [
+  {
+   "soru": "zerbalit nedir",
+   "cevap": "Zerbalit bir metaldir. (Kesin bilgi değildir, #doc:korpus)",
+   "ms": 6498
+  },
+  {
+   "soru": "vorlin nedir",
+   "cevap": "Vorlin bir içecektir. (Detaylar kesin değil, kaynak: depolanmış veri)",
+   "ms": 6576
+  },
+  {
+   "soru": "morlan nedir",
+   "cevap": "Morlan bir kuştur. (Muhtemelen eski bir kaynaktan)",
+   "ms": 7467
+  },
+  {
+   "soru": "norgul nedir",
+   "cevap": "Norgul bir canlıdır. (Nedir bilgisi kaynağa dayanmaktadır.)",
+   "ms": 7352
+  },
+  {
+   "soru": "karvel nedir",
+   "cevap": "Karvel bir balıktır. (Kaynak: depolanmış bilgi)",
+   "ms": 6462
+  },
+  {
+   "soru": "kelvit nedir",
+   "cevap": "Kelvit bir metaldir. (Doğruluğu kesin değil, #doc:korpus)",
+   "ms": 6259
+  },
+  {
+   "soru": "selvin nedir",
+   "cevap": "Selvin bir içecektir. (Saklı kaynak: kesin bilgi değil)",
+   "ms": 5584
+  },
+  {
+   "soru": "Velmar nedir",
+   "cevap": "Velmar bir köydür. (Bu bilgi kesin değildir; #doc:korpus)",
+   "ms": 6237
+  },
+  {
+   "soru": "vorlin bir sıvı mıdır",
+   "cevap": "Vorlin bir sıvıdır. (Kesin değil, kaynak: depolanmış veri)",
+   "ms": 6757
+  },
+  {
+   "soru": "zilfen bir canlı mıdır",
+   "cevap": "Evet, zilfen bir canlıdır. (Kesin değil, kaynak: saklanan bilgi)",
+   "ms": 5636
+  },
+  {
+   "soru": "torvanit bir madde midir",
+   "cevap": "Torvanit bir metaldir. (Bu kaynaklardan alınmıştır, kesin değil.)",
+   "ms": 5131
+  },
+  {
+   "soru": "yağmur yağarsa ne olur",
+   "cevap": "Yağmur yağarsa bataklık büyür.",
+   "ms": 4264
+  },
+  {
+   "soru": "norgul çoğalırsa ne olur",
+   "cevap": "Bu konuda elimde bilgi yok.",
+   "ms": 3706
+  },
+  {
+   "soru": "melvarit nedir",
+   "cevap": "Melvarit hakkında henüz bir bilgim yok. Bakmamı ister misin?",
+   "ms": 3910
+  },
+  {
+   "soru": "Nortlann'ın başkenti neresidir",
+   "cevap": "Bilmiyorum. (Bu bilgi kesin değildir; #doc:korpus)",
+   "ms": 7133
+  },
+  {
+   "soru": "vorlin kaç derecede kaynar",
+   "cevap": "Bilmiyorum. (Kesin bilgi değil, kaynak: depolanmış veri)",
+   "ms": 6487
+  },
+  {
+   "soru": "adanın nüfusu kaçtır",
+   "cevap": "Bilmiyorum. (Bu bilgi kesin değildir; #doc:korpus)",
+   "ms": 7776
+  }
+ ]
+}
