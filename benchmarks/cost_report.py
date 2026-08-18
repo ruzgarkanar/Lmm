@@ -223,23 +223,50 @@ def main():
     # ---- 3. zero-call ---------------------------------------------------
     w("## 3. Zero-call answers\n")
     w("How many questions LMM answered with **no model call at all** — pure "
-      "graph lookup. The architecture allows it (a table row or a derived fact "
-      "can answer without generation); on this corpus, through the `respond` "
-      "path, it does not happen.\n")
+      "graph lookup, no engine involved. The architecture permits it: a "
+      "derived fact or a table row is already an answer. Whether it *happens* "
+      "on this corpus is a measurement, and the honest answer is below.\n")
     w("| | questions | answered with 0 model calls | share |")
     w("|---|---|---|---|")
+    zero_total = 0
     for lang in langs:
-        for side in SIDES:
+        for side in ("lmm-shallow", "lmm-deep"):
             d = data.get((side, lang))
             if not d:
                 continue
             q = d["query"]
+            zero_total += q["zero"]
             w(f"| {LABEL[side]} ({lang}) | {q['n']:.0f} | {q['zero']:.0f} | "
               f"{100 * q['zero'] / q['n']:.0f}% |")
     w("")
+    if zero_total == 0:
+        w("**Zero. Not one.** Every question on this corpus went through the "
+          "engine. The graph decides *what* may be said and the derivation "
+          "runs in microseconds without a model — but `respond` still spends a "
+          "call turning the retrieved facts into a sentence, and more calls "
+          "reading that sentence back. The zero-call path exists in the "
+          "architecture and is not reached here; claiming otherwise would be "
+          "the easiest number in this document to fake.\n")
+
+    # ---- 4. infrastructure ----------------------------------------------
+    infra_path = os.path.join(cost_dir, "infra.json")
+    if os.path.exists(infra_path):
+        infra = json.load(open(infra_path, encoding="utf-8"))
+        w("## 4. Infrastructure\n")
+        w("What each architecture requires on disk before it can answer "
+          "anything. Measured with two clean virtualenvs "
+          "([`cost_infra.sh`](cost_infra.sh)) — package counts and megabytes, "
+          "not adjectives.\n")
+        w("| | pip packages | site-packages | plus model weights |")
+        w("|---|---|---|---|")
+        for row in infra["rows"]:
+            w(f"| {row['name']} | {row['packages']} | {row['size']} | "
+              f"{row['weights']} |")
+        w("")
+        w(infra["note"] + "\n")
 
     # ---- 5. price layer + projections -----------------------------------
-    w("## 4. Price, as a separate layer\n")
+    w("## 5. Price, as a separate layer\n")
     w(f"The tables above are token counts, which are true regardless of what "
       f"anyone charges. Below is one multiplication applied to them: "
       f"{PRICE_NOTE}. **Prices change; re-multiply rather than trust this "
@@ -294,6 +321,56 @@ def main():
                              f"in the positive range.")
     out.extend(lines or ["- not enough data"])
     w("")
+
+    # ---- 6. honest summary ----------------------------------------------
+    w("## 6. Honest summary\n")
+    lang0 = langs[0] if langs else None
+    rag = data.get(("rag", lang0))
+    deep = data.get(("lmm-deep", lang0))
+    shallow = data.get(("lmm-shallow", lang0))
+    if rag and deep:
+        qr, qd = rag["query"], deep["query"]
+        ir, idp = rag["ingest"], deep["ingest"]
+        call_x = qd["calls"] / qr["calls"] if qr["calls"] else 0
+        tok_x = qd["prompt"] / qr["prompt"] if qr["prompt"] else 0
+        ing_tok = idp["prompt"] + idp["completion"]
+        w(f"**Where we are more expensive: everywhere that is measured in "
+          f"tokens.** On the {lang0.upper()} corpus LMM `deep=True` spends "
+          f"**{qd['calls']:.1f} model calls per question** against RAG's "
+          f"{qr['calls']:.1f} — about **{call_x:.0f}x the calls and "
+          f"{tok_x:.0f}x the prompt tokens**. Ingestion is worse in relative "
+          f"terms: {ing_tok:,.0f} tokens against RAG's "
+          f"{ir['prompt'] + ir['completion']:,.0f}, because RAG's embedding "
+          f"step is a local model and spends none at all. There is no reading "
+          f"of these numbers in which LMM is the cheap option on a hosted "
+          f"per-token engine, and no break-even where that reverses — the gap "
+          f"grows with every question asked.\n")
+        if shallow:
+            qs = shallow["query"]
+            w(f"**The cheaper LMM setting is `deep=False`**, which skips graph "
+              f"extraction at ingestion "
+              f"({shallow['ingest']['prompt'] + shallow['ingest']['completion']:,.0f} "
+              f"tokens vs {ing_tok:,.0f}) and answers from the evidence index "
+              f"at {qs['calls']:.1f} calls per question. It is the setting to "
+              f"reach for when the document is large and the questions are "
+              f"single-hop; it gives up the derivation that produces LMM's "
+              f"multi-hop answers.\n")
+        w("**Where we are cheaper: the axes this table cannot bill.** The "
+          "tokens above buy three things RAG does not have at any price — "
+          "every answer carrying its source, a structural gate that stops an "
+          "unsupported claim from leaving, and multi-hop facts *derived* "
+          "symbolically in microseconds with no model call. Section 4's disk "
+          "figures are the other axis: a zero-dependency core against an "
+          "embedding stack and a vector database. And the whole dollar column "
+          "collapses to zero on a local engine, where the cost becomes your "
+          "own seconds — which is the deployment this project is actually "
+          "built for.\n")
+        w("**So the fair sentence is this:** if you are paying per token for a "
+          "hosted model and you only need one-hop lookup, embedding RAG is "
+          "cheaper than LMM and will stay cheaper. LMM's case is accuracy, "
+          "provenance and refusal (see the README's benchmark table), bought "
+          "with tokens at ingestion and at verification — or bought with CPU "
+          "seconds instead, on hardware you already own.\n")
 
     json.dump({f"{k[0]}_{k[1]}": v for k, v in data.items()},
               open(os.path.join(cost_dir, "summary.json"), "w"),
