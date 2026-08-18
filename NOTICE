@@ -1,0 +1,60 @@
+LMM — Living Memory Model
+Copyright 2026 Rüzgar Kanar
+
+This product includes software developed by Rüzgar Kanar.
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+
+================================================================================
+WHAT IS ORIGINAL HERE, AND WHAT IS NOT
+================================================================================
+
+LMM is NOT a language model trained from scratch. It is a memory-and-reasoning
+LAYER that runs on top of an existing, third-party language model.
+
+The original work in this repository is the layer:
+
+  * the fact graph and its trust/contradiction machinery (v3/memory.py,
+    v3/gate.py, v3/geometry.py, v3/dynamics.py, v3/transitive.py)
+  * the evidence index and its retrieval (lmm/evidence.py, lmm/retrieve.py)
+  * the fabrication gate, the coverage/support checks and the abstention
+    stamp (lmm/session.py, lmm/verify.py, lmm/prompts.py)
+  * the structured-ingestion adapters (lmm/tables.py)
+
+The language capability itself is NOT original to this project. It is supplied
+by a pluggable engine, and the default engine is a third-party model.
+
+
+================================================================================
+THIRD-PARTY MODELS
+================================================================================
+
+Qwen2.5-3B-Instruct
+    The default local engine. Copyright Alibaba Cloud / the Qwen team.
+    Licensed under the Apache License, Version 2.0.
+    https://huggingface.co/Qwen/Qwen2.5-3B-Instruct
+
+    LMM does not redistribute these weights. They are downloaded by the user
+    from their original source. Any LoRA adapter trained by this project's
+    consolidation step is a derivative of that base model and inherits its
+    license terms.
+
+Other engines are optional and are reached through the same interface:
+llama.cpp / GGUF builds of the above (MIT, llama.cpp), and hosted APIs such as
+Azure OpenAI (governed by the provider's own terms, not by this license).
+
+
+================================================================================
+BENCHMARK MATERIAL
+================================================================================
+
+The benchmark corpora shipped in bench/ (corpus.txt, corpus_en.txt,
+corpus_es.txt and their question sets) are INVENTED for this project: a
+fictional world with invented entities, written so that no answer can come from
+what a model already knows. They are covered by this repository's license.
+
+Benchmarks reported in the README against real-world documents — a
+several-hundred-page device manual, an internal strategy document, an
+inspection spreadsheet — were run against third-party and private material that
+is NOT redistributed here and is NOT part of this repository. Those documents
+belong to their respective owners. Only the aggregate scores are published.
