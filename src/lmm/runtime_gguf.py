@@ -10,11 +10,15 @@ on CPU was ~4.5 tok/s, ~15-25 tok/s expected here.
 """
 import os
 
+from lmm import paths
+
 _LLM = None
 
 
 def _root():
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # The user's location, not the package's — see lmm/paths.py for why this
+    # is not derived from __file__ any more.
+    return paths.home()
 
 
 def path():
@@ -23,10 +27,10 @@ def path():
     env = os.environ.get("LMM_GGUF_PATH")
     if env:
         return env
-    merged = os.path.join(_root(), "models/lmm/lmm-q4_k_m.gguf")
+    merged = paths.under("models", "lmm", "lmm-q4_k_m.gguf")
     if os.path.exists(merged):
         return merged
-    return os.path.join(_root(), "models/qwen-3b/qwen3b-q4.gguf")
+    return paths.under("models", "qwen-3b", "qwen3b-q4.gguf")
 
 
 def ready():

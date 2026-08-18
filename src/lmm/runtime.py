@@ -9,17 +9,21 @@ build will plug in here (speed on cheap hardware); transformers for now.
 """
 import os
 
+from lmm import paths
+
 _MODEL = None
 _TOK = None
 _DEVICE = None
 
 
 def _root():
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # The user's location, not the package's — see lmm/paths.py for why this
+    # is not derived from __file__ any more.
+    return paths.home()
 
 
 def path():
-    return os.path.join(_root(), "models/qwen-3b")
+    return os.environ.get("LMM_MODEL_PATH") or paths.under("models", "qwen-3b")
 
 
 def ready():
@@ -46,7 +50,7 @@ def _load():
     # (language/identity/consistency). Behavior, not knowledge; the graph still
     # grows without retraining (condition-3). Disable with LMM_NO_LORA=1
     # (back to the raw model — A/B comparison).
-    adapter = os.path.join(_root(), "models/lmm/lora")
+    adapter = os.environ.get("LMM_LORA_PATH") or paths.under("models", "lmm", "lora")
     if os.path.isdir(adapter) and os.environ.get("LMM_NO_LORA") != "1":
         try:
             from peft import PeftModel
