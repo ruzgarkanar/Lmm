@@ -491,3 +491,25 @@ Worth recording as carefully as what broke, because it is most of the system:
   answers to silence and none to error.
 * **Ingestion is fast and needs nothing** — no model, no network, no GPU, on
   every format tested.
+
+---
+
+## 7. What was closed afterwards (added after the trial)
+
+This report is a diagnosis and was not edited to match the fixes. What follows
+is a short index of which of the findings above have since been closed, each
+with the commit's own measurement.
+
+| Finding | State | Where |
+|---|---|---|
+| 1 — ungated second model call | **closed.** The hedge is built from the stored source stamp, `(~ #pdf:x.pdf)`, with no model call, and nothing is appended to a refusal at all. Re-run on `rfc9110.txt`: *"What does the 419 status code mean?"* → `I do not know.`, not one word more. | `session.UNCERTAIN`, `Session.respond`, test M1 |
+| 2 — a scan is indistinguishable from a read | **closed.** `Learned` carries `evidence` and `warnings`, is falsy when nothing was read, and a PDF with no text layer says so and says LMM does not OCR. | `api.Learned`, test M2 |
+| 5 — HTML accepted silently | **named.** Still read as text, but `learn()` reports the format has no reader and what share of the characters were tags. | `api.learn`, test M2 |
+| 7 — a path typo learned as a fact | **closed.** An argument shaped like a filename that is not a file raises; so does a directory. | `api._names_a_file`, test M2 |
+| 8 — third-party tracebacks | **closed.** One line naming the file and the likely cause; the missing-extra install line still passes through. | `api._read_with`, test M2 |
+| masthead blindness (§5 rows 5-6 class) | **closed for indexing.** The document's opening block is indexed as one entry, read off the layout. Measured on RFC 9110: *"Which RFCs does RFC 9110 obsolete?"* — previously the fabricated *"RFC 9111"* — is now answered correctly from that block; with the block disabled the same build abstains. | `evidence.front_matter`, test M3 |
+| 613-second question | **closed.** `LMM_TIMEOUT` bounds an engine call on the API backend; the retries stay, the wait ends. | `runtime.within_budget`, test M4 |
+| 3 — table columns, 4 — two-row spreadsheet headers, 6 — no language gate, 9-11 | **open**, and listed in the README's honest limits. |  |
+
+Regression check after all of it, `LMM_BACKEND=azure`, medians of three
+samples: Turkish **17/17**, English **17/17**, Spanish **16/17**.
