@@ -644,6 +644,13 @@ def table_windows(text):
 _SENTENCE_END = re.compile(r"[.!?。！？؟۔]['\"»)\]]*\s*$")
 
 
+def _gap(line):
+    """The widest run of whitespace INSIDE one line — how far apart this line
+    holds its own pieces. One in prose, a column's width in a masthead."""
+    inner = line.strip()
+    return max((len(run) for run in re.findall(r"\s{2,}", inner)), default=1)
+
+
 def front_matter(text):
     """THE DOCUMENT'S OWN MASTHEAD — the block it opens with, as one window.
 
@@ -675,21 +682,34 @@ def front_matter(text):
     """
     # Column padding is layout, not content: a masthead is typeset in columns
     # and its runs of spaces carry nothing a reader of the window needs.
-    lines = [" ".join(line.split()) for line in text.splitlines()]
-    written = [len(line) for line in lines if line]
+    raw = [line.rstrip() for line in text.splitlines()]
+    written = [line for line in raw if line.strip()]
     if len(written) < 2:
         return ""
-    median = sorted(written)[len(written) // 2]
+    lengths = sorted(len(line.strip()) for line in written)
+    median = lengths[len(lengths) // 2]
     bound = SCALES[-1] * max(1, median)
+    # IS THIS LINE SET IN COLUMNS? A masthead is typeset as columns, and the
+    # gap between them is wider than anything prose puts between two words —
+    # measured against THIS document, not against a number. A terminator alone
+    # could not be trusted to end the block: RFC 9110's first line ends "R.
+    # Fielding, Ed.", which is an abbreviation wearing a full stop, and the
+    # masthead died on it. A line that both ends a sentence AND is set like
+    # prose is prose.
+    gaps = sorted(_gap(line) for line in written)
+    typical = gaps[len(gaps) // 2]
     head, used = [], 0
-    for line in lines:
-        if not line:
+    for line in raw:
+        if not line.strip():
             continue                    # a blank line separates the masthead's
             #                             own groups; it does not end it
-        if _SENTENCE_END.search(line) or used + len(line) > bound:
+        flat = " ".join(line.split())   # column padding is layout, not content
+        if used + len(flat) > bound:
             break
-        head.append(line)
-        used += len(line)
+        if _SENTENCE_END.search(flat) and _gap(line) <= typical:
+            break
+        head.append(flat)
+        used += len(flat)
     return " ".join(head) if len(head) >= 2 else ""
 
 
