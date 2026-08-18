@@ -1,0 +1,110 @@
+{
+ "ingest_ms": 21828,
+ "yazilan": 61,
+ "atlanan": 0,
+ "turetilen": 8,
+ "cevaplar": [
+  {
+   "soru": "¿qué es el zerbalit?",
+   "cevap": "El zerbalit es un metal. El zerbalit es un término que no parece tener un significado claro o ampliamente reconocido en español. Podría ser un error tipográfico o un término específico de",
+   "ms": 12651,
+   "abstained": false
+  },
+  {
+   "soru": "¿qué es el vorlin?",
+   "cevap": "El vorlin es una bebida. El vorlin es un término que no tiene un significado ampliamente reconocido. Podría referirse a un concepto específico en un contexto particular, como en la literatura,",
+   "ms": 11779,
+   "abstained": false
+  },
+  {
+   "soru": "¿qué es el morlan?",
+   "cevap": "El morlan es un ave. El morlan es un término que puede referirse a diferentes cosas dependiendo del contexto. En algunos lugares, se utiliza para describir un tipo de pez o una",
+   "ms": 13793,
+   "abstained": false
+  },
+  {
+   "soru": "¿qué es el norgul?",
+   "cevap": "El norgul es una planta. El norgul es un término que no es ampliamente conocido y puede referirse a diferentes cosas dependiendo del contexto. Podría ser un nombre ficticio, un",
+   "ms": 13412,
+   "abstained": false
+  },
+  {
+   "soru": "¿qué es el karvel?",
+   "cevap": "El karvel es un pez. El karvel es un tipo de embarcación. (No seguro, fuente: #doc:corpus)",
+   "ms": 11051,
+   "abstained": false
+  },
+  {
+   "soru": "¿qué es el kelvit?",
+   "cevap": "El kelvit es un metal. El kelvit es un término que no tiene un significado ampliamente reconocido en español. Podría referirse a un nombre propio, un término técnico en un campo específico",
+   "ms": 11738,
+   "abstained": false
+  },
+  {
+   "soru": "¿qué es el selvin?",
+   "cevap": "El selvin es una bebida. El selvin es un término que no parece tener un significado ampliamente reconocido en español. Podría referirse a un nombre propio, un término local o especializado,",
+   "ms": 12430,
+   "abstained": false
+  },
+  {
+   "soru": "¿qué es Velmar?",
+   "cevap": "Velmar es un pueblo. Velmar podría referirse a varias cosas. (No es seguro; #doc:corpus)",
+   "ms": 11517,
+   "abstained": false
+  },
+  {
+   "soru": "¿es el vorlin un líquido?",
+   "cevap": "El vorlin es un líquido. (No estoy seguro; fuente almacenada.)",
+   "ms": 12610,
+   "abstained": false
+  },
+  {
+   "soru": "¿es el zilfen un ser vivo?",
+   "cevap": "Sí, el zilfen es un ser vivo. (No estoy seguro; fuente almacenada.)",
+   "ms": 10962,
+   "abstained": false
+  },
+  {
+   "soru": "¿es el torvanit una sustancia?",
+   "cevap": "Sí, el torvanit es una sustancia. (No estoy seguro, fuente almacenada.)",
+   "ms": 12124,
+   "abstained": false
+  },
+  {
+   "soru": "¿qué pasa si llueve?",
+   "cevap": "Si llueve, el pantano crece. Si llueve, puede haber inundaciones. (No es seguro; #doc:corpus)",
+   "ms": 12503,
+   "abstained": false
+  },
+  {
+   "soru": "¿qué pasa si el norgul se multiplica?",
+   "cevap": "No sé.",
+   "ms": 6244,
+   "abstained": true
+  },
+  {
+   "soru": "¿qué es el melvarit?",
+   "cevap": "No conozco el melvarit aún. ¿Te gustaría que lo busque?",
+   "ms": 5948,
+   "abstained": true
+  },
+  {
+   "soru": "¿cuál es la capital de Nortlann?",
+   "cevap": "No sé. No tengo información sobre \"Nortlann\". (No seguro, #doc:corpus)",
+   "ms": 12646,
+   "abstained": true
+  },
+  {
+   "soru": "¿a cuántos grados hierve el vorlin?",
+   "cevap": "No sé. El vorlin no es una sustancia conocida. (No seguro, #doc:corpus)",
+   "ms": 10870,
+   "abstained": true
+  },
+  {
+   "soru": "¿cuál es la población de la isla?",
+   "cevap": "No sé. La población de la isla puede variar. (#doc:corpus)",
+   "ms": 13729,
+   "abstained": false
+  }
+ ]
+}
