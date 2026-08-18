@@ -1649,6 +1649,179 @@ def k6():
             assert invented in text, (name, invented)
 
 
+# =====================================================================  L
+#  The front door (lmm.api.Memory). A WRAPPER, and these tests exist to
+#  keep it one: every assertion below is about ROUTING and REPORTING, and
+#  none of them may need a model, because the facade must not have opinions
+#  of its own about what the layer beneath it does.
+# =====================================================================
+
+
+@test("L1 the front door is a wrapper: text goes where learn_text went")
+def l1():
+    """No new pipeline. `Memory.learn` on plain text must reach exactly
+    `Session.learn_text`, with the text unaltered — if the facade ever starts
+    pre-processing, cleaning or chunking on the way through, it has stopped
+    being packaging and become a second implementation."""
+    from lmm import Memory
+    m = Memory()
+    seen = []
+    real = m.session.learn_text
+    m.session.learn_text = lambda text, source="#document", deep=True: (
+        seen.append((text, source, deep)) or (0, 0))
+    m.learn("Zerbalit boils at 412 degrees.")
+    m.session.learn_text = real
+    assert len(seen) == 1, seen
+    assert seen[0][0] == "Zerbalit boils at 412 degrees.", seen[0][0]
+    # deep defaults TRUE for text typed at the memory: one sentence handed in
+    # directly is a fact being taught and is worth the extractor's call.
+    assert seen[0][2] is True, seen[0]
+
+
+@test("L2 the extension picks the adapter, and nothing else does")
+def l2():
+    """The dispatch is a table, not a sniffer. Each extension must land on its
+    own adapter with the session passed through; the pdf/xlsx/docx readers are
+    stubbed so this holds with none of the optional dependencies installed."""
+    from lmm import Memory, tables
+    m = Memory()
+    called = []
+    keep = (tables.learn_pdf, tables.learn_xlsx, tables.learn_docx)
+    tables.learn_pdf = lambda s, p, source=None, deep=False: (
+        called.append(("pdf", s is m.session)) or (3, 1))
+    tables.learn_xlsx = lambda s, p, source=None: (
+        called.append(("xlsx", s is m.session)) or 4)
+    tables.learn_docx = lambda s, p, source=None, deep=False: (
+        called.append(("docx", s is m.session)) or (5, 2))
+    folder = tempfile.mkdtemp()
+    try:
+        for name in ("a.pdf", "b.xlsx", "c.docx"):
+            path = os.path.join(folder, name)
+            open(path, "w", encoding="utf-8").write("x")
+            m.learn(path)
+    finally:
+        tables.learn_pdf, tables.learn_xlsx, tables.learn_docx = keep
+    assert [c[0] for c in called] == ["pdf", "xlsx", "docx"], called
+    assert all(c[1] for c in called), "the adapter got a different session"
+
+    # A format we cannot read is REFUSED by name, not silently read as text.
+    path = os.path.join(folder, "deck.pptx")
+    open(path, "w", encoding="utf-8").write("x")
+    try:
+        m.learn(path)
+    except ValueError as said:
+        assert "PowerPoint" in str(said), said
+    else:
+        raise AssertionError("a .pptx was accepted")
+
+
+@test("L3 a missing optional dependency names the install line, not a traceback")
+def l3():
+    """The core install is deliberately dependency-free, so 'I fed it a PDF and
+    it exploded' is the FIRST thing a new user will do. Each reader must fail
+    with the command that fixes it — and with the PyPI name, which for
+    python-docx is not the name you import."""
+    from lmm import tables
+    import builtins
+    real = builtins.__import__
+
+    def blocked(name, *a, **kw):
+        if name.split(".")[0] in ("pdfplumber", "docx", "pandas"):
+            raise ImportError("blocked for the test")
+        return real(name, *a, **kw)
+
+    gone = {}
+    for mod in [k for k in sys.modules
+                if k.split(".")[0] in ("pdfplumber", "docx", "pandas")]:
+        gone[mod] = sys.modules.pop(mod)
+    was = tables._PANDAS
+    tables._PANDAS = None
+    builtins.__import__ = blocked
+    try:
+        for reader, arg, extra, dist in (
+                (tables.read_pdf, "x.pdf", "pdf", "pdfplumber"),
+                (tables.read_docx, "x.docx", "docx", "python-docx"),
+                (tables.read_xlsx, "x.xlsx", "xlsx", "pandas")):
+            try:
+                reader(arg)
+            except ImportError as said:
+                assert f"lmm[{extra}]" in str(said), said
+                assert dist in str(said), said
+            else:
+                raise AssertionError(f"{arg} read with its reader missing")
+    finally:
+        builtins.__import__ = real
+        tables._PANDAS = was
+        sys.modules.update(gone)
+
+
+@test("L4 a document body is never mistaken for a file name")
+def l4():
+    """`learn` takes a path OR the text itself, so it has to tell them apart —
+    and it must do so WITHOUT handing a 500 KB document to the filesystem. A
+    body with line breaks, and a body longer than any path, are text; a real
+    file is a file. (os.path.isfile raises rather than returning False on an
+    over-long name on several platforms — this is the guard for that.)"""
+    from lmm.api import _looks_like_path
+    assert not _looks_like_path("Zerbalit boils.\nVorlin does not.")
+    assert not _looks_like_path("x" * 5000)
+    assert not _looks_like_path("no_such_file_anywhere.txt")
+    assert not _looks_like_path(b"bytes are not a path")
+    assert not _looks_like_path(None)
+    folder = tempfile.mkdtemp()
+    path = os.path.join(folder, "real.txt")
+    open(path, "w", encoding="utf-8").write("The tower is 91 metres tall.")
+    assert _looks_like_path(path)
+
+
+@test("L5 an answer is still a string, and carries its own abstention stamp")
+def l5():
+    """`ask(explain=True)` must not force callers into a wrapper type: the
+    return IS the answer text and additionally reports itself. The abstention
+    flag has to be the SESSION's structural stamp — the thing K1/K2 defend —
+    and not a phrase list re-invented at the front door."""
+    from lmm import Memory
+    from lmm.api import Answer
+    a = Answer("Bilmiyorum.", abstained=True, sources=("#pdf:x",))
+    assert isinstance(a, str) and a == "Bilmiyorum."
+    assert a.upper() == "BILMIYORUM." and a.abstained and a.sources == ("#pdf:x",)
+
+    m = Memory()
+    m.session.respond = lambda q: "It is 412 degrees. #document"
+    m.session.last_abstained = False
+    m.session.last_subject = "zerbalit"
+    m.session.last_kind = "ASK"
+    m.session.last_written = []
+    plain = m.ask("how hot?")
+    assert type(plain) is str and "412" in plain           # noqa: E721
+    told = m.ask("how hot?", explain=True)
+    assert told.sources == ("#document",), told.sources
+    assert told.abstained is False and told.subject == "zerbalit"
+    m.session.last_abstained = True
+    assert m.ask("how hot?", explain=True).abstained is True
+
+
+@test("L6 a memory with nowhere to save says so before it loses anything")
+def l6():
+    """`Memory()` is allowed to be transient, which makes a silent no-op save
+    the dangerous failure: the caller believes the memory is on disk. It must
+    raise, and it must accept a path given late."""
+    from lmm import Memory
+    m = Memory()
+    m.learn("The tower is 91 metres tall.", deep=False)
+    before = len(m)
+    try:
+        m.save()
+    except ValueError as said:
+        assert "nowhere to save" in str(said), said
+    else:
+        raise AssertionError("a pathless memory reported that it saved")
+    path = os.path.join(tempfile.mkdtemp(), "mind.lmm")
+    assert m.save(path) == path and os.path.exists(path)
+    assert len(Memory(path)) == before
+
+
+
 def main():
     failed = 0
     for name, function in PASSED:
