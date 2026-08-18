@@ -139,6 +139,25 @@ def install():
     _patch_embeddings()
 
 
+def _usage_of(out):
+    """The `usage` object, whichever shape `create` returned.
+
+    The two sides of this benchmark call the same SDK method and get back
+    different things: LMM's runtime_azure receives a parsed `ChatCompletion`,
+    while LangChain asks for the RAW response and gets a wrapper with no
+    `.usage` at all. Reading only the parsed shape is how the RAG column
+    silently measured zero tokens on its first run. `parse()` is cached by the
+    SDK, so unwrapping here does not re-read the stream or cost a second call.
+    """
+    usage = getattr(out, "usage", None)
+    if usage is None and hasattr(out, "parse"):
+        try:
+            usage = getattr(out.parse(), "usage", None)
+        except Exception:                                      # noqa: BLE001
+            usage = None
+    return usage
+
+
 def _patch_chat():
     try:
         from openai.resources.chat import completions as C
@@ -154,7 +173,7 @@ def _patch_chat():
         t0 = time.time()
         out = original(self, *a, **kw)
         dt = time.time() - t0
-        usage = getattr(out, "usage", None)
+        usage = _usage_of(out)
         METER.chat(
             fn=who, bucket=bucket, seconds=dt,
             prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
