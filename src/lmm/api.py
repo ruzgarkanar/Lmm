@@ -55,12 +55,17 @@ class Answer(str):
     Reporting them costs nothing; guessing at them would have been a lie.
     """
 
-    __slots__ = ("abstained", "sources", "subject", "kind", "wrote")
+    __slots__ = ("abstained", "sources", "subject", "kind", "wrote",
+                 "from_graph")
 
     def __new__(cls, text, *, abstained=False, sources=(), subject="",
-                kind="", wrote=()):
+                kind="", wrote=(), from_graph=False):
         self = super().__new__(cls, text)
         self.abstained = bool(abstained)
+        # WHICH PATH ANSWERED — the graph alone, or the engine. It is a fact
+        # about cost and about dependency: a `from_graph` turn spent no model
+        # call, so it reads the same on a 3B local build as on a hosted one.
+        self.from_graph = bool(from_graph)
         self.sources = tuple(sources)
         self.subject = subject
         self.kind = kind
@@ -397,20 +402,34 @@ class Memory:
 
     # ------------------------------------------------------------------ ask
 
-    def ask(self, question, explain=False):
+    def ask(self, question, explain=False, fluent=False):
         """Ask a question. Returns the answer — or an honest refusal.
 
         With `explain=True` the return additionally carries what the turn knows
-        about itself: `.abstained`, `.sources`, `.subject`, `.wrote`. It is
-        still a string, so nothing downstream needs to change.
+        about itself: `.abstained`, `.sources`, `.subject`, `.wrote`,
+        `.from_graph`. It is still a string, so nothing downstream needs to
+        change.
+
+        `fluent=False` (the default) lets the GRAPH answer where the graph can:
+        a question that names a field or a value the memory already holds comes
+        back as that record — `vorlin — type → liquid` — in microseconds, with
+        no model call and therefore nothing for a model to invent. `.from_graph`
+        says which path a turn took.
+
+        `fluent=True` asks for a sentence instead, and spends the calls to get
+        one. The trade is stated rather than chosen for you: prose costs
+        roughly seven model calls per question (`benchmarks/COST.md`) and its
+        wording depends on the engine, while the record costs nothing and does
+        not.
         """
         session = self.session
-        said = session.respond(question) or ""
+        said = session.respond(question, fluent=fluent) or ""
         if not explain:
             return said
         return Answer(
             said,
             abstained=session.last_abstained,
+            from_graph=session.last_from_graph,
             # The provenance mark is written as '(~ #stamp)', so a stamp can
             # arrive wearing the mark's punctuation; strip the bracketing, not
             # the stamp.

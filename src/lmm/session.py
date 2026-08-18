@@ -22,7 +22,8 @@ from lmm.core.dataset import fold
 from lmm.core.gate import Gate
 from lmm.core.memory import Memory, OPERATOR, STRANGER, DOCUMENT
 from lmm.core.transitive import Transitivity
-from lmm import evidence, extract, generate, link, research, retrieve, verify
+from lmm import (evidence, extract, generate, link, lookup, research, retrieve,
+                 verify)
 
 SLEEP_EVERY = 50   # sleep every N turns (distill/fade/adjudicate) — v3 §117
 
@@ -100,6 +101,8 @@ class Session:
         self.last_abstained = False
         self.last_kind = ""     # extract's classification: WRITE / ASK / CHAT
         self.last_subject = ""  # the subject label the turn was about, if any
+        self.last_from_graph = False   # the turn was answered by `lookup` —
+        # straight out of the graph, with no model call anywhere in it
         self.history = []       # SHORT-TERM conversation context (last N turns) —
         # the graph is long-term memory; this is the "what did we just talk
         # about" context (conversation continuity)
@@ -333,19 +336,33 @@ class Session:
             frontier = nxt
         return chain            # [(cause, effect)] edges — root→leaf chain
 
-    def respond(self, message):
+    def respond(self, message, fluent=False):
         """Answer one message + update the CONVERSATION CONTEXT. The real logic
         is in _respond; this wrapper keeps the last N turns in `history`
         (conversation continuity). `last_written`: the triples the GATE
         admitted this turn — for the consolidation harvest (gate-approved =
-        trustworthy training target; NOT the model's own raw output)."""
+        trustworthy training target; NOT the model's own raw output).
+
+        `fluent`: ask for a SENTENCE rather than the record. The graph-first
+        path (`lookup`) answers with the stored value and its field name, which
+        costs nothing and reads the same in every language; a fluent sentence
+        is the engine's work and the engine's bill, so it is offered rather
+        than assumed. Everything the graph path cannot decide is generated
+        either way — this flag only chooses which of the two answers a
+        graph-decidable question gets."""
         self.last_written = []
         self.last_abstained = False
         self.last_kind = ""
         self.last_subject = ""
+        self.last_from_graph = False
         self._mark = ""
-        said = self._respond(message)
-        if said and not self.last_abstained:
+        said = self._respond(message, fluent=fluent)
+        if said and not self.last_abstained and not self.last_from_graph:
+            # A GRAPH ANSWER NEEDS NO READING BACK. The re-extractor below is
+            # asked "did this turn assert anything", and it is a MODEL CALL —
+            # on the graph path the answer is a record the graph holds, so the
+            # question is already settled and asking it would put a model call
+            # back into the one path built to have none.
             # A REFUSAL DOES NOT ONLY COME OUT OF THE REFUSAL DOOR. The engine
             # can decline inside a perfectly normal answer — handed evidence
             # that does not cover the question, the answer prompt is instructed
@@ -422,7 +439,33 @@ class Session:
         self.last_abstained = True
         return generate.refusal(message) or FALLBACK_DONT_KNOW
 
-    def _respond(self, message):
+    def _graph_answer(self, record, message):
+        """Speak a record the graph already holds — the whole answer, with no
+        model call in it.
+
+        Everything the paid path spends calls on is either already decided or
+        does not apply. There is no generation to gate: the sentence IS the
+        record, so it cannot step outside the facts and there is nothing for
+        `verify` to catch. There is no read-back: the claim is not a reading of
+        the evidence, it is the stored triple. There is no relation check: the
+        question named the field or the value, which is the very condition
+        `lookup.find` returned on.
+
+        What is NOT skipped is provenance. A record below CERTAIN is spoken
+        with its own source stamp exactly as the generated path speaks it —
+        same `_hedge`, same '~' mark attached in `respond` — because a cheaper
+        answer is not a less accountable one.
+        """
+        self.last_from_graph = True
+        self.last_abstained = False
+        self.last_kind = extract.ASK
+        self.last_subject = link.label_of(self.memory, record.subject)
+        said = lookup.render(self.memory, record)
+        if record.trust < CERTAIN:
+            said = self._hedge(said, record, message) or said
+        return said
+
+    def _respond(self, message, fluent=False):
         """Answer one message. The return is always text; never an unsupported
         fact.
 
@@ -445,6 +488,24 @@ class Session:
                 self.sleep()
             except Exception:                               # noqa: BLE001
                 pass
+        # GRAPH FIRST — before the extractor, because the extractor is the
+        # first of the 6.6 model calls a question used to cost and skipping it
+        # afterwards would still have paid for it. `lookup.find` is a graph
+        # walk over an O(1) label index: microseconds, no engine, no network.
+        # It returns a record only for the two shapes it can settle safely (see
+        # lookup's docstring) and None for everything else, so the semantic
+        # path below keeps every question it used to answer.
+        #
+        # It is skipped while a research offer is OUTSTANDING: that turn's
+        # meaning is "yes"/"no" to a question this session asked, not a lookup,
+        # and the pending offer has to be consumed by the flow that made it.
+        if not fluent and self._pending is None:
+            try:
+                held = lookup.find(self.memory, message)
+            except Exception:                               # noqa: BLE001
+                held = None
+            if held is not None:
+                return self._graph_answer(held, message)
         try:
             op = extract.extract(message)
             self.last_kind = op.get("kind") or ""
