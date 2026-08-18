@@ -2314,6 +2314,59 @@ def n6():
     assert told.from_graph is True, told
 
 
+@test("O1 a refusal with a fabrication stapled to it loses the fabrication")
+def o1():
+    from lmm import evidence
+    # the evidence path's block and question, as `_select` hands them over
+    block = ("[K1] Vorlin is a drink. A drink is a liquid.\n"
+             "[K2] Vorlin is made from the norgul plant.")
+    question = "at how many degrees does vorlin boil"
+    # THE MEASURED LOSS, three runs out of three, and the second sentence is a
+    # claim the corpus contradicts. 'vorlin' is in the question and 'substance'
+    # sits in the document, so whole-answer coverage lands in the middle and
+    # the read-back is left to decide — which is the model call this filter
+    # exists to stop depending on.
+    said = "I do not know. Vorlin is not a recognized substance."
+    assert evidence.grounded_sentences(said, block, question) == "I do not know."
+    # the Spanish one, same shape, no rule about either language
+    es_block = "[K1] En el centro de la isla hay un lago grande."
+    es_q = "¿cuál es la población de la isla?"
+    assert evidence.grounded_sentences(
+        "No sé. La población de la isla puede variar.", es_block, es_q) == "No sé."
+    # and the field trial's
+    rfc = "[K1] RFC 9110 defines HTTP semantics."
+    assert evidence.grounded_sentences(
+        "I do not know. RFC 9110 is obsoleted by RFC 9111.", rfc,
+        "which RFC obsoletes RFC 9110") == "I do not know."
+
+
+@test("O2 the sentence filter subtracts, and can never empty or invent")
+def o2():
+    from lmm import evidence
+    block = "[K1] Torvanit bir metaldir. Metal bir maddedir."
+    question = "torvanit bir madde midir"
+    # A FLUENT ONE-SENTENCE ANSWER IS UNTOUCHED, though 'evet' comes from
+    # neither the block nor the question. Whether a candidate may speak at all
+    # is the gates' decision; this filter only audits what rides along with it,
+    # so with nothing to ride on there is nothing to remove.
+    one = "Evet, torvanit bir maddedir."
+    assert evidence.grounded_sentences(one, block, question) == one
+    # every sentence a mixture -> nothing is dropped, for the same reason
+    both = "Evet, torvanit bir maddedir. Ayrıca torvanit parlak bir metaldir."
+    assert evidence.grounded_sentences(both, block, question) == both
+    # a fully grounded pair survives whole
+    good = "Torvanit bir metaldir. Metal bir maddedir."
+    assert evidence.grounded_sentences(good, block, question) == good
+    # it only ever removes: the result is a subsequence of the sentences given
+    out = evidence.grounded_sentences(
+        "Torvanit bir metaldir. Torvanit kırmızı gezegende bulunur.",
+        block, question)
+    assert out == "Torvanit bir metaldir.", out
+    # empty and single-word inputs do not explode
+    assert evidence.grounded_sentences("", block, question) == ""
+    assert evidence.grounded_sentences("Bilmiyorum.", block, question) == "Bilmiyorum."
+
+
 def main():
     failed = 0
     for name, function in PASSED:

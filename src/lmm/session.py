@@ -1194,6 +1194,19 @@ class Session:
             raw = (generate.answer(question, one, warmth=0.0) or "").strip()
             if not raw:
                 continue
+            # TRIM BEFORE JUDGING, so that what every gate below reads is what
+            # the user will read. A candidate arrives as one text and may be
+            # two things — an honest refusal with a fabrication stapled to it
+            # was three of the field trial's six wrong answers and both of the
+            # corpus's remaining stable losses. `grounded_sentences` removes
+            # the stapled half deterministically, and it can only ever remove
+            # (see its docstring); trimming here rather than at the return
+            # means coverage, the digit veto, the read-back and the relation
+            # check all judge the surviving text instead of judging a text the
+            # caller never sees.
+            raw = evidence.grounded_sentences(raw, block, question).strip()
+            if not raw:
+                continue
             tried.append(raw)
             key = fold(raw)
             if key in seen:

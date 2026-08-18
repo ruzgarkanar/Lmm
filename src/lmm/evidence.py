@@ -245,6 +245,62 @@ def coverage(answer, block, question=""):
     return hit / len(words)
 
 
+_SENTENCE = re.compile(r"(?<=[.!?])\s+")
+
+
+def grounded_sentences(answer, block, question=""):
+    """Drop the sentences that RIDE ON the evidence without resting on it.
+
+    THE MEASURED FAILURE. The answer gates judge a candidate WHOLE, and a whole
+    can be an honest refusal with a fabrication stapled to it:
+
+        "I do not know. Vorlin is not a recognized substance."
+        "No sé. La población de la isla puede variar."
+        "I do not know. RFC 9110 is obsoleted by RFC 9111."   (field trial)
+
+    Each of those was scored a loss, and the second half of each is a claim the
+    document does not make. Whole-answer coverage cannot see it: the refusal's
+    words and the claim's words are pooled, the ratio lands in the middle, and
+    the read-back — a model call, and on a weak local engine an unreliable one —
+    is left to decide. `verify.verify` has always filtered sentence by sentence,
+    but the evidence path returns its chosen candidate without passing through
+    it, which is precisely the gap these three sentences walked through.
+
+    THE CRITERION IS THE MIXTURE, and it needs no language and no model. A
+    sentence whose content words ALL come from the evidence rests on it. A
+    sentence that shares NOTHING with the evidence rests on nothing and claims
+    nothing about it — that is what a refusal, a greeting or an apology looks
+    like from outside, in any language, without having to recognise one. What
+    cannot be allowed is the MIXTURE: a sentence that takes some of its words
+    from the evidence and the rest from somewhere else is wearing the
+    evidence's authority over material the evidence never supplied. All three
+    sentences above are mixtures — 'vorlin' and 'substance' are in the
+    document, 'recognized' is not.
+
+    IT CANNOT EMPTY AN ANSWER THE GATES ADMITTED. If every sentence is a
+    mixture, nothing is dropped: whether a candidate may speak at all is the
+    gates' decision above, and this is only an audit of what rides along with
+    it. That clause is also what keeps a fluent one-sentence answer ("Evet,
+    torvanit bir maddedir" — 'evet' comes from neither the block nor the
+    question) exactly as it was.
+
+    KNOWN RESIDUE, stated rather than hidden: a fabricated sentence sharing NO
+    word at all with the evidence is kept by this rule, because from outside it
+    is indistinguishable from a refusal. Telling those two apart is asking
+    whether a sentence CLAIMS anything, which is what `extract.reextract` is
+    for — and that is a model call, which is the thing this filter exists to
+    not depend on. `verify.verify` still closes that case where it runs.
+    """
+    parts = [p.strip() for p in _SENTENCE.split(answer.strip()) if p.strip()]
+    if len(parts) < 2:
+        return answer
+    kept = [p for p in parts
+            if coverage(p, block, question) in (0.0, 1.0)]
+    if not kept or len(kept) == len(parts):
+        return answer
+    return " ".join(kept)
+
+
 def covered(answer, block, question=""):
     """Do ALL of the answer's content-words come from the given block —
     prefix-tolerant (inflection: "bandındadır"~"bandında"). No new content-word =
