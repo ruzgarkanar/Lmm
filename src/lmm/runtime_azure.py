@@ -8,6 +8,8 @@ temperature, system) → plain text. Selection: LMM_BACKEND=azure. Keys from .en
 (outside git).
 """
 import os
+
+from lmm import paths
 import threading
 
 _CLIENT = None
@@ -15,12 +17,14 @@ _LOCK = threading.Lock()    # prevents double client init during parallel ingest
 
 
 def _root():
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # The user's location, not the package's — see lmm/paths.py for why this
+    # is not derived from __file__ any more.
+    return paths.home()
 
 
 def _env():
-    path = os.path.join(_root(), ".env")
-    if os.path.exists(path):
+    path = paths.find_env()
+    if path:
         with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
