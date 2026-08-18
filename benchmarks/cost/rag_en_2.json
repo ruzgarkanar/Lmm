@@ -1,0 +1,308 @@
+{
+ "ingest": {
+  "wall_seconds": 7.469,
+  "chunks": 4,
+  "calls": 0,
+  "prompt_tokens": 0,
+  "completion_tokens": 0,
+  "api_seconds": 0,
+  "embedding": {
+   "calls": 1,
+   "api_tokens": 0,
+   "texts": 4,
+   "characters": 1635,
+   "cpu_seconds": 0.213
+  }
+ },
+ "query_embedding": {
+  "calls": 18,
+  "api_tokens": 0,
+  "texts": 21,
+  "characters": 1986,
+  "cpu_seconds": 1.233
+ },
+ "questions": [
+  {
+   "soru": "what is zerbalit",
+   "cevap": "Zerbalit is a metal and a substance.",
+   "wall_seconds": 2.857,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 512,
+     "completion_tokens": 12
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 512,
+   "completion_tokens": 12,
+   "api_seconds": 2.765
+  },
+  {
+   "soru": "what is vorlin",
+   "cevap": "Vorlin is a drink made from the norgul plant.",
+   "wall_seconds": 1.499,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 511,
+     "completion_tokens": 14
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 511,
+   "completion_tokens": 14,
+   "api_seconds": 1.417
+  },
+  {
+   "soru": "what is morlan",
+   "cevap": "Morlan is a bird.",
+   "wall_seconds": 1.326,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 511,
+     "completion_tokens": 7
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 511,
+   "completion_tokens": 7,
+   "api_seconds": 1.271
+  },
+  {
+   "soru": "what is norgul",
+   "cevap": "Norgul is a plant. A plant is a creature. Norgul grows in the marsh and opens white flowers.",
+   "wall_seconds": 1.604,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 512,
+     "completion_tokens": 26
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 512,
+   "completion_tokens": 26,
+   "api_seconds": 1.553
+  },
+  {
+   "soru": "what is karvel",
+   "cevap": "Karvel is a fish.",
+   "wall_seconds": 1.366,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 511,
+     "completion_tokens": 7
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 511,
+   "completion_tokens": 7,
+   "api_seconds": 1.313
+  },
+  {
+   "soru": "what is kelvit",
+   "cevap": "Kelvit is a metal and a substance.",
+   "wall_seconds": 1.536,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 511,
+     "completion_tokens": 10
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 511,
+   "completion_tokens": 10,
+   "api_seconds": 1.484
+  },
+  {
+   "soru": "what is selvin",
+   "cevap": "Selvin is a drink.",
+   "wall_seconds": 1.433,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 511,
+     "completion_tokens": 7
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 511,
+   "completion_tokens": 7,
+   "api_seconds": 1.382
+  },
+  {
+   "soru": "what is Velmar",
+   "cevap": "Velmar is a village in the north of Nortlann island.",
+   "wall_seconds": 1.502,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 511,
+     "completion_tokens": 15
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 511,
+   "completion_tokens": 15,
+   "api_seconds": 1.448
+  },
+  {
+   "soru": "is vorlin a liquid",
+   "cevap": "Yes, vorlin is a liquid.",
+   "wall_seconds": 1.484,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 512,
+     "completion_tokens": 9
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 512,
+   "completion_tokens": 9,
+   "api_seconds": 1.428
+  },
+  {
+   "soru": "is zilfen a creature",
+   "cevap": "Yes, Zilfen is a creature.",
+   "wall_seconds": 1.347,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 512,
+     "completion_tokens": 10
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 512,
+   "completion_tokens": 10,
+   "api_seconds": 1.261
+  },
+  {
+   "soru": "is torvanit a substance",
+   "cevap": "No, torvanit is not mentioned as a substance in the context.",
+   "wall_seconds": 1.503,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 513,
+     "completion_tokens": 16
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 513,
+   "completion_tokens": 16,
+   "api_seconds": 1.452
+  },
+  {
+   "soru": "what happens if it rains",
+   "cevap": "If it rains, the marsh grows.",
+   "wall_seconds": 1.536,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 512,
+     "completion_tokens": 9
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 512,
+   "completion_tokens": 9,
+   "api_seconds": 1.482
+  },
+  {
+   "soru": "what happens if norgul multiplies",
+   "cevap": "If norgul multiplies, morlan multiplies.",
+   "wall_seconds": 1.627,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 515,
+     "completion_tokens": 13
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 515,
+   "completion_tokens": 13,
+   "api_seconds": 1.538
+  },
+  {
+   "soru": "what is melvarit",
+   "cevap": "No sé.",
+   "wall_seconds": 1.341,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 512,
+     "completion_tokens": 4
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 512,
+   "completion_tokens": 4,
+   "api_seconds": 1.289
+  },
+  {
+   "soru": "what is the capital of Nortlann",
+   "cevap": "I do not know.",
+   "wall_seconds": 1.361,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 515,
+     "completion_tokens": 6
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 515,
+   "completion_tokens": 6,
+   "api_seconds": 1.281
+  },
+  {
+   "soru": "at how many degrees does vorlin boil",
+   "cevap": "I do not know.",
+   "wall_seconds": 1.404,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 515,
+     "completion_tokens": 6
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 515,
+   "completion_tokens": 6,
+   "api_seconds": 1.325
+  },
+  {
+   "soru": "what is the population of the island",
+   "cevap": "I do not know.",
+   "wall_seconds": 1.299,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 514,
+     "completion_tokens": 6
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 514,
+   "completion_tokens": 6,
+   "api_seconds": 1.247
+  }
+ ],
+ "side": "rag",
+ "corpus": "corpus_en.txt",
+ "zero_call_questions": 0,
+ "question_count": 17,
+ "query_totals": {
+  "calls": 17,
+  "prompt_tokens": 8710,
+  "completion_tokens": 177,
+  "wall_seconds": 26.025
+ }
+}

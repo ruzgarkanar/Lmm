@@ -111,6 +111,36 @@ identically in three languages (the graph ingests 61–62 facts and derives 8 in
 each); the engine's *stylistic* habit of explaining its refusals varies, and this
 system's scoring is strict enough to charge it.
 
+## Cost, measured
+
+Accuracy is only half of a comparison. The other half is what it costs, so the
+same two architectures were run again with a counter wrapped around the model
+clients — real `usage` tokens from the server, median of three repeats, both
+corpora. **[`benchmarks/COST.md`](benchmarks/COST.md)** has the full tables; the
+short version is not flattering to us:
+
+| Per question, TR corpus | RAG | LMM `deep=True` |
+|---|---|---|
+| model calls | **1.0** | 6.6 |
+| prompt tokens | **593** | 4,790 |
+| wall clock | **1.6 s** | 9.2 s |
+| Ingestion (once) | 0 API tokens (local embedding, ~0.2 s CPU) | 42,449 + 1,176 tokens — or **0**, with `deep=False` |
+| Dependencies on disk | 114 packages, 1.35 GB + 458 MB weights | **1 package, 1.1 MB** |
+
+**On a hosted per-token engine, embedding RAG is cheaper than LMM and there is
+no break-even** — roughly 7x the calls and 8x the prompt tokens per question,
+and the gap widens with every question asked. Most of it is the verification
+read-back: the gate re-extracting the claims out of a sentence before it may
+leave. That is fabrication-0 being paid for in tokens.
+
+What the tokens buy is the other column of the table above — provenance, the
+refusal guarantee, symbolic multi-hop derivation, and a core with no
+dependencies. And on the local engine this project is actually built for, the
+dollar figure is **zero** and the cost is your own CPU seconds instead.
+
+Zero-call answers — questions the graph could answer with no model call at all —
+were measured too. The honest count on this corpus is **0 of 17**.
+
 ## Architecture
 
 ```
