@@ -1,0 +1,18 @@
+{
+ "measured": "2026-08-18, python 3.11, macOS arm64, two clean virtualenvs",
+ "rows": [
+  {
+   "name": "**LMM** — `pip install lmm`",
+   "packages": "**1** (`dependencies = []` in pyproject.toml)",
+   "size": "**1.1 MB**",
+   "weights": "none — the graph, gate, trust ordering and derivation are pure python"
+  },
+  {
+   "name": "**RAG** — `pip install langchain-chroma langchain-openai langchain-text-splitters sentence-transformers`",
+   "packages": "**114**",
+   "size": "**1.35 GB**",
+   "weights": "**458 MB** embedding checkpoint, fetched at first use"
+  }
+ ],
+ "note": "Both venvs also carry the same ~21 MB of `pip`/`setuptools`, excluded from both rows. The RAG figure is dominated by `torch` (534 MB), `transformers` (110 MB), `scipy` (100 MB), `onnxruntime` (81 MB) and — via Chroma — `kubernetes` (84 MB). That is roughly **1,200x the disk and 114x the packages**, before a single question is asked. To be fair to RAG: this weight is what buys it the zero-API-token ingestion in section 1, and an LMM deployment that runs its own local engine pulls in a comparable stack (`pip install lmm[local]`). The 1.1 MB figure is the *core* — the part that stores, derives and gates, which is the part that has no dependencies."
+}
