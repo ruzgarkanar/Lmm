@@ -203,7 +203,25 @@ Kept current, and deliberately specific.
 - The engine sometimes appends an explanation to a refusal that the memory
   contradicts. This is **detected** — the turn is scored as having asserted
   something, and loses the point — but not prevented. It is the whole of the
-  remaining English/Spanish gap.
+  remaining English/Spanish gap. (The *other* source of appended text, a second
+  model call after the gate, is gone: the hedge is now the stored source stamp
+  in brackets, `(~ #pdf:manual.pdf)`, and nothing is appended to a refusal at
+  all.)
+- **LMM does not OCR.** A PDF without a text layer — what an office scanner
+  produces — teaches it nothing, and `learn()` now says so instead of reporting
+  a cheerful zero. Run OCR first and learn the result.
+- **There is no HTML reader.** An `.html` file is read as plain text and its
+  markup lands in the evidence index; `learn()` warns, with the share of
+  characters that were tags. Convert to text first.
+- Table *columns* are still flattened by the PDF reader: a cell can reach the
+  index next to a neighbouring column's value, and no gate can reject that,
+  because the claim really is in the evidence. Rows are repaired; columns are
+  not.
+- A spreadsheet whose header spans more than one row loses the unnamed columns.
+- An engine call is bounded by `LMM_TIMEOUT` (90 s by default; 0 removes the
+  limit) on the API backend, which raises `EngineTimeout` rather than waiting
+  out a quota. The local engine's generation loop is **not** interruptible, so
+  the budget does not cover it.
 - The coverage gate cannot distinguish negation affixes at word level (language
   lists are forbidden by design); the engine-level support check covers most of
   that class.
@@ -216,7 +234,7 @@ that make this project what it is: **no document-specific constants** and **no
 hand-written language rules**. Both are stated with what enforcing them cost.
 
 ```bash
-python3.11 tests/test_core.py     # 59 tests · no model · no GPU · no network
+python3.11 tests/test_core.py     # 63 tests · no model · no GPU · no network
 ```
 
 Every test is a pathology that was measured on this code, written back as an
