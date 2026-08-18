@@ -1009,7 +1009,7 @@ def h6():
                  "olarak kaydedilmiştir.\n", deep=False)
     wrong = "Hazırlayan: Nordheim Kayıt Bürosu"
     real = (generate.answer, generate.supported, generate.answers_asked,
-            generate.refusal, generate.hedge_note)
+            generate.refusal)
     views = []
 
     def judge(question, answer, view):
@@ -1023,7 +1023,6 @@ def h6():
         generate.supported = lambda answer, view: True     # as measured
         generate.answers_asked = judge
         generate.refusal = lambda question: "REFUSED"
-        generate.hedge_note = lambda source, message: ""
         # the relation the document does not state -> abstention, and the
         # graph/verify fallback does not resurrect it
         for question in ("Raporu kim imzalamıştır",
@@ -1041,7 +1040,7 @@ def h6():
         assert s._answer("Raporu kim imzalamıştır", None).startswith(wrong)
     finally:
         (generate.answer, generate.supported, generate.answers_asked,
-         generate.refusal, generate.hedge_note) = real
+         generate.refusal) = real
 
 
 @test("I1 the same document and question always retrieve the same evidence")
@@ -1820,6 +1819,57 @@ def l6():
     assert m.save(path) == path and os.path.exists(path)
     assert len(Memory(path)) == before
 
+
+@test("M1 no unverified text is appended to an answer, and none at all to a refusal")
+def m1():
+    """THE FIELD TRIAL'S BIGGEST HOLE: a second model call after the gate.
+
+    `_answer` and `_hedge` used to append `generate.hedge_note(...)` — a
+    separate generation at temperature 0.3 — to an answer that had already
+    passed verify/coverage/read-back, and the concatenation was never checked
+    again. Measured on twelve public documents: four of six wrong answers were
+    that note, the worst of them glued to a perfect abstention
+    ("I do not know. RFC 9110 is obsoleted by RFC 9111.").
+
+    Two properties are asserted here, both without a model: an abstaining turn
+    comes out byte-for-byte as the answer path produced it, and an asserting
+    turn gains NOTHING but the stored source stamp inside format punctuation —
+    no token that could carry a new fact."""
+    from lmm import generate, session as lmm_session
+    assert not hasattr(generate, "hedge_note"), \
+        "the ungated second model call is back"
+
+    s = lmm_session.Session(None)
+    refusal = "Bilmiyorum."
+
+    def spoke(message):
+        s._mark = "#pdf:rfc2119.txt"       # a low-trust source, as _hedge sets
+        return refusal
+
+    s._respond = spoke
+    s._asserted_a_fact = lambda said: False        # the turn claimed nothing
+    assert s.respond("RFC 2119 kaç sayfadır") == refusal, "text after a refusal"
+    assert s.last_abstained is True
+
+    s._asserted_a_fact = lambda said: True         # the turn made a claim
+    said = s.respond("RFC 2119 kaç sayfadır")
+    assert said.startswith(refusal) and said != refusal
+    added = said[len(refusal):]
+    # WHAT WAS ADDED CANNOT BE A FACT: every token is either the stamp the
+    # session already stored or pure punctuation. Nothing was generated, so
+    # nothing can be invented — that is the property, not a smaller prompt.
+    for token in added.split():
+        assert token.startswith("#") or not any(c.isalnum() for c in token), token
+    assert "#pdf:rfc2119.txt" in added and s.last_abstained is False
+
+    # AND THE STAMP SURVIVES THE MARK'S BRACKETS, for a reader of `explain=True`
+    from lmm.api import Memory
+    m = Memory()
+    m.session.respond = lambda q: said
+    m.session.last_abstained = False
+    m.session.last_subject = m.session.last_kind = ""
+    m.session.last_written = []
+    assert m.ask("x", explain=True).sources == ("#pdf:rfc2119.txt",)
 
 
 def main():
