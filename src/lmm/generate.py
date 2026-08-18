@@ -155,19 +155,15 @@ def answers_asked(question, answer, block):
     return out.strip().lower().startswith("yes")
 
 
-def hedge_note(source_label, message):
-    """Produces a SHORT caveat NOTE in the user's language (NO facts; only the
-    meaning 'this information is from this source, I'm not certain'). It is
-    APPENDED to the verified answer; the answer itself does NOT change — so the
-    hedge step can never add fabrication (only a note, and since it carries no
-    fact it also passes verify). condition-5: Qwen composes the note, no
-    hand-written template."""
-    system = (_MATCH_LANGUAGE +
-              "Write ONE very short "
-              "caveat, in parentheses, meaning: the statement is not certain and "
-              f"comes from this source: {source_label}. Contain NO facts — only "
-              "the caveat and the source. Keep it under 8 words.")
-    return runtime.generate(message, system=system, max_tokens=32, temperature=0.3)
+# `hedge_note` STOOD HERE, AND IS GONE. It asked the engine for a short caveat
+# and `Session` concatenated the result onto an answer that had already passed
+# verify / digits_ok / coverage / read-back — so the one property this
+# architecture rests on ("what is not in the evidence does not get said") was
+# enforced, and then the string it was enforced on was mutated. Measured on
+# twelve public documents: four of six wrong answers were this note, e.g.
+# "I do not know." followed by an invented HTTP status code, in a language
+# nobody had asked for. The mark that replaced it is built from the stored
+# source stamp with no model call at all (see `session.UNCERTAIN`).
 
 
 def category_from(subject, text):

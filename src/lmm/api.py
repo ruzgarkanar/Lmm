@@ -240,7 +240,11 @@ class Memory:
         return Answer(
             said,
             abstained=session.last_abstained,
-            sources=[w for w in said.split() if w.startswith("#") and len(w) > 1],
+            # The provenance mark is written as '(~ #stamp)', so a stamp can
+            # arrive wearing the mark's punctuation; strip the bracketing, not
+            # the stamp.
+            sources=[s for s in (w.strip("()[].,;:") for w in said.split())
+                     if s.startswith("#") and len(s) > 1],
             subject=session.last_subject,
             kind=session.last_kind,
             wrote=tuple(session.last_written),

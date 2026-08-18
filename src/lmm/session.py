@@ -39,6 +39,22 @@ FALLBACK_DONT_KNOW = "I don't know."   # last-resort only: the normal
 # refusal is engine-generated in the USER'S language; this string is hit
 # only when generation itself fails.
 
+# THE UNCERTAINTY MARK. A verified answer resting on a below-CERTAIN fact is
+# spoken with its provenance attached, and that attachment used to be a SECOND
+# MODEL CALL (`generate.hedge_note`) whose output was concatenated onto the
+# answer AFTER every gate had run. A field trial measured what that costs: four
+# of six wrong answers in twelve documents entered through it, including
+# "I do not know. RFC 9110 is obsoleted by RFC 9111." — a fabricated sentence
+# glued to a perfect abstention.
+#
+# The hedge carries no information the session does not already hold, so it is
+# built from what is stored: a tilde for "not certain" and the source stamp the
+# record already wears. It is FORMAT, not language — the same standing as the
+# colon separator and the '#' prefix CONTRIBUTING permits — so it needs no
+# engine, cannot fabricate, and reads the same in every language.
+UNCERTAIN = "~"
+UNKNOWN_SOURCE = "#source"     # a low-trust record with no stamp of its own
+
 
 def _grounded_in(value, message):
     """Does the VALUE to be taught actually appear in the user's MESSAGE — did
@@ -71,6 +87,9 @@ class Session:
         self._rival_cache = {}
         self.gate.rival = self._are_rivals
         self._pending = None    # subject offered for research (ask-first flow)
+        self._mark = ""         # this turn's provenance mark (see UNCERTAIN):
+        #                         recorded while answering, attached in
+        #                         `respond` and ONLY to a turn that asserted
         self.last_written = []  # triples the gate admitted this turn (harvest)
         # WHAT THIS TURN DID, in the session's own words. These are not
         # features of the conversation; they are the session REPORTING ITSELF,
@@ -324,6 +343,7 @@ class Session:
         self.last_abstained = False
         self.last_kind = ""
         self.last_subject = ""
+        self._mark = ""
         said = self._respond(message)
         if said and not self.last_abstained:
             # A REFUSAL DOES NOT ONLY COME OUT OF THE REFUSAL DOOR. The engine
@@ -342,6 +362,15 @@ class Session:
             # whatever language it was written. One short model call per
             # answering turn, and only on turns that did not already refuse.
             self.last_abstained = not self._asserted_a_fact(said)
+        # THE MARK GOES ON LAST, AND ONLY ON A STATEMENT. Provenance qualifies a
+        # claim; there is nothing to qualify in "I don't know", and the field
+        # trial's four fabrications were all text appended to exactly that. So
+        # the attachment waits until the turn has been read for whether it
+        # asserted anything — the same organ the fabrication gate trusts — and
+        # an abstention leaves this method byte-for-byte as the answer path
+        # produced it.
+        if said and self._mark and not self.last_abstained:
+            said = f"{said} ({UNCERTAIN} {self._mark})"
         if message and message.strip():
             self.history.append({"role": "user", "content": message})
             self.history.append({"role": "assistant", "content": said or ""})
@@ -1001,9 +1030,7 @@ class Session:
             # source is DOCUMENT level — same source-transparency principle as
             # the graph path.
             src = next((s for s in self.evidence.last_sources if s), "#document")
-            note = generate.hedge_note(src, question)
-            if note:
-                safe = f"{safe} {note}"
+            self._mark = src
         return safe
 
     # How many answers the answer step may generate. A BUDGET (model calls),
@@ -1265,13 +1292,18 @@ class Session:
         return any(generate.supported(raw, view) for view in views)
 
     def _hedge(self, answer, record, message):
-        """Appends a hedging NOTE to a VERIFIED answer resting on a low-trust
-        fact. The answer text doesn't change (no fabrication can be added),
-        only source+hedge at the end."""
-        source = record.source or ""
-        label = source[5:] if source.startswith("#web:") else "a stored source"
-        note = generate.hedge_note(label, message)
-        return f"{answer} {note}".strip() if note else answer
+        """RECORDS the provenance mark for a VERIFIED answer resting on a
+        low-trust fact. It returns the answer UNCHANGED and appends nothing:
+        the mark is attached in `respond`, after the turn has been read for
+        whether it asserted anything (see UNCERTAIN).
+
+        The label is the record's own stamp — what the writer stored, not a
+        sentence about it. The previous version asked the engine to compose a
+        caveat and pasted the result onto an already-verified answer, outside
+        every gate; that is where two thirds of this system's measured false
+        statements came from."""
+        self._mark = record.source or UNKNOWN_SOURCE
+        return answer
 
     # --- agentic research (approve, learn from the web) ----------------
     def _research(self, subject_label, question):
