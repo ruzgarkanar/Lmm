@@ -2003,6 +2003,20 @@ def m3():
     # it STOPS where the prose starts — the block is not the whole document
     assert "42" not in head and "vardiya" not in head, head
 
+    # AN ABBREVIATION IS NOT A SENTENCE END — measured on RFC 9110, whose first
+    # masthead line ends "R. Fielding, Ed." and killed the block outright. What
+    # separates them is not the dot but the TYPESETTING: a masthead line holds
+    # its pieces columns apart, and this document's own lines say how wide that
+    # is (prose keeps single spaces).
+    columned = ("Kurul Sekreteryası                              T. Velmar, Ed.\n"
+                "Belge: HB-14                            Karvel Enstitüsü\n"
+                "Sınıf: Genel                                   Mart 2031\n"
+                "Denetim sırasında ölçülen sıcaklık 42 derecedir.\n"
+                "Ölçüm günün ilk vardiyasında yapılmıştır.\n")
+    head = evidence.front_matter(columned)
+    assert "T. Velmar, Ed." in head and "Mart 2031" in head, head
+    assert "42" not in head, head          # and the prose line still ends it
+
     # a document that opens with a sentence has no masthead, and is not given one
     assert evidence.front_matter(
         "Denetim sırasında ölçülen sıcaklık 42 derecedir.\n"
