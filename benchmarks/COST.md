@@ -21,7 +21,7 @@ python3.11 benchmarks/cost_report.py > benchmarks/COST.md
 |---|---|---|---|---|---|
 | RAG (embed + Chroma + 4o-mini) | 0 | 0 | 0 | 1 **local, 0 API tokens** (0.2 s CPU) | 7.7 s |
 | LMM `deep=False` (evidence-only) | 0 | 0 | 0 | 0 — none | 0.0 s |
-| LMM `deep=True` (graph extraction) | 121 | 43,529 | 1,058 | 0 — none | 23.3 s |
+| LMM `deep=True` (graph extraction) | 121 | 43,529 | 1,057 | 0 — none | 24.4 s |
 
 **TR corpus** — 1,529 characters
 
@@ -29,13 +29,13 @@ python3.11 benchmarks/cost_report.py > benchmarks/COST.md
 |---|---|---|---|---|---|
 | RAG (embed + Chroma + 4o-mini) | 0 | 0 | 0 | 1 **local, 0 API tokens** (0.2 s CPU) | 7.4 s |
 | LMM `deep=False` (evidence-only) | 0 | 0 | 0 | 0 — none | 0.0 s |
-| LMM `deep=True` (graph extraction) | 118 | 42,449 | 1,176 | 0 — none | 21.8 s |
+| LMM `deep=True` (graph extraction) | 118 | 42,449 | 1,174 | 0 — none | 22.7 s |
 
 **The embedding zero is real and it matters.** RAG's ingestion here spends no API tokens at all, because the embedding model is a local `sentence-transformers` checkpoint. What it spends instead is CPU seconds and roughly half a gigabyte of dependencies (section 4). Had a hosted embedding API been used instead, that column would carry a real token bill; this setup deliberately gives RAG the cheaper option.
 
-**LMM `deep=False` ingests for free** — literally zero model calls, zero tokens, 13 ms. Building the evidence index is pure python: no model, no network, no embedding. This is the cheapest ingestion in the table by a wide margin, and it is the mode meant for a large document.
+**LMM `deep=False` ingests for free** — literally zero model calls, zero tokens, 6 ms. Building the evidence index is pure python: no model, no network, no embedding. This is the cheapest ingestion in the table by a wide margin, and it is the mode meant for a large document.
 
-**`deep=True` is where LMM's ingestion cost lives** — 121 calls and 44,587 tokens to read this small corpus into a graph, because every candidate fact is extracted and then re-read by the gate before it is admitted. That is the provenance and the refusal guarantee being paid for up front. It buys 62 admitted facts and the 8 further ones the graph *derives* symbolically — no model call, microseconds — which is what makes multi-hop answers possible. It is paid once per document rather than once per question.
+**`deep=True` is where LMM's ingestion cost lives** — 121 calls and 44,586 tokens to read this small corpus into a graph, because every candidate fact is extracted and then re-read by the gate before it is admitted. That is the provenance and the refusal guarantee being paid for up front. It buys 62 admitted facts and the 8 further ones the graph *derives* symbolically — no model call, microseconds — which is what makes multi-hop answers possible. It is paid once per document rather than once per question.
 
 For scale: that corpus is ~1.5 KB. Ingestion cost on this path grows with the document, so a 350-page manual is not a `deep=True` job — which is exactly why `deep=False` exists.
 
@@ -46,16 +46,16 @@ For scale: that corpus is ~1.5 KB. Ingestion cost on this path grows with the do
 | | calls/q | prompt tok/q | completion tok/q | wall/q |
 |---|---|---|---|---|
 | RAG (embed + Chroma + 4o-mini) | 1.0 | 512 | 11 | 1.6 s |
-| LMM `deep=False` (evidence-only) | 7.6 | 5,059 | 57 | 10.7 s |
-| LMM `deep=True` (graph extraction) | 6.7 | 4,940 | 57 | 9.1 s |
+| LMM `deep=False` (evidence-only) | 7.6 | 5,141 | 59 | 10.6 s |
+| LMM `deep=True` (graph extraction) | 5.3 | 3,839 | 46 | 7.0 s |
 
 **TR**
 
 | | calls/q | prompt tok/q | completion tok/q | wall/q |
 |---|---|---|---|---|
 | RAG (embed + Chroma + 4o-mini) | 1.0 | 593 | 9 | 1.6 s |
-| LMM `deep=False` (evidence-only) | 7.8 | 5,400 | 65 | 11.6 s |
-| LMM `deep=True` (graph extraction) | 6.6 | 4,790 | 59 | 9.2 s |
+| LMM `deep=False` (evidence-only) | 7.8 | 5,400 | 65 | 11.1 s |
+| LMM `deep=True` (graph extraction) | 5.5 | 3,944 | 48 | 7.5 s |
 
 ### Where LMM's calls go
 
@@ -64,24 +64,28 @@ Calls per question, by kind. This is the breakdown that says where to attack the
 | | extract calls/q | answer calls/q | read-back calls/q | relation-check calls/q | prompt tok/q (largest bucket) |
 |---|---|---|---|---|---|
 | RAG (embed + Chroma + 4o-mini) (en) | 0.0 | 1.0 | 0.0 | 0.0 | answer: 512 |
-| LMM `deep=False` (evidence-only) (en) | 1.0 | 2.9 | 2.7 | 1.0 | answer: 2,249 |
-| LMM `deep=True` (graph extraction) (en) | 1.0 | 2.8 | 2.8 | 0.1 | read-back: 2,162 |
+| LMM `deep=False` (evidence-only) (en) | 1.0 | 2.9 | 2.8 | 1.0 | answer: 2,249 |
+| LMM `deep=True` (graph extraction) (en) | 0.8 | 2.2 | 2.1 | 0.1 | answer: 1,748 |
 | RAG (embed + Chroma + 4o-mini) (tr) | 0.0 | 1.0 | 0.0 | 0.0 | answer: 593 |
-| LMM `deep=False` (evidence-only) (tr) | 1.0 | 2.9 | 2.9 | 1.0 | read-back: 2,319 |
-| LMM `deep=True` (graph extraction) (tr) | 1.0 | 2.6 | 2.6 | 0.4 | answer: 2,118 |
+| LMM `deep=False` (evidence-only) (tr) | 1.0 | 2.9 | 2.9 | 1.0 | read-back: 2,318 |
+| LMM `deep=True` (graph extraction) (tr) | 0.8 | 2.2 | 2.1 | 0.3 | answer: 1,784 |
 
 ## 3. Zero-call answers
 
 How many questions LMM answered with **no model call at all** — pure graph lookup, no engine involved. The architecture permits it: a derived fact or a table row is already an answer. Whether it *happens* on this corpus is a measurement, and the honest answer is below.
 
+This row read **0 of 17 at every commit** until `lmm/lookup.py` was written. The architecture permitted the zero-call answer and the code never took it: `respond` spent a call turning a held triple into a sentence and more calls reading that sentence back. `lookup` takes it, for the questions it can settle without guessing.
+
 | | questions | answered with 0 model calls | share |
 |---|---|---|---|
 | LMM `deep=False` (evidence-only) (en) | 17 | 0 | 0% |
-| LMM `deep=True` (graph extraction) (en) | 17 | 0 | 0% |
+| LMM `deep=True` (graph extraction) (en) | 17 | 3 | 18% |
 | LMM `deep=False` (evidence-only) (tr) | 17 | 0 | 0% |
-| LMM `deep=True` (graph extraction) (tr) | 17 | 0 | 0% |
+| LMM `deep=True` (graph extraction) (tr) | 17 | 3 | 18% |
 
-**Zero. Not one.** Every question on this corpus went through the engine. The graph decides *what* may be said and the derivation runs in microseconds without a model — but `respond` still spends a call turning the retrieved facts into a sentence, and more calls reading that sentence back. The zero-call path exists in the architecture and is not reached here; claiming otherwise would be the easiest number in this document to fake.
+**What those questions have in common is what the path requires: the question NAMES what it asks about.** "is vorlin a liquid" names `liquid`, and the graph holds `vorlin -[type]-> liquid` as a record it DERIVED — so the answer is the record, returned in microseconds with no engine to consult and therefore nothing for an engine to invent. These are the multi-hop questions, which is the pleasing part: the step that was supposed to prove "the symbolic layer needs no model" is the step now proving it in the bill.
+
+**The rest still go to the engine, and the reason is a limit rather than an oversight.** A question that names no field at all — "norgul nedir" — is indistinguishable, structurally, from one naming a field the graph has never heard of — "Nortlann'ın başkenti neresidir". Both are a known subject followed by words no node and no document carries. Answering the first from the subject's single taxonomy value means answering the second with it too, which turns a correct abstention into a confident wrong answer. The eight "what is X" questions per language stay on the paid path, and that is the price of the guarantee.
 
 ## 4. Infrastructure
 
@@ -103,16 +107,16 @@ The tables above are token counts, which are true regardless of what anyone char
 | | ingestion (once) | per question | 1,000 questions | 100,000 questions |
 |---|---|---|---|---|
 | RAG (embed + Chroma + 4o-mini) | $0.0000 | $0.0001 | $0.0834 | $8.34 |
-| LMM `deep=False` (evidence-only) | $0.0000 | $0.0008 | $0.7929 | $79.29 |
-| LMM `deep=True` (graph extraction) | $0.0072 | $0.0008 | $0.7825 | $77.54 |
+| LMM `deep=False` (evidence-only) | $0.0000 | $0.0008 | $0.8065 | $80.66 |
+| LMM `deep=True` (graph extraction) | $0.0072 | $0.0006 | $0.6107 | $60.36 |
 
 **TR — total spend for N questions over one ingested document**
 
 | | ingestion (once) | per question | 1,000 questions | 100,000 questions |
 |---|---|---|---|---|
 | RAG (embed + Chroma + 4o-mini) | $0.0000 | $0.0001 | $0.0945 | $9.45 |
-| LMM `deep=False` (evidence-only) | $0.0000 | $0.0008 | $0.8492 | $84.92 |
-| LMM `deep=True` (graph extraction) | $0.0071 | $0.0008 | $0.7610 | $75.40 |
+| LMM `deep=False` (evidence-only) | $0.0000 | $0.0008 | $0.8487 | $84.87 |
+| LMM `deep=True` (graph extraction) | $0.0071 | $0.0006 | $0.6277 | $62.07 |
 
 ### Break-even
 
@@ -123,18 +127,20 @@ The tables above are token counts, which are true regardless of what anyone char
 
 The one crossing that exists is *inside* LMM:
 
-- **`deep=False` vs `deep=True` (en)** — `deep=False` ingests free but asks dearer; `deep=True` overtakes it at **~407 questions** on one document. Below that, shallow is the cheaper LMM; above it, the graph has repaid its own extraction.
-- **`deep=False` vs `deep=True` (tr)** — `deep=False` ingests free but asks dearer; `deep=True` overtakes it at **~74 questions** on one document. Below that, shallow is the cheaper LMM; above it, the graph has repaid its own extraction.
+- **`deep=False` vs `deep=True` (en)** — `deep=False` ingests free but asks dearer; `deep=True` overtakes it at **~35 questions** on one document. Below that, shallow is the cheaper LMM; above it, the graph has repaid its own extraction.
+- **`deep=False` vs `deep=True` (tr)** — `deep=False` ingests free but asks dearer; `deep=True` overtakes it at **~31 questions** on one document. Below that, shallow is the cheaper LMM; above it, the graph has repaid its own extraction.
 
 **Treat those two numbers as an order of magnitude, not a threshold.** They divide a fixed ingestion cost by a small per-question difference, so the noise in the per-question figure is amplified — which is exactly why the two languages disagree by several-fold on a corpus that is otherwise line-for-line identical. What is solid is the shape: shallow wins for a handful of questions, deep wins once you are asking hundreds.
 
 ## 6. Honest summary
 
-**Where we are more expensive: everywhere that is measured in tokens.** On the EN corpus LMM `deep=True` spends **6.7 model calls per question** against RAG's 1.0 — about **7x the calls and 10x the prompt tokens**. Ingestion is worse in relative terms: 44,587 tokens against RAG's 0, because RAG's embedding step is a local model and spends none at all. There is no reading of these numbers in which LMM is the cheap option on a hosted per-token engine, and no break-even where that reverses — the gap grows with every question asked.
+**Where we are more expensive: everywhere that is measured in tokens.** On the EN corpus LMM `deep=True` spends **5.3 model calls per question** against RAG's 1.0 — about **5x the calls and 7x the prompt tokens**. Ingestion is worse in relative terms: 44,586 tokens against RAG's 0, because RAG's embedding step is a local model and spends none at all. There is no reading of these numbers in which LMM is the cheap option on a hosted per-token engine, and no break-even where that reverses — the gap grows with every question asked.
 
-**We are also slower per question**: 9.1 s against RAG's 1.6 s, because six or seven sequential calls cannot beat one. On the same rate-limited deployment, measured back to back.
+**We are also slower per question**: 7.0 s against RAG's 1.6 s, because six or seven sequential calls cannot beat one. On the same rate-limited deployment, measured back to back.
 
-**Which LMM mode is cheaper is a question of how many questions you will ask.** `deep=False` ingests for nothing but asks dearer (7.6 calls/q vs 6.7); `deep=True` pays 44,587 tokens up front and then asks cheaper, because the graph answers more directly. They cross somewhere in the **low hundreds of questions** on one document (~407 here, but see the caveat above — the two languages disagree several-fold). `deep=False` is also the only workable mode for a large document, since extraction cost scales with the text while the evidence index does not.
+**Which LMM mode is cheaper is a question of how many questions you will ask.** `deep=False` ingests for nothing but asks dearer (7.6 calls/q vs 5.3); `deep=True` pays 44,586 tokens up front and then asks cheaper, because the graph answers more directly. They cross somewhere in the **low hundreds of questions** on one document (~35 here, but see the caveat above — the two languages disagree several-fold). `deep=False` is also the only workable mode for a large document, since extraction cost scales with the text while the evidence index does not.
+
+**Some questions now cost nothing at all.** Section 3 counts 6 answers across these runs that never reached the engine — the graph settled them itself, in microseconds, for zero tokens and zero seconds of anyone's GPU. It is a minority of the questions and it does not move the per-question average much; what it moves is the FLOOR. On that share of the traffic the architecture is not merely cheaper than RAG, it is free, and it is engine-independent — the same answer comes back from a 3B int4 build on a laptop as from a hosted model, because neither was asked.
 
 **Where we are cheaper: the axes this table cannot bill.** The tokens above buy three things RAG does not have at any price — every answer carrying its source, a structural gate that stops an unsupported claim from leaving, and multi-hop facts *derived* symbolically in microseconds with no model call. Section 4's disk figures are the other axis: a zero-dependency core against an embedding stack and a vector database. And the whole dollar column collapses to zero on a local engine, where the cost becomes your own seconds — which is the deployment this project is actually built for.
 

@@ -1,110 +1,127 @@
 {
- "ingest_ms": 24403,
- "yazilan": 62,
+ "ingest_ms": 24320,
+ "yazilan": 61,
  "atlanan": 0,
  "turetilen": 8,
  "cevaplar": [
   {
    "soru": "what is zerbalit",
-   "cevap": "Zerbalit is a metal. Zerbalit hakkında kesin bilgi yoktur (#doc:corpus).",
-   "ms": 12240,
-   "abstained": false
+   "cevap": "Zerbalit is a metal. (~ #doc:corpus)",
+   "ms": 10658,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "what is vorlin",
-   "cevap": "Vorlin is a drink. (Vorlin may refer to various concepts.) #doc:corpus",
-   "ms": 9707,
-   "abstained": false
+   "cevap": "Vorlin is a drink. (~ #doc:corpus)",
+   "ms": 9273,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "what is morlan",
-   "cevap": "Morlan is a bird. Morlan é um termo que pode se referir a diferentes coisas, como um nome próprio, um lugar ou até mesmo um conceito em alguma cultura específica. (",
-   "ms": 10855,
-   "abstained": false
+   "cevap": "Morlan is a bird. (~ #doc:corpus)",
+   "ms": 8758,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "what is norgul",
-   "cevap": "Norgul is a plant. Norgul, según algunas fuentes, podría referirse a un concepto o entidad en la cultura popular o en la literatura de fantasía, pero no hay una",
-   "ms": 11909,
-   "abstained": false
+   "cevap": "Norgul is a plant. (~ #doc:corpus)",
+   "ms": 10379,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "what is karvel",
-   "cevap": "Karvel is a fish. Karvel is a type of plant, often referred to as \"bitter cucumber\" or \"bitter gourd.\" It is known for its distinctive taste and",
-   "ms": 12471,
-   "abstained": false
+   "cevap": "Karvel is a fish. (~ #doc:corpus)",
+   "ms": 8476,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "what is kelvit",
-   "cevap": "Kelvit is a metal. (Kelvit may refer to a product or term.) #doc:corpus",
-   "ms": 10342,
-   "abstained": false
+   "cevap": "Kelvit is a metal. (~ #doc:corpus)",
+   "ms": 8921,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "what is selvin",
-   "cevap": "Selvin is a drink. Selvin es un nombre propio. (Not certain, #doc:corpus)",
-   "ms": 10376,
-   "abstained": false
+   "cevap": "Selvin is a drink. (~ #doc:corpus)",
+   "ms": 10002,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "what is Velmar",
-   "cevap": "Velmar is a village. Velmar hakkında kesin bilgi yoktur (#doc:corpus).",
-   "ms": 10311,
-   "abstained": false
+   "cevap": "Velmar is a village. (~ #doc:corpus)",
+   "ms": 10650,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "is vorlin a liquid",
-   "cevap": "Vorlin is a liquid. (Vorlin is not a known substance; source uncertain.)",
-   "ms": 10645,
-   "abstained": false
+   "cevap": "vorlin — type → liquid (~ #inference)",
+   "ms": 0,
+   "abstained": false,
+   "from_graph": true
   },
   {
    "soru": "is zilfen a creature",
-   "cevap": "Zilfen is a creature. (Zilfen may not be a real creature.)",
-   "ms": 16043,
-   "abstained": false
+   "cevap": "zilfen — type → creature (~ #inference)",
+   "ms": 0,
+   "abstained": false,
+   "from_graph": true
   },
   {
    "soru": "is torvanit a substance",
-   "cevap": "Yes, torvanit is a substance. (Torvanit may refer to a substance; source uncertain.)",
-   "ms": 12856,
-   "abstained": false
+   "cevap": "torvanit — type → substance (~ #inference)",
+   "ms": 0,
+   "abstained": false,
+   "from_graph": true
   },
   {
    "soru": "what happens if it rains",
-   "cevap": "If it rains, marsh growth occurs.",
-   "ms": 6697,
-   "abstained": false
+   "cevap": "If it rains, a marsh is formed.",
+   "ms": 7571,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "what happens if norgul multiplies",
-   "cevap": "If norgul multiplies, morlan multiplies. (Norgul's multiplication effects are unclear.) #doc:corpus",
-   "ms": 11297,
-   "abstained": false
+   "cevap": "norgul — multiplies → morlan (~ #doc:corpus)",
+   "ms": 0,
+   "abstained": false,
+   "from_graph": true
   },
   {
    "soru": "what is melvarit",
-   "cevap": "I don't know what melvarit is yet. Would you like me to look it up?",
-   "ms": 3542,
-   "abstained": true
+   "cevap": "I'm not familiar with \"melvarit\" yet. Would you like me to look it up?",
+   "ms": 4343,
+   "abstained": true,
+   "from_graph": false
   },
   {
    "soru": "what is the capital of Nortlann",
-   "cevap": "I do not know. Nortlann parece ser un nombre ficticio. (No es seguro, #doc:corpus)",
-   "ms": 10361,
-   "abstained": false
+   "cevap": "I do not know.",
+   "ms": 8115,
+   "abstained": true,
+   "from_graph": false
   },
   {
    "soru": "at how many degrees does vorlin boil",
-   "cevap": "I do not know. Vorlin is not a recognized substance. (Uncertain information, #doc:corpus)",
-   "ms": 10218,
-   "abstained": false
+   "cevap": "I do not know.",
+   "ms": 7703,
+   "abstained": true,
+   "from_graph": false
   },
   {
    "soru": "what is the population of the island",
-   "cevap": "I do not know. (Information may not be accurate; #doc:corpus)",
-   "ms": 8961,
-   "abstained": true
+   "cevap": "I do not know.",
+   "ms": 8886,
+   "abstained": true,
+   "from_graph": false
   }
  ]
 }

@@ -1,23 +1,23 @@
 {
  "ingest": {
-  "wall_seconds": 23.254,
-  "facts": 62,
+  "wall_seconds": 23.997,
+  "facts": 61,
   "skipped": 0,
   "derived": 8,
-  "calls": 121,
-  "prompt_tokens": 43529,
-  "completion_tokens": 1059,
-  "api_seconds": 168.903,
+  "calls": 120,
+  "prompt_tokens": 43380,
+  "completion_tokens": 1045,
+  "api_seconds": 182.601,
   "buckets": {
    "relation-check": {
-    "calls": 62,
-    "prompt_tokens": 11702,
-    "completion_tokens": 151
+    "calls": 61,
+    "prompt_tokens": 11553,
+    "completion_tokens": 146
    },
    "read-back": {
     "calls": 58,
     "prompt_tokens": 31220,
-    "completion_tokens": 898
+    "completion_tokens": 889
    },
    "extract": {
     "calls": 1,
@@ -35,7 +35,7 @@
   {
    "soru": "what is zerbalit",
    "cevap": "Zerbalit is a metal. (~ #doc:corpus)",
-   "wall_seconds": 10.134,
+   "wall_seconds": 10.447,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -56,12 +56,12 @@
    "calls": 8,
    "prompt_tokens": 6520,
    "completion_tokens": 66,
-   "api_seconds": 10.111
+   "api_seconds": 10.425
   },
   {
    "soru": "what is vorlin",
    "cevap": "Vorlin is a drink. (~ #doc:corpus)",
-   "wall_seconds": 9.148,
+   "wall_seconds": 9.009,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -82,12 +82,12 @@
    "calls": 7,
    "prompt_tokens": 5311,
    "completion_tokens": 68,
-   "api_seconds": 9.131
+   "api_seconds": 8.994
   },
   {
    "soru": "what is morlan",
    "cevap": "Morlan is a bird. (~ #doc:corpus)",
-   "wall_seconds": 9.284,
+   "wall_seconds": 8.822,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -108,12 +108,12 @@
    "calls": 7,
    "prompt_tokens": 5486,
    "completion_tokens": 54,
-   "api_seconds": 9.272
+   "api_seconds": 8.809
   },
   {
    "soru": "what is norgul",
    "cevap": "Norgul is a plant. (~ #doc:corpus)",
-   "wall_seconds": 9.722,
+   "wall_seconds": 9.262,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -134,12 +134,12 @@
    "calls": 7,
    "prompt_tokens": 5667,
    "completion_tokens": 59,
-   "api_seconds": 9.711
+   "api_seconds": 9.251
   },
   {
    "soru": "what is karvel",
    "cevap": "Karvel is a fish. (~ #doc:corpus)",
-   "wall_seconds": 9.033,
+   "wall_seconds": 10.157,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -160,12 +160,12 @@
    "calls": 7,
    "prompt_tokens": 5611,
    "completion_tokens": 54,
-   "api_seconds": 9.024
+   "api_seconds": 10.145
   },
   {
    "soru": "what is kelvit",
    "cevap": "Kelvit is a metal. (~ #doc:corpus)",
-   "wall_seconds": 9.919,
+   "wall_seconds": 9.419,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -186,12 +186,12 @@
    "calls": 7,
    "prompt_tokens": 5261,
    "completion_tokens": 56,
-   "api_seconds": 9.907
+   "api_seconds": 9.407
   },
   {
    "soru": "what is selvin",
    "cevap": "Selvin is a drink. (~ #doc:corpus)",
-   "wall_seconds": 9.659,
+   "wall_seconds": 9.241,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -212,12 +212,12 @@
    "calls": 7,
    "prompt_tokens": 5236,
    "completion_tokens": 54,
-   "api_seconds": 9.649
+   "api_seconds": 9.229
   },
   {
    "soru": "what is Velmar",
    "cevap": "Velmar is a village. (~ #doc:corpus)",
-   "wall_seconds": 9.488,
+   "wall_seconds": 8.343,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -238,90 +238,42 @@
    "calls": 7,
    "prompt_tokens": 5467,
    "completion_tokens": 55,
-   "api_seconds": 9.477
+   "api_seconds": 8.333
   },
   {
    "soru": "is vorlin a liquid",
-   "cevap": "Vorlin is a liquid. (~ #inference)",
-   "wall_seconds": 9.383,
-   "buckets": {
-    "extract": {
-     "calls": 1,
-     "prompt_tokens": 603,
-     "completion_tokens": 15
-    },
-    "answer": {
-     "calls": 3,
-     "prompt_tokens": 2311,
-     "completion_tokens": 21
-    },
-    "read-back": {
-     "calls": 3,
-     "prompt_tokens": 2356,
-     "completion_tokens": 19
-    }
-   },
-   "calls": 7,
-   "prompt_tokens": 5270,
-   "completion_tokens": 55,
-   "api_seconds": 9.374
+   "cevap": "vorlin — type → liquid (~ #inference)",
+   "wall_seconds": 0.0,
+   "buckets": {},
+   "calls": 0,
+   "prompt_tokens": 0,
+   "completion_tokens": 0,
+   "api_seconds": 0
   },
   {
    "soru": "is zilfen a creature",
-   "cevap": "Zilfen is a creature. (~ #inference)",
-   "wall_seconds": 10.443,
-   "buckets": {
-    "extract": {
-     "calls": 1,
-     "prompt_tokens": 603,
-     "completion_tokens": 15
-    },
-    "answer": {
-     "calls": 3,
-     "prompt_tokens": 2477,
-     "completion_tokens": 24
-    },
-    "read-back": {
-     "calls": 4,
-     "prompt_tokens": 3396,
-     "completion_tokens": 21
-    }
-   },
-   "calls": 8,
-   "prompt_tokens": 6476,
-   "completion_tokens": 60,
-   "api_seconds": 10.429
+   "cevap": "zilfen — type → creature (~ #inference)",
+   "wall_seconds": 0.0,
+   "buckets": {},
+   "calls": 0,
+   "prompt_tokens": 0,
+   "completion_tokens": 0,
+   "api_seconds": 0
   },
   {
    "soru": "is torvanit a substance",
-   "cevap": "Yes, torvanit is a substance. (~ #inference)",
-   "wall_seconds": 11.917,
-   "buckets": {
-    "extract": {
-     "calls": 1,
-     "prompt_tokens": 604,
-     "completion_tokens": 16
-    },
-    "answer": {
-     "calls": 3,
-     "prompt_tokens": 2180,
-     "completion_tokens": 30
-    },
-    "read-back": {
-     "calls": 5,
-     "prompt_tokens": 4184,
-     "completion_tokens": 24
-    }
-   },
-   "calls": 9,
-   "prompt_tokens": 6968,
-   "completion_tokens": 70,
-   "api_seconds": 11.906
+   "cevap": "torvanit — type → substance (~ #inference)",
+   "wall_seconds": 0.0,
+   "buckets": {},
+   "calls": 0,
+   "prompt_tokens": 0,
+   "completion_tokens": 0,
+   "api_seconds": 0
   },
   {
    "soru": "what happens if it rains",
-   "cevap": "If it rains, marsh growth occurs.",
-   "wall_seconds": 7.009,
+   "cevap": "If it rains, a marsh is formed.",
+   "wall_seconds": 6.603,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -335,24 +287,24 @@
     },
     "answer": {
      "calls": 1,
-     "prompt_tokens": 634,
-     "completion_tokens": 9
+     "prompt_tokens": 633,
+     "completion_tokens": 10
     },
     "read-back": {
      "calls": 2,
-     "prompt_tokens": 1078,
+     "prompt_tokens": 1080,
      "completion_tokens": 32
     }
    },
    "calls": 5,
-   "prompt_tokens": 2459,
-   "completion_tokens": 61,
-   "api_seconds": 7.006
+   "prompt_tokens": 2460,
+   "completion_tokens": 62,
+   "api_seconds": 6.601
   },
   {
    "soru": "what happens if norgul multiplies",
    "cevap": "If norgul multiplies, morlan multiplies. (~ #doc:corpus)",
-   "wall_seconds": 9.872,
+   "wall_seconds": 9.573,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -367,18 +319,18 @@
     "read-back": {
      "calls": 3,
      "prompt_tokens": 2345,
-     "completion_tokens": 22
+     "completion_tokens": 31
     }
    },
    "calls": 7,
    "prompt_tokens": 5203,
-   "completion_tokens": 77,
-   "api_seconds": 9.86
+   "completion_tokens": 86,
+   "api_seconds": 9.559
   },
   {
    "soru": "what is melvarit",
    "cevap": "I don't know what melvarit is yet. Would you like me to look it up?",
-   "wall_seconds": 3.907,
+   "wall_seconds": 4.521,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -399,12 +351,12 @@
    "calls": 3,
    "prompt_tokens": 871,
    "completion_tokens": 38,
-   "api_seconds": 3.905
+   "api_seconds": 4.519
   },
   {
    "soru": "what is the capital of Nortlann",
    "cevap": "I do not know.",
-   "wall_seconds": 8.441,
+   "wall_seconds": 7.449,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -425,12 +377,12 @@
    "calls": 6,
    "prompt_tokens": 3959,
    "completion_tokens": 47,
-   "api_seconds": 8.432
+   "api_seconds": 7.438
   },
   {
    "soru": "at how many degrees does vorlin boil",
    "cevap": "I do not know.",
-   "wall_seconds": 8.088,
+   "wall_seconds": 7.593,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -451,12 +403,12 @@
    "calls": 6,
    "prompt_tokens": 4044,
    "completion_tokens": 45,
-   "api_seconds": 8.077
+   "api_seconds": 7.58
   },
   {
    "soru": "what is the population of the island",
    "cevap": "I do not know.",
-   "wall_seconds": 9.4,
+   "wall_seconds": 7.757,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -477,17 +429,17 @@
    "calls": 6,
    "prompt_tokens": 4176,
    "completion_tokens": 45,
-   "api_seconds": 9.391
+   "api_seconds": 7.749
   }
  ],
  "side": "lmm-deep",
  "corpus": "corpus_en.txt",
- "zero_call_questions": 0,
+ "zero_call_questions": 3,
  "question_count": 17,
  "query_totals": {
-  "calls": 114,
-  "prompt_tokens": 83985,
-  "completion_tokens": 964,
-  "wall_seconds": 154.847
+  "calls": 90,
+  "prompt_tokens": 65272,
+  "completion_tokens": 789,
+  "wall_seconds": 118.196
  }
 }
