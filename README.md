@@ -153,6 +153,15 @@ now cost nothing at all, and they are exactly the multi-hop questions
 Everything the graph cannot settle safely still falls through to the paid
 path unchanged; see `benchmarks/COST.md` §3 for what that guarantee costs.
 
+**That floor is a property of ingestion, not only of `lookup`.** The same
+corpus ingested by a weak local 3B model derived *zero* facts instead of
+Azure's 8 — its extraction names whole clauses as subjects instead of single
+concepts, so the two-witness threshold for a transitive relation is never met,
+and `lookup` has nothing to answer from. It never guessed from the noisy graph
+it was given; it declined every time, correctly. `benchmarks/COST.md` §7 has
+the measurement and the reason. The path itself spends no token once the graph
+exists — whether the graph closes at all still depends on what read it in.
+
 ## Architecture
 
 ```

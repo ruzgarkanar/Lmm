@@ -140,9 +140,64 @@ The one crossing that exists is *inside* LMM:
 
 **Which LMM mode is cheaper is a question of how many questions you will ask.** `deep=False` ingests for nothing but asks dearer (7.6 calls/q vs 5.3); `deep=True` pays 44,586 tokens up front and then asks cheaper, because the graph answers more directly. They cross somewhere in the **low hundreds of questions** on one document (~35 here, but see the caveat above — the two languages disagree several-fold). `deep=False` is also the only workable mode for a large document, since extraction cost scales with the text while the evidence index does not.
 
-**Some questions now cost nothing at all.** Section 3 counts 6 answers across these runs that never reached the engine — the graph settled them itself, in microseconds, for zero tokens and zero seconds of anyone's GPU. It is a minority of the questions and it does not move the per-question average much; what it moves is the FLOOR. On that share of the traffic the architecture is not merely cheaper than RAG, it is free, and it is engine-independent — the same answer comes back from a 3B int4 build on a laptop as from a hosted model, because neither was asked.
+**Some questions now cost nothing at all — on the engine that ingested them well.** Section 3 counts 6 answers across these Azure runs that never reached the engine — the graph settled them itself, in microseconds, for zero tokens and zero seconds of anyone's GPU. It is a minority of the questions and it does not move the per-question average much; what it moves is the FLOOR. **That floor is not free of the engine that built it** — see §7, where the same corpus on a local 3B model never reaches it at all, because the derivation the floor rests on never closes there.
 
 **Where we are cheaper: the axes this table cannot bill.** The tokens above buy three things RAG does not have at any price — every answer carrying its source, a structural gate that stops an unsupported claim from leaving, and multi-hop facts *derived* symbolically in microseconds with no model call. Section 4's disk figures are the other axis: a zero-dependency core against an embedding stack and a vector database. And the whole dollar column collapses to zero on a local engine, where the cost becomes your own seconds — which is the deployment this project is actually built for.
 
 **So the fair sentence is this:** if you are paying per token for a hosted model and you only need one-hop lookup, embedding RAG is cheaper than LMM and will stay cheaper. LMM's case is accuracy, provenance and refusal (see the README's benchmark table), bought with tokens at ingestion and at verification — or bought with CPU seconds instead, on hardware you already own.
+
+## 7. Does the zero-call floor survive a weak local engine?
+
+Section 3's zero-call share is real, and it is measured on Azure `gpt-4o-mini`
+— a strong engine. The question this project actually turns on is whether the
+same corpus, ingested by a **weak local model**, produces the same floor. It
+does not, and the reason is worth stating precisely because it is not a defect
+in the lookup path — it is a defect **upstream of it**, in extraction.
+
+Measured (`benchmarks/gguf_run.py`, TR corpus, `LMM_BACKEND=gguf
+LMM_N_GPU_LAYERS=99`, the LoRA-merged 3B int4 build, one session ingested once
+and asked both ways):
+
+| | ingest facts | ingest derived (`#inference`) | zero-call answers |
+|---|---|---|---|
+| Azure gpt-4o-mini (§1, §3) | 59–62 | **8** | **3/17 (18%)** |
+| Local 3B int4 (this section) | 60 | **0** | **0/17 (0%)** |
+
+`lookup.find` never fired once, and the ingested graph shows why: the local
+extractor's SUBJECTS are frequently whole garbled clauses instead of single
+concepts — `"kelvit gri renklidir"` as a subject, `"bataklık büyürse"` as
+another — where the strong engine reads `kelvit -[colour]-> grey`. Two
+sentences that should name the SAME node (`vorlin`, `içecek`, `sıvı`) instead
+each mint their own, so `core/transitive.py`'s two-independently-witnessed-
+triangle threshold is never met, `tür` is never marked transitive, and nothing
+is ever derived — hence `derived: 0`. `lookup.find` only ever answers a
+TRANSITIVE relation (see `lmm/lookup.py`'s docstring for why that restriction
+exists), so with nothing transitive it has nothing to say, correctly: it
+declined every time rather than guessing from the noisy graph it was given.
+
+**This is a finding about extraction quality, not about the gate.** The two
+guarantees this task actually targeted held up on the local engine exactly as
+they did on Azure: `python3.11 tests/test_core.py` is model-free by
+construction, and comparing the local engine's answers word-for-word against
+the pre-change baseline (same corpus, same 17 questions) found **zero new
+fabrications** — 14 of 17 answers are byte-identical, the 3 that differ are
+ordinary local-sampling variance (a different garbled non-answer to the same
+undecidable question), and the one true residual — *"vorlin sıcak içilir"*
+answering *"at how many degrees does vorlin boil"* — is a real sentence from
+the document answering the WRONG field (drinking temperature, not boiling
+point), present **before this task's changes too**. It is the
+answers-a-question-nobody-asked class `session._relation_held` exists for, not
+something `lookup` or the sentence filter introduced or could fix — `lookup`
+never engaged on this run, and the sentence filter only removes a MIXED
+sentence, and this one is not mixed (it is a single, fully-grounded claim, just
+aimed at the wrong slot).
+
+**The honest conclusion:** the graph-first path is engine-independent *once the
+graph exists* — nothing about `lookup.find` reads a token or asks a question of
+any model. Whether the graph closes over a transitive relation at all is a
+property of ingestion, and ingestion quality is exactly as engine-dependent as
+every other measurement in this document. A deployment that wants the
+zero-call floor on a local model needs either a better local extractor or
+`deep=True` ingestion on a stronger engine even when serving answers locally
+afterwards — the graph, once built, does not care which engine built it.
 

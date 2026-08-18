@@ -1,0 +1,110 @@
+{
+ "ingest_ms": 278109,
+ "yazilan": 59,
+ "atlanan": 2,
+ "turetilen": 1,
+ "cevaplar": [
+  {
+   "soru": "zerbalit nedir",
+   "cevap": "Zerbalit bir maddedir. (~ #doc:corpus)",
+   "ms": 46689,
+   "abstained": false
+  },
+  {
+   "soru": "vorlin nedir",
+   "cevap": "Vorlin bir içecektir. (~ #doc:corpus)",
+   "ms": 43236,
+   "abstained": false
+  },
+  {
+   "soru": "morlan nedir",
+   "cevap": "Morlan bir canlıdır. (~ #doc:corpus)",
+   "ms": 43726,
+   "abstained": false
+  },
+  {
+   "soru": "norgul nedir",
+   "cevap": "Vorlin norgul bitkisinden yapılır. (~ #doc:corpus)",
+   "ms": 61555,
+   "abstained": false
+  },
+  {
+   "soru": "karvel nedir",
+   "cevap": "Karvel bir canlıdır. (~ #doc:corpus)",
+   "ms": 54493,
+   "abstained": false
+  },
+  {
+   "soru": "kelvit nedir",
+   "cevap": "Kelvit bir maddedir. (~ #doc:corpus)",
+   "ms": 39795,
+   "abstained": false
+  },
+  {
+   "soru": "selvin nedir",
+   "cevap": "Selvin bir içecektir. (~ #doc:corpus)",
+   "ms": 41889,
+   "abstained": false
+  },
+  {
+   "soru": "Velmar nedir",
+   "cevap": "Velmar bir köydür. (~ #doc:corpus)",
+   "ms": 40758,
+   "abstained": false
+  },
+  {
+   "soru": "vorlin bir sıvı mıdır",
+   "cevap": "Vorlin bir sıvıdır. (~ #doc:corpus)",
+   "ms": 61254,
+   "abstained": false
+  },
+  {
+   "soru": "zilfen bir canlı mıdır",
+   "cevap": "Ben sadece şu anda bu bilgiye sahip değilim.",
+   "ms": 38428,
+   "abstained": true
+  },
+  {
+   "soru": "torvanit bir madde midir",
+   "cevap": "Torvanit bir metaldir. (~ #doc:corpus)",
+   "ms": 35293,
+   "abstained": false
+  },
+  {
+   "soru": "yağmur yağarsa ne olur",
+   "cevap": "Yağmur yağarsa bataklık büyür. (~ #doc:corpus)",
+   "ms": 45818,
+   "abstained": false
+  },
+  {
+   "soru": "norgul çoğalırsa ne olur",
+   "cevap": "Norgul çoğalırsa morlan çoğalır. (~ #doc:corpus)",
+   "ms": 44345,
+   "abstained": false
+  },
+  {
+   "soru": "melvarit nedir",
+   "cevap": "Nie weet ik dat. Moet ik dat opzoeken?",
+   "ms": 9698,
+   "abstained": true
+  },
+  {
+   "soru": "Nortlann'ın başkenti neresidir",
+   "cevap": "Nortlann'ın başkenti neresidir",
+   "ms": 67155,
+   "abstained": true
+  },
+  {
+   "soru": "vorlin kaç derecede kaynar",
+   "cevap": "Vorlin sıcak içilir. (~ #doc:corpus)",
+   "ms": 101403,
+   "abstained": false
+  },
+  {
+   "soru": "adanın nüfusu kaçtır",
+   "cevap": "Ben adanın nüfusu hakkında bilgiye sahip değil.",
+   "ms": 128833,
+   "abstained": true
+  }
+ ]
+}
