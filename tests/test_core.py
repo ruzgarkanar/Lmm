@@ -1970,6 +1970,58 @@ def m2():
         raise AssertionError("the install line was swallowed")
 
 
+@test("M3 the document's masthead is indexed as one block, not as detached lines")
+def m3():
+    """MASTHEAD BLINDNESS, measured on two real documents.
+
+    Everything missed on them was in the front block: the publishing body
+    ("Department of the Treasury—Internal Revenue Service" in a form's header),
+    the date, and the author's institution ("S. Bradner / Harvard University /
+    March 1997" atop an RFC). Those are lines, not sentences — none flows into
+    the next — so the sentence layer indexed them one detached line at a time
+    and no window ever held the name beside the institution beside the date.
+
+    The block is read off the LAYOUT: the run before the first line that ends a
+    sentence, bounded by what this document's own lines call a record. This
+    test uses an invented masthead; nothing in the rule mentions dates,
+    institutions or line numbers, and a document that opens with prose gets no
+    block at all."""
+    from lmm import evidence, session as lmm_session
+    masthead = ("Nordheim Kayıt Bürosu                       T. Velmar\n"
+                "Belge: HB-14                     Karvel Enstitüsü\n"
+                "Sınıf: Genel                              Mart 2031\n"
+                "\n"
+                "Hat B kalite denetimi\n"
+                "\n"
+                "Denetim sırasında ölçülen sıcaklık 42 derecedir.\n"
+                "Ölçüm günün ilk vardiyasında yapılmıştır.\n")
+    head = evidence.front_matter(masthead)
+    assert head, "no block was read off a masthead"
+    for line in ("T. Velmar", "Karvel Enstitüsü", "Mart 2031",
+                 "Hat B kalite denetimi"):
+        assert line in head, (line, head)
+    # it STOPS where the prose starts — the block is not the whole document
+    assert "42" not in head and "vardiya" not in head, head
+
+    # a document that opens with a sentence has no masthead, and is not given one
+    assert evidence.front_matter(
+        "Denetim sırasında ölçülen sıcaklık 42 derecedir.\n"
+        "Ölçüm günün ilk vardiyasında yapılmıştır.\n") == ""
+    assert evidence.front_matter("") == "" and evidence.front_matter("Tek satır") == ""
+
+    # and ingestion puts that block in the index AS ONE ENTRY, so the name, the
+    # institution and the date can be retrieved together
+    s = lmm_session.Session(None)
+    s.learn_text(masthead, source="#doc:hb14", deep=False)
+    blocks = [text for text, _ in s.evidence.sentences
+              if "T. Velmar" in text and "Karvel Enstitüsü" in text
+              and "Mart 2031" in text]
+    assert blocks, "the masthead is still three unrelated lines"
+    found = s.evidence.find("Karvel Enstitüsü Mart 2031", most=4)
+    assert any("Karvel Enstitüsü" in text and "Mart 2031" in text
+               for text in found), found
+
+
 def main():
     failed = 0
     for name, function in PASSED:

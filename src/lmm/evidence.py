@@ -635,6 +635,64 @@ def table_windows(text):
     return out
 
 
+# A LINE THAT ENDS A SENTENCE — terminal punctuation at the end of the line.
+# Punctuation is format, and these are the marks Unicode itself classifies as
+# sentence terminators; no word of any language is involved.
+# A colon is deliberately NOT one of them: a line ending in one is a label
+# whose value is on the next line ("Prepared by:"), which is masthead, not
+# prose.
+_SENTENCE_END = re.compile(r"[.!?。！？؟۔]['\"»)\]]*\s*$")
+
+
+def front_matter(text):
+    """THE DOCUMENT'S OWN MASTHEAD — the block it opens with, as one window.
+
+    A measured blind spot, and a whole class of it: every fact this system
+    missed on two real documents was in the front block. "Department of the
+    Treasury—Internal Revenue Service" at the head of a tax form; "S. Bradner
+    / Harvard University / March 1997" at the head of an RFC. Who published
+    this, when, and on whose behalf — the questions a reader asks first — are
+    not written as sentences anywhere in the body. They are written ONCE, as
+    lines, above it.
+
+    The evidence layer is built on sentences and their neighbourhoods, and
+    those lines are neither: each one is an independent unit, none of them
+    flows into the next, and they were indexed one detached line at a time.
+    Split apart, "Harvard University" no longer stands beside the name it
+    qualifies, and no window ever held the block.
+
+    So the block is read off the LAYOUT, and the layout only. A document's
+    prose announces itself by ending a line with a sentence terminator; the
+    masthead is what comes before the first line that does. Nothing here knows
+    that line three tends to be a date, or what a publisher's name looks like,
+    and a document that opens straight into prose gets no block at all — its
+    first line ends a sentence, and the run is empty before it starts.
+
+    The one bound is borrowed rather than invented: the block may not outgrow
+    what this document calls a record — the widest window scale measured in
+    this document's own median line. A cover page of thirty catalogue lines is
+    a table, not a masthead, and it is `table_windows`' work.
+    """
+    # Column padding is layout, not content: a masthead is typeset in columns
+    # and its runs of spaces carry nothing a reader of the window needs.
+    lines = [" ".join(line.split()) for line in text.splitlines()]
+    written = [len(line) for line in lines if line]
+    if len(written) < 2:
+        return ""
+    median = sorted(written)[len(written) // 2]
+    bound = SCALES[-1] * max(1, median)
+    head, used = [], 0
+    for line in lines:
+        if not line:
+            continue                    # a blank line separates the masthead's
+            #                             own groups; it does not end it
+        if _SENTENCE_END.search(line) or used + len(line) > bound:
+            break
+        head.append(line)
+        used += len(line)
+    return " ".join(head) if len(head) >= 2 else ""
+
+
 class SentenceStore:
     """Sentence store + inverted index. Small and pure: list + dict."""
 

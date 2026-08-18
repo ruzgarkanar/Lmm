@@ -642,6 +642,16 @@ class Session:
         # (representation-narrowness fix).
         for sent in sentences:
             self.evidence.add(sent, source)
+        # THE MASTHEAD IS A BLOCK, NOT A SENTENCE (`evidence.front_matter`).
+        # Publisher, date and the author's institution are written once, at the
+        # top, as lines that do not flow into each other — and the sentence
+        # windows above index them one detached line at a time, which is how
+        # two real documents lost every question about who published them and
+        # when. Read off the layout: the run before the first line that ends a
+        # sentence.
+        head = evidence.front_matter(text)
+        if head:
+            self.evidence.add(head, source)
         # CONTEXT WINDOWS (`evidence.SCALES` — a geometric ladder, defined with
         # the store): neighboring sentences are indexed together too —
         # the sentence "Uyarı: Eşik ayarı..." doesn't carry the word 'sepsis'
