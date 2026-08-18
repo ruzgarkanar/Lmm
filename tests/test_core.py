@@ -2367,6 +2367,69 @@ def o2():
     assert evidence.grounded_sentences("Bilmiyorum.", block, question) == "Bilmiyorum."
 
 
+@test("O3 the causal reading is asked first, and a triple cannot overrule it")
+def o3():
+    """WHICH READING WINS WHEN A SENTENCE ANSWERS TO BOTH — pinned, because it
+    was measured and the other order is worse.
+
+    `learn_text` reads each sentence twice: is it causal, and what facts does
+    it state. Almost every genuinely causal sentence ALSO yields a triple —
+    measured on `gpt-4o-mini`, all five causal sentences of the benchmark
+    corpus do (`Yağmur yağarsa bataklık büyür.` -> `[yağmur, şart, yağarsa]`)
+    — so whichever reading is asked first is the one that gets written, and
+    asking the fact reading first empties `#causes` entirely (38 causal edges
+    -> 0 on the local engine, COST.md §7.1). Causal-first was tried in reverse
+    for exactly one reason, that a weak engine over-reports causality and
+    splits the taxonomy; the reversal did not recover a single derived fact and
+    did delete every causal edge, so the order stands.
+
+    Model-free: both reads are stubbed, so what is asserted is the ROUTING —
+    a sentence read as causal lands under `#causes` even though the fact read
+    would have produced a triple, and a sentence read as not-causal reaches the
+    taxonomy."""
+    from lmm import extract, generate, link, session as session_module
+    real_causal, real_re, real_ex = (generate.is_causal, extract.reextract,
+                                     extract.extract)
+    try:
+        # BOTH readings succeed on the causal sentence; only the fact reading
+        # succeeds on the declarative one.
+        def is_causal(sent):
+            return ("yağmur", "bataklık") if "ağmur" in sent else None
+
+        def reextract(sent):
+            if "ağmur" in sent:
+                return [("yağmur", "şart", "bataklık")]
+            return [("zerbalit", "tür", "metal")]
+
+        generate.is_causal = is_causal
+        extract.reextract = reextract
+        extract.extract = lambda sent: {"kind": extract.CHAT, "triples": []}
+        s = session_module.Session(None)
+        s.learn_text("Yağmur yağarsa bataklık büyür. Zerbalit bir metaldir.",
+                     source="#doc:test", deep=True)
+        by_predicate = {}
+        for record in s.memory.records.values():
+            name = (link.label_of(s.memory, record.predicate)
+                    if record.predicate is not None else None)
+            by_predicate.setdefault(name, set()).add(
+                (link.label_of(s.memory, record.subject),
+                 link.label_of(s.memory, record.value)))
+        # the causal sentence is a CAUSAL edge, not the triple it also offered
+        assert ("yağmur", "bataklık") in by_predicate.get("#causes", set()), \
+            by_predicate
+        # ... and it did NOT also enter the taxonomy under its triple
+        assert ("yağmur", "bataklık") not in by_predicate.get("tür", set()), \
+            by_predicate
+        # the declarative sentence reaches the taxonomy
+        assert ("zerbalit", "metal") in by_predicate.get("tür", set()), \
+            by_predicate
+        assert ("zerbalit", "metal") not in by_predicate.get("#causes", set()), \
+            by_predicate
+    finally:
+        generate.is_causal, extract.reextract, extract.extract = (
+            real_causal, real_re, real_ex)
+
+
 def main():
     failed = 0
     for name, function in PASSED:

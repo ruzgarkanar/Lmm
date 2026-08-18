@@ -252,6 +252,48 @@ floor on this engine would mean reaching it with fabrication-shaped junk inside
 it. Whatever restores the floor locally has to fix EXTRACTION QUALITY, not the
 route between the extractor and the graph.
 
+**The obvious next move was tried, and it is closed.** The paragraph above names
+the causal reading as the thing that steals the sentences, so the cheapest
+imaginable fix is to stop asking it first: read the FACTS first and ask
+`is_causal` only when no triple comes back. It is an ordering, not a language
+rule, and it costs one line. Both arms were replayed through the real
+`learn_text` write path on cached local readings — two independent 61-sentence
+readings of the same corpus, taken a day apart, agreeing exactly — and the
+fact-first arm was then run end to end on the local engine as well:
+
+| reading order | facts | derived | `#causes` edges | zero-call (`lookup`) | ingest calls |
+|---|---|---|---|---|---|
+| causal first (shipped) | 60 | **0** | **38** | 0/17 | 88 |
+| fact first (the fix) | 57 | **0** | **0** | 0/17 | 63 |
+
+**It derives nothing and it deletes the causal graph.** Not one derived fact
+appears, for the reason §7.1 already gives — the subjects the local extractor
+writes are whole clauses (`kelvit bir metaldir`), so the taxonomy does not
+close a triangle no matter which predicate it is filed under. The routing was
+never the binding constraint; the oracle row above had already said so, and
+this is the confirmation from the other direction. What the change does buy is
+25 fewer engine calls per ingestion, because the second read is skipped
+whenever the first one succeeds — real, and not worth what it costs.
+
+**What it costs is the whole causal graph, and that is not a local-engine
+artifact.** The reason is a fact about sentences, not about weak models: a
+sentence that asserts a cause almost always also states an extractable
+relation, so whichever read is asked first is simply the one that wins. On
+Azure `gpt-4o-mini`, where `is_causal` classifies all eight probe sentences
+correctly, **all five causal sentences of this corpus also return a triple**:
+
+    Yağmur yağarsa bataklık büyür.  is_causal=(yağmur, bataklık)
+                                    reextract=[yağmur, şart, yağarsa]
+                                              [bataklık, büyüme, artar]
+    Norgul çoğalırsa morlan çoğalır. is_causal=(norgul, morlan)
+                                     reextract=[norgul, çoğalma, morlan]
+
+So fact-first would empty `#causes` on the STRONG engine too, where the causal
+reading is the correct one — a certain loss on the two causal questions'
+graph path, in exchange for a gain that measures zero. The change was reverted;
+the finding is kept here and the ordering is now pinned by a model-free test
+(`O3`), so the next reader does not have to spend the ingestion to learn it.
+
 ### 7.2 The local engine now uses the hardware it is running on
 
 Unrelated to the graph, and measured on the same machine: `runtime_gguf.py`
