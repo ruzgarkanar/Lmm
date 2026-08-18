@@ -251,6 +251,11 @@ def main():
       "graph lookup, no engine involved. The architecture permits it: a "
       "derived fact or a table row is already an answer. Whether it *happens* "
       "on this corpus is a measurement, and the honest answer is below.\n")
+    w("This row read **0 of 17 at every commit** until `lmm/lookup.py` was "
+      "written. The architecture permitted the zero-call answer and the code "
+      "never took it: `respond` spent a call turning a held triple into a "
+      "sentence and more calls reading that sentence back. `lookup` takes it, "
+      "for the questions it can settle without guessing.\n")
     w("| | questions | answered with 0 model calls | share |")
     w("|---|---|---|---|")
     zero_total = 0
@@ -272,6 +277,25 @@ def main():
           "reading that sentence back. The zero-call path exists in the "
           "architecture and is not reached here; claiming otherwise would be "
           "the easiest number in this document to fake.\n")
+    else:
+        w("**What those questions have in common is what the path requires: "
+          "the question NAMES what it asks about.** \"is vorlin a liquid\" "
+          "names `liquid`, and the graph holds `vorlin -[type]-> liquid` as a "
+          "record it DERIVED — so the answer is the record, returned in "
+          "microseconds with no engine to consult and therefore nothing for an "
+          "engine to invent. These are the multi-hop questions, which is the "
+          "pleasing part: the step that was supposed to prove \"the symbolic "
+          "layer needs no model\" is the step now proving it in the bill.\n")
+        w("**The rest still go to the engine, and the reason is a limit rather "
+          "than an oversight.** A question that names no field at all — "
+          "\"norgul nedir\" — is indistinguishable, structurally, from one "
+          "naming a field the graph has never heard of — \"Nortlann'ın "
+          "başkenti neresidir\". Both are a known subject followed by words no "
+          "node and no document carries. Answering the first from the "
+          "subject's single taxonomy value means answering the second with it "
+          "too, which turns a correct abstention into a confident wrong "
+          "answer. The eight \"what is X\" questions per language stay on the "
+          "paid path, and that is the price of the guarantee.\n")
 
     # ---- 4. infrastructure ----------------------------------------------
     infra_path = os.path.join(cost_dir, "infra.json")
@@ -416,6 +440,17 @@ def main():
               + " `deep=False` is also the only workable mode for a large "
                 "document, since extraction cost scales with the text while "
                 "the evidence index does not.\n")
+        if zero_total:
+            w(f"**Some questions now cost nothing at all.** Section 3 counts "
+              f"{zero_total:.0f} answers across these runs that never reached "
+              f"the engine — the graph settled them itself, in microseconds, "
+              f"for zero tokens and zero seconds of anyone's GPU. It is a "
+              f"minority of the questions and it does not move the per-question "
+              f"average much; what it moves is the FLOOR. On that share of the "
+              f"traffic the architecture is not merely cheaper than RAG, it is "
+              f"free, and it is engine-independent — the same answer comes back "
+              f"from a 3B int4 build on a laptop as from a hosted model, "
+              f"because neither was asked.\n")
         w("**Where we are cheaper: the axes this table cannot bill.** The "
           "tokens above buy three things RAG does not have at any price — "
           "every answer carrying its source, a structural gate that stops an "
