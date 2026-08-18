@@ -175,6 +175,101 @@ TRANSITIVE relation (see `lmm/lookup.py`'s docstring for why that restriction
 exists), so with nothing transitive it has nothing to say, correctly: it
 declined every time rather than guessing from the noisy graph it was given.
 
+### 7.1 That diagnosis was incomplete — an attempted fix, and what it measured
+
+The paragraph above named the garbled subject as THE reason, and a fix was
+built for exactly it: a document-wide second pass that reduces a long subject
+to a shorter one when the document itself uses the shorter form as a subject
+elsewhere (whole words only — never a character prefix, so `kart`/`kartal`,
+`organ`/`organizma`, `şeker`/`şekersiz` cannot merge). **It changed nothing,
+and the reason it changed nothing is the finding.**
+
+To measure it without paying for a fresh 61-sentence ingestion per variant, the
+local engine's readings were cached once (`extract.reextract` + `is_causal`,
+sentence by sentence) and replayed through the real `learn_text` write path.
+The replay reproduces the baseline exactly — 60 facts, 1 skipped, 0 derived —
+so the columns below differ only in the variable named.
+
+`normalization=oracle` is not a candidate implementation. It is the CEILING:
+every multi-word subject reduced to its first word, which on this corpus is the
+right concept nearly every time. It answers "what is the most this class of fix
+could possibly buy".
+
+| subject normalization | causal routing | facts | derived | transitive | zero-call (`lookup`) |
+|---|---|---|---|---|---|
+| off (baseline) | as the engine reads it | 60 | 0 | — | 0/17 |
+| on (the fix) | as the engine reads it | 60 | 0 | — | 0/17 |
+| **oracle (perfect)** | as the engine reads it | 60 | **0** | — | **0/17** |
+| off | disabled | 57 | 0 | — | 0/17 |
+| on | disabled | 57 | 0 | — | 0/17 |
+| **oracle (perfect)** | **disabled** | 56 | **7** | `tür` | **2/17** |
+
+Read the third row first: **even a perfect subject normalization derives
+nothing.** The fix was aimed at a real defect that is not the binding one, so
+it was reverted rather than kept for the sake of the diff.
+
+The binding one is in the row below it. `generate.is_causal` — the engine
+deciding whether a sentence asserts causality — answers YES for **41 of the 61
+sentences** of this corpus on the local 3B, including textbook is-a sentences
+that the prompt's own few-shot examples cover (`an eagle is a bird -> NONE`):
+
+    Zerbalit bir metaldir.   -> CAUSE: zerbalit -> EFFECT: metaldir
+    Kuş bir canlıdır.        -> CAUSE: kuş      -> EFFECT: canlıdır
+    Gölün suyu tatlıdır.     -> CAUSE: ...      -> EFFECT: tatlıdır
+
+Four of those 41 are genuinely causal. The same eight sentences on Azure
+`gpt-4o-mini`, same prompt, same code: **every one classified correctly** — the
+two causal ones causal, the six declaratives NONE. So this is engine quality,
+not a prompt defect.
+
+The consequence is structural. `learn_text` checks the causal reading FIRST,
+and a sentence read as causal never reaches the triple path at all — its fact
+is written under `#causes` instead of `tür`. The taxonomy is therefore SPLIT
+ACROSS TWO PREDICATES, and `core/transitive.py` counts triangles within ONE
+predicate. `zerbalit -[#causes]-> metaldir` beside `metal -[tür]-> maddedir`
+closes nothing, however clean the subjects are. That is why the two defects
+only pay off together, and why neither alone moves the number.
+
+**Why the safe fix cannot reach the oracle, measured rather than assumed.** For
+normalization to recover `kelvit` from `"kelvit bir metaldir"`, something has
+to attest `kelvit` as a concept, and on this corpus the local extractor never
+once emits it alone — it appears only inside four clauses. The document
+statistic that would capture it (a word recurring across distinct subjects)
+does not separate it from the glue: `bir` occurs inside 17 distinct subjects,
+`kelvit` in 4, `canlıdır` in 6, `renklidir` in 2. Ranking by that frequency in
+either direction picks `renklidir`, `maddedir`, `sıvıdır` — the predicate
+words — as often as it picks the entity. There is no threshold that separates
+those bands on this corpus, and a threshold chosen on this corpus is exactly
+the per-document constant this repository refuses. So the honest statement is
+that the safe version of this fix is worth nothing here, and the unsafe version
+was not built.
+
+**One more thing the oracle row says, and it is not encouraging.** The 7 derived
+facts it produces include `nortlann -[tür]-> yazar` and `norgul -[tür]-> bir` —
+derivation over a noisy graph derives noise, and `lookup` then answers from it
+(`norgul çoğalırsa ne olur` → `norgul — tür → çoğalır`). Reaching the zero-call
+floor on this engine would mean reaching it with fabrication-shaped junk inside
+it. Whatever restores the floor locally has to fix EXTRACTION QUALITY, not the
+route between the extractor and the graph.
+
+### 7.2 The local engine now uses the hardware it is running on
+
+Unrelated to the graph, and measured on the same machine: `runtime_gguf.py`
+defaulted `n_gpu_layers` to 0, so anyone who did not know to export
+`LMM_N_GPU_LAYERS` ran the local engine on the CPU. Same prompt, same 160-token
+cap, same binary, back to back:
+
+| | first call | second call |
+|---|---|---|
+| forced CPU (`LMM_N_GPU_LAYERS=0`) | 2.30 s | 1.80 s |
+| accelerator detected (default now) | **0.68 s** | **0.62 s** |
+
+The detection asks llama.cpp's own `llama_supports_gpu_offload` whether THIS
+build was compiled with a GPU backend, so a CPU-only wheel on a GPU machine
+correctly stays on the CPU; no platform string is parsed. `LMM_N_GPU_LAYERS`
+still overrides in both directions. The 61-sentence `deep=True` ingestion above
+now takes 63 s.
+
 **This is a finding about extraction quality, not about the gate.** The two
 guarantees this task actually targeted held up on the local engine exactly as
 they did on Azure: `python3.11 tests/test_core.py` is model-free by

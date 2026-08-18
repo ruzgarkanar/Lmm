@@ -155,12 +155,23 @@ path unchanged; see `benchmarks/COST.md` §3 for what that guarantee costs.
 
 **That floor is a property of ingestion, not only of `lookup`.** The same
 corpus ingested by a weak local 3B model derived *zero* facts instead of
-Azure's 8 — its extraction names whole clauses as subjects instead of single
-concepts, so the two-witness threshold for a transitive relation is never met,
-and `lookup` has nothing to answer from. It never guessed from the noisy graph
-it was given; it declined every time, correctly. `benchmarks/COST.md` §7 has
-the measurement and the reason. The path itself spends no token once the graph
-exists — whether the graph closes at all still depends on what read it in.
+Azure's 8, so `lookup` had nothing to answer from. It never guessed from the
+noisy graph it was given; it declined every time, correctly. The path itself
+spends no token once the graph exists — whether the graph closes at all still
+depends on what read it in.
+
+**Two defects stand between that engine and the floor, and neither is
+sufficient alone** (`benchmarks/COST.md` §7.1, measured by replaying the local
+engine's cached readings through the real ingestion): its extractor names whole
+clauses as subjects, and — the larger one — its causal classifier answers YES
+for **41 of 61** sentences of this corpus, including plain is-a sentences the
+prompt's own examples cover, where `gpt-4o-mini` gets every one right. A
+sentence read as causal is written under `#causes` and never reaches the
+taxonomy, so the taxonomy is split across two predicates and no triangle can
+close, however clean the subjects are. A subject-normalization pass was built,
+measured against a PERFECT-normalization ceiling, found to buy nothing on
+either side of that split, and reverted. The remaining work is extraction
+quality on the local engine, not the wiring behind it.
 
 ## Architecture
 
@@ -220,8 +231,14 @@ that kind, and a missing reader reports the exact install line rather than a
 traceback.
 
 **Engines.** The default is a local Qwen2.5-3B-Instruct; `LMM_BACKEND=gguf` runs
-on CPU through llama.cpp, `LMM_BACKEND=azure` against a hosted API. The
-graph/gate layer is engine-agnostic — and most of it needs no engine at all.
+through llama.cpp, `LMM_BACKEND=azure` against a hosted API. The graph/gate
+layer is engine-agnostic — and most of it needs no engine at all.
+
+The gguf engine offloads to the accelerator **when the installed llama.cpp
+build has one** (it asks the library, not the platform); set
+`LMM_N_GPU_LAYERS=0` to force the CPU, or a smaller number when the model does
+not fit in VRAM. Measured on an Apple M5, same call: 1.8-2.3 s on the CPU
+against 0.6-0.7 s offloaded (`benchmarks/COST.md` §7.2).
 
 ## Using it
 
