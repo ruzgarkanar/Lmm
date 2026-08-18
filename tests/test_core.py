@@ -1786,7 +1786,10 @@ def l5():
     assert a.upper() == "BILMIYORUM." and a.abstained and a.sources == ("#pdf:x",)
 
     m = Memory()
-    m.session.respond = lambda q: "It is 412 degrees. #document"
+    # `**kw` because `respond` now takes `fluent` too (the graph-first path
+    # offers a generated sentence as an option); the stub is standing in for
+    # the whole method, so it accepts whatever the front door passes.
+    m.session.respond = lambda q, **kw: "It is 412 degrees. #document"
     m.session.last_abstained = False
     m.session.last_subject = "zerbalit"
     m.session.last_kind = "ASK"
@@ -1842,7 +1845,7 @@ def m1():
     s = lmm_session.Session(None)
     refusal = "Bilmiyorum."
 
-    def spoke(message):
+    def spoke(message, fluent=False):
         s._mark = "#pdf:rfc2119.txt"       # a low-trust source, as _hedge sets
         return refusal
 
@@ -1865,7 +1868,7 @@ def m1():
     # AND THE STAMP SURVIVES THE MARK'S BRACKETS, for a reader of `explain=True`
     from lmm.api import Memory
     m = Memory()
-    m.session.respond = lambda q: said
+    m.session.respond = lambda q, **kw: said
     m.session.last_abstained = False
     m.session.last_subject = m.session.last_kind = ""
     m.session.last_written = []
@@ -2120,6 +2123,195 @@ def m4():
         os.environ.pop("LMM_TIMEOUT", None)
         if was is not None:
             os.environ["LMM_TIMEOUT"] = was
+
+
+# --- N: the graph-first answer path ----------------------------------------
+#
+# The pathology these close is a MEASUREMENT: `benchmarks/COST.md` §3 reported
+# 0 of 17 questions answered without a model call, on a corpus whose answers
+# stand in the graph as triples. The fix (`lmm/lookup.py`) is only worth having
+# if it stays inside its guarantee, so what is asserted here is mostly where it
+# must NOT fire.
+
+
+def island(rival=None):
+    """The corpus taxonomy, built with NO model anywhere: `learn_cell` is the
+    structural ingestion path, and the rivalry test — the one thing in the
+    write path that consults the engine — is answered locally.
+
+    The first five cells are there to make `tur` transitive the way the data
+    makes it transitive: two independently witnessed triangles, counted by
+    `core/transitive.py`. Nothing is declared transitive by hand."""
+    from lmm.session import Session
+    s = Session(None)
+    s.gate.rival = rival or (lambda old, new: False)
+    for subject, field, value in (
+            ("vorlin", "tur", "icecek"),
+            ("icecek", "tur", "sivi"),
+            ("vorlin", "tur", "sivi"),          # triangle 1
+            ("selvin", "tur", "icecek"),
+            ("selvin", "tur", "sivi"),          # triangle 2 -> tur transitive
+            ("kus", "tur", "canli"),
+            ("zilfen", "tur", "kus"),           # -> derives zilfen -> canli
+            ("zerbalit", "tur", "metal"),
+            ("metal", "tur", "madde"),          # -> derives zerbalit -> madde
+            ("zerbalit", "renk", "mavi"),
+            ("nortlann", "tur", "ada"),
+            ("norgul", "iliski", "cogalir"),    # an OPEN field, not a taxonomy
+    ):
+        s.learn_cell(subject, field, value, "#doc:corpus")
+    return s
+
+
+def no_engine():
+    """Replaces the single chokepoint every model call in this system goes
+    through (`runtime.generate` — extract.py and generate.py both reach the
+    engine only through it) with a counter that refuses to be called.
+
+    Returns (restore, calls). This is what makes "zero model calls" an
+    assertion rather than a claim about the code's shape."""
+    from lmm import runtime
+    was = runtime.generate
+    calls = []
+
+    def refuse(*a, **kw):
+        calls.append(kw.get("system", ""))
+        raise AssertionError("the engine was called on the graph path")
+
+    runtime.generate = refuse
+    return (lambda: setattr(runtime, "generate", was)), calls
+
+
+@test("N1 a fact the graph holds is spoken by the graph, with no engine at all")
+def n1():
+    from lmm import lookup
+    s = island()
+    assert s.memory.transitive, "tur never became transitive — fixture broken"
+    # the answer is DERIVED (zilfen->kus, kus->canli): the multi-hop step is
+    # exactly the one the thesis says needs no model, and it is the one being
+    # answered here for free.
+    held = lookup.find(s.memory, "zilfen bir canli midir")
+    assert held is not None and held.source == "#inference", held
+    restore, calls = no_engine()
+    try:
+        said = s.respond("zilfen bir canli midir")
+    finally:
+        restore()
+    assert not calls, calls
+    assert "canli" in said and "zilfen" in said, said
+    assert s.last_from_graph is True and s.last_abstained is False
+    assert s.last_subject == "zilfen", s.last_subject
+
+
+@test("N2 a field with two live values is not answered from the graph")
+def n2():
+    from lmm import link, lookup
+    s = island()
+    # one value in the slot: the field is named, the answer is unambiguous
+    one = lookup.find(s.memory, "zerbalit renk nedir")
+    assert one is not None and one.value == link.resolve(s.memory, "mavi"), one
+    # a SECOND value under the same field, neither of them more specific than
+    # the other (no is-a edge between them, so `retrieve.specific` cannot and
+    # must not choose). The graph now holds two true answers to one question,
+    # and the cheap path has no business picking one.
+    s.learn_cell("zerbalit", "renk", "yesil", "#doc:corpus")
+    assert lookup.find(s.memory, "zerbalit renk nedir") is None
+    # ... while SPECIFICITY is still a decision the graph itself can make: two
+    # values on the taxonomy, one an ancestor of the other, is not ambiguity.
+    both = lookup.find(s.memory, "zerbalit tur nedir")
+    assert both is not None and both.value == link.resolve(s.memory, "metal"), both
+
+
+@test("N3 a question the graph cannot settle falls through instead of guessing")
+def n3():
+    from lmm import lookup
+    s = island()
+    # THE ABSENCE CLASS. The graph holds `nortlann -> tur -> ada` and the
+    # question asks for a capital; naming no field the subject carries, it gets
+    # no graph answer. This is the one that would turn a correct abstention
+    # into a confident wrong answer.
+    assert lookup.find(s.memory, "nortlann baskenti neresidir") is None
+    # THE FIELDLESS QUESTION IS OUT TOO, and that is a cost, not an oversight:
+    # nothing structural separates an interrogative the graph has never seen
+    # from a field name the graph has never seen (see lookup's docstring).
+    assert lookup.find(s.memory, "zerbalit nedir") is None
+    # a subject that is not in the graph at all
+    assert lookup.find(s.memory, "melvarit bir madde midir") is None
+    # a value that is in the graph but not under THIS subject
+    assert lookup.find(s.memory, "zerbalit bir kus mudur") is None
+
+
+@test("N4 an open field is not a taxonomy, and does not answer for one")
+def n4():
+    from lmm import lookup
+    s = island()
+    # The graph really does hold `norgul -> iliski -> cogalir`, and the
+    # question really does name that value. It is still refused, because
+    # `iliski` is not transitive: the graph is not CLOSED over it, so a hit
+    # there is one sentence's residue rather than a settled fact — the "true
+    # claim answering a question nobody asked" class that `_relation_held`
+    # exists for. Measured: with this restriction removed the EN corpus loses
+    # a point ("what happens if norgul multiplies" -> "norgul -> multiplies").
+    from lmm import link
+    norgul = link.resolve(s.memory, "norgul")
+    values = {r.value for r in s.memory.about(norgul, touch=False)}
+    assert link.resolve(s.memory, "cogalir") in values, "fixture broken"
+    assert lookup.find(s.memory, "norgul cogalirsa ne olur") is None
+    # and the same subject IS answerable on its taxonomy — the restriction is
+    # per-predicate, not per-subject
+    s.learn_cell("norgul", "tur", "bitki", "#doc:corpus")
+    s.learn_cell("bitki", "tur", "canli", "#doc:corpus")
+    got = lookup.find(s.memory, "norgul bir canli midir")
+    assert got is not None and got.value == link.resolve(s.memory, "canli"), got
+
+
+@test("N5 a cheaper answer is not a less accountable one")
+def n5():
+    s = island()
+    restore, calls = no_engine()
+    try:
+        said = s.respond("zilfen bir canli midir")
+    finally:
+        restore()
+    assert not calls
+    # The record is below CERTAIN (it is derived), so it is spoken with its
+    # provenance — the same '~' mark and the same stamp the generated path
+    # attaches, and NOTHING ELSE: every token added past the record itself is
+    # the stamp or punctuation. Same property M1 defends for the paid path.
+    assert "#inference" in said, said
+    head = said.split("(")[0]
+    assert "zilfen" in head and "canli" in head, said
+    added = said[len(head):]
+    for token in added.split():
+        assert token.startswith("#") or not any(c.isalnum() for c in token), token
+
+
+@test("N6 prose is an option with a price, not the only way to answer")
+def n6():
+    from lmm import runtime
+    s = island()
+    was, seen = runtime.generate, []
+
+    def engine(*a, **kw):
+        seen.append(1)
+        raise RuntimeError("stop here — being called at all is the assertion")
+
+    runtime.generate = engine
+    try:
+        # fluent=True must NOT take the free path: the caller asked for a
+        # sentence and a sentence is the engine's work.
+        s.respond("zilfen bir canli midir", fluent=True)
+    finally:
+        runtime.generate = was
+    assert seen, "fluent=True still answered from the graph"
+    assert s.last_from_graph is False
+    # and the front door offers the same choice, with the turn reporting which
+    # path it took
+    from lmm.api import Memory
+    front = Memory()
+    front.session = s
+    told = front.ask("zilfen bir canli midir", explain=True)
+    assert told.from_graph is True, told
 
 
 def main():
