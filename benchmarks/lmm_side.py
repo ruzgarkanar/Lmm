@@ -42,10 +42,17 @@ def main():
 
     questions = json.load(open(sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "questions.json"),
                                encoding="utf-8"))
+    # THE A/B CONTROL for the graph-first path. `fluent=True` sends every
+    # question to the engine, which is exactly the behaviour before
+    # `lmm/lookup.py` existed — so a regression can be attributed by
+    # MEASUREMENT rather than by argument: same binary, same corpus, same
+    # questions, one flag. It lives here rather than in the library because it
+    # is a benchmark control, not a setting anyone deploys.
+    fluent = os.environ.get("LMM_FLUENT", "0") == "1"
     results = []
     for q in questions:
         t0 = time.time()
-        said = s.respond(q["soru"])
+        said = s.respond(q["soru"], fluent=fluent)
         ms = round((time.time() - t0) * 1000)
         # THE SYSTEM'S OWN ABSTENTION SIGNAL. Whether a turn declined to answer
         # is something the session knows for certain (it took the refusal
@@ -54,7 +61,10 @@ def main():
         # how the scorer came to hold a list of Turkish phrases. Carrying the
         # flag here makes the measurement work on a document in any language.
         results.append({"soru": q["soru"], "cevap": said, "ms": ms,
-                        "abstained": bool(s.last_abstained)})
+                        "abstained": bool(s.last_abstained),
+                        # which path spoke — so the result file itself says
+                        # whether a question cost anything
+                        "from_graph": bool(s.last_from_graph)})
         print(f"> {q['soru']}\n  {said}   ({ms}ms)", flush=True)
 
     out = sys.argv[3] if len(sys.argv) > 3 else os.path.join(HERE, "result_lmm.json")
