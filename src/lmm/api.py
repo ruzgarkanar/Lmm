@@ -52,7 +52,9 @@ class Answer(str):
     re-extracting the spoken sentence finds no claim in it, which is decided in
     whatever language the answer came out in and is the same organ the
     fabrication gate trusts. `sources` are the stamps the answer itself carries.
-    Reporting them costs nothing; guessing at them would have been a lie.
+    `from_graph` is which path spoke — the graph alone (`lmm/lookup.py`, no
+    model call in it) or the engine. Reporting them costs nothing; guessing at
+    them would have been a lie.
     """
 
     __slots__ = ("abstained", "sources", "subject", "kind", "wrote",
@@ -74,7 +76,9 @@ class Answer(str):
 
     def __repr__(self):
         state = "abstained" if self.abstained else "answered"
-        return f"<Answer {state} sources={list(self.sources)} {str(self)!r}>"
+        how = " from-graph" if self.from_graph else ""
+        return (f"<Answer {state}{how} sources={list(self.sources)} "
+                f"{str(self)!r}>")
 
 
 class Learned:
