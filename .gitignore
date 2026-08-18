@@ -90,3 +90,13 @@ venv/
 .claude/
 .vscode/
 .DS_Store
+
+# ---------------------------------------------------------------------------
+# Internal archive. The design notes, experiment logs and research maps this
+# project was built from are kept on disk but not published: they are written
+# in the author's own language, they record dead ends and half-decisions rather
+# than the system as it stands, and several name private material. The
+# published architecture note is docs/architecture.md.
+# ---------------------------------------------------------------------------
+docs/internal/
+notebooks/

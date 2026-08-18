@@ -1,0 +1,53 @@
+name: Feature request
+description: Propose something LMM should be able to do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please read the two rules in [CONTRIBUTING.md](../../CONTRIBUTING.md)
+        first — **no document-specific constants** and **no hand-written
+        language rules**. They are the reason this project scores what it does
+        across three languages, and a proposal that needs either one will be
+        declined however much it helps a benchmark.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that LMM makes hard or impossible?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like it to do
+      description: If you have an API in mind, show the call.
+    validations:
+      required: true
+
+  - type: textarea
+    id: rules
+    attributes:
+      label: How it stays within the two rules
+      description: >
+        If your idea needs a threshold, where is that number DERIVED from? If it
+        needs to recognise something in text, what makes that a format or
+        Unicode property rather than a fact about one language?
+    validations:
+      required: true
+
+  - type: textarea
+    id: measure
+    attributes:
+      label: How would we know it worked
+      description: >
+        What would you measure, and what would count as a regression? Note that
+        gold-in-top-K is necessary but not sufficient here — it has stayed flat
+        while end-to-end scores dropped.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
