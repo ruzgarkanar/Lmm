@@ -1,110 +1,127 @@
 {
- "ingest_ms": 21828,
+ "ingest_ms": 23077,
  "yazilan": 61,
  "atlanan": 0,
  "turetilen": 8,
  "cevaplar": [
   {
    "soru": "¿qué es el zerbalit?",
-   "cevap": "El zerbalit es un metal. El zerbalit es un término que no parece tener un significado claro o ampliamente reconocido en español. Podría ser un error tipográfico o un término específico de",
-   "ms": 12651,
-   "abstained": false
+   "cevap": "El zerbalit es un metal y una sustancia. (~ #doc:corpus)",
+   "ms": 9475,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "¿qué es el vorlin?",
-   "cevap": "El vorlin es una bebida. El vorlin es un término que no tiene un significado ampliamente reconocido. Podría referirse a un concepto específico en un contexto particular, como en la literatura,",
-   "ms": 11779,
-   "abstained": false
+   "cevap": "El vorlin es una bebida. (~ #doc:corpus)",
+   "ms": 9123,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "¿qué es el morlan?",
-   "cevap": "El morlan es un ave. El morlan es un término que puede referirse a diferentes cosas dependiendo del contexto. En algunos lugares, se utiliza para describir un tipo de pez o una",
-   "ms": 13793,
-   "abstained": false
+   "cevap": "El morlan es un ave. (~ #doc:corpus)",
+   "ms": 10892,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "¿qué es el norgul?",
-   "cevap": "El norgul es una planta. El norgul es un término que no es ampliamente conocido y puede referirse a diferentes cosas dependiendo del contexto. Podría ser un nombre ficticio, un",
-   "ms": 13412,
-   "abstained": false
+   "cevap": "El norgul es una planta. (~ #doc:corpus)",
+   "ms": 10747,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "¿qué es el karvel?",
-   "cevap": "El karvel es un pez. El karvel es un tipo de embarcación. (No seguro, fuente: #doc:corpus)",
-   "ms": 11051,
-   "abstained": false
+   "cevap": "El karvel es un pez. (~ #doc:corpus)",
+   "ms": 9374,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "¿qué es el kelvit?",
-   "cevap": "El kelvit es un metal. El kelvit es un término que no tiene un significado ampliamente reconocido en español. Podría referirse a un nombre propio, un término técnico en un campo específico",
-   "ms": 11738,
-   "abstained": false
+   "cevap": "El kelvit es un metal. (~ #doc:corpus)",
+   "ms": 8851,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "¿qué es el selvin?",
-   "cevap": "El selvin es una bebida. El selvin es un término que no parece tener un significado ampliamente reconocido en español. Podría referirse a un nombre propio, un término local o especializado,",
-   "ms": 12430,
-   "abstained": false
+   "cevap": "El selvin es una bebida. (~ #doc:corpus)",
+   "ms": 9806,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "¿qué es Velmar?",
-   "cevap": "Velmar es un pueblo. Velmar podría referirse a varias cosas. (No es seguro; #doc:corpus)",
-   "ms": 11517,
-   "abstained": false
+   "cevap": "Velmar es un pueblo. (~ #doc:corpus)",
+   "ms": 9273,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "¿es el vorlin un líquido?",
-   "cevap": "El vorlin es un líquido. (No estoy seguro; fuente almacenada.)",
-   "ms": 12610,
-   "abstained": false
+   "cevap": "vorlin — tipo → líquido (~ #inference)",
+   "ms": 0,
+   "abstained": false,
+   "from_graph": true
   },
   {
    "soru": "¿es el zilfen un ser vivo?",
-   "cevap": "Sí, el zilfen es un ser vivo. (No estoy seguro; fuente almacenada.)",
-   "ms": 10962,
-   "abstained": false
+   "cevap": "zilfen — tipo → ser vivo (~ #inference)",
+   "ms": 0,
+   "abstained": false,
+   "from_graph": true
   },
   {
    "soru": "¿es el torvanit una sustancia?",
-   "cevap": "Sí, el torvanit es una sustancia. (No estoy seguro, fuente almacenada.)",
-   "ms": 12124,
-   "abstained": false
+   "cevap": "torvanit — tipo → sustancia (~ #inference)",
+   "ms": 0,
+   "abstained": false,
+   "from_graph": true
   },
   {
    "soru": "¿qué pasa si llueve?",
-   "cevap": "Si llueve, el pantano crece. Si llueve, puede haber inundaciones. (No es seguro; #doc:corpus)",
-   "ms": 12503,
-   "abstained": false
+   "cevap": "Si llueve, el pantano crece. (~ #doc:corpus)",
+   "ms": 9423,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "¿qué pasa si el norgul se multiplica?",
    "cevap": "No sé.",
-   "ms": 6244,
-   "abstained": true
+   "ms": 7282,
+   "abstained": true,
+   "from_graph": false
   },
   {
    "soru": "¿qué es el melvarit?",
-   "cevap": "No conozco el melvarit aún. ¿Te gustaría que lo busque?",
-   "ms": 5948,
-   "abstained": true
+   "cevap": "No lo sé aún. ¿Te gustaría que lo busque?",
+   "ms": 4214,
+   "abstained": true,
+   "from_graph": false
   },
   {
    "soru": "¿cuál es la capital de Nortlann?",
-   "cevap": "No sé. No tengo información sobre \"Nortlann\". (No seguro, #doc:corpus)",
-   "ms": 12646,
-   "abstained": true
+   "cevap": "No sé.",
+   "ms": 7293,
+   "abstained": true,
+   "from_graph": false
   },
   {
    "soru": "¿a cuántos grados hierve el vorlin?",
-   "cevap": "No sé. El vorlin no es una sustancia conocida. (No seguro, #doc:corpus)",
-   "ms": 10870,
-   "abstained": true
+   "cevap": "No sé.",
+   "ms": 7493,
+   "abstained": true,
+   "from_graph": false
   },
   {
    "soru": "¿cuál es la población de la isla?",
-   "cevap": "No sé. La población de la isla puede variar. (#doc:corpus)",
-   "ms": 13729,
-   "abstained": false
+   "cevap": "No sé.",
+   "ms": 8121,
+   "abstained": true,
+   "from_graph": false
   }
  ]
 }

@@ -1,23 +1,23 @@
 {
  "ingest": {
-  "wall_seconds": 21.763,
+  "wall_seconds": 22.683,
   "facts": 61,
   "skipped": 0,
   "derived": 8,
   "calls": 118,
   "prompt_tokens": 42449,
-  "completion_tokens": 1176,
-  "api_seconds": 165.336,
+  "completion_tokens": 1173,
+  "api_seconds": 172.757,
   "buckets": {
    "relation-check": {
     "calls": 61,
     "prompt_tokens": 11634,
-    "completion_tokens": 173
+    "completion_tokens": 171
    },
    "read-back": {
     "calls": 56,
     "prompt_tokens": 30203,
-    "completion_tokens": 974
+    "completion_tokens": 973
    },
    "extract": {
     "calls": 1,
@@ -35,7 +35,7 @@
   {
    "soru": "zerbalit nedir",
    "cevap": "Zerbalit bir metaldir. (~ #doc:corpus)",
-   "wall_seconds": 12.576,
+   "wall_seconds": 11.172,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -56,12 +56,12 @@
    "calls": 9,
    "prompt_tokens": 7631,
    "completion_tokens": 77,
-   "api_seconds": 12.547
+   "api_seconds": 11.149
   },
   {
    "soru": "vorlin nedir",
    "cevap": "Vorlin bir içecektir. (~ #doc:corpus)",
-   "wall_seconds": 9.177,
+   "wall_seconds": 9.306,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -71,7 +71,7 @@
     "answer": {
      "calls": 3,
      "prompt_tokens": 2404,
-     "completion_tokens": 28
+     "completion_tokens": 33
     },
     "read-back": {
      "calls": 3,
@@ -81,13 +81,13 @@
    },
    "calls": 7,
    "prompt_tokens": 5398,
-   "completion_tokens": 64,
-   "api_seconds": 9.164
+   "completion_tokens": 69,
+   "api_seconds": 9.295
   },
   {
    "soru": "morlan nedir",
    "cevap": "Morlan bir kuştur. (~ #doc:corpus)",
-   "wall_seconds": 10.598,
+   "wall_seconds": 11.79,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -113,12 +113,12 @@
    "calls": 8,
    "prompt_tokens": 5880,
    "completion_tokens": 58,
-   "api_seconds": 10.586
+   "api_seconds": 11.783
   },
   {
    "soru": "norgul nedir",
    "cevap": "Norgul bir bitkidir. (~ #doc:corpus)",
-   "wall_seconds": 11.046,
+   "wall_seconds": 10.965,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -133,7 +133,7 @@
     "answer": {
      "calls": 3,
      "prompt_tokens": 2678,
-     "completion_tokens": 30
+     "completion_tokens": 34
     },
     "read-back": {
      "calls": 3,
@@ -143,13 +143,13 @@
    },
    "calls": 8,
    "prompt_tokens": 5887,
-   "completion_tokens": 69,
-   "api_seconds": 11.031
+   "completion_tokens": 73,
+   "api_seconds": 10.956
   },
   {
    "soru": "karvel nedir",
    "cevap": "Karvel bir balıktır. (~ #doc:corpus)",
-   "wall_seconds": 9.38,
+   "wall_seconds": 9.611,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -170,12 +170,12 @@
    "calls": 7,
    "prompt_tokens": 5710,
    "completion_tokens": 62,
-   "api_seconds": 9.369
+   "api_seconds": 9.602
   },
   {
    "soru": "kelvit nedir",
    "cevap": "Kelvit bir metaldir. (~ #doc:corpus)",
-   "wall_seconds": 9.916,
+   "wall_seconds": 9.015,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -185,7 +185,7 @@
     "answer": {
      "calls": 3,
      "prompt_tokens": 2371,
-     "completion_tokens": 33
+     "completion_tokens": 30
     },
     "read-back": {
      "calls": 3,
@@ -195,13 +195,13 @@
    },
    "calls": 7,
    "prompt_tokens": 5303,
-   "completion_tokens": 67,
-   "api_seconds": 9.898
+   "completion_tokens": 64,
+   "api_seconds": 9.0
   },
   {
    "soru": "selvin nedir",
    "cevap": "Selvin bir içecektir. (~ #doc:corpus)",
-   "wall_seconds": 9.523,
+   "wall_seconds": 9.017,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -222,12 +222,12 @@
    "calls": 7,
    "prompt_tokens": 5316,
    "completion_tokens": 60,
-   "api_seconds": 9.511
+   "api_seconds": 9.005
   },
   {
    "soru": "Velmar nedir",
    "cevap": "Velmar bir köydür. (~ #doc:corpus)",
-   "wall_seconds": 9.492,
+   "wall_seconds": 9.075,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -248,95 +248,42 @@
    "calls": 7,
    "prompt_tokens": 5438,
    "completion_tokens": 67,
-   "api_seconds": 9.481
+   "api_seconds": 9.065
   },
   {
    "soru": "vorlin bir sıvı mıdır",
-   "cevap": "Evet, Vorlin bir sıvıdır. (~ #inference)",
-   "wall_seconds": 9.421,
-   "buckets": {
-    "extract": {
-     "calls": 1,
-     "prompt_tokens": 606,
-     "completion_tokens": 15
-    },
-    "answer": {
-     "calls": 3,
-     "prompt_tokens": 2446,
-     "completion_tokens": 33
-    },
-    "read-back": {
-     "calls": 3,
-     "prompt_tokens": 2405,
-     "completion_tokens": 22
-    }
-   },
-   "calls": 7,
-   "prompt_tokens": 5457,
-   "completion_tokens": 70,
-   "api_seconds": 9.407
+   "cevap": "vorlin — tür → sıvı (~ #inference)",
+   "wall_seconds": 0.0,
+   "buckets": {},
+   "calls": 0,
+   "prompt_tokens": 0,
+   "completion_tokens": 0,
+   "api_seconds": 0
   },
   {
    "soru": "zilfen bir canlı mıdır",
-   "cevap": "Zilfen bir canlıdır. (~ #inference)",
-   "wall_seconds": 12.186,
-   "buckets": {
-    "extract": {
-     "calls": 1,
-     "prompt_tokens": 604,
-     "completion_tokens": 15
-    },
-    "answer": {
-     "calls": 3,
-     "prompt_tokens": 2669,
-     "completion_tokens": 26
-    },
-    "read-back": {
-     "calls": 4,
-     "prompt_tokens": 3851,
-     "completion_tokens": 22
-    }
-   },
-   "calls": 8,
-   "prompt_tokens": 7124,
-   "completion_tokens": 63,
-   "api_seconds": 12.171
+   "cevap": "zilfen — tür → canlı (~ #inference)",
+   "wall_seconds": 0.0,
+   "buckets": {},
+   "calls": 0,
+   "prompt_tokens": 0,
+   "completion_tokens": 0,
+   "api_seconds": 0
   },
   {
    "soru": "torvanit bir madde midir",
-   "cevap": "Evet, torvanit bir maddedir. (~ #inference)",
-   "wall_seconds": 11.059,
-   "buckets": {
-    "extract": {
-     "calls": 1,
-     "prompt_tokens": 606,
-     "completion_tokens": 16
-    },
-    "relation-check": {
-     "calls": 1,
-     "prompt_tokens": 147,
-     "completion_tokens": 2
-    },
-    "answer": {
-     "calls": 3,
-     "prompt_tokens": 2275,
-     "completion_tokens": 36
-    },
-    "read-back": {
-     "calls": 3,
-     "prompt_tokens": 2328,
-     "completion_tokens": 21
-    }
-   },
-   "calls": 8,
-   "prompt_tokens": 5356,
-   "completion_tokens": 75,
-   "api_seconds": 11.046
+   "cevap": "torvanit — tür → madde (~ #inference)",
+   "wall_seconds": 0.0,
+   "buckets": {},
+   "calls": 0,
+   "prompt_tokens": 0,
+   "completion_tokens": 0,
+   "api_seconds": 0
   },
   {
    "soru": "yağmur yağarsa ne olur",
    "cevap": "Yağmur yağarsa bataklık olur.",
-   "wall_seconds": 6.096,
+   "wall_seconds": 5.226,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -362,12 +309,12 @@
    "calls": 4,
    "prompt_tokens": 1929,
    "completion_tokens": 53,
-   "api_seconds": 6.094
+   "api_seconds": 5.224
   },
   {
    "soru": "norgul çoğalırsa ne olur",
    "cevap": "Morlan olur.",
-   "wall_seconds": 5.473,
+   "wall_seconds": 5.115,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -393,12 +340,12 @@
    "calls": 4,
    "prompt_tokens": 1933,
    "completion_tokens": 47,
-   "api_seconds": 5.472
+   "api_seconds": 5.114
   },
   {
    "soru": "melvarit nedir",
-   "cevap": "Melvarit hakkında henüz bilgiye sahip değilim. Bakmamı ister misin?",
-   "wall_seconds": 3.893,
+   "cevap": "Melvarit hakkında henüz bir bilgim yok. Bakmamı ister misin?",
+   "wall_seconds": 3.568,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -413,18 +360,18 @@
     "answer": {
      "calls": 1,
      "prompt_tokens": 106,
-     "completion_tokens": 20
+     "completion_tokens": 19
     }
    },
    "calls": 3,
    "prompt_tokens": 871,
-   "completion_tokens": 38,
-   "api_seconds": 3.892
+   "completion_tokens": 37,
+   "api_seconds": 3.567
   },
   {
    "soru": "Nortlann'ın başkenti neresidir",
    "cevap": "Bilmiyorum.",
-   "wall_seconds": 8.186,
+   "wall_seconds": 7.38,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -445,12 +392,12 @@
    "calls": 6,
    "prompt_tokens": 3908,
    "completion_tokens": 47,
-   "api_seconds": 8.178
+   "api_seconds": 7.372
   },
   {
    "soru": "vorlin kaç derecede kaynar",
    "cevap": "Bilmiyorum.",
-   "wall_seconds": 7.783,
+   "wall_seconds": 7.238,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -471,12 +418,12 @@
    "calls": 6,
    "prompt_tokens": 4131,
    "completion_tokens": 42,
-   "api_seconds": 7.775
+   "api_seconds": 7.231
   },
   {
    "soru": "adanın nüfusu kaçtır",
    "cevap": "Bilmiyorum.",
-   "wall_seconds": 7.826,
+   "wall_seconds": 7.87,
    "buckets": {
     "extract": {
      "calls": 1,
@@ -497,17 +444,17 @@
    "calls": 6,
    "prompt_tokens": 4156,
    "completion_tokens": 45,
-   "api_seconds": 7.817
+   "api_seconds": 7.864
   }
  ],
  "side": "lmm-deep",
  "corpus": "corpus.txt",
- "zero_call_questions": 0,
+ "zero_call_questions": 3,
  "question_count": 17,
  "query_totals": {
-  "calls": 112,
-  "prompt_tokens": 81428,
-  "completion_tokens": 1004,
-  "wall_seconds": 153.631
+  "calls": 89,
+  "prompt_tokens": 63491,
+  "completion_tokens": 801,
+  "wall_seconds": 116.348
  }
 }

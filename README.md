@@ -121,25 +121,37 @@ short version is not flattering to us:
 
 | Per question, TR corpus | RAG | LMM `deep=True` |
 |---|---|---|
-| model calls | **1.0** | 6.6 |
-| prompt tokens | **593** | 4,790 |
-| wall clock | **1.6 s** | 9.2 s |
-| Ingestion (once) | 0 API tokens (local embedding, ~0.2 s CPU) | 42,449 + 1,176 tokens — or **0**, with `deep=False` |
+| model calls | **1.0** | 5.5 |
+| prompt tokens | **593** | 3,944 |
+| wall clock | **1.6 s** | 7.5 s |
+| Ingestion (once) | 0 API tokens (local embedding, ~0.2 s CPU) | 42,449 + 1,174 tokens — or **0**, with `deep=False` |
 | Dependencies on disk | 114 packages, 1.35 GB + 458 MB weights | **1 package, 1.1 MB** |
 
-**On a hosted per-token engine, embedding RAG is cheaper than LMM and there is
-no break-even** — roughly 7x the calls and 8x the prompt tokens per question,
-and the gap widens with every question asked. Most of it is the verification
-read-back: the gate re-extracting the claims out of a sentence before it may
-leave. That is fabrication-0 being paid for in tokens.
+**On a hosted per-token engine, embedding RAG is still cheaper than LMM and
+there is no break-even** — roughly 5-6x the calls and 6-7x the prompt tokens
+per question, and the gap widens with every question asked. Most of the
+remaining cost is the verification read-back: the gate re-extracting the
+claims out of a sentence before it may leave. That is fabrication-0 being paid
+for in tokens.
 
 What the tokens buy is the other column of the table above — provenance, the
 refusal guarantee, symbolic multi-hop derivation, and a core with no
 dependencies. And on the local engine this project is actually built for, the
 dollar figure is **zero** and the cost is your own CPU seconds instead.
 
-Zero-call answers — questions the graph could answer with no model call at all —
-were measured too. The honest count on this corpus is **0 of 17**.
+**Zero-call answers — questions the graph answers with no model call at all —
+were 0 of 17 at every commit until `lmm/lookup.py`.** The architecture always
+permitted a derived fact or a table row to be spoken as it stands; nothing in
+the code ever took that path, because `respond` always spent a call turning a
+held triple into a sentence and more calls reading that sentence back.
+`lookup` answers the question directly from the graph — the record, not a
+sentence — for the two shapes it can settle without guessing: a value named on
+a relation the graph has closed under derivation, or a field with one value
+left in it. Measured: **3 of 17 questions, in TR and in EN alike — 18%** —
+now cost nothing at all, and they are exactly the multi-hop questions
+("is vorlin a liquid", answered from the *derived* `vorlin -[type]-> liquid`).
+Everything the graph cannot settle safely still falls through to the paid
+path unchanged; see `benchmarks/COST.md` §3 for what that guarantee costs.
 
 ## Architecture
 
@@ -150,7 +162,11 @@ were measured too. The honest count on this corpus is **0 of 17**.
  document     →  learn_text ──────→  evidence index  transitive derivation)
  spreadsheet  →  learn_rows ──────→  graph directly (no model calls)
                                                       │
- question     →  graph lookup + evidence retrieval →  answer (engine)
+ question     →  lookup ──────────→  THE RECORD, spoken as it stands
+                 (graph only)         no engine, no tokens, no wobble
+                     │ not settleable
+                     ↓
+                 graph lookup + evidence retrieval →  answer (engine)
                                                       │
                  coverage gate → digit discipline → support check → verify
                  (an answer whose claims are not in the given evidence DROPS)
@@ -161,6 +177,14 @@ were measured too. The honest count on this corpus is **0 of 17**.
   here is downstream of that one sentence.
 - **Two speeds.** Symbolic reasoning — derivation, causality, contradiction —
   runs in microseconds on the graph. The engine is only the language I/O.
+- **The graph answers first, where it can settle the question by itself.** If
+  the question NAMES a value on a relation the graph has closed under its own
+  derivation ("is vorlin a liquid"), or names a field with one value in it, the
+  answer is that record — returned before the extractor is reached, with no
+  model call anywhere in the path and therefore nothing for a model to invent.
+  Everything else falls through unchanged. It declines far more often than it
+  answers, on purpose: nothing structural separates a question naming no field
+  from one naming a field the graph has never heard of, so both are paid for.
 - **A document is two materials.** Tables state their own structure and go
   straight to the graph with no model call; prose goes to the evidence index,
   where ranges and qualifications that don't fit a triple survive verbatim.

@@ -1,110 +1,127 @@
 {
- "ingest_ms": 22655,
+ "ingest_ms": 24755,
  "yazilan": 61,
  "atlanan": 1,
  "turetilen": 8,
  "cevaplar": [
   {
    "soru": "zerbalit nedir",
-   "cevap": "Zerbalit bir metaldir. Zerbalit, genellikle bir tür sözlü ifade veya anlatım tarzını ifade eder. (Bu ifade kesin değildir; #doc:corpus)",
-   "ms": 15709,
-   "abstained": false
+   "cevap": "Zerbalit bir metaldir. (~ #doc:corpus)",
+   "ms": 11196,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "vorlin nedir",
-   "cevap": "Vorlin bir içecektir. Vorlin, bir tür fantezi evreninde yer alan bir terim olabilir. (Bu ifade kesin değildir; #doc:corpus)",
-   "ms": 10892,
-   "abstained": false
+   "cevap": "Vorlin bir içecektir. (~ #doc:corpus)",
+   "ms": 10270,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "morlan nedir",
-   "cevap": "Morlan bir kuştur. Morlan, genellikle bir tür bitki veya ağaç olarak bilinir. (Bu bilgi kesin değildir, #doc:corpus)",
-   "ms": 12898,
-   "abstained": false
+   "cevap": "Morlan bir kuştur. (~ #doc:corpus)",
+   "ms": 11060,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "norgul nedir",
-   "cevap": "Norgul bir bitkidir. Norgul, genellikle fantastik kurgu eserlerinde yer alan bir terimdir. (Bu ifade kesin değil, #doc:corpus)",
-   "ms": 14249,
-   "abstained": false
+   "cevap": "Norgul bir bitkidir. (~ #doc:corpus)",
+   "ms": 11661,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "karvel nedir",
-   "cevap": "Karvel bir balıktır. Karvel, genellikle \"karavella\" olarak bilinen bir deniz canlısıdır. (Bu ifade kesin değil, #doc:corpus)",
-   "ms": 12128,
-   "abstained": false
+   "cevap": "Karvel bir balıktır. (~ #doc:corpus)",
+   "ms": 9128,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "kelvit nedir",
-   "cevap": "Kelvit bir metaldir. Kelvit, genellikle bir tür bitki veya ot olarak bilinir. (Bu ifade kesin değil, #doc:corpus)",
-   "ms": 11129,
-   "abstained": false
+   "cevap": "Kelvit bir metaldir. (~ #doc:corpus)",
+   "ms": 11344,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "selvin nedir",
-   "cevap": "Selvin bir içecektir. Selvin, genellikle bir isim olarak kullanılır. (Bu ifade kesin değil, #doc:corpus)",
-   "ms": 13264,
-   "abstained": false
+   "cevap": "Selvin bir içecektir. (~ #doc:corpus)",
+   "ms": 9000,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "Velmar nedir",
-   "cevap": "Velmar bir köydür. Velmar, bir terim veya isim olabilir. (Bu ifade kesin değil, #doc:corpus)",
-   "ms": 12245,
-   "abstained": false
+   "cevap": "Velmar bir köydür. (~ #doc:corpus)",
+   "ms": 9711,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "vorlin bir sıvı mıdır",
-   "cevap": "Evet, vorlin bir sıvıdır. (Doğruluk payı var, kaynak: depolanmış bilgi.)",
-   "ms": 13638,
-   "abstained": false
+   "cevap": "vorlin — tür → sıvı (~ #inference)",
+   "ms": 0,
+   "abstained": false,
+   "from_graph": true
   },
   {
    "soru": "zilfen bir canlı mıdır",
-   "cevap": "Zilfen bir canlıdır. Zilfen, bir canlı türü olarak bilinmemektedir. (Kesin değil, kaynak: depolanmış bilgi)",
-   "ms": 13572,
-   "abstained": false
+   "cevap": "zilfen — tür → canlı (~ #inference)",
+   "ms": 0,
+   "abstained": false,
+   "from_graph": true
   },
   {
    "soru": "torvanit bir madde midir",
-   "cevap": "Evet, torvanit bir maddedir. (Emin değilim, kaynak: depolanmış bilgi)",
-   "ms": 12827,
-   "abstained": false
+   "cevap": "torvanit — tür → madde (~ #inference)",
+   "ms": 0,
+   "abstained": false,
+   "from_graph": true
   },
   {
    "soru": "yağmur yağarsa ne olur",
    "cevap": "Yağmur yağarsa bataklık olur.",
-   "ms": 5121,
-   "abstained": false
+   "ms": 5788,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "norgul çoğalırsa ne olur",
    "cevap": "Morlan olur.",
-   "ms": 5994,
-   "abstained": false
+   "ms": 6330,
+   "abstained": false,
+   "from_graph": false
   },
   {
    "soru": "melvarit nedir",
    "cevap": "Melvarit hakkında bilgim yok. Bakmamı ister misiniz?",
-   "ms": 3674,
-   "abstained": true
+   "ms": 3744,
+   "abstained": true,
+   "from_graph": false
   },
   {
    "soru": "Nortlann'ın başkenti neresidir",
-   "cevap": "Bilmiyorum. Nortlann'ın başkenti hakkında kesin bilgi yoktur. (#doc:corpus)",
-   "ms": 9749,
-   "abstained": true
+   "cevap": "Bilmiyorum.",
+   "ms": 8165,
+   "abstained": true,
+   "from_graph": false
   },
   {
    "soru": "vorlin kaç derecede kaynar",
-   "cevap": "Bilmiyorum. (Veri kaynağına dayalı kesinlik yoktur.)",
-   "ms": 9356,
-   "abstained": true
+   "cevap": "Bilmiyorum.",
+   "ms": 9313,
+   "abstained": true,
+   "from_graph": false
   },
   {
    "soru": "adanın nüfusu kaçtır",
-   "cevap": "Bilmiyorum. (Veri kesin değildir, #doc:corpus)",
-   "ms": 9988,
-   "abstained": true
+   "cevap": "Bilmiyorum.",
+   "ms": 8396,
+   "abstained": true,
+   "from_graph": false
   }
  ]
 }
