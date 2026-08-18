@@ -1,37 +1,89 @@
-# Ortam ve gizli bilgi — anahtar asla depoya girmez
+# ---------------------------------------------------------------------------
+# Secrets. The key never enters the repository.
+# ---------------------------------------------------------------------------
 .env
+.env.*
+!.env.example
 
-# Türetilebilir veri. İndirme + hazırlama betikleriyle yeniden üretilir;
-# depoda taşımanın anlamı yok ve boyutu depoyu kullanılamaz hale getirir.
+# ---------------------------------------------------------------------------
+# Third-party and private documents.
+#
+# The README reports benchmarks against a device manual, an internal strategy
+# document and an inspection spreadsheet. Those documents belong to their
+# owners, contain named individuals, and are NOT redistributable. Only the
+# aggregate scores are published. Keep them out of the repository.
+#
+# The publishable half of the benchmark is the INVENTED corpus (bench/corpus*.txt
+# and its question sets), which is force-included below.
+# ---------------------------------------------------------------------------
+bench/manual.txt
+bench/hospital.txt
+bench/site.txt
+bench/manual_questions.json
+bench/hospital_questions.json
+bench/site_questions.json
+bench/result_*manual*
+bench/result_*hospital*
+bench/result_*site*
+bench/bisect_hospital/
+*.pdf
+*.docx
+*.xlsx
+*.doc
+
+!bench/corpus.txt
+!bench/corpus_en.txt
+!bench/corpus_es.txt
+!bench/questions.json
+!bench/questions_en.json
+!bench/questions_es.json
+
+# ---------------------------------------------------------------------------
+# Derivable data. Reproduced by the download/prepare scripts; carrying it in
+# the repository has no value and would make the repository unusable in size.
+# ---------------------------------------------------------------------------
 data/
-# Sıklık tabloları derlemden çıkarılır ama çalışma anı bağımlılığıdır:
-# onlarsız durum eki çözümü ve tür testleri körleşir. 9,5 MB ve modelin
-# parçası — derlemin kendisi (30 GB) değil.
-!data/tr-siklik.txt
-!data/tr-derece.txt
 *.bz2
 *.bin
 
-# Eğitilmiş çekirdek: 193 MB, eniyileyici durumuyla birlikte. Dağıtılacak
-# sürüm ayrıca hazırlanır (yalnızca ağırlıklar), bu ara dosyalar değil.
-*.pt
-
-# Çalışma anında üretilenler
-memory.json
-*.json.tmp
-__pycache__/
-*.pyc
-
-# Eğitilmiş modeller ve türetilmiş graflar: 3 GB. Künye (models/registry.json)
-# hangi sürümün neden seçildiğini taşır ve O depoya girer — dosyaların
-# kendisi girmez.
+# ---------------------------------------------------------------------------
+# Models and weights. The trained core is ~193 MB with optimizer state; the
+# downloaded engines are gigabytes. The registry records WHICH version was
+# chosen and why, and that file does belong in the repository.
+# ---------------------------------------------------------------------------
 models/
 !models/registry.json
+*.pt
+*.gguf
+*.safetensors
+core/
 
-# İndirilmiş hazır Türkçe çekirdek (1,35 GB). Kaynağı künyede yazılı:
-# ytu-ce-cosmos/turkish-gpt2-medium-350m-instruct-v0.1
-core/turkce-cekirdek/
-.claude/
-
-# llama.cpp: GGUF dönüşüm/quantize aracı (klon, ~ büyük) — türetilir, commitlenmez
+# llama.cpp: the GGUF convert/quantize toolchain. A clone — derived, not committed.
 llama.cpp/
+
+# ---------------------------------------------------------------------------
+# Runtime output. Memory files, evidence indexes and conversation logs are
+# produced by running the system; several contain verbatim user input.
+# ---------------------------------------------------------------------------
+logs/
+*.lmm
+*.evidence
+memory.json
+*.json.tmp
+
+# ---------------------------------------------------------------------------
+# Python / editor / OS
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+.claude/
+.vscode/
+.DS_Store
