@@ -100,3 +100,11 @@ venv/
 # ---------------------------------------------------------------------------
 docs/internal/
 notebooks/
+
+# ---------------------------------------------------------------------------
+# Field trial documents: fetched from the public internet by
+# benchmarks/field/fetch_documents.py, never committed. The script (URLs +
+# licences) and the report are what belong in git.
+# ---------------------------------------------------------------------------
+benchmarks/field/documents/
+benchmarks/field/work/
