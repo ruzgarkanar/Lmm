@@ -1872,6 +1872,104 @@ def m1():
     assert m.ask("x", explain=True).sources == ("#pdf:rfc2119.txt",)
 
 
+@test("M2 learn() says what it could not read instead of swallowing it")
+def m2():
+    """THE SILENT CLASS, measured in the field trial and closed here.
+
+    Four separate ways a document was never read while `learn()` reported
+    success: an image-only PDF (`<Learned 0 facts, 0 tables via pdf>`, zero
+    evidence, no warning); an HTML file, which has no reader, accepted as
+    "text" and filling the index with markup; a mistyped path learned as a
+    SENTENCE; and a broken PDF answering with 38 lines of pdfminer traceback.
+
+    All four are decided on structure — zero characters, the share of
+    characters inside tags, the shape of a filename — and none of them on any
+    document's content. No model runs in this test."""
+    from lmm import api
+    from lmm.api import Memory
+    home = tempfile.mkdtemp()
+
+    # 1. A PATH THAT IS NOT THERE IS A TYPO, NOT A SENTENCE.
+    m = Memory()
+    for bad in ("manual.pdf", os.path.join(home, "notes.txt")):
+        try:
+            m.learn(bad)
+        except ValueError as said:
+            assert "no such file" in str(said), said
+        else:
+            raise AssertionError("a missing file was learned as text: %r" % bad)
+    try:
+        m.learn(home)
+    except ValueError as said:
+        assert "directory" in str(said), said
+    else:
+        raise AssertionError("a directory was learned as text")
+    # and prose that merely mentions a filename is still prose
+    kept = m.learn("The calibration values live in manual.pdf on the bench.",
+                   deep=False)
+    assert kept.evidence > 0 and not kept.warnings
+
+    # 2. NOTHING CAME OUT = SAY SO. Stood in for the scanner's PDF: the reader
+    #    runs, returns nothing, writes no evidence.
+    import lmm.tables as tables_module
+    real = tables_module.learn_pdf
+    try:
+        tables_module.learn_pdf = lambda session, path, source=None, deep=False: (0, 0)
+        scan = os.path.join(home, "scan.pdf")
+        open(scan, "wb").write(b"%PDF-1.4 no text layer here")
+        told = Memory().learn(scan)
+        assert told.evidence == 0 and told.warnings, repr(told)
+        assert "OCR" in told.warnings[0], told.warnings
+        assert not told, "an unread document reported itself as read"
+    finally:
+        tables_module.learn_pdf = real
+
+    # 3. MARKUP IS NOT PROSE, and a format with no reader says which one it is.
+    page = os.path.join(home, "spec.html")
+    open(page, "w", encoding="utf-8").write(
+        "<html><head><meta content='Common,Latin' name='scripts'>"
+        "<link rel='stylesheet' href='a.css'></head><body>"
+        + "<div class='row'><span class='cell'>x</span></div>" * 40
+        + "<p>The tower is 91 metres tall.</p></body></html>")
+    told = Memory().learn(page, deep=False)
+    assert told.evidence > 0 and len(told.warnings) == 2, repr(told)
+    assert any("not a format LMM has a reader for" in w for w in told.warnings)
+    assert any("markup" in w for w in told.warnings), told.warnings
+    # ... and an ordinary text file gets no warning at all
+    plain = os.path.join(home, "notes.txt")
+    open(plain, "w", encoding="utf-8").write("The tower is 91 metres tall.\n")
+    told = Memory().learn(plain, deep=False)
+    assert told.evidence > 0 and not told.warnings, repr(told)
+
+    # 4. A BROKEN FILE GETS ONE LINE, NOT A THIRD-PARTY TRACEBACK — while our
+    #    own errors (the missing-extra install line) pass through untouched.
+    class Pdfminer(Exception):
+        pass
+
+    def explode(*a, **k):
+        raise Pdfminer("")            # the protected-PDF case: empty message
+
+    try:
+        api._read_with("pdf", "/tmp/x.pdf", explode)
+    except ValueError as said:
+        assert "could not read this file" in str(said) and "Pdfminer" in str(said)
+        # `raise ... from None`: the reader's traceback is not re-printed under
+        # ours, which is the whole of the user-visible difference
+        assert said.__cause__ is None and said.__suppress_context__
+    else:
+        raise AssertionError("the reader's own exception reached the caller")
+
+    def missing(*a, **k):
+        raise ImportError("pip install 'lmm[pdf]'")
+
+    try:
+        api._read_with("pdf", "/tmp/x.pdf", missing)
+    except ImportError as said:
+        assert "lmm[pdf]" in str(said)
+    else:
+        raise AssertionError("the install line was swallowed")
+
+
 def main():
     failed = 0
     for name, function in PASSED:
