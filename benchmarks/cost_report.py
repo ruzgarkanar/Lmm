@@ -46,9 +46,14 @@ def median(values):
 def load(cost_dir):
     runs = collections.defaultdict(list)
     for name in sorted(os.listdir(cost_dir)):
-        if not name.endswith(".json") or name.startswith("smoke"):
+        # Only the run files: <side>_<lang>_<repeat>.json. The directory also
+        # holds infra.json and the summary this script writes, which are not
+        # samples and must not be counted as one.
+        parts = name[:-5].rsplit("_", 2)
+        if (not name.endswith(".json") or len(parts) != 3
+                or parts[0] not in SIDES or not parts[2].isdigit()):
             continue
-        side, lang, _rep = name[:-5].rsplit("_", 2)
+        side, lang, _rep = parts
         runs[(side, lang)].append(
             json.load(open(os.path.join(cost_dir, name), encoding="utf-8")))
     return runs
@@ -70,6 +75,8 @@ def ingest_stats(samples):
         "prompt": g("prompt_tokens"),
         "completion": g("completion_tokens"),
         "wall": g("wall_seconds"),
+        "derived": median([s["ingest"].get("derived", 0) for s in samples]),
+        "facts": median([s["ingest"].get("facts", 0) for s in samples]),
         "embed_calls": median([e.get("calls", 0) for e in emb]),
         "embed_cpu": median([e.get("cpu_seconds", 0) for e in emb]),
         "embed_chars": median([e.get("characters", 0) for e in emb]),
@@ -180,11 +187,29 @@ def main():
       "seconds and roughly half a gigabyte of dependencies (section 4). Had a "
       "hosted embedding API been used instead, that column would carry a real "
       "token bill; this setup deliberately gives RAG the cheaper option.\n")
-    w("**LMM's ingestion is where LMM is expensive.** `deep=True` reads the "
-      "document into a graph — every candidate fact is extracted and then "
-      "re-read by the gate before it is allowed in. That is the price of the "
-      "provenance and the refusal guarantee, and it is paid once per "
-      "document, not once per question.\n")
+    sh0 = data.get(("lmm-shallow", langs[0])) if langs else None
+    dp0 = data.get(("lmm-deep", langs[0])) if langs else None
+    if sh0 and sh0["ingest"]["calls"] == 0:
+        w(f"**LMM `deep=False` ingests for free** — literally zero model "
+          f"calls, zero tokens, {sh0['ingest']['wall']*1000:.0f} ms. Building "
+          f"the evidence index is pure python: no model, no network, no "
+          f"embedding. This is the cheapest ingestion in the table by a wide "
+          f"margin, and it is the mode meant for a large document.\n")
+    if dp0:
+        w(f"**`deep=True` is where LMM's ingestion cost lives** — "
+          f"{dp0['ingest']['calls']:.0f} calls and "
+          f"{dp0['ingest']['prompt'] + dp0['ingest']['completion']:,.0f} "
+          f"tokens to read this small corpus into a graph, because every "
+          f"candidate fact is extracted and then re-read by the gate before it "
+          f"is admitted. That is the provenance and the refusal guarantee "
+          f"being paid for up front. It buys {dp0['ingest']['facts']:.0f} "
+          f"admitted facts and the {dp0['ingest']['derived']:.0f} further ones "
+          f"the graph *derives* symbolically — no model call, microseconds — "
+          f"which is what makes multi-hop answers possible. It is paid "
+          f"once per document rather than once per question.\n")
+        w(f"For scale: that corpus is ~1.5 KB. Ingestion cost on this path "
+          f"grows with the document, so a 350-page manual is not a "
+          f"`deep=True` job — which is exactly why `deep=False` exists.\n")
 
     # ---- 2. per question -----------------------------------------------
     w("## 2. Cost per question\n")
@@ -321,6 +346,33 @@ def main():
                              f"in the positive range.")
     out.extend(lines or ["- not enough data"])
     w("")
+    # The one crossing that DOES exist, and the only one that changes a
+    # decision: deep=False ingests free but asks dearer, so it wins only until
+    # the graph's cheaper queries have repaid the extraction.
+    inner = []
+    for lang in langs:
+        sh, dp = data.get(("lmm-shallow", lang)), data.get(("lmm-deep", lang))
+        if not (sh and dp):
+            continue
+        n = breakeven(sh["ingest"], sh["query"], dp["ingest"], dp["query"])
+        if n:
+            inner.append(
+                f"- **`deep=False` vs `deep=True` ({lang})** — `deep=False` "
+                f"ingests free but asks dearer; `deep=True` overtakes it at "
+                f"**~{n:,.0f} questions** on one document. Below that, shallow "
+                f"is the cheaper LMM; above it, the graph has repaid its own "
+                f"extraction.")
+    if inner:
+        w("The one crossing that exists is *inside* LMM:\n")
+        out.extend(inner)
+        w("")
+        w("**Treat those two numbers as an order of magnitude, not a "
+          "threshold.** They divide a fixed ingestion cost by a small "
+          "per-question difference, so the noise in the per-question figure is "
+          "amplified — which is exactly why the two languages disagree by "
+          "several-fold on a corpus that is otherwise line-for-line identical. "
+          "What is solid is the shape: shallow wins for a handful of "
+          "questions, deep wins once you are asking hundreds.\n")
 
     # ---- 6. honest summary ----------------------------------------------
     w("## 6. Honest summary\n")
@@ -345,16 +397,25 @@ def main():
           f"of these numbers in which LMM is the cheap option on a hosted "
           f"per-token engine, and no break-even where that reverses — the gap "
           f"grows with every question asked.\n")
+        w(f"**We are also slower per question**: {qd['wall']:.1f} s against "
+          f"RAG's {qr['wall']:.1f} s, because six or seven sequential calls "
+          f"cannot beat one. On the same rate-limited deployment, measured "
+          f"back to back.\n")
         if shallow:
             qs = shallow["query"]
-            w(f"**The cheaper LMM setting is `deep=False`**, which skips graph "
-              f"extraction at ingestion "
-              f"({shallow['ingest']['prompt'] + shallow['ingest']['completion']:,.0f} "
-              f"tokens vs {ing_tok:,.0f}) and answers from the evidence index "
-              f"at {qs['calls']:.1f} calls per question. It is the setting to "
-              f"reach for when the document is large and the questions are "
-              f"single-hop; it gives up the derivation that produces LMM's "
-              f"multi-hop answers.\n")
+            n = breakeven(shallow["ingest"], shallow["query"],
+                          deep["ingest"], deep["query"])
+            w(f"**Which LMM mode is cheaper is a question of how many "
+              f"questions you will ask.** `deep=False` ingests for nothing but "
+              f"asks dearer ({qs['calls']:.1f} calls/q vs {qd['calls']:.1f}); "
+              f"`deep=True` pays {ing_tok:,.0f} tokens up front and then asks "
+              f"cheaper, because the graph answers more directly."
+              + (f" They cross somewhere in the **low hundreds of questions** "
+                 f"on one document (~{n:,.0f} here, but see the caveat above — "
+                 f"the two languages disagree several-fold)." if n else "")
+              + " `deep=False` is also the only workable mode for a large "
+                "document, since extraction cost scales with the text while "
+                "the evidence index does not.\n")
         w("**Where we are cheaper: the axes this table cannot bill.** The "
           "tokens above buy three things RAG does not have at any price — "
           "every answer carrying its source, a structural gate that stops an "

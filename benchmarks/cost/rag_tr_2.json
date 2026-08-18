@@ -1,0 +1,308 @@
+{
+ "ingest": {
+  "wall_seconds": 7.131,
+  "chunks": 4,
+  "calls": 0,
+  "prompt_tokens": 0,
+  "completion_tokens": 0,
+  "api_seconds": 0,
+  "embedding": {
+   "calls": 1,
+   "api_tokens": 0,
+   "texts": 4,
+   "characters": 1522,
+   "cpu_seconds": 0.204
+  }
+ },
+ "query_embedding": {
+  "calls": 18,
+  "api_tokens": 0,
+  "texts": 21,
+  "characters": 1823,
+  "cpu_seconds": 1.211
+ },
+ "questions": [
+  {
+   "soru": "zerbalit nedir",
+   "cevap": "Zerbalit bir metaldir.",
+   "wall_seconds": 3.148,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 592,
+     "completion_tokens": 10
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 592,
+   "completion_tokens": 10,
+   "api_seconds": 3.057
+  },
+  {
+   "soru": "vorlin nedir",
+   "cevap": "Vorlin bir içecektir.",
+   "wall_seconds": 1.517,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 591,
+     "completion_tokens": 8
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 591,
+   "completion_tokens": 8,
+   "api_seconds": 1.434
+  },
+  {
+   "soru": "morlan nedir",
+   "cevap": "Morlan bir kuştur.",
+   "wall_seconds": 1.642,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 591,
+     "completion_tokens": 7
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 591,
+   "completion_tokens": 7,
+   "api_seconds": 1.589
+  },
+  {
+   "soru": "norgul nedir",
+   "cevap": "Norgul bir bitkidir. Bitki bir canlıdır. Norgul bir canlıdır.",
+   "wall_seconds": 1.651,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 592,
+     "completion_tokens": 22
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 592,
+   "completion_tokens": 22,
+   "api_seconds": 1.6
+  },
+  {
+   "soru": "karvel nedir",
+   "cevap": "Karvel bir balıktır.",
+   "wall_seconds": 1.564,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 591,
+     "completion_tokens": 9
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 591,
+   "completion_tokens": 9,
+   "api_seconds": 1.505
+  },
+  {
+   "soru": "kelvit nedir",
+   "cevap": "Kelvit bir metaldir.",
+   "wall_seconds": 1.495,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 591,
+     "completion_tokens": 8
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 591,
+   "completion_tokens": 8,
+   "api_seconds": 1.447
+  },
+  {
+   "soru": "selvin nedir",
+   "cevap": "Selvin bir içecektir.",
+   "wall_seconds": 2.157,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 591,
+     "completion_tokens": 8
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 591,
+   "completion_tokens": 8,
+   "api_seconds": 2.106
+  },
+  {
+   "soru": "Velmar nedir",
+   "cevap": "Velmar bir köydür.",
+   "wall_seconds": 1.323,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 591,
+     "completion_tokens": 8
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 591,
+   "completion_tokens": 8,
+   "api_seconds": 1.272
+  },
+  {
+   "soru": "vorlin bir sıvı mıdır",
+   "cevap": "Evet, vorlin bir sıvıdır.",
+   "wall_seconds": 1.544,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 595,
+     "completion_tokens": 11
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 595,
+   "completion_tokens": 11,
+   "api_seconds": 1.479
+  },
+  {
+   "soru": "zilfen bir canlı mıdır",
+   "cevap": "Evet, zilfen bir canlıdır.",
+   "wall_seconds": 1.527,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 593,
+     "completion_tokens": 10
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 593,
+   "completion_tokens": 10,
+   "api_seconds": 1.44
+  },
+  {
+   "soru": "torvanit bir madde midir",
+   "cevap": "Evet, torvanit bir metaldir.",
+   "wall_seconds": 2.119,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 595,
+     "completion_tokens": 12
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 595,
+   "completion_tokens": 12,
+   "api_seconds": 2.069
+  },
+  {
+   "soru": "yağmur yağarsa ne olur",
+   "cevap": "Yağmur yağarsa bataklık büyür.",
+   "wall_seconds": 1.643,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 593,
+     "completion_tokens": 12
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 593,
+   "completion_tokens": 12,
+   "api_seconds": 1.553
+  },
+  {
+   "soru": "norgul çoğalırsa ne olur",
+   "cevap": "Morlan çoğalır.",
+   "wall_seconds": 1.392,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 597,
+     "completion_tokens": 8
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 597,
+   "completion_tokens": 8,
+   "api_seconds": 1.306
+  },
+  {
+   "soru": "melvarit nedir",
+   "cevap": "Bilmiyorum.",
+   "wall_seconds": 1.402,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 592,
+     "completion_tokens": 5
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 592,
+   "completion_tokens": 5,
+   "api_seconds": 1.35
+  },
+  {
+   "soru": "Nortlann'ın başkenti neresidir",
+   "cevap": "Bilmiyorum.",
+   "wall_seconds": 1.126,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 597,
+     "completion_tokens": 5
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 597,
+   "completion_tokens": 5,
+   "api_seconds": 1.044
+  },
+  {
+   "soru": "vorlin kaç derecede kaynar",
+   "cevap": "Bilmiyorum.",
+   "wall_seconds": 1.516,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 594,
+     "completion_tokens": 5
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 594,
+   "completion_tokens": 5,
+   "api_seconds": 1.494
+  },
+  {
+   "soru": "adanın nüfusu kaçtır",
+   "cevap": "Bilmiyorum.",
+   "wall_seconds": 1.074,
+   "buckets": {
+    "answer": {
+     "calls": 1,
+     "prompt_tokens": 594,
+     "completion_tokens": 5
+    }
+   },
+   "calls": 1,
+   "prompt_tokens": 594,
+   "completion_tokens": 5,
+   "api_seconds": 1.025
+  }
+ ],
+ "side": "rag",
+ "corpus": "corpus.txt",
+ "zero_call_questions": 0,
+ "question_count": 17,
+ "query_totals": {
+  "calls": 17,
+  "prompt_tokens": 10080,
+  "completion_tokens": 153,
+  "wall_seconds": 27.84
+ }
+}
