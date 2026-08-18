@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # The whole discrete layer is counters, links and thresholds, so the test
+  # suite needs no model, no GPU and no network — and therefore runs on every
+  # supported version rather than on one.
+  tests:
+    name: tests · python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install the core (no dependencies)
+        run: pip install -e .
+      - name: Run the suite
+        run: python tests/test_core.py
+
+  # THE CLAIM UNDER TEST: `pip install lmm` pulls in nothing. This is a design
+  # statement in the README and in pyproject, so it gets an assertion rather
+  # than a promise — a stray top-level `import pandas` would pass the suite
+  # above (the runner has it) and silently break the claim.
+  dependency-free:
+    name: the core install has no dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build and install the wheel alone
+        run: |
+          pip install build
+          python -m build --wheel
+          pip install dist/*.whl
+      - name: Nothing came with it
+        run: |
+          installed=$(pip list --format=freeze \
+            | grep -viE '^(pip|setuptools|wheel|build|packaging|pyproject.hooks)=' \
+            | grep -v '^lmm=' || true)
+          if [ -n "$installed" ]; then
+            echo "the core install pulled in dependencies:"; echo "$installed"; exit 1
+          fi
+          echo "clean"
+      - name: It imports and works from outside the source tree
+        run: |
+          cd "$(mktemp -d)"
+          python -c "
+          import lmm
+          from lmm import Memory
+          m = Memory()
+          m.learn('The tower is 91 metres tall.', deep=False)
+          assert len(m) >= 1
+          import lmm.core.memory, lmm.core.gate, lmm.tables
+          print('ok', lmm.__version__)
+          "
+      - name: An optional reader asks for itself instead of crashing
+        run: |
+          python -c "
+          import lmm.tables as t
+          try:
+              t.read_pdf('nothing.pdf')
+          except ImportError as said:
+              assert 'lmm[pdf]' in str(said), said
+              print('ok:', str(said).splitlines()[0])
+          else:
+              raise SystemExit('a PDF was read with no reader installed')
+          "
+
+  examples:
+    name: the model-free example runs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e .
+      - run: python examples/no_engine.py

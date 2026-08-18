@@ -1,0 +1,77 @@
+name: Bug report
+description: Something behaves differently from what the code says it does.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. One request before you start: **the measurement
+        that shows the bug is worth more than a guess at the cause.** These
+        benchmarks are noisy, so if the report is about answer quality, please
+        run it at least three times.
+
+        Please do not paste content from a document you cannot share.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what came out, and what you expected instead.
+      placeholder: |
+        I ran:
+            m = Memory(); m.learn("spec.pdf")
+            print(m.ask("what is the ingress rating?"))
+        I got:     "I don't have that information."
+        I expected: IPX7 — it is in a table on page 4.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: A way to reproduce it
+      description: >
+        Ideally a few lines that run without your document — invented text
+        showing the same shape is better than a real file you cannot attach.
+        `benchmarks/corpus.txt` is a good source of invented material.
+      render: python
+    validations:
+      required: true
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Which part, if you know
+      options:
+        - Ingestion (learn / an adapter — pdf, docx, xlsx, csv)
+        - Retrieval (the right evidence was not found)
+        - Answering (the evidence was there, the answer was wrong)
+        - Abstention (it refused when it should not have, or the reverse)
+        - The graph / gate (lmm.core)
+        - Packaging or install
+        - Not sure
+
+  - type: input
+    id: engine
+    attributes:
+      label: Engine
+      placeholder: local Qwen2.5-3B / gguf via llama.cpp / azure gpt-4o-mini / none
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: LMM and Python version
+      placeholder: "lmm 0.1.0, Python 3.11.9, macOS 14"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: "`python3.11 tests/test_core.py` passes on my checkout"
+        - label: If this is about answer quality, I ran it more than once
+        - label: I have not included content I cannot share publicly

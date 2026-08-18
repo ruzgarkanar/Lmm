@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/ruzgarkanar/lmm/security/advisories/new
+    about: Report privately, not in a public issue. See SECURITY.md.
+  - name: Question or idea
+    url: https://github.com/ruzgarkanar/lmm/discussions
+    about: For anything that is not yet a bug or a concrete proposal.
