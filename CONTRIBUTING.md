@@ -11,7 +11,7 @@ and knowing that up front will save you an afternoon.
 git clone https://github.com/ruzgarkanar/lmm
 cd lmm
 pip install -e .                   # the core: no dependencies at all
-python3.11 tests/test_core.py      # 59 tests, no model, no GPU, no network
+python3.11 tests/test_core.py      # 63 tests, no model, no GPU, no network
 ```
 
 The test suite is plain python — no pytest, no fixtures, no config. It runs in
