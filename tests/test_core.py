@@ -2022,6 +2022,92 @@ def m3():
                for text in found), found
 
 
+@test("M4 an engine call that never comes back gives up instead of waiting forever")
+def m4():
+    """MEASURED: one question took 613 seconds. Not computing — waiting. The
+    backend was over its per-minute quota and the client retried ten times with
+    no clock, so a rate limit (correctly treated as a wait) became a wait with
+    no end and no message.
+
+    `runtime.within_budget` keeps the retries and puts a deadline around them:
+    what is a queue is tried again with a doubling pause while budget remains,
+    what is a real failure is raised at once and unchanged, and running out
+    says how long it waited. No model and no network here — the call is stood
+    in for, and the budget is set to a fraction of a second."""
+    from lmm import runtime
+    was = os.environ.get("LMM_TIMEOUT")
+
+    class Queued(Exception):
+        pass
+
+    try:
+        # 1. the budget is read from the environment, and 0 means "no limit"
+        os.environ["LMM_TIMEOUT"] = "0.3"
+        assert runtime.budget() == 0.3
+        os.environ["LMM_TIMEOUT"] = "0"
+        assert runtime.budget() == 0.0
+        os.environ["LMM_TIMEOUT"] = "not a number"
+        assert runtime.budget() == runtime.DEFAULT_BUDGET
+        del os.environ["LMM_TIMEOUT"]
+        assert runtime.budget() == runtime.DEFAULT_BUDGET
+
+        # 2. a queue is retried WHILE THERE IS BUDGET, and then gives up — and
+        #    the giving up happens in about the budget, not in ten retries
+        os.environ["LMM_TIMEOUT"] = "0.3"
+        tries = []
+
+        def busy(left):
+            tries.append(left)
+            raise Queued("429 Too Many Requests")
+
+        started = time.time()
+        try:
+            runtime.within_budget(busy, (Queued,), what="the test endpoint")
+        except runtime.EngineTimeout as gave_up:
+            assert "0.3s" in str(gave_up) and "Queued" in str(gave_up), gave_up
+        else:
+            raise AssertionError("a permanently busy endpoint returned")
+        waited = time.time() - started
+        assert 0.3 <= waited < 3, waited
+        assert tries and all(t is not None and t <= 0.3 for t in tries), tries
+
+        # 2b. a queue that CLEARS is answered — the retry is still there, it
+        #     just has a clock around it now
+        os.environ["LMM_TIMEOUT"] = "5"
+        state = {"first": True}
+
+        def clears(left):
+            if state["first"]:
+                state["first"] = False
+                raise Queued("429 Too Many Requests")
+            return "answered"
+
+        assert runtime.within_budget(clears, (Queued,)) == "answered"
+
+        # 3. a REAL failure is not retried, and reaches the caller unchanged
+        seen = []
+
+        def broken(left):
+            seen.append(left)
+            raise KeyError("AZURE_OPENAI_ENDPOINT")
+
+        try:
+            runtime.within_budget(broken, (Queued,))
+        except KeyError:
+            assert len(seen) == 1, seen
+        else:
+            raise AssertionError("a broken configuration was retried")
+
+        # 4. a call that answers, answers — and gets told what time it has
+        assert runtime.within_budget(lambda left: ("ok", left))[0] == "ok"
+        os.environ["LMM_TIMEOUT"] = "0"
+        assert runtime.within_budget(lambda left: left) is None   # no limit
+    finally:
+        os.environ.pop("LMM_TIMEOUT", None)
+        if was is not None:
+            os.environ["LMM_TIMEOUT"] = was
+
+
 def main():
     failed = 0
     for name, function in PASSED:

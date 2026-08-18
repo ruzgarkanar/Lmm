@@ -8,8 +8,21 @@ Device is automatic: MPS (Apple) · CUDA · else CPU. In deployment the GGUF/int
 build will plug in here (speed on cheap hardware); transformers for now.
 """
 import os
+import time
 
 from lmm import paths
+
+# HOW LONG ONE ENGINE CALL MAY TAKE, in seconds. A measured question took 613
+# seconds — not computing, WAITING: the backend was over its per-minute quota
+# and the client's retry policy is happy to wait for as long as the quota takes.
+# A rate limit is a wait rather than a failure, which is why the retries are
+# there and why they stay; what was missing is that a wait has to END.
+#
+# The default is a budget, not a tuned threshold: it is the point past which a
+# person asking a question has stopped waiting for an answer, and it is stated
+# here so that anyone who disagrees can set LMM_TIMEOUT — including to 0, which
+# means the old behaviour, wait as long as it takes.
+DEFAULT_BUDGET = 90.0
 
 _MODEL = None
 _TOK = None
@@ -20,6 +33,56 @@ def _root():
     # The user's location, not the package's — see lmm/paths.py for why this
     # is not derived from __file__ any more.
     return paths.home()
+
+
+class EngineTimeout(TimeoutError):
+    """One engine call ran past the time budget. It says how long it waited and
+    what it was waiting on, because the user's next decision (wait longer, ask
+    a smaller question, use another backend) depends on which of those it was."""
+
+
+def budget():
+    """The per-call time budget in seconds; 0 means no limit."""
+    raw = (os.environ.get("LMM_TIMEOUT") or "").strip()
+    try:
+        value = float(raw) if raw else DEFAULT_BUDGET
+    except ValueError:
+        value = DEFAULT_BUDGET
+    return value if value > 0 else 0.0
+
+
+def within_budget(call, retryable=(Exception,), what="the engine"):
+    """Run ONE engine call under the budget, retrying only what is a WAIT.
+
+    `call(remaining)` is handed the seconds it has left, so a backend that can
+    take a timeout passes it down instead of being interrupted from outside.
+    Anything in `retryable` is treated as a queue rather than a failure and
+    tried again with a doubling pause — but only while there is budget left,
+    which is the whole point: the previous policy retried a rate limit ten
+    times and turned one question into a ten-minute wait with no way out.
+    Everything else is raised immediately and unchanged.
+    """
+    limit = budget()
+    if not limit:
+        return call(None)
+    deadline = time.monotonic() + limit
+    pause, last = 1.0, None
+    while True:
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise EngineTimeout(
+                f"{what} did not answer within {limit:g}s "
+                f"(LMM_TIMEOUT sets this; 0 removes the limit)"
+                + (f" — last: {type(last).__name__}: {last}" if last else ""))
+        try:
+            return call(left)
+        except retryable as waiting:
+            last = waiting
+            left = deadline - time.monotonic()
+            if left <= 0:
+                continue                # round the loop once to raise, not sleep
+            time.sleep(min(pause, left))
+            pause *= 2
 
 
 def path():
