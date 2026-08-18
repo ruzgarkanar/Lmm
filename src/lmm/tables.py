@@ -15,10 +15,48 @@ same as xlsx2txt: the row most filled with short text. No document-specific rule
 import os
 import re
 
-import pandas as pd
-
 from lmm.core.dataset import fold
 from lmm import evidence
+
+# OPTIONAL DEPENDENCIES. The core install is pure python on purpose: the graph,
+# the gate and the evidence index need nothing but the standard library, and a
+# user who only ever feeds LMM plain text should not be made to build pandas.
+# Every format adapter therefore imports its reader at CALL time, through
+# `_require`, which turns the ImportError into the install line that fixes it.
+# module name -> (the extra that installs it, its name on PyPI). The two differ
+# for python-docx, and naming the import in the error would send the reader to
+# `pip install docx`, which is a DIFFERENT and abandoned package.
+_EXTRAS = {
+    "pandas": ("xlsx", "pandas"),
+    "openpyxl": ("xlsx", "openpyxl"),
+    "pdfplumber": ("pdf", "pdfplumber"),
+    "pypdf": ("pdf", "pypdf"),
+    "docx": ("docx", "python-docx"),
+}
+
+
+def _require(module, what):
+    """Import an optional reader, or say exactly how to get it."""
+    try:
+        return __import__(module)
+    except ImportError as gone:                             # noqa: PERF203
+        extra, dist = _EXTRAS.get(module, (module, module))
+        raise ImportError(
+            f"reading {what} needs {dist}, which is not installed.\n"
+            f"    pip install 'lmm[{extra}]'      (or: pip install {dist})"
+        ) from gone
+
+
+_PANDAS = None
+
+
+def _pd():
+    """pandas, imported on first use. Only the xlsx path ever reaches this, so
+    by the time it runs the dependency has already been demanded by name."""
+    global _PANDAS                                          # noqa: PLW0603
+    if _PANDAS is None:
+        _PANDAS = _require("pandas", "spreadsheets")
+    return _PANDAS
 
 
 def _header_row(rows, columns):
@@ -43,6 +81,7 @@ def _header_row(rows, columns):
                    and not c.startswith("Unnamed"))
 
     def is_data(cells):
+        pd = _pd()
         filled = [c for c in cells if not pd.isna(c) and str(c).strip()]
         return bool(filled) and sum(
             1 for c in filled if not isinstance(c, str)) * 2 > len(filled)
@@ -60,6 +99,7 @@ def _header_row(rows, columns):
 def read_xlsx(path):
     """xlsx → [(sheet, preamble-lines, row-dicts)]. No model."""
     sheets = []
+    pd = _pd()
     xl = pd.ExcelFile(path)
     for sheet_name in xl.sheet_names:
         df = xl.parse(sheet_name)
@@ -152,7 +192,7 @@ def read_pdf(path):
     destroys: cells gluing together like 'IPX 0Prob', columns losing their
     headers). Each table becomes row-dicts using its first row as the header;
     prose is everything outside table bounding boxes. No model calls."""
-    import pdfplumber
+    pdfplumber = _require("pdfplumber", "PDF files")
 
     def _classify(grid):
         """One extracted grid → ('kv', pairs) | ('rows', rows) | None."""
@@ -343,3 +383,80 @@ def learn_xlsx(session, path, source=None):
         text = "\n".join([f"[{sheet}]"] + pre)
         session.learn_text(text, source=source, deep=False)
     return wrote
+
+
+def read_docx(path):
+    """docx → (prose_text, tables). Same shape as `read_pdf`, and for the same
+    reason: a Word file is two different materials in one container, and they
+    want opposite treatment. Paragraphs are prose and belong in the evidence
+    layer; a table states its own structure and goes straight to the graph.
+
+    Word gives us the split for free — no coordinate geometry, no ruling-line
+    detection, no heuristics of the kind read_pdf needs. `doc.tables` IS the
+    table list and `doc.paragraphs` IS everything else. This adapter therefore
+    carries no thresholds at all.
+    """
+    docx = _require("docx", "Word documents")
+    doc = docx.Document(path)
+    prose = "\n".join(p.text.strip() for p in doc.paragraphs if p.text.strip())
+
+    tables = []
+    for table in doc.tables:
+        grid = []
+        for row in table.rows:
+            cells = [c.text.replace("\n", " ").strip() for c in row.cells]
+            # A cell merged across a row repeats its text in every position;
+            # collapsing runs keeps the row's real arity.
+            spread = [c for i, c in enumerate(cells)
+                      if i == 0 or c != cells[i - 1]]
+            if any(spread):
+                grid.append(spread)
+        if len(grid) < 2:
+            continue
+        # TWO COLUMNS is a key/value sheet, not a record table: the left cell
+        # names the field and the right one holds it. Three or more columns is
+        # a record table whose first row names the columns. This is the same
+        # distinction read_pdf's _classify draws, and it is structural — the
+        # shape of the grid, not the meaning of any word in it.
+        if max(len(r) for r in grid) == 2:
+            pairs = [{"__kv__": True, r[0]: r[1]}
+                     for r in grid if len(r) == 2 and r[0] and r[1]]
+            if pairs:
+                tables.append(pairs)
+            continue
+        header = [h or "" for h in grid[0]]
+        rows = []
+        for r in grid[1:]:
+            row = {h: c for h, c in zip(header, r) if h and c}
+            if row:
+                rows.append(row)
+        if rows:
+            tables.append(rows)
+    return prose, tables
+
+
+def learn_docx(session, path, source=None, deep=False):
+    """Ingest one Word document: TABLES to the graph, PROSE to the evidence
+    layer. Returns (facts_written, n_tables) — the same contract as learn_pdf,
+    so the two are interchangeable behind the `Memory.learn` front door."""
+    source = source or f"#docx:{os.path.basename(path)}"
+    prose, tables = read_docx(path)
+    wrote = 0
+    prev_bulk = getattr(session, "_bulk", False)
+    session._bulk = True        # bulk mode: engine-free contradiction handling
+    for rows in tables:
+        if rows and rows[0].get("__kv__"):
+            for row in rows:
+                for key, value in row.items():
+                    if key == "__kv__":
+                        continue
+                    session.evidence.add(f"{key}: {value}" if key else value,
+                                         source)
+                    if key:
+                        wrote += session.learn_cell(key, "", value, source)
+        else:
+            wrote += session.learn_rows(rows, source)
+    session._bulk = prev_bulk
+    if prose.strip():
+        session.learn_text(prose, source=source, deep=deep)
+    return wrote, len(tables)
