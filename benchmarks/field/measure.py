@@ -125,6 +125,39 @@ def ingest():
               f"{round(time.time() - t0, 1)}s")
 
 
+def expand():
+    """PAY FOR THE OFFLINE EXPANSION on graphs that are already ingested.
+
+    It runs over a COPY of the baseline graphs (`LMM_FIELD_GRAPHS` points at
+    it), so the two arms of the A/B differ in exactly one thing: the expansion
+    index. Re-ingesting for the expanded arm would have let ingestion variance
+    — the largest noise source in this system — into the comparison, which is
+    the same reason the protocol pays for ingestion once in the first place.
+
+        cp -r graphs graphs_expand
+        LMM_FIELD_GRAPHS=.../graphs_expand python3.11 measure.py expand
+    """
+    from lmm.api import Memory
+    for name, _, _, _ in SETS:
+        path = os.path.join(GRAPHS, name + ".lmm")
+        if not os.path.exists(path):
+            print(f"{name}: no graph — run `ingest` first")
+            continue
+        memory = Memory(path)
+        if memory.session.evidence.expansions:
+            print(f"{name}: already expanded")
+            continue
+        seen, restore = _counted()
+        t0 = time.time()
+        try:
+            asked, kept = memory.session.expand()
+        finally:
+            restore()
+        memory.save()
+        print(f"{name}: {asked} units asked, {kept} queries kept — "
+              f"{len(seen)} calls, {round(time.time() - t0, 1)}s", flush=True)
+
+
 def _scored(question, said, abstained):
     """correct / abstain / WRONG — the three outcomes, decided structurally.
 
@@ -261,10 +294,48 @@ def report():
                   f"{got['s_per_q']} |")
 
 
+def types(config):
+    """The same samples, split by what KIND of question they are.
+
+    The whole-document score cannot judge a retrieval change aimed at one class
+    of question: three differently-worded questions inside a set of thirteen
+    move the total by at most three, and every other row can hide them. The
+    class the expansion targets — `esanlam`, a question that asks for something
+    the document states in OTHER words — is therefore reported on its own line.
+    """
+    print(f"| document | kind | n | correct | abstain | WRONG | zero-call | "
+          f"({config}) |")
+    print("|---|---|---|---|---|---|---|---|")
+    for name, _, _, _ in SETS:
+        rows = []
+        for sample in (1, 2, 3):
+            path = os.path.join(RESULTS, f"{config}_{name}_{sample}.json")
+            if os.path.exists(path):
+                rows.append(json.load(open(path, encoding="utf-8")))
+        if not rows:
+            continue
+        kinds = {q["soru"]: q["tip"] for q in questions(name)}
+        for kind in sorted({kinds[r["soru"]] for r in rows[0]}):
+            def med(verdict, kind=kind, rows=rows):
+                return statistics.median(
+                    sum(x["verdict"] == verdict for x in one
+                        if kinds[x["soru"]] == kind) for one in rows)
+            n = sum(kinds[x["soru"]] == kind for x in rows[0])
+            zero = statistics.median(
+                sum(x["calls"] == 0 for x in one if kinds[x["soru"]] == kind)
+                for one in rows)
+            print(f"| {name} | {kind} | {n} | {med('correct'):.0f} | "
+                  f"{med('abstain'):.0f} | {med('wrong'):.0f} | {zero:.0f} | |")
+
+
 if __name__ == "__main__":
     what = sys.argv[1] if len(sys.argv) > 1 else "report"
     if what == "ingest":
         ingest()
+    elif what == "expand":
+        expand()
+    elif what == "types":
+        types(sys.argv[2] if len(sys.argv) > 2 else "candidates")
     elif what == "run":
         run(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)
     elif what == "repeat":

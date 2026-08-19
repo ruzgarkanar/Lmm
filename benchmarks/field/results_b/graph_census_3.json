@@ -1,0 +1,128 @@
+[
+ {
+  "soru": "united states population estimate as of july 1",
+  "cevap": "The population estimate for the United States as of July 1, 2023, is 334914895. (~ #xlsx:us_state_population.xlsx)",
+  "calls": 7,
+  "ms": 10790,
+  "abstained": false,
+  "from_graph": false,
+  "verdict": "wrong"
+ },
+ {
+  "soru": "what is the april 1, 2020 estimates base for the united states",
+  "cevap": "united states — april 1, 2020 estimates base → 331464948 (~ #xlsx:us_state_population.xlsx)",
+  "calls": 0,
+  "ms": 1,
+  "abstained": false,
+  "from_graph": true,
+  "verdict": "correct"
+ },
+ {
+  "soru": "northeast population estimate as of july 1",
+  "cevap": "I do not know.",
+  "calls": 4,
+  "ms": 5112,
+  "abstained": true,
+  "from_graph": false,
+  "verdict": "abstain"
+ },
+ {
+  "soru": "midwest april 1, 2020 estimates base",
+  "cevap": "midwest — april 1, 2020 estimates base → 68987296 (~ #xlsx:us_state_population.xlsx)",
+  "calls": 0,
+  "ms": 1,
+  "abstained": false,
+  "from_graph": true,
+  "verdict": "correct"
+ },
+ {
+  "soru": "south population estimate as of july 1",
+  "cevap": "The population estimate for the South as of July 1, 2023 is 130125290. (~ #xlsx:us_state_population.xlsx)",
+  "calls": 6,
+  "ms": 9461,
+  "abstained": false,
+  "from_graph": false,
+  "verdict": "wrong"
+ },
+ {
+  "soru": "west april 1, 2020 estimates base",
+  "cevap": "west — april 1, 2020 estimates base → 78594982 (~ #xlsx:us_state_population.xlsx)",
+  "calls": 0,
+  "ms": 1,
+  "abstained": false,
+  "from_graph": true,
+  "verdict": "correct"
+ },
+ {
+  "soru": "puerto rico population estimate as of july 1",
+  "cevap": "I do not know.",
+  "calls": 5,
+  "ms": 6532,
+  "abstained": true,
+  "from_graph": false,
+  "verdict": "abstain"
+ },
+ {
+  "soru": "what is the release date of this table",
+  "cevap": "The release date of this table is December 2023. (~ #xlsx:us_state_population.xlsx)",
+  "calls": 7,
+  "ms": 9230,
+  "abstained": false,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "what is the population estimate as of july 1 2022 for the west region",
+  "cevap": "west — population estimate (as of july 1) 2022 → 78759506 (~ #xlsx:us_state_population.xlsx)",
+  "calls": 0,
+  "ms": 1,
+  "abstained": false,
+  "from_graph": true,
+  "verdict": "correct"
+ },
+ {
+  "soru": "united states population estimate as of july 1 2023",
+  "cevap": "united states — population estimate (as of july 1) 2023 → 334914895 (~ #xlsx:us_state_population.xlsx)",
+  "calls": 0,
+  "ms": 0,
+  "abstained": false,
+  "from_graph": true,
+  "verdict": "correct"
+ },
+ {
+  "soru": "puerto rico population estimate as of july 1 2021",
+  "cevap": ".puerto rico — population estimate (as of july 1) 2021 → 3262693 (~ #xlsx:us_state_population.xlsx)",
+  "calls": 0,
+  "ms": 0,
+  "abstained": false,
+  "from_graph": true,
+  "verdict": "correct"
+ },
+ {
+  "soru": "what is the 2021 population estimate for the united states",
+  "cevap": "The population estimate for the United States as of July 1, 2021, is 332048977. (~ #xlsx:us_state_population.xlsx)",
+  "calls": 7,
+  "ms": 11520,
+  "abstained": false,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "what is the population estimate for canada",
+  "cevap": "I do not know.",
+  "calls": 7,
+  "ms": 9649,
+  "abstained": true,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "what is the unemployment rate in texas",
+  "cevap": "I do not know.",
+  "calls": 6,
+  "ms": 8845,
+  "abstained": true,
+  "from_graph": false,
+  "verdict": "correct"
+ }
+]

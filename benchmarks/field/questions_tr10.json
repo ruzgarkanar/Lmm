@@ -65,5 +65,27 @@
   "tip": "yokluk",
   "soru": "vorlin kaç derecede kaynar",
   "altin": null
+ },
+ {
+  "tip": "esanlam",
+  "soru": "karvel nerede barınır",
+  "altin": [
+   "derin"
+  ]
+ },
+ {
+  "tip": "esanlam",
+  "soru": "norgulun goncaları ne renktir",
+  "altin": [
+   "beyaz"
+  ]
+ },
+ {
+  "tip": "esanlam",
+  "soru": "zerbalit hangi köyün civarında üretilir",
+  "altin": [
+   "Velmar",
+   "velmar"
+  ]
  }
 ]

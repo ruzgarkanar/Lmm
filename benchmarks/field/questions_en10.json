@@ -65,5 +65,27 @@
   "tip": "yokluk",
   "soru": "at how many degrees does vorlin boil",
   "altin": null
+ },
+ {
+  "tip": "esanlam",
+  "soru": "where does karvel dwell",
+  "altin": [
+   "deep"
+  ]
+ },
+ {
+  "tip": "esanlam",
+  "soru": "what colour are the blossoms of norgul",
+  "altin": [
+   "white"
+  ]
+ },
+ {
+  "tip": "esanlam",
+  "soru": "near which village is zerbalit extracted",
+  "altin": [
+   "Velmar",
+   "velmar"
+  ]
  }
 ]
