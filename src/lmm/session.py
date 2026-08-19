@@ -63,21 +63,6 @@ def _direct_lookup():
     return os.environ.get("LMM_DIRECT_LOOKUP", "1") != "0"
 
 
-def _doc_triples():
-    """May a triple that came from a DOCUMENT stand in the answer block beside
-    the evidence — `LMM_DOC_TRIPLES` = 0 (default) | structural | 1.
-
-    The block drops them because prose extraction produces crumbs ("projeler →
-    en kolay") that changed the answer from run to run (see `_answer`). But a
-    table cell is not prose extraction: `learn_rows` writes `(row, column,
-    value)` with no engine in the loop, so the reason for the exclusion does
-    not apply to it. `structural` is that middle position — triples from a
-    table adapter stay, triples read out of prose go. Which of the three is
-    right is a measurement, not an opinion.
-    """
-    return (os.environ.get("LMM_DOC_TRIPLES") or "0").strip()
-
-
 def _grounded_in(value, message):
     """Does the VALUE to be taught actually appear in the user's MESSAGE — did
     Qwen not fabricate it? "You cannot teach what you didn't say". Fold + stem
@@ -1107,17 +1092,17 @@ class Session:
             # document — no information loss, stability gained. Operator/
             # inference records (taught in conversation, derived) stay in the
             # block.
-            # WHAT THIS RULE ACTUALLY REACHES, checked rather than assumed: the
-            # stamp it tests is the one `Memory.learn(text)` writes (`#doc:…`).
-            # A table adapter stamps `#xlsx:…` / `#pdf:…`, so a cell written by
-            # `learn_rows` — `(row, column, value)`, no engine in the loop — was
-            # NEVER excluded here; the crumb problem this rule was built for is
-            # a property of prose extraction, and the code already only
-            # excluded prose. `LMM_DOC_TRIPLES=1` keeps them too, which is the
-            # arm that measured the rule worth keeping (COST.md §8.4).
-            if _doc_triples() != "1":
-                records = [r for r in records
-                           if not str(r.source).startswith("#doc")]
+            #
+            # WHAT THIS RULE ACTUALLY REACHES, checked rather than assumed
+            # (COST.md §8.4): the stamp it tests is the one `Memory.learn(text)`
+            # writes, `#doc:…`. A table adapter stamps `#xlsx:…` / `#pdf:…`, so
+            # a cell written by `learn_rows` — `(row, column, value)`, with no
+            # engine in the loop — was never excluded here at all. The rule only
+            # ever reached prose extraction, which is exactly what it was built
+            # for, and lifting it entirely was measured over the three corpora
+            # (the only sets that carry the stamp): every column identical.
+            records = [r for r in records
+                       if not str(r.source).startswith("#doc")]
         fact_block = retrieve.facts_block(self.memory, records) if records else ""
         proof_block = "\n".join(f"[K{i}] {s}"
                                 for i, s in enumerate(proof, 1)) if proof else ""

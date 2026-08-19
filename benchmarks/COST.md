@@ -607,12 +607,24 @@ something to ship because a benchmark happens to prefer one of them.
 `LMM_XLSX_HEADER_BLOCK=1` turns it on for anyone whose questions name their
 columns.
 
-**The third question the report asked answered itself before it was measured.**
-Whether a document triple may stand in the answer block beside the evidence:
-the rule that drops them tests the `#doc:` stamp, and only `Memory.learn(text)`
+**The third question the report asked answered itself, and was measured anyway.**
+Whether a document triple may stand in the answer block beside the evidence: the
+rule that drops them tests the `#doc:` stamp, and only `Memory.learn(text)`
 writes that stamp — a table adapter stamps `#xlsx:`/`#pdf:`, so a cell written
-by `learn_rows` was never excluded by that rule. The exclusion only ever
-reached prose extraction, which is exactly what it was built for.
+by `learn_rows` was never excluded by that rule. It only ever reached prose
+extraction, which is what it was built for. Lifting it entirely was then run
+over the three corpora, which are the only sets carrying the stamp:
+
+| corpus | rule as shipped | rule lifted |
+|---|---|---|
+| tr | 10 correct · 0 wrong · 3 zero-call · 4.4 calls/q | 10 · 0 · 3 · 4.4 |
+| en | 10 correct · 0 wrong · 3 zero-call · 4.5 calls/q | 10 · 0 · 3 · 4.5 |
+| es | 9 correct · 0 wrong · 3 zero-call · 4.3 calls/q | 9 · 0 · 3 · 4.3 |
+
+Not one column moves, because with evidence present the evidence is what the
+answer is built from either way. The switch that produced this table is not in
+the tree — a knob with no measured effect is not a finding, it is a knob — and
+what is kept is the comment in `_answer` saying what the rule reaches.
 
 ### 8.3 What this does not say
 
