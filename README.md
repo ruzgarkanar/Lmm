@@ -205,6 +205,15 @@ quality on the local engine, not the wiring behind it.
   Everything else falls through unchanged. It declines far more often than it
   answers, on purpose: nothing structural separates a question naming no field
   from one naming a field the graph has never heard of, so both are paid for.
+  A node whose name is SEVERAL words — a spreadsheet's row label, a country, a
+  spec table's field — is named by the question's own contiguous word runs, so
+  `united states` is one name and not two misses.
+- **The same question over a memory that has not moved is not paid for twice.**
+  The answer is kept and re-spoken; teach the memory anything and it is dropped
+  rather than repeated. What counts as "moved" is not a record count — it is
+  every mutation the graph has, including a second source reinforcing a fact
+  and a `sleep()` fading one, because a stale answer is worse than an expensive
+  one. `Memory(..., cache=False)` turns it off.
 - **A document is two materials.** Tables state their own structure and go
   straight to the graph with no model call; prose goes to the evidence index,
   where ranges and qualifications that don't fit a triple survive verbatim.
