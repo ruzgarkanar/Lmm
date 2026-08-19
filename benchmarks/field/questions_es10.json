@@ -66,5 +66,27 @@
   "tip": "yokluk",
   "soru": "¿a cuántos grados hierve el vorlin?",
   "altin": null
+ },
+ {
+  "tip": "esanlam",
+  "soru": "¿dónde habita el karvel?",
+  "altin": [
+   "profundas"
+  ]
+ },
+ {
+  "tip": "esanlam",
+  "soru": "¿de qué color son los pétalos del norgul?",
+  "altin": [
+   "blancas"
+  ]
+ },
+ {
+  "tip": "esanlam",
+  "soru": "¿cerca de qué pueblo se obtiene el zerbalit?",
+  "altin": [
+   "Velmar",
+   "velmar"
+  ]
  }
 ]

@@ -1,18 +1,121 @@
 [
-  {"tip": "dogrudan", "soru": "united states population estimate as of july 1", "altin": ["331526933"]},
-  {"tip": "dogrudan", "soru": "what is the april 1, 2020 estimates base for the united states", "altin": ["331464948"]},
-  {"tip": "dogrudan", "soru": "northeast population estimate as of july 1", "altin": ["57430477"]},
-  {"tip": "dogrudan", "soru": "midwest april 1, 2020 estimates base", "altin": ["68987296"]},
-  {"tip": "dogrudan", "soru": "south population estimate as of july 1", "altin": ["126465281"]},
-  {"tip": "dogrudan", "soru": "west april 1, 2020 estimates base", "altin": ["78594982"]},
-  {"tip": "dogrudan", "soru": "puerto rico population estimate as of july 1", "altin": ["3281557"]},
-  {"tip": "dogrudan", "soru": "what is the release date of this table", "altin": ["december 2023", "December 2023", "2023"]},
-
-  {"tip": "dogrudan", "soru": "what is the population estimate as of july 1 2022 for the west region", "altin": ["78759506"]},
-  {"tip": "dogrudan", "soru": "united states population estimate as of july 1 2023", "altin": ["334914895"]},
-  {"tip": "dogrudan", "soru": "puerto rico population estimate as of july 1 2021", "altin": ["3262693"]},
-  {"tip": "dogrudan", "soru": "what is the 2021 population estimate for the united states", "altin": ["332048977"]},
-
-  {"tip": "yokluk", "soru": "what is the population estimate for canada", "altin": null},
-  {"tip": "yokluk", "soru": "what is the unemployment rate in texas", "altin": null}
+ {
+  "tip": "dogrudan",
+  "soru": "united states population estimate as of july 1",
+  "altin": [
+   "331526933"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "what is the april 1, 2020 estimates base for the united states",
+  "altin": [
+   "331464948"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "northeast population estimate as of july 1",
+  "altin": [
+   "57430477"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "midwest april 1, 2020 estimates base",
+  "altin": [
+   "68987296"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "south population estimate as of july 1",
+  "altin": [
+   "126465281"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "west april 1, 2020 estimates base",
+  "altin": [
+   "78594982"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "puerto rico population estimate as of july 1",
+  "altin": [
+   "3281557"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "what is the release date of this table",
+  "altin": [
+   "december 2023",
+   "December 2023",
+   "2023"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "what is the population estimate as of july 1 2022 for the west region",
+  "altin": [
+   "78759506"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "united states population estimate as of july 1 2023",
+  "altin": [
+   "334914895"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "puerto rico population estimate as of july 1 2021",
+  "altin": [
+   "3262693"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "what is the 2021 population estimate for the united states",
+  "altin": [
+   "332048977"
+  ]
+ },
+ {
+  "tip": "yokluk",
+  "soru": "what is the population estimate for canada",
+  "altin": null
+ },
+ {
+  "tip": "yokluk",
+  "soru": "what is the unemployment rate in texas",
+  "altin": null
+ },
+ {
+  "tip": "esanlam",
+  "soru": "how many people live in the united states",
+  "altin": [
+   "331526933"
+  ]
+ },
+ {
+  "tip": "esanlam",
+  "soru": "how many residents does the northeast have",
+  "altin": [
+   "57430477"
+  ]
+ },
+ {
+  "tip": "esanlam",
+  "soru": "when was this table published",
+  "altin": [
+   "december 2023",
+   "December 2023",
+   "2023"
+  ]
+ }
 ]

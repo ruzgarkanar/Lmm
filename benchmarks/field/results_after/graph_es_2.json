@@ -1,0 +1,92 @@
+[
+ {
+  "soru": "¿qué es el zerbalit?",
+  "cevap": "El zerbalit es un metal y una sustancia. (~ #doc:es)",
+  "calls": 7,
+  "ms": 12495,
+  "abstained": false,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "¿qué es el vorlin?",
+  "cevap": "El vorlin es una bebida. (~ #doc:es)",
+  "calls": 7,
+  "ms": 10756,
+  "abstained": false,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "¿qué es el norgul?",
+  "cevap": "El norgul es una planta. (~ #doc:es)",
+  "calls": 8,
+  "ms": 11949,
+  "abstained": false,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "¿qué es Velmar?",
+  "cevap": "Velmar es un pueblo. (~ #doc:es)",
+  "calls": 7,
+  "ms": 10785,
+  "abstained": false,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "¿es el vorlin un líquido?",
+  "cevap": "vorlin — tipo → líquido (~ #inference)",
+  "calls": 0,
+  "ms": 0,
+  "abstained": false,
+  "from_graph": true,
+  "verdict": "correct"
+ },
+ {
+  "soru": "¿es el zilfen un ser vivo?",
+  "cevap": "zilfen — tipo → ser vivo (~ #inference)",
+  "calls": 0,
+  "ms": 0,
+  "abstained": false,
+  "from_graph": true,
+  "verdict": "correct"
+ },
+ {
+  "soru": "¿es el torvanit una sustancia?",
+  "cevap": "torvanit — tipo → sustancia (~ #inference)",
+  "calls": 0,
+  "ms": 0,
+  "abstained": false,
+  "from_graph": true,
+  "verdict": "correct"
+ },
+ {
+  "soru": "¿qué pasa si el norgul se multiplica?",
+  "cevap": "No sé.",
+  "calls": 5,
+  "ms": 6152,
+  "abstained": true,
+  "from_graph": false,
+  "verdict": "abstain"
+ },
+ {
+  "soru": "¿qué es el melvarit?",
+  "cevap": "No lo conozco aún. ¿Te gustaría que lo busque?",
+  "calls": 3,
+  "ms": 3608,
+  "abstained": true,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "¿a cuántos grados hierve el vorlin?",
+  "cevap": "No sé.",
+  "calls": 6,
+  "ms": 8209,
+  "abstained": true,
+  "from_graph": false,
+  "verdict": "correct"
+ }
+]

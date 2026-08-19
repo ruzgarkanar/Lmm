@@ -1,0 +1,92 @@
+[
+ {
+  "soru": "what is zerbalit",
+  "cevap": "Zerbalit is a metal. (~ #doc:en)",
+  "calls": 8,
+  "ms": 13914,
+  "abstained": false,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "what is vorlin",
+  "cevap": "Vorlin is a drink. (~ #doc:en)",
+  "calls": 7,
+  "ms": 9559,
+  "abstained": false,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "what is norgul",
+  "cevap": "Norgul is a plant. (~ #doc:en)",
+  "calls": 7,
+  "ms": 10388,
+  "abstained": false,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "what is Velmar",
+  "cevap": "Velmar is a village. (~ #doc:en)",
+  "calls": 7,
+  "ms": 10092,
+  "abstained": false,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "is vorlin a liquid",
+  "cevap": "vorlin — type → liquid (~ #inference)",
+  "calls": 0,
+  "ms": 0,
+  "abstained": false,
+  "from_graph": true,
+  "verdict": "correct"
+ },
+ {
+  "soru": "is zilfen a creature",
+  "cevap": "zilfen — type → creature (~ #inference)",
+  "calls": 0,
+  "ms": 0,
+  "abstained": false,
+  "from_graph": true,
+  "verdict": "correct"
+ },
+ {
+  "soru": "is torvanit a substance",
+  "cevap": "torvanit — type → substance (~ #inference)",
+  "calls": 0,
+  "ms": 0,
+  "abstained": false,
+  "from_graph": true,
+  "verdict": "correct"
+ },
+ {
+  "soru": "what happens if norgul multiplies",
+  "cevap": "If norgul multiplies, morlan multiplies. (~ #doc:en)",
+  "calls": 7,
+  "ms": 9727,
+  "abstained": false,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "what is melvarit",
+  "cevap": "I don't know what melvarit is yet. Would you like me to look it up?",
+  "calls": 3,
+  "ms": 3779,
+  "abstained": true,
+  "from_graph": false,
+  "verdict": "correct"
+ },
+ {
+  "soru": "at how many degrees does vorlin boil",
+  "cevap": "I do not know.",
+  "calls": 6,
+  "ms": 7790,
+  "abstained": true,
+  "from_graph": false,
+  "verdict": "correct"
+ }
+]
