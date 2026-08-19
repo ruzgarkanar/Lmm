@@ -1,0 +1,69 @@
+[
+ {
+  "tip": "dogrudan",
+  "soru": "zerbalit nedir",
+  "altin": [
+   "metal",
+   "madde"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "vorlin nedir",
+  "altin": [
+   "içecek"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "norgul nedir",
+  "altin": [
+   "bitki"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "Velmar nedir",
+  "altin": [
+   "köy"
+  ]
+ },
+ {
+  "tip": "cok-adim",
+  "soru": "vorlin bir sıvı mıdır",
+  "altin": [
+   "sıvı"
+  ]
+ },
+ {
+  "tip": "cok-adim",
+  "soru": "zilfen bir canlı mıdır",
+  "altin": [
+   "canlı"
+  ]
+ },
+ {
+  "tip": "cok-adim",
+  "soru": "torvanit bir madde midir",
+  "altin": [
+   "madde"
+  ]
+ },
+ {
+  "tip": "nedensel",
+  "soru": "norgul çoğalırsa ne olur",
+  "altin": [
+   "morlan"
+  ]
+ },
+ {
+  "tip": "yokluk",
+  "soru": "melvarit nedir",
+  "altin": null
+ },
+ {
+  "tip": "yokluk",
+  "soru": "vorlin kaç derecede kaynar",
+  "altin": null
+ }
+]

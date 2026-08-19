@@ -57,6 +57,8 @@ two surface forms one word" — the ONE inflection criterion the read paths
 share — and `retrieve.specific` for "which of two true values answers". No
 list of words, no stop-word set, no per-document constant.
 """
+import os
+
 from lmm.core.gate import SPEAK
 from lmm import evidence, inflect, link, retrieve
 
@@ -105,6 +107,12 @@ def _spans(words):
     a guess about how long a document's labels are — exactly the per-document
     constant this repository refuses.
     """
+    if os.environ.get("LMM_LOOKUP_RUNS", "1") == "0":
+        # THE A/B CONTROL for this rule alone: the one-word-at-a-time scan
+        # that came before it, so "what did the runs buy" is a measurement
+        # rather than an argument. Same standing as `LMM_DIRECT_LOOKUP` in
+        # `session.py` — a measurement's variable, not a deployment's setting.
+        return [(word,) for word in words]
     return [tuple(words[i:j])
             for size in range(len(words), 0, -1)
             for i in range(len(words) - size + 1)

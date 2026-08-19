@@ -1,0 +1,13 @@
+[
+  {"tip": "dogrudan", "soru": "how many characters shall a subscriber-chosen memorized secret be at least", "altin": ["8"]},
+  {"tip": "dogrudan", "soru": "what length of memorized secret should verifiers permit", "altin": ["64"]},
+  {"tip": "dogrudan", "soru": "what is the publication date of this document", "altin": ["2017", "2025"]},
+  {"tip": "dogrudan", "soru": "what is the series number of this publication", "altin": ["800-63b", "800-63B"]},
+  {"tip": "dogrudan", "soru": "how often should reauthentication be repeated at AAL1", "altin": ["30"]},
+  {"tip": "dogrudan", "soru": "how often shall authentication be repeated at AAL2", "altin": ["12"]},
+  {"tip": "dogrudan", "soru": "who is the acting NIST director", "altin": ["rochford"]},
+  {"tip": "dogrudan", "soru": "which OMB circular is this guideline consistent with", "altin": ["a-130", "A-130"]},
+
+  {"tip": "yokluk", "soru": "what does a hardware authenticator cost in dollars", "altin": null},
+  {"tip": "yokluk", "soru": "what minimum password length does the GDPR require", "altin": null}
+]

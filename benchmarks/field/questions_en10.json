@@ -1,0 +1,69 @@
+[
+ {
+  "tip": "dogrudan",
+  "soru": "what is zerbalit",
+  "altin": [
+   "metal",
+   "substance"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "what is vorlin",
+  "altin": [
+   "drink"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "what is norgul",
+  "altin": [
+   "plant"
+  ]
+ },
+ {
+  "tip": "dogrudan",
+  "soru": "what is Velmar",
+  "altin": [
+   "village"
+  ]
+ },
+ {
+  "tip": "cok-adim",
+  "soru": "is vorlin a liquid",
+  "altin": [
+   "liquid"
+  ]
+ },
+ {
+  "tip": "cok-adim",
+  "soru": "is zilfen a creature",
+  "altin": [
+   "creature"
+  ]
+ },
+ {
+  "tip": "cok-adim",
+  "soru": "is torvanit a substance",
+  "altin": [
+   "substance"
+  ]
+ },
+ {
+  "tip": "nedensel",
+  "soru": "what happens if norgul multiplies",
+  "altin": [
+   "morlan"
+  ]
+ },
+ {
+  "tip": "yokluk",
+  "soru": "what is melvarit",
+  "altin": null
+ },
+ {
+  "tip": "yokluk",
+  "soru": "at how many degrees does vorlin boil",
+  "altin": null
+ }
+]
