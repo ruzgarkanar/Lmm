@@ -317,114 +317,6 @@ def covered(answer, block, question=""):
     return digits_ok(answer, block) and coverage(answer, block, question) == 1.0
 
 
-# --- WHICH SLOT does the answer's value come from -----------------------------
-#
-# The last route to a confident wrong answer is a SLOT MISMATCH: the document
-# binds a value to one field name, the question asks for another, and the answer
-# carries the value across. Nothing that judges the answer's own claim can see
-# it, and the relation judge that can (`generate.answers_asked`) is handed the
-# whole retrieved block — where the question's own field name is usually present
-# somewhere in prose, saying nothing about the value the answer actually took.
-#
-# What follows is the STRUCTURE the judge was missing: the record fragment that
-# BINDS the value being asserted. A document states a field name and its value,
-# and the format says which is which — the words before a colon, or the leading
-# words of a short record line before its first digit. That is the same
-# format-only cue `_key_words` already indexes by, applied to a value instead of
-# to a line. No pair of names is written down here, nothing knows what any field
-# MEANS, and the code contains no word of any language: it only says WHERE the
-# document put the value the answer is speaking.
-
-_FIELD = re.compile(r"((?:[\w\"'.]+[ \t]+){0,2}[\w\"'.]+)\s*:")
-
-
-def new_words(claim, question):
-    """The content words the CLAIM adds to the QUESTION — prefix-tolerant both
-    ways, so an inflected echo of the question is not 'new'. This is the
-    information the answer is actually asserting, and therefore the part whose
-    slot has to be audited; echoing the question asserts nothing."""
-    asked = set(_words(question))
-    out = []
-    for w in _words(claim):
-        if any(w == a or w.startswith(a) or a.startswith(w) for a in asked):
-            continue
-        if w not in out:
-            out.append(w)
-    return out
-
-
-def _fragments(segment, limit_chars, limit_toks):
-    """(field name, value text) pairs of one segment — FORMAT cues only.
-
-    Colon form: each "NAME :" starts a fragment that runs to the next one, so a
-    flattened spec window ("İŞLEMCİ : ... BELLEK : ...") yields one fragment per
-    field instead of one blob. Record form: a segment with no colon that is
-    SHORT for this corpus and puts its first digit in the leading minority of
-    its tokens is a spec line — the words before that digit name the field.
-    A segment that is neither is prose, and prose binds nothing here."""
-    hits = list(_FIELD.finditer(segment))
-    if hits:
-        out = []
-        for i, m in enumerate(hits):
-            end = hits[i + 1].start() if i + 1 < len(hits) else len(segment)
-            name = _words(m.group(1))[-3:]
-            if name:
-                out.append((name, segment[m.end():end]))
-        return out
-    seg = segment.strip()
-    if not seg or len(seg) > limit_chars:
-        return []
-    toks = _tokens(seg)
-    if not toks or len(toks) > limit_toks:
-        return []
-    first_digit = next((i for i, t in enumerate(toks) if t.isdigit()), None)
-    if first_digit is None or first_digit == 0 or first_digit * 2 > len(toks):
-        return []
-    m = re.match(r"([^\d:]+?)\s*\d", seg)
-    if not m:
-        return []
-    name = _words(m.group(1))[-3:]
-    return [(name, seg[m.end() - 1:])] if name else []
-
-
-def binding_records(sentences, claim, question, limit_chars, limit_toks):
-    """The records whose VALUE is the whole of what the claim adds.
-
-    THE CONDITION IS ACCOUNTING FOR EVERYTHING THE CLAIM ADDS, not sharing a
-    token with it, and that is what makes this safe to act on. A flattened PDF
-    glues cells together, so a single digit of an answer can be "bound" by a
-    record it has nothing to do with — the 7 of an IPX 7 rating is also the 7 of
-    a 7.8 kg weight, and a veto built on partial matches refuses correct
-    answers for that reason alone (measured on this manual: three correct
-    answers reached such a veto, one of them bound ONLY to the weight row).
-    When a record's value accounts for the claim's new content ENTIRELY, there
-    is nothing left over to have come from anywhere else: the answer is that
-    record's value wearing a label, and the label is what can be wrong.
-
-    Empty means the structure has nothing to say — the value lives in prose, is
-    assembled from several records, or the answer adds nothing to the question
-    at all. Silence, never innocence: the caller keeps every gate it had.
-    """
-    values = new_words(claim, question)
-    if not values:
-        return []
-    out = []
-    for sentence in sentences:
-        for segment in re.split(r"[·—;|]", sentence):
-            for name, value in _fragments(segment, limit_chars, limit_toks):
-                said = _words(value)
-                if not all(any(v == w or (not v.isdigit() and not w.isdigit()
-                                          and (v.startswith(w)
-                                               or w.startswith(v)))
-                               for w in said)
-                           for v in values):
-                    continue
-                line = f"{' '.join(name)}: {value.strip()}"
-                if line not in out:
-                    out.append(line)
-    return out
-
-
 # --- a shattered table's ROWS -------------------------------------------------
 #
 # A PDF table arrives as one cell per line, so the row — the only thing a table
@@ -923,12 +815,6 @@ class SentenceStore:
             if m:
                 keys += _words(m.group(1))[-3:]
         return [k for k in keys if not k.isdigit()]
-
-    def binding_view(self, sentences, claim, question):
-        """`binding_records` under THIS corpus's own record bound — see
-        `_record_bounds`. The store owns the bound; the caller owns the claim."""
-        return binding_records(sentences, claim, question,
-                               *self._record_bounds())
 
     def add(self, sentence, source=""):
         key = fold(sentence)
