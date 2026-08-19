@@ -15,6 +15,7 @@ answering, which is what the configurations differ in.
     python3.11 benchmarks/field/measure.py ingest          # once, pays for it
     python3.11 benchmarks/field/measure.py run  base       # LMM_DIRECT_LOOKUP=0
     python3.11 benchmarks/field/measure.py run  graph      # the shipped path
+    python3.11 benchmarks/field/measure.py repeat        # the answer cache
     python3.11 benchmarks/field/measure.py report
 
 The two field documents are NOT in this repository — fetch them first with
@@ -170,6 +171,40 @@ def run(config, samples=3):
                       ensure_ascii=False, indent=1)
 
 
+def repeat():
+    """THE ANSWER CACHE, measured: the same ten questions twice, one memory.
+
+    The second pass is the whole measurement. Its calls and its seconds are
+    what a repeated question costs once the first one has been paid for, and
+    the answers are compared word for word — a cheaper answer that is not the
+    SAME answer would be a defect, not a saving.
+    """
+    from lmm.api import Memory
+    print("| document | pass | calls/q | s/q | answers identical |")
+    print("|---|---|---|---|---|")
+    for name, _, _, _ in SETS:
+        graph = os.path.join(GRAPHS, name + ".lmm")
+        if not os.path.exists(graph):
+            continue
+        memory = Memory(graph)
+        passes = []
+        for _ in (1, 2):
+            said, calls, t0 = [], 0, time.time()
+            for q in questions(name):
+                seen, restore = _counted()
+                try:
+                    said.append(str(memory.ask(q["soru"])))
+                finally:
+                    restore()
+                calls += len(seen)
+            passes.append((said, calls, time.time() - t0))
+        n = len(passes[0][0])
+        same = sum(a == b for a, b in zip(passes[0][0], passes[1][0]))
+        for i, (_, calls, wall) in enumerate(passes, start=1):
+            print(f"| {name} ({n}) | {i} | {round(calls / n, 2)} | "
+                  f"{round(wall / n, 2)} | {same}/{n} |")
+
+
 def _summary(config, name):
     rows = []
     for sample in (1, 2, 3):
@@ -214,5 +249,7 @@ if __name__ == "__main__":
         ingest()
     elif what == "run":
         run(sys.argv[2])
+    elif what == "repeat":
+        repeat()
     else:
         report()
