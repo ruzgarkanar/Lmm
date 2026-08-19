@@ -24,6 +24,38 @@ language it is in.
 import json
 import os
 import random
+import unicodedata
+
+
+def layout_char(ch):
+    """Is this character LAYOUT rather than part of a word?
+
+    Unicode's own general category answers it (P*, the punctuation classes),
+    so the question is asked once, in the place `fold` already lives, and the
+    three organs that need it — the span grammar's word forms
+    (`lmm/grammar.py`), a table's row label (`lmm/tables.py`, where a leading
+    dot is the sheet's indentation and not part of `.Puerto Rico`) — ask the
+    same one. No character is named anywhere.
+    """
+    return unicodedata.category(ch).startswith("P")
+
+
+def bare(text):
+    """`text` without the layout characters it begins or ends with.
+
+    A US Census sheet writes its sub-rows as `.Alabama`, `.California`,
+    `.Puerto Rico` — the leading dot is INDENTATION, drawn with a character
+    because a spreadsheet cell has no margin, and it was measured making every
+    one of those rows unreachable by its own name (`benchmarks/field/REPORT.md`
+    §4). Reading it as layout is not a convention this file knows about; it is
+    what the character's Unicode category says it is.
+    """
+    text = str(text)
+    while text and layout_char(text[0]):
+        text = text[1:]
+    while text and layout_char(text[-1]):
+        text = text[:-1]
+    return text
 
 
 def fold(text):

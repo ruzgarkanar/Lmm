@@ -18,7 +18,7 @@ import os
 import re
 
 from lmm.core import dynamics
-from lmm.core.dataset import fold
+from lmm.core.dataset import bare, fold
 from lmm.core.gate import Gate
 from lmm.core.memory import Memory, OPERATOR, STRANGER, DOCUMENT
 from lmm.core.transitive import Transitivity
@@ -61,6 +61,28 @@ def _direct_lookup():
     """Is the graph-first answer path on? Read per call, not at import, so a
     measurement can flip it between two runs in one process."""
     return os.environ.get("LMM_DIRECT_LOOKUP", "1") != "0"
+
+
+def _cell_evidence():
+    """Does a table cell get an evidence unit of its own — `LMM_CELL_EVIDENCE`
+    = 1 (default) | 0. The A/B arm for the row-column binding described in
+    `learn_rows`; measured in `benchmarks/COST.md` §8.4."""
+    return (os.environ.get("LMM_CELL_EVIDENCE") or "1").strip() != "0"
+
+
+def _doc_triples():
+    """May a triple that came from a DOCUMENT stand in the answer block beside
+    the evidence — `LMM_DOC_TRIPLES` = 0 (default) | structural | 1.
+
+    The block drops them because prose extraction produces crumbs ("projeler →
+    en kolay") that changed the answer from run to run (see `_answer`). But a
+    table cell is not prose extraction: `learn_rows` writes `(row, column,
+    value)` with no engine in the loop, so the reason for the exclusion does
+    not apply to it. `structural` is that middle position — triples from a
+    table adapter stay, triples read out of prose go. Which of the three is
+    right is a measurement, not an opinion.
+    """
+    return (os.environ.get("LMM_DOC_TRIPLES") or "0").strip()
 
 
 def _grounded_in(value, message):
@@ -900,10 +922,28 @@ class Session:
                 continue
             self.evidence.add(" · ".join(f"{k}: {v}" if k else v
                                          for k, v in cells), source)
+            # A ROW'S INDENTATION IS NOT PART OF ITS NAME. A spreadsheet cell
+            # has no margin, so a sheet that nests rows draws the nesting with
+            # a character — the Census file writes `.Alabama`, `.Puerto Rico` —
+            # and that dot made every nested row unreachable by the name a
+            # question uses for it (`benchmarks/field/REPORT.md` §4: `about(
+            # "puerto rico")` came back empty while `about(".puerto rico")`
+            # held the whole row). What counts as layout is decided by
+            # Unicode's category (`core/dataset.bare`), not by this sheet's
+            # convention, so no document is being read here.
+            #
+            # THE CELL IS THE LABEL AND THE PLAIN NAME IS THE ALIAS, in that
+            # direction: the node goes on carrying exactly what the document
+            # wrote, and the reachable name is added beside it. The other
+            # direction would have the reader silently editing a cell it does
+            # not understand — `-5` would lose its sign to the same rule.
             anchor = cells[0][1]
             sk = link.resolve(self.memory, anchor, self.vectors, create=True)
             if sk is None:
                 continue
+            plain = bare(anchor)
+            if plain and plain != anchor:
+                self.memory.identify(fold(plain), same_as=sk)
             rich = max((kv for kv in cells[1:]), default=None,
                        key=lambda kv: len(kv[1]))
             # AN ALIAS HAS TO BE A NAME, and a name is a PHRASE — more than one
@@ -915,6 +955,18 @@ class Session:
             if rich and len(rich[1].split()) >= 2:
                 self.memory.identify(fold(rich[1]), same_as=sk)
             for col, val in cells[1:]:
+                # ONE EVIDENCE UNIT PER CELL, carrying BOTH the row's name and
+                # the column's. The row sentence above holds the whole row, so
+                # a question naming a row and a column matched it — and so did
+                # the flattened page the same table was rendered into, in which
+                # the columns arrive out of reading order (the measured NIST
+                # Table 4-1 failure, REPORT.md §3: the window holding
+                # `Reauthentication` held AAL2's `12 hours` and not AAL1's `30
+                # days`). A unit that carries exactly one row-column binding
+                # can win against that neighbour on its own words. Formatting a
+                # cell is not a language rule; nothing here reads the text.
+                if col and _cell_evidence():
+                    self.evidence.add(f"{anchor} · {col}: {val}", source)
                 wrote += self.learn_cell(anchor, col, val, source)
         self._bulk = prev_bulk
         if wrote:
@@ -1074,8 +1126,17 @@ class Session:
             # document — no information loss, stability gained. Operator/
             # inference records (taught in conversation, derived) stay in the
             # block.
-            records = [r for r in records
-                       if not str(r.source).startswith("#doc")]
+            # WHAT THIS RULE ACTUALLY REACHES, checked rather than assumed: the
+            # stamp it tests is the one `Memory.learn(text)` writes (`#doc:…`).
+            # A table adapter stamps `#xlsx:…` / `#pdf:…`, so a cell written by
+            # `learn_rows` — `(row, column, value)`, no engine in the loop — was
+            # NEVER excluded here; the crumb problem this rule was built for is
+            # a property of prose extraction, and the code already only
+            # excluded prose. `LMM_DOC_TRIPLES=1` keeps them too, which is the
+            # arm that measured the rule worth keeping (COST.md §8.4).
+            if _doc_triples() != "1":
+                records = [r for r in records
+                           if not str(r.source).startswith("#doc")]
         fact_block = retrieve.facts_block(self.memory, records) if records else ""
         proof_block = "\n".join(f"[K{i}] {s}"
                                 for i, s in enumerate(proof, 1)) if proof else ""
