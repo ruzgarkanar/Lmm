@@ -17,6 +17,7 @@ import collections
 import json
 import os
 import sys
+import time
 
 # The rate used for the DERIVED price table only. Published gpt-4o-mini
 # pricing, USD per 1M tokens, as used on the run date recorded below. Change
@@ -26,7 +27,29 @@ PRICE_IN = 0.15 / 1_000_000
 PRICE_OUT = 0.60 / 1_000_000
 PRICE_NOTE = ("published gpt-4o-mini rate used for this table: "
               "$0.15 / 1M input tokens, $0.60 / 1M output tokens")
-RUN_DATE = "2026-08-18"
+
+
+def stamp(cost_dir):
+    """WHEN these numbers were taken and WHICH tree produced them.
+
+    It used to be a date typed into this file, which is a number maintained by
+    hand in a document whose whole argument is that nothing here is typed by
+    hand — and it went stale, so a reader comparing the table against a later
+    tree had no way to know the answer path had moved underneath it. The date
+    is the newest sample's own mtime and the commit is whatever HEAD was when
+    the report ran; neither can be forgotten."""
+    import subprocess
+    newest = max((os.path.getmtime(os.path.join(cost_dir, n))
+                  for n in os.listdir(cost_dir) if n.endswith(".json")),
+                 default=time.time())
+    date = time.strftime("%Y-%m-%d", time.localtime(newest))
+    try:
+        head = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                              cwd=os.path.dirname(cost_dir), text=True,
+                              capture_output=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        head = "unknown"
+    return date, head
 
 SIDES = ["rag", "lmm-shallow", "lmm-deep"]
 LABEL = {"rag": "RAG (embed + Chroma + 4o-mini)",
@@ -156,10 +179,14 @@ def main():
     w("Both sides run the **same engine**, Azure `gpt-4o-mini`, so the "
       "comparison is between architectures rather than model sizes — the same "
       "discipline the accuracy table in the README uses.\n")
+    date, head = stamp(cost_dir)
     w(f"Corpora are the two reproducible fictional ones in this repository "
       f"(`corpus.txt` + `questions.json`, `corpus_en.txt` + "
       f"`questions_en.json`) — no third-party document is involved, so anyone "
-      f"can re-run this. Measured {RUN_DATE}.\n")
+      f"can re-run this. **Measured {date}, at commit `{head}`.** Every table "
+      f"in sections 1–6 is that one run: the answer path has moved several "
+      f"times in this repository's history and a cost table with no commit "
+      f"under it cannot be checked against the tree that produced it.\n")
     w("Reproduce:\n\n```bash\nsh benchmarks/cost_all.sh          "
       "# 3 sides x 2 languages x 3 repeats\npython3.11 benchmarks/cost_report.py "
       "> benchmarks/COST.md\n```\n")
@@ -441,16 +468,18 @@ def main():
                 "document, since extraction cost scales with the text while "
                 "the evidence index does not.\n")
         if zero_total:
-            w(f"**Some questions now cost nothing at all.** Section 3 counts "
+            w(f"**Some questions now cost nothing at all — on the engine that "
+              f"ingested them well.** Section 3 counts "
               f"{zero_total:.0f} answers across these runs that never reached "
               f"the engine — the graph settled them itself, in microseconds, "
               f"for zero tokens and zero seconds of anyone's GPU. It is a "
               f"minority of the questions and it does not move the per-question "
               f"average much; what it moves is the FLOOR. On that share of the "
               f"traffic the architecture is not merely cheaper than RAG, it is "
-              f"free, and it is engine-independent — the same answer comes back "
-              f"from a 3B int4 build on a laptop as from a hosted model, "
-              f"because neither was asked.\n")
+              f"free. **That floor is not free of the engine that built it** "
+              f"— see §7, where the same corpus on a local 3B model never "
+              f"reaches it at all, because the derivation the floor rests on "
+              f"never closes there.\n")
         w("**Where we are cheaper: the axes this table cannot bill.** The "
           "tokens above buy three things RAG does not have at any price — "
           "every answer carrying its source, a structural gate that stops an "
