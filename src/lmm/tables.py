@@ -12,6 +12,7 @@ source-hedged in answers), and the row sentence is also written to the evidence
 store (the language surface is built from there). The header heuristic is the
 same as xlsx2txt: the row most filled with short text. No document-specific rule.
 """
+import math
 import os
 import re
 
@@ -96,11 +97,112 @@ def _header_row(rows, columns):
     return top[0][1]
 
 
+def _text(cell):
+    """A cell's text as the SHEET wrote it, not as the reader typed it.
+
+    One column of whole numbers containing a single blank cell is typed by
+    pandas as floating point, and every number in it then reads `2021.0`,
+    `332048977.0` — a year no question spells and a population no gold string
+    matches. A float that is exactly an integer is written as that integer;
+    `3.5` is untouched. This is a rendering decision about a number, with no
+    document and no language in it.
+    """
+    if isinstance(cell, float) and math.isfinite(cell) and cell == int(cell):
+        cell = int(cell)
+    return str(cell).replace("\n", " ").strip()
+
+
+def _merges(path, sheet_name):
+    """The ranges this sheet says are ONE cell: (top, bottom, left, right), in
+    the sheet's own 1-based coordinates.
+
+    A merge is not a hint, it is the sheet stating a fact about its own shape,
+    and it is the only place a spreadsheet says where its header ENDS: the
+    Census file merges `A3:A4` (this name occupies both header rows) and
+    `C3:F3` (this name covers four columns). Read, never guessed — and never a
+    row number: `_header_row` still decides where the header BEGINS.
+
+    Unreadable or non-xlsx files answer "no merges", which is the shape the
+    single-row reader already handled.
+    """
+    try:
+        import openpyxl                                     # noqa: PLC0415
+        book = openpyxl.load_workbook(path, data_only=True)
+        sheet = book[sheet_name]
+        return [(r.min_row, r.max_row, r.min_col, r.max_col)
+                for r in sheet.merged_cells.ranges]
+    except Exception:                                       # noqa: BLE001
+        return []
+
+
+def _header_names(rows, columns, hi, merges, pd):
+    """The name of each column, read off the header BLOCK rather than one row.
+
+    Two things a spreadsheet does that one row cannot express, and both were
+    measured losing data (`benchmarks/field/REPORT.md` §4):
+
+      * a header cell spanning two rows (`A3:A4`) — so the block is as deep as
+        the sheet's own merge says, and the row below the header is NOT data;
+      * one name covering several columns (`C3:F3`) with the columns
+        distinguished on the row beneath — so `2021` and `2022` stop being
+        NAMELESS, which is how they used to collapse onto the single dict key
+        `""` and overwrite each other.
+
+    A merged cell's text belongs to every cell it covers (that is what merging
+    means), so an unnamed column inherits the name spanning it instead of
+    inheriting emptiness. The block's rows are joined in sheet order, repeats
+    dropped: `Population Estimate (as of July 1)` + `2021`.
+
+    Returns (names, first_data_row) with rows indexed as `rows` is — or None
+    when the sheet says nothing about a block, which leaves the caller on the
+    single-row path it always had.
+    """
+    top = 1 if hi < 0 else hi + 2            # `rows[i]` is the sheet's row i+2
+    reach = [low for high, low, _left, _right in merges if high == top]
+    if not reach:
+        return None              # the sheet says nothing about this row's shape
+    bottom = max(reach)
+
+    def cell(row, column):
+        """The sheet's (1-based) cell, with a merged cell's text present in
+        every position it covers."""
+        for high, low, left, right in merges:
+            if high <= row <= low and left <= column <= right:
+                row, column = high, left
+                break
+        raw = columns[column - 1] if row == 1 else rows[row - 2][column - 1]
+        if raw is None or pd.isna(raw) or str(raw).startswith("Unnamed"):
+            return ""
+        return _text(raw)
+
+    names = []
+    for column in range(1, len(columns) + 1):
+        parts = []
+        for row in range(top, bottom + 1):
+            piece = cell(row, column)
+            if piece and piece not in parts:
+                parts.append(piece)
+        names.append(" ".join(parts))
+    return names, bottom - 1                 # `rows` index of the first data row
+
+
 def read_xlsx(path):
     """xlsx → [(sheet, preamble-lines, row-dicts)]. No model."""
     sheets = []
     pd = _pd()
     xl = pd.ExcelFile(path)
+    # OFF BY DEFAULT, AND THE MEASUREMENT IS WHY (`COST.md` §8.4). Reading the
+    # header as a block recovers columns that were being destroyed — the Census
+    # sheet's 2021 and 2022 were overwritten out of existence — and it made the
+    # field score WORSE, 10/10 to 6/10 with two wrong answers where there had
+    # been none. Both facts are true at once: the four recovered columns are
+    # all named `Population Estimate (as of July 1) <year>`, so a question that
+    # names no year now has four equally good answers where it used to have
+    # one, and the answer path picks one of them. Recovering data the reader
+    # was silently dropping is right; shipping it while a year-less question
+    # answers from an arbitrary year is not. `LMM_XLSX_HEADER_BLOCK=1` turns it
+    # on for anyone whose questions name their columns.
+    block_on = (os.environ.get("LMM_XLSX_HEADER_BLOCK") or "0").strip() != "0"
     for sheet_name in xl.sheet_names:
         df = xl.parse(sheet_name)
         rows = df.values.tolist()
@@ -108,6 +210,11 @@ def read_xlsx(path):
         hi = _header_row(rows, columns)
         header = columns if hi == -1 else rows[hi]
         header = [str(h).strip() if not pd.isna(h) else "" for h in header]
+        start = hi + 1                       # `rows` index of the first data row
+        block = (_header_names(rows, columns, hi, _merges(path, sheet_name), pd)
+                 if block_on else None)
+        if block:
+            header, start = block
         pre = []
         pre_rows = ([columns] if hi >= 0 else []) + (rows[:hi] if hi >= 0 else [])
         for r in pre_rows:
@@ -116,12 +223,12 @@ def read_xlsx(path):
                         and not cell.startswith("Unnamed"):
                     pre.append(cell.strip())
         data = []
-        for r in (rows[hi + 1:] if hi >= 0 else rows):
+        for r in rows[start:]:
             row = {}
             for h, cell in zip(header, r):
                 if pd.isna(cell) or not str(cell).strip():
                     continue
-                row[h or ""] = str(cell).replace("\n", " ").strip()
+                row[h or ""] = _text(cell)
             if row:
                 data.append(row)
         sheets.append((sheet_name, pre, data))
