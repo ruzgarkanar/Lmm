@@ -2434,6 +2434,76 @@ def o3():
             real_causal, real_re, real_ex)
 
 
+@test("R1 a table row is known by its name, not by its indentation")
+def r1():
+    """A spreadsheet cell has no margin, so a sheet that nests rows draws the
+    nesting with a character: the US Census file writes `.Alabama`,
+    `.Puerto Rico`. Measured (`benchmarks/field/REPORT.md` §4), that dot made
+    every nested row unreachable by the name a question uses — `about("puerto
+    rico")` empty while `about(".puerto rico")` held the whole row.
+
+    What decides is Unicode's category (`core/dataset.bare`), not a convention
+    this reader knows about, and the written form stays reachable as an alias:
+    a question that quotes the cell must not be punished for quoting it.
+    Model-free — `learn_rows` calls no engine at all."""
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_rows([{"Geographic Area": ".Puerto Rico",
+                   "Population Estimate": "3281557"}], source="#xlsx:test")
+    from lmm import link
+    named = link.resolve(s.memory, "puerto rico")
+    assert named is not None and s.memory.about(named), \
+        "the row is unreachable by its name"
+    # ONE row, ONE node: the written spelling is the same identity, not a second
+    assert link.resolve(s.memory, ".puerto rico") == named, \
+        "the written form stopped resolving"
+    # a row label that is ONLY layout keeps what it has rather than vanishing
+    s.learn_rows([{"a": "...", "b": "1"}], source="#xlsx:test")
+    assert link.resolve(s.memory, "...") is not None, \
+        "a label of pure layout lost its row"
+
+
+@test("R2 a table cell is evidence in the company of its own row and column")
+def r2():
+    """THE MEASURED FAILURE THIS CLOSES (`REPORT.md` §3): a flattened PDF table
+    puts a value beside the wrong column's words, and no gate can catch it
+    because the claim really is in the evidence. The row sentence carries the
+    whole row, so it competes on the row's words alone; a unit carrying exactly
+    one row-column binding competes on both.
+
+    `LMM_CELL_EVIDENCE=0` is the A/B arm, and it has to leave the store as it
+    was before — a switch that changes something else is not a measurement."""
+    import os
+    from lmm.session import Session
+    was = os.environ.get("LMM_CELL_EVIDENCE")
+    try:
+        os.environ.pop("LMM_CELL_EVIDENCE", None)
+        s = Session(None)
+        s.learn_rows([{"Requirement": "Reauthentication", "AAL1": "30 days",
+                       "AAL2": "12 hours"}], source="#pdf:test")
+        held = [text for text, _source in s.evidence.sentences]
+        assert "Reauthentication · AAL1: 30 days" in held, held
+        assert "Reauthentication · AAL2: 12 hours" in held, held
+        # the whole-row sentence is still there: the cell units are an
+        # addition, and nothing that answered before stops answering
+        assert any("30 days" in x and "12 hours" in x for x in held), held
+        # THE BINDING IS THE POINT: asked for one column, the store hands back
+        # the unit that names it, not the one that names its neighbour.
+        first = s.evidence.find("Reauthentication AAL1", most=1)[0]
+        assert "30 days" in first, first
+        os.environ["LMM_CELL_EVIDENCE"] = "0"
+        off = Session(None)
+        off.learn_rows([{"Requirement": "Reauthentication", "AAL1": "30 days"}],
+                       source="#pdf:test")
+        assert not any(text.startswith("Reauthentication · ")
+                       for text, _s in off.evidence.sentences), \
+            off.evidence.sentences
+    finally:
+        os.environ.pop("LMM_CELL_EVIDENCE", None)
+        if was is not None:
+            os.environ["LMM_CELL_EVIDENCE"] = was
+
+
 @test("N7 a node whose name is several words can still be named")
 def n7():
     """A graph node is not always spelled with one word — a spreadsheet's row
