@@ -1,0 +1,1223 @@
+[
+ {
+  "sent": "Nortlann Adası Doğa ve Kaynak Rehberi",
+  "causal": null,
+  "0": [
+   [
+    "nortlann adası doğa ve kaynak rehberi",
+    "tür",
+    "rehberi"
+   ]
+  ],
+  "subject": [
+   [
+    "nortlann adası doğa ve kaynak",
+    "tür",
+    "rehberi"
+   ]
+  ]
+ },
+ {
+  "sent": "Zerbalit bir metaldir.",
+  "causal": [
+   "zerbalit",
+   "metaldir"
+  ],
+  "0": [
+   [
+    "zerbalit",
+    "tür",
+    "metaldir"
+   ]
+  ],
+  "subject": [
+   [
+    "zerbalit",
+    "tür",
+    "metaldir"
+   ]
+  ]
+ },
+ {
+  "sent": "Metal bir maddedir.",
+  "causal": null,
+  "0": [
+   [
+    "metal bir maddedir",
+    "tür",
+    "maddedir"
+   ]
+  ],
+  "subject": [
+   [
+    "maddedir",
+    "tür",
+    "metal"
+   ]
+  ]
+ },
+ {
+  "sent": "Zerbalit bir maddedir.",
+  "causal": [
+   "zerbalit",
+   "maddedir"
+  ],
+  "0": [
+   [
+    "zerbalit",
+    "tür",
+    "maddedir"
+   ]
+  ],
+  "subject": [
+   [
+    "zerbalit",
+    "tür",
+    "maddedir"
+   ]
+  ]
+ },
+ {
+  "sent": "Kelvit bir metaldir.",
+  "causal": [
+   "kelvit",
+   "metaldir"
+  ],
+  "0": [
+   [
+    "kelvit bir metaldir",
+    "tür",
+    "metaldir"
+   ]
+  ],
+  "subject": [
+   [
+    "kelvit bir",
+    "tür",
+    "metaldir"
+   ]
+  ]
+ },
+ {
+  "sent": "Kelvit bir maddedir.",
+  "causal": [
+   "kelvit",
+   "maddedir"
+  ],
+  "0": [
+   [
+    "kelvit bir maddedir",
+    "tür",
+    "maddedir"
+   ]
+  ],
+  "subject": [
+   [
+    "kelvit bir",
+    "tür",
+    "maddedir"
+   ]
+  ]
+ },
+ {
+  "sent": "Torvanit bir metaldir.",
+  "causal": null,
+  "0": [
+   [
+    "torvanit",
+    "tür",
+    "metaldir"
+   ]
+  ],
+  "subject": [
+   [
+    "torvanit",
+    "tür",
+    "metaldir"
+   ]
+  ]
+ },
+ {
+  "sent": "Zerbalit mavi renklidir.",
+  "causal": [
+   "zerbalit mavi renklidir",
+   "renklidir"
+  ],
+  "0": [
+   [
+    "zerbalit mavi renklidir",
+    "tür",
+    "renklidir"
+   ]
+  ],
+  "subject": [
+   [
+    "zerbalit mavi",
+    "tür",
+    "renklidir"
+   ]
+  ]
+ },
+ {
+  "sent": "Kelvit gri renklidir.",
+  "causal": null,
+  "0": [
+   [
+    "kelvit gri renklidir",
+    "tür",
+    "gri"
+   ]
+  ],
+  "subject": [
+   [
+    "gri renklidir",
+    "tür",
+    "gri"
+   ]
+  ]
+ },
+ {
+  "sent": "Torvanit ısıtılırsa yeşil alev çıkar.",
+  "causal": [
+   "torvanit ısıtılırsa",
+   "yeşil alev"
+  ],
+  "0": [
+   [
+    "torvanit ısıtılırsa yeşil alev çıkar",
+    "tür",
+    "çıkar"
+   ]
+  ],
+  "subject": [
+   [
+    "torvanit ısıtılırsa yeşil alev",
+    "tür",
+    "çıkar"
+   ]
+  ]
+ },
+ {
+  "sent": "Vorlin bir içecektir.",
+  "causal": null,
+  "0": [
+   [
+    "vorlin",
+    "tür",
+    "içecektir"
+   ]
+  ],
+  "subject": [
+   [
+    "vorlin",
+    "tür",
+    "içecektir"
+   ]
+  ]
+ },
+ {
+  "sent": "İçecek bir sıvıdır.",
+  "causal": null,
+  "0": [
+   [
+    "içecek bir sıvıdır",
+    "tür",
+    "sıvıdır"
+   ]
+  ],
+  "subject": [
+   [
+    "içecek bir",
+    "tür",
+    "sıvıdır"
+   ]
+  ]
+ },
+ {
+  "sent": "Selvin bir içecektir.",
+  "causal": [
+   "selvin",
+   "içecektir"
+  ],
+  "0": [
+   [
+    "selvin bir içecektir",
+    "tür",
+    "içecektir"
+   ]
+  ],
+  "subject": [
+   [
+    "selvin bir",
+    "tür",
+    "içecektir"
+   ]
+  ]
+ },
+ {
+  "sent": "Selvin bir sıvıdır.",
+  "causal": [
+   "selvin",
+   "sıvıdır"
+  ],
+  "0": [
+   [
+    "selvin bir sıvıdır",
+    "tür",
+    "sıvıdır"
+   ]
+  ],
+  "subject": [
+   [
+    "sıvıdır",
+    "tür",
+    "sıvıdır"
+   ]
+  ]
+ },
+ {
+  "sent": "Vorlin norgul bitkisinden yapılır.",
+  "causal": [
+   "vorlin norgul bitkisinden yapılır",
+   "vorlin"
+  ],
+  "0": [
+   [
+    "vorlin norgul bitkisinden yapılır",
+    "tür",
+    "yapılır"
+   ]
+  ],
+  "subject": [
+   [
+    "vorlin norgul bitkisinden",
+    "tür",
+    "yapılır"
+   ]
+  ]
+ },
+ {
+  "sent": "Selvin soğuk içilir.",
+  "causal": [
+   "selvin",
+   "içilir"
+  ],
+  "0": [
+   [
+    "selvin soğuk içilir",
+    "tür",
+    "içilir"
+   ]
+  ],
+  "subject": [
+   [
+    "soğuk içilir",
+    "tür",
+    "soğuk"
+   ]
+  ]
+ },
+ {
+  "sent": "Vorlin sıcak içilir.",
+  "causal": null,
+  "0": [
+   [
+    "vorlin sıcak içilir",
+    "tür",
+    "içilir"
+   ]
+  ],
+  "subject": [
+   [
+    "vorlin sıcak",
+    "tür",
+    "içilir"
+   ]
+  ]
+ },
+ {
+  "sent": "Morlan bir kuştur.",
+  "causal": [
+   "Morlan",
+   "kuştur"
+  ],
+  "0": [
+   [
+    "morlan",
+    "tür",
+    "kuş"
+   ]
+  ],
+  "subject": [
+   [
+    "morlan",
+    "tür",
+    "kuş"
+   ]
+  ]
+ },
+ {
+  "sent": "Kuş bir canlıdır.",
+  "causal": [
+   "kuş",
+   "canlıdır"
+  ],
+  "0": [
+   [
+    "kuş bir canlıdır",
+    "tür",
+    "olmayan"
+   ]
+  ],
+  "subject": [
+   [
+    "kuş bir",
+    "tür",
+    "canlıdır"
+   ]
+  ]
+ },
+ {
+  "sent": "Morlan bir canlıdır.",
+  "causal": null,
+  "0": [
+   [
+    "morlan",
+    "tür",
+    "canlıdır"
+   ]
+  ],
+  "subject": [
+   [
+    "morlan",
+    "tür",
+    "canlıdır"
+   ]
+  ]
+ },
+ {
+  "sent": "Zilfen bir kuştur.",
+  "causal": null,
+  "0": [
+   [
+    "zilfen",
+    "tür",
+    "kuş"
+   ]
+  ],
+  "subject": [
+   [
+    "zilfen",
+    "tür",
+    "kuş"
+   ]
+  ]
+ },
+ {
+  "sent": "Karvel bir balıktır.",
+  "causal": [
+   "Karvel bir balıktır",
+   "balıktır"
+  ],
+  "0": [
+   [
+    "karvel bir balıktır",
+    "tür",
+    "balıktır"
+   ]
+  ],
+  "subject": [
+   [
+    "karvel bir",
+    "tür",
+    "balıktır"
+   ]
+  ]
+ },
+ {
+  "sent": "Balık bir canlıdır.",
+  "causal": [
+   "balık",
+   "canlıdır"
+  ],
+  "0": [
+   [
+    "balık bir canlıdır",
+    "tür",
+    "balık"
+   ]
+  ],
+  "subject": [
+   [
+    "bir canlıdır",
+    "tür",
+    "balık"
+   ]
+  ]
+ },
+ {
+  "sent": "Karvel bir canlıdır.",
+  "causal": null,
+  "0": [
+   [
+    "karvel bir canlıdır",
+    "tür",
+    "canlıdır"
+   ]
+  ],
+  "subject": [
+   [
+    "karvel bir",
+    "tür",
+    "canlıdır"
+   ]
+  ]
+ },
+ {
+  "sent": "Morlan gece uçar.",
+  "causal": [
+   "Morlan gece uçar",
+   "Morlan"
+  ],
+  "0": [
+   [
+    "morlan gece uçar",
+    "tür",
+    "uçar"
+   ]
+  ],
+  "subject": [
+   [
+    "morlan gece",
+    "tür",
+    "uçar"
+   ]
+  ]
+ },
+ {
+  "sent": "Zilfen gündüz uçar.",
+  "causal": [
+   "zilfen gündüz uçar",
+   "zilfen"
+  ],
+  "0": [
+   [
+    "zilfen gündüz uçar",
+    "tür",
+    "ucar"
+   ]
+  ],
+  "subject": [
+   [
+    "zilfen gündüz",
+    "tür",
+    "uçar"
+   ]
+  ]
+ },
+ {
+  "sent": "Karvel derin suda yaşar.",
+  "causal": [
+   "Karvel derin suda yaşar",
+   "yaşar"
+  ],
+  "0": [
+   [
+    "karvel derin suda yaşar",
+    "tür",
+    "yaşar"
+   ]
+  ],
+  "subject": [
+   [
+    "karvel derin suda",
+    "tür",
+    "yaşar"
+   ]
+  ]
+ },
+ {
+  "sent": "Morlan norgul tohumu yer.",
+  "causal": null,
+  "0": [
+   [
+    "morlan norgul tohumu yer",
+    "tür",
+    "yer"
+   ]
+  ],
+  "subject": [
+   [
+    "morlan norgul tohumu",
+    "tür",
+    "yer"
+   ]
+  ]
+ },
+ {
+  "sent": "Norgul bir bitkidir.",
+  "causal": [
+   "Norgul",
+   "bitkidir"
+  ],
+  "0": [
+   [
+    "norgul",
+    "tür",
+    "bitkidir"
+   ]
+  ],
+  "subject": [
+   [
+    "bir bitkidir",
+    "tür",
+    "bitkidir"
+   ]
+  ]
+ },
+ {
+  "sent": "Bitki bir canlıdır.",
+  "causal": null,
+  "0": [
+   [
+    "bitki bir canlıdır",
+    "tür",
+    "bir"
+   ]
+  ],
+  "subject": [
+   [
+    "bir canlıdır",
+    "tür",
+    "bir"
+   ]
+  ]
+ },
+ {
+  "sent": "Norgul bir canlıdır.",
+  "causal": null,
+  "0": [
+   [
+    "norgul bir canlıdır",
+    "tür",
+    "canlıdır"
+   ]
+  ],
+  "subject": [
+   [
+    "bir canlıdır",
+    "tür",
+    "norgul"
+   ]
+  ]
+ },
+ {
+  "sent": "Telvas bir bitkidir.",
+  "causal": [
+   "telvas",
+   "bitkidir"
+  ],
+  "0": [
+   [
+    "telvas bir bitkidir",
+    "tür",
+    "bitkidir"
+   ]
+  ],
+  "subject": [
+   [
+    "telvas",
+    "tür",
+    "bitkidir"
+   ]
+  ]
+ },
+ {
+  "sent": "Telvas bir canlıdır.",
+  "causal": null,
+  "0": [
+   [
+    "telvas bir canlıdır",
+    "tür",
+    "bir"
+   ]
+  ],
+  "subject": [
+   [
+    "telvas bir",
+    "tür",
+    "canlıdır"
+   ]
+  ]
+ },
+ {
+  "sent": "Norgul bataklıkta yetişir.",
+  "causal": [
+   "Norgul bataklıkta yetişir",
+   "yetişir"
+  ],
+  "0": [
+   [
+    "norgul bataklıkta yetişir",
+    "tür",
+    "yetişir"
+   ]
+  ],
+  "subject": [
+   [
+    "bataklıkta yetişir",
+    "tür",
+    "yetişir"
+   ]
+  ]
+ },
+ {
+  "sent": "Telvas kayalıkta yetişir.",
+  "causal": [
+   "Telvas kayalıkta yetişir",
+   "yetişir"
+  ],
+  "0": [
+   [
+    "telvas kayalıkta yetişir",
+    "tür",
+    "yetişir"
+   ]
+  ],
+  "subject": [
+   [
+    "telvas kayalıkta",
+    "tür",
+    "yetişir"
+   ]
+  ]
+ },
+ {
+  "sent": "Norgul beyaz çiçek açar.",
+  "causal": [
+   "Norgul beyaz çiçek açar",
+   "çiçek"
+  ],
+  "0": [
+   [
+    "norgul beyaz çiçek açar",
+    "tür",
+    "çiçek açar"
+   ]
+  ],
+  "subject": [
+   [
+    "beyaz çiçek açar",
+    "tür",
+    "çiçek açar"
+   ]
+  ]
+ },
+ {
+  "sent": "Telvas kırmızı çiçek açar.",
+  "causal": [
+   "Telvas kırmızı çiçek açar",
+   "açar"
+  ],
+  "0": [
+   [
+    "telvas kırmızı çiçek açar",
+    "tür",
+    "açar"
+   ]
+  ],
+  "subject": [
+   [
+    "telvas kırmızı çiçek",
+    "tür",
+    "açar"
+   ]
+  ]
+ },
+ {
+  "sent": "Nortlann bir adadır.",
+  "causal": null,
+  "0": [
+   [
+    "nortlann",
+    "tür",
+    "adadır"
+   ]
+  ],
+  "subject": [
+   [
+    "adadır",
+    "tür",
+    "adadır"
+   ]
+  ]
+ },
+ {
+  "sent": "Velmar bir köydür.",
+  "causal": null,
+  "0": [
+   [
+    "velmar bir köydür",
+    "tür",
+    "köydür"
+   ]
+  ],
+  "subject": [
+   [
+    "velmar bir",
+    "tür",
+    "köydür"
+   ]
+  ]
+ },
+ {
+  "sent": "Doruk bir köydür.",
+  "causal": null,
+  "0": [
+   [
+    "doruk bir köydür",
+    "tür",
+    "köydür"
+   ]
+  ],
+  "subject": [
+   [
+    "doruk bir",
+    "tür",
+    "köydür"
+   ]
+  ]
+ },
+ {
+  "sent": "Velmar adanın kuzeyindedir.",
+  "causal": [
+   "Velmar adanın kuzeyindedir",
+   "NONE"
+  ],
+  "0": [
+   [
+    "velmar adanın kuzeyindedir",
+    "tür",
+    "kuzeyindedir"
+   ]
+  ],
+  "subject": [
+   [
+    "velmar adanın",
+    "tür",
+    "kuzeyindedir"
+   ]
+  ]
+ },
+ {
+  "sent": "Doruk adanın güneyindedir.",
+  "causal": null,
+  "0": [
+   [
+    "doruk adanın güneyindedir",
+    "tür",
+    "güneyindedir"
+   ]
+  ],
+  "subject": [
+   [
+    "adanın güneyindedir",
+    "tür",
+    "güneyindedir"
+   ]
+  ]
+ },
+ {
+  "sent": "Zerbalit Velmar yakınında çıkarılır.",
+  "causal": [
+   "Zerbalit Velmar yakınında çıkarılır",
+   "çıkarılır"
+  ],
+  "0": [
+   [
+    "zerbalit velmar yakınında çıkarılır",
+    "tür",
+    "yakınında çıkarılır"
+   ]
+  ],
+  "subject": [
+   [
+    "zerbalit velmar yakınında",
+    "tür",
+    "çıkarılır"
+   ]
+  ]
+ },
+ {
+  "sent": "Kelvit Doruk yakınında çıkarılır.",
+  "causal": [
+   "kelvit doruk yakınında çıkarılır",
+   "kelvit"
+  ],
+  "0": [
+   [
+    "kelvit doruk yakınında çıkarılır",
+    "tür",
+    "yakınında çıkarılır"
+   ]
+  ],
+  "subject": [
+   [
+    "kelvit doruk yakınında",
+    "tür",
+    "çıkartılır"
+   ]
+  ]
+ },
+ {
+  "sent": "Yağmur yağarsa bataklık büyür.",
+  "causal": [
+   "yağmur",
+   "büyür"
+  ],
+  "0": [
+   [
+    "yağmur yağarsa bataklık büyür",
+    "tür",
+    "büyür"
+   ]
+  ],
+  "subject": [
+   [
+    "yağarsa bataklık büyür",
+    "tür",
+    "büyür"
+   ]
+  ]
+ },
+ {
+  "sent": "Bataklık büyürse norgul çoğalır.",
+  "causal": [
+   "bataklık büyürse",
+   "norgul çoğalır"
+  ],
+  "0": [
+   [
+    "bataklık büyürse norgul çoğalır",
+    "tür",
+    "çoğalır"
+   ]
+  ],
+  "subject": [
+   [
+    "büyürse norgul çoğalır",
+    "tür",
+    "çoğalır"
+   ]
+  ]
+ },
+ {
+  "sent": "Norgul çoğalırsa morlan çoğalır.",
+  "causal": [
+   "norgul çoğalırsa",
+   "morlan çoğalır"
+  ],
+  "0": [
+   [
+    "norgul çoğalırsa morlan çoğalır",
+    "tür",
+    "çoğalır"
+   ]
+  ],
+  "subject": [
+   [
+    "morlan çoğalır",
+    "tür",
+    "çoğalır"
+   ]
+  ]
+ },
+ {
+  "sent": "Kuraklık olursa telvas kurur.",
+  "causal": [
+   "kuraklık olursa",
+   "telvas kurur"
+  ],
+  "0": [
+   [
+    "kuraklık olursa telvas kurur",
+    "tür",
+    "kurur"
+   ]
+  ],
+  "subject": [
+   [
+    "kurur",
+    "tür",
+    "kuraklık olursa telvas"
+   ]
+  ]
+ },
+ {
+  "sent": "Adada dört mevsim yaşanır.",
+  "causal": [
+   "adada dört mevsim yaşanır",
+   "anadır"
+  ],
+  "0": [
+   [
+    "adada dört mevsim yaşanır",
+    "tür",
+    "yoktur"
+   ]
+  ],
+  "subject": [
+   [
+    "yaşanır",
+    "tür",
+    "dört mevsim"
+   ]
+  ]
+ },
+ {
+  "sent": "Kışın kar yağar.",
+  "causal": [
+   "kışın kar yağar",
+   "kar"
+  ],
+  "0": [
+   [
+    "kışın kar yağar",
+    "tür",
+    "yağar"
+   ]
+  ],
+  "subject": [
+   [
+    "kar yağar",
+    "tür",
+    "yağar"
+   ]
+  ]
+ },
+ {
+  "sent": "Yazın fırtına olur.",
+  "causal": [
+   "yazın",
+   "fırtına olur"
+  ],
+  "0": [
+   [
+    "yazın fırtına olur",
+    "tür",
+    "olur"
+   ]
+  ],
+  "subject": [
+   [
+    "yazın fırtına",
+    "tür",
+    "olur"
+   ]
+  ]
+ },
+ {
+  "sent": "Velmar köyünde balıkçılık yapılır.",
+  "causal": [
+   "Velmar köyünde balıkçılık yapılır",
+   "balıkçılık"
+  ],
+  "0": [
+   [
+    "velmar köyünde balıkçılık yapılır",
+    "tür",
+    "yapılır"
+   ]
+  ],
+  "subject": [
+   [
+    "velmar köyünde balıkçılık",
+    "tür",
+    "yapılır"
+   ]
+  ]
+ },
+ {
+  "sent": "Doruk köyünde madencilik yapılır.",
+  "causal": [
+   "Doruk köyünde madencilik yapılır",
+   "madencilik"
+  ],
+  "0": [
+   [
+    "doruk köyünde madencilik yapılır",
+    "tür",
+    "yapılır"
+   ]
+  ],
+  "subject": [
+   [
+    "doruk köyünde madencilik",
+    "tür",
+    "yapılır"
+   ]
+  ]
+ },
+ {
+  "sent": "Adanın ortasında büyük bir göl vardır.",
+  "causal": [
+   "Adanın ortasında büyük bir göl vardır",
+   "olur"
+  ],
+  "0": [
+   [
+    "adanın ortasında büyük bir göl vardır",
+    "tür",
+    "göldür"
+   ]
+  ],
+  "subject": [
+   [
+    "göl",
+    "tür",
+    "göldür"
+   ]
+  ]
+ },
+ {
+  "sent": "Gölün suyu tatlıdır.",
+  "causal": [
+   "Gölün suyu tatlıdır",
+   "tatlıdır"
+  ],
+  "0": [
+   [
+    "gölün suyu tatlıdır",
+    "tür",
+    "tatlıdır"
+   ]
+  ],
+  "subject": [
+   [
+    "gölün suyu",
+    "tür",
+    "tatlıdır"
+   ]
+  ]
+ },
+ {
+  "sent": "Karvel gölde de görülür.",
+  "causal": [
+   "Karvel gölde de görülür",
+   "de görülür"
+  ],
+  "0": [
+   [
+    "karvel gölde de görülür",
+    "tür",
+    "de görülür"
+   ]
+  ],
+  "subject": [
+   [
+    "karvel gölde de",
+    "tür",
+    "göldür"
+   ]
+  ]
+ },
+ {
+  "sent": "Zilfen göl kıyısında yuva yapar.",
+  "causal": [
+   "zilfen göl kıyısında yuva yapar",
+   "zilfen"
+  ],
+  "0": [
+   [
+    "zilfen göl kıyısında yuva yapar",
+    "tür",
+    "yuva yapar"
+   ]
+  ],
+  "subject": [
+   [
+    "zilfen göl kıyısında yuva",
+    "tür",
+    "yapar"
+   ]
+  ]
+ },
+ {
+  "sent": "Adaya tekneyle ulaşılır.",
+  "causal": [
+   "Adaya tekneyle",
+   "ulaşılır"
+  ],
+  "0": [
+   [
+    "adaya tekneyle ulaşılır",
+    "tür",
+    "uyar"
+   ]
+  ],
+  "subject": [
+   [
+    "adaya tekneyle",
+    "tür",
+    "uyarılır"
+   ]
+  ]
+ },
+ {
+  "sent": "Ada haritalarda küçük görünür.",
+  "causal": null,
+  "0": [
+   [
+    "ada haritalarda küçük görünür",
+    "tür",
+    "görünür"
+   ]
+  ],
+  "subject": [
+   [
+    "ada haritalarda küçük",
+    "tür",
+    "görünür"
+   ]
+  ]
+ },
+ {
+  "sent": "Rehber her yıl güncellenir.",
+  "causal": [
+   "her yıl güncellenir",
+   "rehber"
+  ],
+  "0": [
+   [
+    "rehber her yıl güncellenir",
+    "tür",
+    "güncellenir"
+   ]
+  ],
+  "subject": [
+   [
+    "her yıl güncellenir",
+    "tür",
+    "güncellenir"
+   ]
+  ]
+ },
+ {
+  "sent": "Rehberi adalılar yazar.",
+  "causal": null,
+  "0": [
+   [
+    "rehberi adalılar yazar",
+    "tür",
+    "yazar"
+   ]
+  ],
+  "subject": [
+   [
+    "yazar",
+    "tür",
+    "yalnız"
+   ]
+  ]
+ }
+]

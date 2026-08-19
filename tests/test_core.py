@@ -2463,8 +2463,8 @@ def r1():
         "a label of pure layout lost its row"
 
 
-@test("R3 a header that occupies two rows names every column it covers")
-def r3():
+@test("R2 a header that occupies two rows names every column it covers")
+def r2():
     """The Census sheet's header is rows 3 AND 4, and it says so in its own
     merges: `A3:A4` (this name occupies both rows), `C3:F3` (this name covers
     four columns, distinguished underneath). Read with one header row, three of
