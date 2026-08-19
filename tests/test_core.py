@@ -2504,6 +2504,71 @@ def r2():
             os.environ["LMM_CELL_EVIDENCE"] = was
 
 
+@test("R3 a header that occupies two rows names every column it covers")
+def r3():
+    """The Census sheet's header is rows 3 AND 4, and it says so in its own
+    merges: `A3:A4` (this name occupies both rows), `C3:F3` (this name covers
+    four columns, distinguished underneath). Read with one header row, three of
+    those four columns had no name, `row[h or ""]` collapsed them onto ONE dict
+    key and two whole years were overwritten out of existence — silently
+    (`REPORT.md` §4).
+
+    The sheet is built here rather than shipped, so what is asserted is the
+    SHAPE and not one file: no row number is written down, only "as deep as
+    this sheet's own merge says". Model-free and file-format-only."""
+    import os
+    import tempfile
+    try:
+        import openpyxl
+    except Exception:                                       # noqa: BLE001
+        print("      (openpyxl not installed — xlsx header block not checked)")
+        return
+    from lmm import tables
+    book = openpyxl.Workbook()
+    sheet = book.active
+    sheet["A1"] = ("table with row headers in column A and column headers in "
+                   "rows 3 through 4")
+    sheet["A2"] = "Annual Estimates of the Resident Population, 2020 to 2021"
+    sheet["A3"], sheet["B3"], sheet["C3"] = ("Area", "Base", "Estimate")
+    sheet["C4"], sheet["D4"] = 2020, 2021
+    sheet.merge_cells("A3:A4")
+    sheet.merge_cells("B3:B4")
+    sheet.merge_cells("C3:D3")
+    for i, name in enumerate(("Alabama", "Alaska", "Arizona")):
+        sheet.cell(row=5 + i, column=1, value=name)
+        for column in (2, 3, 4):
+            sheet.cell(row=5 + i, column=column, value=i + column)
+    path = os.path.join(tempfile.mkdtemp(), "two-row-header.xlsx")
+    book.save(path)
+    was = os.environ.get("LMM_XLSX_HEADER_BLOCK")
+    try:
+        os.environ["LMM_XLSX_HEADER_BLOCK"] = "1"
+        _name, _pre, rows = tables.read_xlsx(path)[0]
+        assert len(rows) == 3, rows
+        row = rows[0]
+        # the spanning name reaches both columns, and the year tells them apart
+        assert row.get("Estimate 2020") == "3", row
+        assert row.get("Estimate 2021") == "4", row
+        # NOTHING IS NAMELESS, so nothing collapses onto the empty key
+        assert "" not in row, row
+        # the row below the header is header, not the first data row
+        assert row.get("Area") == "Alabama", row
+        # a whole number typed as floating point by the reader is still a whole
+        # number: `2021.0` is a year no question spells
+        assert all("." not in k for k in row), row
+        # THE SHIPPED DEFAULT is the old reading — one header row, the second
+        # arriving as data — because the block reading measured WORSE on the
+        # field questions even though it recovers more columns (COST.md §8.4).
+        os.environ.pop("LMM_XLSX_HEADER_BLOCK", None)
+        _name, _pre, rows = tables.read_xlsx(path)[0]
+        assert len(rows) == 4, rows            # the year row arrives as data
+        assert "" in rows[0], rows[0]          # and 2021 has no name of its own
+    finally:
+        os.environ.pop("LMM_XLSX_HEADER_BLOCK", None)
+        if was is not None:
+            os.environ["LMM_XLSX_HEADER_BLOCK"] = was
+
+
 @test("N7 a node whose name is several words can still be named")
 def n7():
     """A graph node is not always spelled with one word — a spreadsheet's row
