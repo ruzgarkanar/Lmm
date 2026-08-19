@@ -465,8 +465,14 @@ class Session:
         self.last_from_graph = True
         self.last_abstained = False
         self.last_kind = extract.ASK
+        # SEVERAL RECORDS ARE ONE ANSWER (`lookup`'s shape 3). They share the
+        # subject by construction — the group is built inside one subject's
+        # records — and the LEAST trusted of them decides whether the answer is
+        # hedged, because the answer is only as sure as its least sure line.
+        held = record if isinstance(record, tuple) else (record,)
+        record = min(held, key=lambda r: r.trust)
         self.last_subject = link.label_of(self.memory, record.subject)
-        said = lookup.render(self.memory, record)
+        said = lookup.render(self.memory, held if len(held) > 1 else record)
         if record.trust < CERTAIN:
             said = self._hedge(said, record, message) or said
         return said

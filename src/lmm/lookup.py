@@ -38,6 +38,21 @@ the only structural evidence that the graph's record is the record wanted.
    two true ones. Here there is no unasked-relation risk at all: the asked slot
    and the answered slot are the same slot by construction.
 
+3. **A field the question named only HALF of — answered with every value it
+   named.** A spreadsheet whose header is two rows deep gives four columns the
+   same spanning name and distinguishes them underneath
+   (`population estimate (as of july 1) 2020 … 2023`). A question that names
+   the spanning part and none of the distinguishing part names FOUR records,
+   equally well — shape 2 declines it, and the paid path behind it then picks
+   one of the four with nothing to pick on. Neither is right: the document
+   holds four answers to that question and the honest answer is four answers.
+   So the uniqueness test is not dropped, it is MOVED: what must be unique is
+   the QUESTION'S READING, and when one reading names several records they are
+   all spoken, each under its own full field name — which is where the
+   distinguishing word (`2021`) is, written by the document, never by us.
+   `LMM_LOOKUP_CANDIDATES=0` turns this off; see `benchmarks/COST.md` §8.4 for
+   what it measured.
+
 WHEN IT DECLINES — and it declines far more often than it answers
 -----------------------------------------------------------------
 Anything else falls through to the existing semantic path, unchanged. In
@@ -173,6 +188,71 @@ def _records(memory, subject):
             if r.trust >= SPEAK or r.source == "#inference"]
 
 
+def _candidates():
+    """Is the several-records-one-reading answer (shape 3) enabled?"""
+    return (os.environ.get("LMM_LOOKUP_CANDIDATES") or "1").strip() != "0"
+
+
+def _readings(asked, memory, records):
+    """The subject's records grouped by WHAT OF THE QUESTION THEY ANSWER.
+
+    A record is in play here only if the question names PART of its field and
+    not all of it — all of it is shape 2's business and is decided there. The
+    part named is the group's key, so the four columns sharing a spanning
+    header land in one group and the residue (`2020`, `2021`, …) is exactly
+    what the question did not say.
+
+    The same word test as everywhere else on this path (`inflect.same_stem`),
+    read in the same direction as `_named_by`: the QUESTION names the label's
+    word, never the reverse. No length bound, no list of words, and nothing
+    about years — a residue is any word of the document's own column name that
+    the question left out.
+    """
+    groups = {}
+    for record in records:
+        if record.predicate is None:
+            continue
+        if link.label_of(memory, record.predicate).startswith("#"):
+            continue                      # a reserved slot, as in `find`
+        parts = _label_words(memory, record.predicate)
+        named = frozenset(part for part in parts
+                          if any(inflect.same_stem(part, word)
+                                 for word in asked))
+        if not named or len(named) == len(set(parts)):
+            continue                      # nothing named, or all of it (shape 2)
+        groups.setdefault(named, []).append(record)
+    return groups
+
+
+def _reading(asked, memory, records):
+    """The one group of records this question reads as, or None.
+
+    THE UNIQUENESS TEST OF `find`, MOVED ONE LEVEL UP. Between readings the
+    WIDER naming wins, for the same reason `_subjects` prefers the longer run:
+    it is the reading that honours more of what was asked. A tie is not broken
+    — two readings of equal width are two questions, and this path answers
+    neither.
+
+    The widest reading is chosen BEFORE the several-records test, not after,
+    and that order is load-bearing. "what is the 2021 population estimate"
+    names three words of one column and two of the other three; take the
+    populous group first and the answer is the three columns the question
+    ruled out. Widest first, that reading is a single record — a half-named
+    field, which this path does not answer at all — so the message falls
+    through to the semantic path exactly as it did before, and no group speaks
+    over the word that distinguished it.
+    """
+    groups = [(len(named), rows)
+              for named, rows in _readings(asked, memory, records).items()]
+    if not groups:
+        return None
+    widest = max(width for width, _ in groups)
+    best = [rows for width, rows in groups if width == widest]
+    if len(best) != 1 or len(best[0]) < 2:
+        return None
+    return sorted(best[0], key=lambda r: r.key)
+
+
 def find(memory, message):
     """The single record this message asks for, or None.
 
@@ -187,7 +267,7 @@ def find(memory, message):
     words = evidence._words(message)
     if not words:
         return None
-    hits = []
+    hits, readings = [], []
     for subject in _subjects(memory, words):
         # The subject's own name is not a field name. Without this, a message
         # is forever naming the record whose value happens to repeat its
@@ -218,19 +298,32 @@ def find(memory, message):
         # both "metal" and "substance", and there `specific` is exactly the
         # organ that says which of two true values answers.
         hits += by_value + retrieve.specific(memory, by_field)
+        if _candidates():
+            group = _reading(asked, memory, _records(memory, subject))
+            if group:
+                readings.append(group)
     unique = []
     for record in hits:
         if record.key not in {r.key for r in unique}:
             unique.append(record)
-    if len(unique) != 1:
+    if len(unique) == 1:
+        memory.about(unique[0].subject)  # a real access — refresh the record
+        return unique[0]
+    # Shape 3, and only where shape 2 said nothing: a question the graph can
+    # answer exactly is never widened into a list. Two subjects each offering a
+    # reading is the same message-names-two-things case `hits` declines above.
+    if unique or len(readings) != 1:
         return None
-    memory.about(unique[0].subject)      # a real access — refresh the record
-    return unique[0]
+    memory.about(readings[0][0].subject)
+    return tuple(readings[0])
 
 
 def render(memory, record):
     """The answer, as the graph holds it: the subject, the field it was asked
-    under, and the value.
+    under, and the value. Several records (shape 3) render as several such
+    lines, in the graph's own record order — the reader is told what the
+    document holds and which name each value stands under, and nothing chooses
+    between them.
 
     NOT A SENTENCE, and that is the point. A sentence needs the language model,
     which is the call this path exists to avoid; a field name and its value is
@@ -243,6 +336,8 @@ def render(memory, record):
     prefix and the '~' uncertainty mark — they read identically in every
     language, and `retrieve.facts_block` already renders a record this way for
     the engine's eyes."""
+    if isinstance(record, tuple):
+        return "\n".join(render(memory, one) for one in record)
     subject = link.label_of(memory, record.subject)
     value = link.label_of(memory, record.value)
     field = link.label_of(memory, record.predicate)

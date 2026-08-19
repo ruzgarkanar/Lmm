@@ -2557,6 +2557,81 @@ def n7():
     assert short.subject == link.resolve(s.memory, "vivo"), short
 
 
+@test("N8 one reading naming several records answers with all of them")
+def n8():
+    """A two-row spreadsheet header gives several columns one spanning name and
+    distinguishes them underneath (`nufus 2020 … nufus 2023`). A question that
+    names the spanning part and none of the distinguishing part names all of
+    them equally well: the old uniqueness test declined, and the paid path
+    behind it then chose one of four with nothing to choose on.
+
+    The answer is every named record, each under its own full field name —
+    which is where the distinguishing word sits, written by the document."""
+    from lmm import link, lookup
+    s = island()
+    for year, value in (("2020", "331"), ("2021", "332"), ("2022", "333")):
+        s.learn_cell("nortlann", "nufus tahmini " + year, value, "#doc:corpus")
+    held = lookup.find(s.memory, "nortlann nufus tahmini")
+    assert isinstance(held, tuple) and len(held) == 3, held
+    said = lookup.render(s.memory, held)
+    for year, value in (("2020", "331"), ("2021", "332"), ("2022", "333")):
+        assert year in said and value in said, said
+    # and it is still an answer with no engine in it
+    restore, calls = no_engine()
+    try:
+        spoken = s.respond("nortlann nufus tahmini")
+    finally:
+        restore()
+    assert not calls, calls
+    assert s.last_from_graph is True and s.last_abstained is False
+    assert s.last_subject == "nortlann", s.last_subject
+    assert "332" in spoken and "333" in spoken, spoken
+    # THE WORD THE QUESTION DID SAY IS NOT SPOKEN OVER. Naming one of the
+    # distinguishing words is a narrower reading held by ONE record, and a
+    # half-named field is not answered here at all — the message falls through
+    # to the semantic path rather than being answered with the three columns it
+    # ruled out.
+    assert lookup.find(s.memory, "nortlann 2021 tahmini") is None
+    # naming the field in full is the ordinary single-record answer
+    one = lookup.find(s.memory, "nortlann nufus tahmini 2021")
+    assert one is not None and not isinstance(one, tuple), one
+    assert one.value == link.resolve(s.memory, "332"), one
+
+
+@test("N9 several records are only spoken where one record said nothing")
+def n9():
+    """The generalisation cannot loosen what shape 2 already decided.
+
+    Three guarantees, each measured here: a question the graph settles exactly
+    is never widened into a list; a lone half-named field stays unanswered (it
+    is not an ambiguity, it is a reading this path does not have); and the
+    whole behaviour is switchable, because a claim about what it costs has to
+    be measurable rather than arguable."""
+    import os
+
+    from lmm import lookup
+    s = island()
+    s.learn_cell("zerbalit", "renk tonu", "koyu", "#doc:corpus")
+    # `renk` is exactly named and answers alone — `renk tonu` is half-named by
+    # the same question and does not turn that answer into a list.
+    exact = lookup.find(s.memory, "zerbalit renk nedir")
+    assert exact is not None and not isinstance(exact, tuple), exact
+    # a single half-named field, with no exact reading anywhere: still None
+    s2 = island()
+    s2.learn_cell("zerbalit", "nufus tahmini 2021", "332", "#doc:corpus")
+    assert lookup.find(s2.memory, "zerbalit nufus") is None
+    # OFF is off: the same question, the same graph, the old answer
+    s3 = island()
+    for year in ("2020", "2021"):
+        s3.learn_cell("zerbalit", "nufus tahmini " + year, year, "#doc:corpus")
+    assert isinstance(lookup.find(s3.memory, "zerbalit nufus tahmini"), tuple)
+    os.environ["LMM_LOOKUP_CANDIDATES"] = "0"
+    try:
+        assert lookup.find(s3.memory, "zerbalit nufus tahmini") is None
+    finally:
+        del os.environ["LMM_LOOKUP_CANDIDATES"]
+
+
 @test("P1 the same question over an unmoved memory is not paid for twice")
 def p1():
     """The second ask cannot reach the engine at all — `no_engine` makes that
