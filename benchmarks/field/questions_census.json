@@ -8,6 +8,11 @@
   {"tip": "dogrudan", "soru": "puerto rico population estimate as of july 1", "altin": ["3281557"]},
   {"tip": "dogrudan", "soru": "what is the release date of this table", "altin": ["december 2023", "December 2023", "2023"]},
 
+  {"tip": "dogrudan", "soru": "what is the population estimate as of july 1 2022 for the west region", "altin": ["78759506"]},
+  {"tip": "dogrudan", "soru": "united states population estimate as of july 1 2023", "altin": ["334914895"]},
+  {"tip": "dogrudan", "soru": "puerto rico population estimate as of july 1 2021", "altin": ["3262693"]},
+  {"tip": "dogrudan", "soru": "what is the 2021 population estimate for the united states", "altin": ["332048977"]},
+
   {"tip": "yokluk", "soru": "what is the population estimate for canada", "altin": null},
   {"tip": "yokluk", "soru": "what is the unemployment rate in texas", "altin": null}
 ]

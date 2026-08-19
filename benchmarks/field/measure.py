@@ -33,9 +33,15 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 os.chdir(ROOT)
 os.environ.setdefault("LMM_BACKEND", "azure")
 
-GRAPHS = os.path.join(HERE, "graphs")
 DOCS = os.path.join(HERE, "documents")
-RESULTS = os.path.join(HERE, "results")
+# WHERE THE INGESTED GRAPHS AND THE ANSWERS LIVE. Overridable because some
+# variables are READ-TIME ones (`LMM_XLSX_HEADER_BLOCK` changes what the
+# document becomes, not how it is asked), and those cannot share one ingestion:
+# the arm is a different graph, so it needs a different directory to keep it in
+# and a different directory to write its answers to. Nothing else about the
+# protocol changes — same documents, same questions, same three samples.
+GRAPHS = os.environ.get("LMM_FIELD_GRAPHS") or os.path.join(HERE, "graphs")
+RESULTS = os.environ.get("LMM_FIELD_RESULTS") or os.path.join(HERE, "results")
 
 # name, what to learn, deep?, question file
 SETS = [
@@ -58,7 +64,12 @@ CONFIGS = {
     # task, and the arm the multi-word rule has to beat
     "words": {"LMM_DIRECT_LOOKUP": "1", "LMM_LOOKUP_RUNS": "0"},
     # graph-first, naming a node by the question's contiguous word runs
-    "graph": {"LMM_DIRECT_LOOKUP": "1", "LMM_LOOKUP_RUNS": "1"},
+    "graph": {"LMM_DIRECT_LOOKUP": "1", "LMM_LOOKUP_RUNS": "1",
+              "LMM_LOOKUP_CANDIDATES": "0"},
+    # ... and answering with EVERY record the question's reading names, rather
+    # than declining and letting the semantic path pick one of them
+    "candidates": {"LMM_DIRECT_LOOKUP": "1", "LMM_LOOKUP_RUNS": "1",
+                   "LMM_LOOKUP_CANDIDATES": "1"},
 }
 
 
@@ -133,12 +144,19 @@ def _scored(question, said, abstained):
     return "correct" if any(g.lower() in low for g in gold) else "wrong"
 
 
-def run(config, samples=3):
+def run(config, only=None, samples=3):
+    """`only` restricts the arm to one document. A read-time arm (the header
+    block) changes ONE of the five documents and leaves the other four
+    byte-identical, so re-asking those four would measure the same graph with
+    the same config twice — the arm it is being compared against already has
+    them."""
     from lmm.api import Memory
     os.makedirs(RESULTS, exist_ok=True)
     for key, value in CONFIGS[config].items():
         os.environ[key] = value
     for name, _, _, _ in SETS:
+        if only and name != only:
+            continue
         graph = os.path.join(GRAPHS, name + ".lmm")
         if not os.path.exists(graph):
             print(f"{name}: no graph — run `ingest` first")
@@ -248,7 +266,7 @@ if __name__ == "__main__":
     if what == "ingest":
         ingest()
     elif what == "run":
-        run(sys.argv[2])
+        run(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)
     elif what == "repeat":
         repeat()
     else:
