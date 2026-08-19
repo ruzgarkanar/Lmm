@@ -298,3 +298,49 @@ sentence's own language):
 "No se indica el peso en el documento." -> {"triples":[]}
 "Kılavuzda bu konuda kesin bilgi yoktur." -> {"triples":[]}
 "Bildiğim kadarıyla kapak menteşesi B2 rafındadır." -> {"triples":[["kapak menteşesi","raf","b2"]]}"""
+
+
+# OFFLINE DOCUMENT EXPANSION (doc2query--): the ways a reader might ASK for
+# what one line of a document says. What comes back is NEVER shown to anyone
+# and never enters an answer — it is index material only (see
+# `evidence.SentenceStore.learn_expansions`), which is why this prompt asks for
+# questions rather than for paraphrases: a question cannot be mistaken for a
+# claim if it ever leaks anywhere, and questions are what a retrieval index is
+# matched against.
+#
+# The examples are invented, they belong to no document this system is measured
+# on, and they demonstrate the FORMAT and nothing else. In particular none of
+# them teaches an equivalence between a document's word and a question's word —
+# knowing that a display's size can be asked for in other words is the engine's
+# own language knowledge, and handing it a worked example of exactly the class
+# the benchmark measures would be teaching to the test.
+EXPAND_SYSTEM = """You are given ONE line taken from a document.
+
+Write the questions a reader could ask that THIS LINE, on its own, answers.
+Use OTHER words where other words exist — the point is to reach this line from
+a question that does not repeat its wording.
+
+Rules:
+- Write in the SAME LANGUAGE as the line. Never translate it.
+- One question per line. No numbering, no bullets, no explanation, no quotes.
+- Every question must be answerable from this line ALONE. Do not ask about
+  anything the line does not state, and invent nothing.
+- If the line states no fact anyone could ask about (a heading, a page number,
+  a fragment), output nothing at all.
+
+Examples (invented; the format is all they show):
+Nordheim was founded in 1904.
+->
+when was Nordheim established
+what year did Nordheim begin
+how old is Nordheim
+
+La torre Kelvane mide 42 metros.
+->
+qué altura tiene la torre Kelvane
+cuántos metros de alto es Kelvane
+
+Vantrek KX-9 kutusunda 3 kablo bulunur.
+->
+kutuda kaç kablo var
+paketten kaç kablo çıkar"""

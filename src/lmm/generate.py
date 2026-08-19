@@ -340,3 +340,56 @@ def confirm(learned, conflicts, message):
                "— never mix languages. Do NOT add any other facts.")
     return runtime.generate(message, system=system, max_tokens=90,
                             temperature=0.3)
+
+
+# HOW MANY QUESTIONS TO ASK FOR PER LINE. This is a GENERATION BUDGET, not a
+# decision threshold — it buys candidates, and which of them survive is decided
+# by the document itself (`evidence.SentenceStore.learn_expansions`). It is
+# stated once, overridable with `LMM_EXPAND_K`, and nothing downstream depends
+# on its value: a larger K costs more completion tokens and hands the same
+# filter a longer list.
+EXPANSIONS = 3
+
+
+def expansions(sentence):
+    """The questions this line answers, asked in other words — index material
+    for the offline expansion (doc2query--).
+
+    Returns a list of strings, at most `EXPANSIONS` of them. NOTHING here is
+    speakable: the caller writes it into a separate index and the answer block
+    is still built from the document's own sentences. See
+    `evidence.SentenceStore.__init__` for the wall and why it is absolute.
+
+    Two structural filters, and neither is a language rule: a line that comes
+    back as itself is not an expansion (the engine echoed instead of rewording),
+    and an empty output is the prompt's own way of saying this line asks for
+    nothing.
+    """
+    import os
+    count = int(os.environ.get("LMM_EXPAND_K", EXPANSIONS))
+    if count <= 0:
+        return []
+    out = runtime.generate(sentence, system=prompts.EXPAND_SYSTEM,
+                           max_tokens=40 * count, temperature=0.0)
+    seen, kept = {_flat(sentence)}, []
+    for line in (out or "").splitlines():
+        # Leading list marks are FORMAT the prompt asked not to produce; the
+        # engine produces them anyway, and stripping punctuation off the front
+        # of a line is not a word list.
+        line = line.strip().lstrip("-*•").strip().strip("\"'").strip()
+        if not line or line == "->":
+            continue
+        key = _flat(line)
+        if key in seen:
+            continue
+        seen.add(key)
+        kept.append(line)
+        if len(kept) >= count:
+            break
+    return kept
+
+
+def _flat(text):
+    """Case- and punctuation-blind form of a line — only used to notice that
+    two generated lines are the same line."""
+    return " ".join(re.findall(r"\w+", text.lower()))

@@ -36,6 +36,59 @@ CONTENT = 3
 SCALES = (3, 6, 12)
 WINDOW = SCALES[1]
 
+# THE CHANNEL LADDER — how much a match is worth depending on WHAT matched.
+#
+# There have always been two channels in `find`: a query word occurring in a
+# sentence, and the same word occurring as that record's FIELD NAME. The second
+# was worth twice the first, written as a bare `2` at the point of use. It is
+# named here because a THIRD channel now hangs off the same step — the offline
+# expansion index (`learn_expansions`), which is not an observation of the
+# document at all but a model's guess at how the same line might be asked for.
+#
+# One step, three rungs, and the order is the epistemic one:
+#     field name   CHANNEL       — the word NAMES the record's slot
+#     occurrence   1             — the word IS in the document
+#     expansion    1 / CHANNEL   — a model guessed the word would fit
+#
+# There is no second number to tune: the guess sits exactly as far below a
+# plain occurrence as a field name sits above it. What the ladder guarantees is
+# the thing the expansion index must never be allowed to do — outweigh the
+# document's own words.
+CHANNEL = 2
+
+
+def _expansion_on():
+    """`LMM_EXPAND=0` turns the expansion channel off — at generation time and
+    at query time both, so one variable produces the whole A/B."""
+    return os.environ.get("LMM_EXPAND", "1") != "0"
+
+
+def _same_region(words, other):
+    """Are these two token sets two views of ONE region of the document?
+
+    Two ways of overlapping, both at the majority boundary. Jaccard catches two
+    windows of nearly the same width; CONTAINMENT catches the window scales,
+    which are NESTED — the 3-sentence window sits inside the 6- and that inside
+    the 12- — and nesting makes the union large while the intersection stays
+    whole, so Jaccard alone reads two views of one paragraph as two regions.
+
+    THE BOUNDARY IS THE MAJORITY, not a fraction somebody liked. Two texts are
+    views of one region when they share MORE than they differ; that is what
+    "the same region" means, and it is the only boundary on a similarity ratio
+    that is not a dial.
+
+    It was written inline in `find`'s near-duplicate filter. It is a function
+    now because the expansion filter has to ask the same question — whether a
+    generated query drifted to ANOTHER part of the document — and answering it
+    with a second, slightly different rule is exactly how two organs end up
+    disagreeing about what "the same" means.
+    """
+    inter = len(words & other)
+    if not inter:
+        return False
+    return (inter / max(1, len(words | other)) > 0.5
+            or inter / max(1, min(len(words), len(other))) > 0.5)
+
 
 def _boundaries(text):
     """FORMAT-boundary splitter (no language rule): PDF flattening glues
@@ -667,6 +720,27 @@ class SentenceStore:
     def __init__(self):
         self.sentences = []                 # id -> (sentence, source)
         self.index = {}                     # folded word -> set(id)
+        # THE EXPANSION SIDE (doc2query--), AND THE WALL AROUND IT.
+        #
+        # `expansions` holds text NO DOCUMENT WROTE — questions a model guessed
+        # this line would answer, generated once at ingestion. It exists so that
+        # a question asked in words the document does not use can still REACH
+        # the line that answers it. It is a retrieval aid and nothing else.
+        #
+        # THE RULE, AND IT IS ABSOLUTE: generated text never becomes evidence.
+        # It is not in `self.sentences`, so `find` — which returns
+        # `self.sentences[sid][0]` and nothing else — cannot return it, and the
+        # answer block therefore cannot contain a word the document did not
+        # write. The moment that wall moves, the gate is auditing an answer
+        # against a model's own invention and the uninvented-0 guarantee is
+        # gone. `tests/test_core.py` pins it (X1–X4).
+        self.expansions = {}                # id -> [generated text, ...]
+        self.expand_index = {}              # folded word -> set(id)
+        # Which units the DOCUMENT wrote (a sentence, a masthead, a table row)
+        # and which this layer derived from them (the context windows). Only
+        # the first kind is worth expanding: a window is the same sentences
+        # again, so paying for its expansion buys the same words twice.
+        self._derived = set()
         self._key_index = None              # lazy — see the `key_index` property
         self._key_bounds = None             # the bound it was built under
         self._key_at = 0                    # how many sentences are in it
@@ -816,13 +890,15 @@ class SentenceStore:
                 keys += _words(m.group(1))[-3:]
         return [k for k in keys if not k.isdigit()]
 
-    def add(self, sentence, source=""):
+    def add(self, sentence, source="", derived=False):
         key = fold(sentence)
         if key in self._seen:               # if the same document is read twice,
             return None                     # evidence must not multiply (review #2)
         self._seen.add(key)
         sid = len(self.sentences)
         self.sentences.append((sentence, source))
+        if derived:
+            self._derived.add(sid)
         for mark in re.findall(r"(?<=\d)([^\w\s]+)(?=\d)", sentence):
             self._notation.add(fold(mark))
         for w, beside in _quantity_tokens(sentence):
@@ -853,6 +929,32 @@ class SentenceStore:
         qwords = set(_words(query, known=self.units))
         if not qwords:
             return []
+        scores, named = self._score_over(qwords, self.index, self.key_index)
+        # THE EXPANSION CHANNEL, at its rung of the ladder (`CHANNEL`). It is
+        # added AFTER the document's own channels and it cannot replace them:
+        # every sentence keeps the score its real words earned, and a generated
+        # word can only raise a sentence, never lower another. What it buys is
+        # the question asked in words the document does not use — the class this
+        # layer was blind to by construction, being lexical. Nothing about the
+        # block's CONTENT changes: the seats are still filled with
+        # `self.sentences`, which is the document.
+        if self.expand_index and _expansion_on():
+            guessed, _named = self._score_over(qwords, self.expand_index, {})
+            for sid, sc in guessed.items():
+                scores[sid] = scores.get(sid, 0.0) + sc / CHANNEL
+        if not scores:
+            return []
+        return self._seats(qwords, scores, named, most)
+
+    def _score_over(self, qwords, index, keys):
+        """The lexical scoring, over ONE index — {sid: score}, and the sentences
+        where a query word is the FIELD NAME.
+
+        Factored out of `find` so that the expansion index is scored by the
+        SAME rule as the document's own words rather than by a second, quietly
+        different one. `keys` is the field-name index for this channel; the
+        expansion channel has none (a guessed question names no record's slot),
+        and passes an empty mapping."""
         # IDF: frequent words count little, rare words a lot ("screen" occurs
         # hundreds of times in a manual — it was pushing the spec line behind
         # the UI sentences). A universal information-theory weight; not a
@@ -906,9 +1008,9 @@ class SentenceStore:
             # that is a measured cost, not a free cleanup.
             cand = {}
             for qw in group:
-                if qw in self.index:
-                    cand[qw] = self.index[qw]
-                for w, ids in self.index.items():
+                if qw in index:
+                    cand[qw] = index[qw]
+                for w, ids in index.items():
                     if w in cand:
                         continue
                     if inflect.same_stem(qw, w):
@@ -925,17 +1027,20 @@ class SentenceStore:
             weight = math.log(1 + total / len(union))
             keyed = set()
             for w, ids in cand.items():
-                keyed |= ids & self.key_index.get(w, set())
+                keyed |= ids & keys.get(w, set())
             named |= keyed
             for sid in union:
                 # FIELD-NAME match doubles the group's weight: the same word
                 # as a kv KEY names the record's slot, in prose it is mere
                 # co-occurrence (kv-key weighting; format cue, no language
-                # rule).
+                # rule). The doubling is `CHANNEL` — see the ladder.
                 scores[sid] = scores.get(sid, 0) + weight * (
-                    2 if sid in keyed else 1)
-        if not scores:
-            return []
+                    CHANNEL if sid in keyed else 1)
+        return scores, named
+
+    def _seats(self, qwords, scores, named, most):
+        """The ranking, the noise floor and the seats — unchanged, and moved
+        here only so that `find` can score two channels before ranking once."""
         # on a tie the LONG one wins: a short table crumb ("Orta · 3") must not
         # beat a context-carrying prose window — a cell value wandering without
         # context was attaching to the wrong attribute (the camera/KVKK case).
@@ -1161,10 +1266,105 @@ class SentenceStore:
                 best = (rank, sid)
         return best[1] if best is not None else None
 
+    # --- offline document expansion (doc2query--) ----------------------
+
+    def pending_expansion(self):
+        """The units worth paying an expansion for: what the DOCUMENT wrote,
+        minus what has been expanded already. Returns [(sid, text), ...].
+
+        The context windows are excluded because they are the same sentences
+        again at three widths — expanding them buys the same words four times
+        and costs four times the calls."""
+        return [(sid, text) for sid, (text, _src) in enumerate(self.sentences)
+                if sid not in self._derived and sid not in self.expansions]
+
+    def learn_expansions(self, generated):
+        """Filter the generated queries and index the survivors.
+
+        `generated`: {sid: [text, ...]} — what the engine produced for each
+        unit, unfiltered. Returns how many were kept.
+
+        THE FILTER IS THE 'minus minus' IN doc2query--. Generating K questions
+        per line and indexing all of them is doc2query, and its known cost is a
+        bigger index full of queries that point at the wrong passage. The
+        original filters with a relevance model; this filters with the DOCUMENT,
+        which is cheaper and needs no second engine:
+
+            a generated query is asked of the real index, and what is measured
+            is its MARGIN — how much better it reaches the line it was
+            generated from than it reaches any OTHER region of this document.
+
+        A query that drifts — one whose words belong to some other part of the
+        text — scores that other part higher and comes out with a negative
+        margin. A query that introduces genuinely new vocabulary reaches
+        nothing lexically at all and comes out at zero, which is the case the
+        expansion exists for. `_same_region` keeps the unit's own context
+        windows from being counted as rivals; they are the same line again, and
+        a line does not drift to itself.
+
+        THE THRESHOLD IS READ OFF THE POPULATION, not written down: the median
+        margin of everything this document generated, floored at the drift
+        boundary. The median is what makes the index smaller (half of a
+        well-behaved crop is dropped, which is the paper's own trade); the floor
+        is not a tuned number but the SIGN of the margin — below zero the query
+        names another region better than its own, and there is no document for
+        which that is worth indexing.
+
+        ONLY THE NOVEL WORDS ARE INDEXED. A generated word the line already
+        carries is reachable already, and indexing it again would let a guess
+        add weight to an observation that was doing fine on its own.
+        """
+        scored = []
+        for sid in sorted(generated):
+            if sid >= len(self.sentences):
+                continue
+            mine = set(_words(self.sentences[sid][0]))
+            for text in generated[sid]:
+                qwords = set(_words(text, known=self.units))
+                if not qwords:
+                    continue
+                scores, _named = self._score_over(qwords, self.index,
+                                                  self.key_index)
+                rival = 0.0
+                for other, sc in sorted(scores.items(), key=lambda kv: -kv[1]):
+                    if other == sid:
+                        continue
+                    if _same_region(mine, set(_words(
+                            self.sentences[other][0]))):
+                        continue
+                    rival = sc
+                    break
+                scored.append((scores.get(sid, 0.0) - rival, sid, text))
+        if not scored:
+            return 0
+        margins = sorted(margin for margin, _sid, _t in scored)
+        cut = max(0.0, margins[len(margins) // 2])
+        kept = 0
+        for margin, sid, text in scored:
+            if margin < cut:
+                continue
+            self._index_expansion(sid, text)
+            kept += 1
+        # A unit the engine produced nothing usable for is still EXPANDED — it
+        # was paid for and asked. Without this it would be handed back by
+        # `pending_expansion` and paid for again on the next pass.
+        for sid in generated:
+            self.expansions.setdefault(sid, [])
+        return kept
+
+    def _index_expansion(self, sid, text):
+        """Record one surviving expansion and index the words the unit itself
+        does not carry. `self.sentences` is not touched — see __init__."""
+        self.expansions.setdefault(sid, []).append(text)
+        mine = set(_words(self.sentences[sid][0]))
+        for w in set(_words(text)) - mine:
+            self.expand_index.setdefault(w, set()).add(sid)
+
     # --- persistence (JSON side-file) ----------------------------------
     def save(self, memory_path):
         if not memory_path:
             return
+        self._save_expansion(memory_path)
         # ATOMIC (review #2): tmp + os.replace — a half-written .evidence file
         # must not crash load() (and therefore Session.__init__).
         path = memory_path + ".evidence"
@@ -1196,4 +1396,42 @@ class SentenceStore:
                 #                     no fabrication risk)
             for sentence, source in rows:
                 store.add(sentence, source)
+            store._load_expansion(memory_path)
         return store
+
+    # THE EXPANSION LIVES IN ITS OWN FILE, and that is not tidiness. `.evidence`
+    # is the document, and anything inside it is answerable material; keeping
+    # generated text out of that file is the same wall as keeping it out of
+    # `self.sentences`, enforced one layer further down. Deleting the
+    # `.expansion` file leaves a memory that answers exactly as it did before
+    # the expansion was ever paid for.
+    def _save_expansion(self, memory_path):
+        if not (self.expansions or self._derived):
+            return
+        path = memory_path + ".expansion"
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"derived": sorted(self._derived),
+                       "expansions": {str(sid): texts for sid, texts
+                                      in sorted(self.expansions.items())}},
+                      f, ensure_ascii=False)
+        os.replace(tmp, path)
+
+    def _load_expansion(self, memory_path):
+        path = memory_path + ".expansion"
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, encoding="utf-8") as f:
+                blob = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return              # a corrupt aid is no aid: the document still
+            #                     answers, lexically, exactly as it always did
+        self._derived = set(blob.get("derived", ()))
+        for key, texts in blob.get("expansions", {}).items():
+            sid = int(key)
+            if sid >= len(self.sentences):
+                continue
+            self.expansions.setdefault(sid, [])
+            for text in texts:
+                self._index_expansion(sid, text)

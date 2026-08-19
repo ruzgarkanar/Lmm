@@ -2729,6 +2729,107 @@ def p2():
     assert all(kept[0] == front._state() for kept in front._cache.values())
 
 
+# --- X  the offline expansion (doc2query--) ------------------------------
+#
+# The mechanism generates text with a model and indexes it. The whole
+# uninvented-0 guarantee rests on the answer block containing only what the
+# document wrote, so the ONE thing that must be impossible is generated text
+# reaching that block. These four are model-free by construction: the
+# "generated" queries are handed in directly, so no engine is involved and the
+# assertions are about the store's wiring rather than about a model's output.
+
+
+def _expanded_store():
+    """A store holding one document line and one generated query for it, where
+    the query carries a word the document does not contain at all."""
+    from lmm import evidence
+    store = evidence.SentenceStore()
+    store.add("Kelvane tower measures 42 metres.", "#doc:x")
+    store.add("The Nordheim archive opened in 1904.", "#doc:x")
+    store.add("Visitors reach the archive by the western stair.", "#doc:x")
+    store.learn_expansions({0: ["how tall is the Kelvane spire"]})
+    return store
+
+
+@test("X1 generated text is not evidence and cannot be returned as evidence")
+def x1():
+    """THE WALL. `find` returns `self.sentences[sid][0]` and the expansion lives
+    in a different structure entirely — asserted here rather than trusted,
+    because the day a generated sentence can be returned is the day the gate is
+    auditing an answer against a model's own invention."""
+    store = _expanded_store()
+    assert len(store.sentences) == 3, "an expansion was written as a sentence"
+    written = {text for text, _src in store.sentences}
+    assert not any("spire" in text for text in written)
+    # the generated word REACHES the line...
+    got = store.find("how tall is the spire", most=4)
+    assert got and got[0].startswith("Kelvane tower"), got
+    # ...and nothing generated comes back with it, from any query
+    for question in ("spire", "how tall is the Kelvane spire",
+                     "archive", "western stair"):
+        for block in store.find(question, most=6):
+            assert block in written, block
+
+
+@test("X2 the expansion channel cannot outweigh the document's own words")
+def x2():
+    """The ladder (`evidence.CHANNEL`): a guess sits exactly as far below a
+    plain occurrence as a field name sits above it. A sentence reachable only
+    through a guess must never displace one the document's own words name."""
+    from lmm import evidence
+    store = evidence.SentenceStore()
+    store.add("The Kelvane tower is closed on Mondays.", "#doc:y")
+    store.add("Storms are frequent in the eastern valley.", "#doc:y")
+    # every generated query points the SECOND line at the first line's words
+    store.learn_expansions({1: ["when is the Kelvane tower closed"] * 1})
+    ranked = store.find("Kelvane tower", most=2)
+    assert ranked[0].startswith("The Kelvane tower"), ranked
+
+
+@test("X3 a generated query that drifts to another line is filtered out")
+def x3():
+    """doc2query--: the filter is the document. A query whose words belong to
+    ANOTHER region reaches that region better than the line it was generated
+    from, and a negative margin is never indexed — the threshold's floor is the
+    sign of the margin, not a number anyone chose."""
+    from lmm import evidence
+    store = evidence.SentenceStore()
+    store.add("The Kelvane tower measures 42 metres.", "#doc:z")
+    store.add("The Nordheim archive opened in 1904.", "#doc:z")
+    store.learn_expansions({0: ["when did the Nordheim archive open",
+                                "how tall is the Kelvane spire"]})
+    kept = store.expansions.get(0, [])
+    assert "how tall is the Kelvane spire" in kept, kept
+    assert "when did the Nordheim archive open" not in kept, kept
+
+
+@test("X4 LMM_EXPAND=0 restores the retrieval byte for byte")
+def x4():
+    """The A/B has to be ONE variable, and turning it off has to leave nothing
+    behind: the same query over the same store must retrieve exactly what it
+    retrieved before the expansion was ever paid for."""
+    from lmm import evidence
+    plain = evidence.SentenceStore()
+    for line in ("Kelvane tower measures 42 metres.",
+                 "The Nordheim archive opened in 1904.",
+                 "Visitors reach the archive by the western stair."):
+        plain.add(line, "#doc:x")
+    store = _expanded_store()
+    was = os.environ.get("LMM_EXPAND")
+    os.environ["LMM_EXPAND"] = "0"
+    try:
+        for question in ("how tall is the spire", "archive", "42 metres"):
+            assert store.find(question, most=4) == plain.find(question, most=4)
+    finally:
+        if was is None:
+            del os.environ["LMM_EXPAND"]
+        else:
+            os.environ["LMM_EXPAND"] = was
+    # and with it back on, the guessed word reaches the line again
+    assert store.find("spire", most=4)
+    assert not plain.find("spire", most=4)
+
+
 def main():
     failed = 0
     for name, function in PASSED:
