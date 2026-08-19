@@ -103,16 +103,19 @@ class Learned:
     judgements: nothing here changes what was learned.
     """
 
-    __slots__ = ("facts", "tables", "source", "adapter", "evidence", "warnings")
+    __slots__ = ("facts", "tables", "source", "adapter", "evidence",
+                 "warnings", "expanded")
 
     def __init__(self, facts=0, tables=0, source="", adapter="", evidence=0,
-                 warnings=()):
+                 warnings=(), expanded=0):
         self.facts = facts        # triples the GATE admitted (not offered)
         self.tables = tables      # structured grids routed around the engine
         self.source = source      # the stamp every one of them now carries
         self.adapter = adapter    # which reader ran
         self.evidence = evidence  # sentences/windows this file added to the index
         self.warnings = tuple(warnings)   # what the reader could not read
+        self.expanded = expanded  # generated queries indexed (expand=True only);
+        #                           index material, never answerable material
 
     def __bool__(self):
         """False when this file put NOTHING in the memory — so `if not
@@ -122,8 +125,9 @@ class Learned:
 
     def __repr__(self):
         warned = (" — " + "; ".join(self.warnings)) if self.warnings else ""
+        grown = f", {self.expanded} expansions" if self.expanded else ""
         return (f"<Learned {self.facts} facts, {self.tables} tables, "
-                f"{self.evidence} evidence via {self.adapter} "
+                f"{self.evidence} evidence{grown} via {self.adapter} "
                 f"from {self.source!r}{warned}>")
 
 
@@ -304,7 +308,32 @@ class Memory:
 
     # ---------------------------------------------------------------- learn
 
-    def learn(self, what, source=None, deep=None):
+    def learn(self, what, source=None, deep=None, expand=False):
+        """Teach the memory something — see `_read_into` for `what` and `deep`.
+
+        `expand=True` additionally pays, once, for the OFFLINE EXPANSION: the
+        engine is asked what questions each line of the document answers, and
+        those questions go into a SEPARATE index so that a reader asking in
+        other words than the document used can still reach the line that
+        answers them. Nothing generated this way can be spoken — it is never
+        evidence, never in the answer block, never audited by the gate as
+        though the document had written it. It is off by default because it
+        costs a model call per line; `LMM_EXPAND=0` disables it outright, at
+        ingestion and at query time both.
+        """
+        report = self._read_into(what, source=source, deep=deep)
+        # OFFLINE EXPANSION, asked for rather than assumed. It is a model call
+        # per line of the document, paid ONCE at ingestion, and it buys reach
+        # for questions worded differently from the document (`Session.expand`).
+        # The default is off because a document is bulk material and this
+        # doubles what reading one costs; `benchmarks/COST.md` §9 measures both
+        # halves of that trade so the choice can be made on numbers.
+        if expand:
+            _asked, kept = self.session.expand()
+            report.expanded = kept
+        return report
+
+    def _read_into(self, what, source=None, deep=None):
         """Teach the memory something. `what` is a file path or the text itself.
 
         The format is read off the extension: .pdf and .docx split into tables

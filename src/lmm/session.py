@@ -773,7 +773,12 @@ class Session:
                 if size >= widest and len(window) > size * median:
                     continue
                 if len(window) > len(sentences[i]):
-                    self.evidence.add(window, source)
+                    # DERIVED: a window is these same sentences again, at a
+                    # different width. It is evidence like any other, and it is
+                    # marked only so that the offline expansion does not pay to
+                    # expand the same words once per scale (`evidence.
+                    # SentenceStore.pending_expansion`).
+                    self.evidence.add(window, source, derived=True)
         # TABLE REPAIR (evidence-only): PDF tables shatter row by row —
         # "Dijital patoloji" and the tier cell "3" land apart, the model grabs
         # the wrong number (hospital test finding; RAG made the same mistake
@@ -819,13 +824,7 @@ class Session:
         # PARALLEL READING: sentences are independent — on the API backend
         # they're read concurrently (20 min → minutes). The local engine is
         # not parallel-safe → 1 worker.
-        backend = os.environ.get("LMM_BACKEND", "")
-        workers = int(os.environ.get("LMM_INGEST_WORKERS",
-                                     "8" if backend == "azure" else "1"))
-        if backend != "azure":
-            workers = 1     # the local torch model is NOT thread-safe (review
-            #                 #3): even an env override doesn't permit parallel
-            #                 local generation
+        workers = self._workers()
         if workers > 1:
             from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -868,6 +867,64 @@ class Session:
             self.memory.lived(f"document:{source}:{wrote}", outcome=1.0,
                               about=[self.memory.self_key])
         return wrote, skipped
+
+    @staticmethod
+    def _workers():
+        """How many sentences may be read at once. One definition, because the
+        expansion pass reads the same way the extractor does and had no business
+        deciding this a second time."""
+        backend = os.environ.get("LMM_BACKEND", "")
+        workers = int(os.environ.get("LMM_INGEST_WORKERS",
+                                     "8" if backend == "azure" else "1"))
+        if backend != "azure":
+            workers = 1     # the local torch model is NOT thread-safe (review
+            #                 #3): even an env override doesn't permit parallel
+            #                 local generation
+        return workers
+
+    def expand(self):
+        """OFFLINE DOCUMENT EXPANSION (doc2query--) — pay ONCE, at ingestion,
+        for the questions each line of the document answers, and index them
+        SEPARATELY so that a question asked in other words can still find the
+        line that answers it.
+
+        The measured weakness this is aimed at is the one a purely lexical
+        index has by construction: the document writes `15.6"` and the reader
+        asks "how many inches". No amount of inflection tolerance closes that —
+        the words are not forms of one another — and the alternative on offer is
+        an embedding index, which is the dependency stack and the similarity
+        gamble this layer exists to avoid.
+
+        WHAT IS PAID, PLAINLY: one model call per unit the document wrote,
+        once. That is why it is not on by default — `Memory.learn(...,
+        expand=True)` asks for it — and why the measurement of what it costs is
+        reported beside what it buys (`benchmarks/COST.md` §9).
+
+        WHAT IS NOT AT RISK: nothing generated here can be spoken. It goes to
+        `evidence.SentenceStore.expansions`, never to `.sentences`, so the
+        answer block — and therefore everything the gate audits and everything a
+        reader sees — is still the document. `LMM_EXPAND=0` skips the pass
+        entirely.
+
+        Returns (asked, kept): units expanded, generated queries indexed.
+        """
+        if not evidence._expansion_on():
+            return 0, 0
+        pending = self.evidence.pending_expansion()
+        if not pending:
+            return 0, 0
+        workers = self._workers()
+        if workers > 1:
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                made = list(pool.map(lambda pair: generate.expansions(pair[1]),
+                                     pending))
+        else:
+            made = [generate.expansions(text) for _sid, text in pending]
+        generated = {sid: queries
+                     for (sid, _text), queries in zip(pending, made)}
+        kept = self.evidence.learn_expansions(generated)
+        return len(pending), kept
 
     # --- structured ingestion (table — extractor-LESS) ------------------
     def learn_cell(self, subject_label, predicate_label, value_label, source):
