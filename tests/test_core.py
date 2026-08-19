@@ -2501,7 +2501,7 @@ def r2():
     book.save(path)
     was = os.environ.get("LMM_XLSX_HEADER_BLOCK")
     try:
-        os.environ["LMM_XLSX_HEADER_BLOCK"] = "1"
+        os.environ.pop("LMM_XLSX_HEADER_BLOCK", None)   # the shipped default
         _name, _pre, rows = tables.read_xlsx(path)[0]
         assert len(rows) == 3, rows
         row = rows[0]
@@ -2515,10 +2515,12 @@ def r2():
         # a whole number typed as floating point by the reader is still a whole
         # number: `2021.0` is a year no question spells
         assert all("." not in k for k in row), row
-        # THE SHIPPED DEFAULT is the old reading — one header row, the second
-        # arriving as data — because the block reading measured WORSE on the
-        # field questions even though it recovers more columns (COST.md §8.4).
-        os.environ.pop("LMM_XLSX_HEADER_BLOCK", None)
+        # THE WAY BACK is still there and still one variable: the single-row
+        # reading, with the second header row arriving as data and the column
+        # it names collapsing onto the empty key. It shipped as the default
+        # for one release, until the answer path stopped choosing silently
+        # between the columns this reading recovers (COST.md §8.4).
+        os.environ["LMM_XLSX_HEADER_BLOCK"] = "0"
         _name, _pre, rows = tables.read_xlsx(path)[0]
         assert len(rows) == 4, rows            # the year row arrives as data
         assert "" in rows[0], rows[0]          # and 2021 has no name of its own

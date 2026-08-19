@@ -191,18 +191,20 @@ def read_xlsx(path):
     sheets = []
     pd = _pd()
     xl = pd.ExcelFile(path)
-    # OFF BY DEFAULT, AND THE MEASUREMENT IS WHY (`COST.md` §8.4). Reading the
-    # header as a block recovers columns that were being destroyed — the Census
-    # sheet's 2021 and 2022 were overwritten out of existence — and it made the
-    # field score WORSE, 10/10 to 6/10 with two wrong answers where there had
-    # been none. Both facts are true at once: the four recovered columns are
-    # all named `Population Estimate (as of July 1) <year>`, so a question that
-    # names no year now has four equally good answers where it used to have
-    # one, and the answer path picks one of them. Recovering data the reader
-    # was silently dropping is right; shipping it while a year-less question
-    # answers from an arbitrary year is not. `LMM_XLSX_HEADER_BLOCK=1` turns it
-    # on for anyone whose questions name their columns.
-    block_on = (os.environ.get("LMM_XLSX_HEADER_BLOCK") or "0").strip() != "0"
+    # ON, AND THE MEASUREMENT IS WHY (`COST.md` §8.4). Reading the header as a
+    # block recovers columns that were being destroyed — the Census sheet's
+    # 2021, 2022 and 2023 were overwritten out of existence — and it shipped
+    # OFF for one release because it also made the field score worse: the four
+    # recovered columns are all named `Population Estimate (as of July 1)
+    # <year>`, so a question naming no year had four equally good answers where
+    # it used to have one, and the answer path picked one of them silently.
+    # That was a defect in the ANSWER path, not in the reading, and it is fixed
+    # where it lived (`lookup`'s shape 3: a reading naming several records is
+    # answered with all of them). Measured with the two together: census
+    # 10/14 with 3 wrong → 14/14 with 0 wrong, zero-call 10/14. The reading
+    # that keeps the document's own columns is now the default and
+    # `LMM_XLSX_HEADER_BLOCK=0` is the way back to the single-row reading.
+    block_on = (os.environ.get("LMM_XLSX_HEADER_BLOCK") or "1").strip() != "0"
     for sheet_name in xl.sheet_names:
         df = xl.parse(sheet_name)
         rows = df.values.tolist()
