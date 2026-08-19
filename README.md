@@ -153,6 +153,24 @@ now cost nothing at all, and they are exactly the multi-hop questions
 Everything the graph cannot settle safely still falls through to the paid
 path unchanged; see `benchmarks/COST.md` §3 for what that guarantee costs.
 
+**On a document whose facts are a TABLE, that floor is most of the questions.**
+A spreadsheet's row label is usually several words — `united states`, `new
+hampshire` — and a scan of the question one word at a time could never name
+one, so those questions went to the engine. Naming a node by the question's own
+contiguous word runs settles them from the graph instead. Measured on the US
+Census spreadsheet `fetch_documents.py` pulls down, 10 questions, 3 samples,
+median (`benchmarks/COST.md` §8): **5 correct → 9 correct, 0 zero-call → 6,
+6.1 calls per question → 2.7**, with **zero wrong answers in every arm**. The
+three invented corpora do not move — their subjects are single invented words,
+so there is nothing multi-word to name — and they lose nothing either.
+
+**And the same question over a memory that has not moved is free.** Asking the
+same ten questions a second time costs **0.0 calls and 0.0 seconds** on both
+field documents, every answer byte-identical. On the invented corpora it is
+0.9 calls per question rather than 0.0, because two of the ten sit inside the
+research-offer flow and a replayed answer would leave the offer standing — so
+those two bypass the cache on purpose.
+
 **That floor is a property of ingestion, not only of `lookup`.** The same
 corpus ingested by a weak local 3B model derived *zero* facts instead of
 Azure's 8, so `lookup` had nothing to answer from. It never guessed from the

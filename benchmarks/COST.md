@@ -338,3 +338,131 @@ zero-call floor on a local model needs either a better local extractor or
 `deep=True` ingestion on a stronger engine even when serving answers locally
 afterwards — the graph, once built, does not care which engine built it.
 
+
+## 8. Two optimizations, measured on five documents
+
+Sections 1–3 measure one corpus in two languages. This section measures **five
+documents, ten questions each, three samples, median** — the short protocol,
+run by [`benchmarks/field/measure.py`](field/measure.py). Three of the
+documents are the invented corpora (a fixed 10 of their 17 questions, the same
+10 every time); two are real documents off the public internet, fetched by
+[`fetch_documents.py`](field/fetch_documents.py): a NIST PDF and a US Census
+spreadsheet. **Two of the ten questions in each field set are not answerable
+from the document**, so an abstention has something to be right about.
+
+The question sets are committed (`benchmarks/field/questions_*.json`); the
+documents, the graphs and the per-sample results are not.
+
+**The ingestion is paid once and reused.** Every configuration and every sample
+is loaded from the same saved graph, because ingestion variance is the largest
+noise source in this system and has nothing to do with the answer path being
+compared. What is re-run per sample is the answering.
+
+Three arms, selected by the two controls the library carries for exactly this:
+
+| arm | what it is |
+|---|---|
+| `base` | `LMM_DIRECT_LOOKUP=0` — no graph-first path at all |
+| `words` | graph-first, naming a node ONE WORD AT A TIME (what shipped before) |
+| `graph` | graph-first, naming a node by the question's contiguous word RUNS |
+
+### 8.1 The graph-first path, and what naming a multi-word node buys
+
+| document | arm | correct | abstain | **WRONG** | zero-call | calls/q | s/q |
+|---|---|---|---|---|---|---|---|
+| corpus TR (10) | base | 10 | 0 | **0** | 0 | 6.9 | 10.9 |
+| corpus TR (10) | words | 10 | 0 | **0** | 3 | 4.4 | 7.0 |
+| corpus TR (10) | **graph** | **10** | 0 | **0** | **3** | **4.4** | **6.8** |
+| corpus EN (10) | base | 10 | 0 | **0** | 0 | 7.0 | 11.2 |
+| corpus EN (10) | words | 10 | 0 | **0** | 3 | 4.5 | 6.7 |
+| corpus EN (10) | **graph** | **10** | 0 | **0** | **3** | **4.5** | **6.6** |
+| corpus ES (10) | base | 9 | 1 | **0** | 0 | 6.6 | 11.0 |
+| corpus ES (10) | words | 9 | 1 | **0** | 3 | 4.3 | 6.4 |
+| corpus ES (10) | **graph** | **9** | 1 | **0** | **3** | **4.3** | **6.8** |
+| NIST SP 800-63B, pdf (10) | base | 10 | 0 | **0** | 0 | 8.0 | 13.6 |
+| NIST SP 800-63B, pdf (10) | words | 10 | 0 | **0** | 0 | 8.0 | 12.3 |
+| NIST SP 800-63B, pdf (10) | **graph** | **10** | 0 | **0** | **0** | **8.0** | **13.0** |
+| US Census, xlsx (10) | base | 5 | 5 | **0** | 0 | 6.1 | 9.3 |
+| US Census, xlsx (10) | words | 8 | 2 | **0** | 4 | 4.1 | 5.9 |
+| US Census, xlsx (10) | **graph** | **9** | 1 | **0** | **6** | **2.7** | **4.2** |
+
+**The WRONG column is zero in all fifteen cells.** That is the column the
+decision rested on: a cheaper path that trades a fabrication for a saving is
+not a cheaper path, and this one trades nothing.
+
+**Read the spreadsheet row first, because it is where the whole gain is.** The
+graph holds `united states -[population estimate (as of july 1)]-> 331526933`
+as a row of a table it read with no model call at all, and the question
+"united states population estimate as of july 1" says exactly that. The
+one-word scan could not name the node: neither `united` nor `states` resolves
+to anything, so the question went to the engine, which answered five of ten
+correctly and abstained on the other five. Naming the node by the question's
+own word RUNS settles six of the ten in microseconds, and the engine — still
+carrying the other four — brings the document to **9 correct, 1 abstention, 0
+wrong, 2.7 calls per question against the baseline's 6.1**. A spreadsheet is
+the case this rule was built for, and a spreadsheet is where it pays.
+
+**The three invented corpora do not move at all, and that is the honest
+half.** Their subjects are single invented words — `zerbalit`, `vorlin` — so
+there is no multi-word node to name and the runs have nothing to find. Both
+graph arms sit at the same 3 of 10, the same figure §3 reports as 3 of 17. The
+rule cost them nothing either: same answers, same abstentions, same zero wrong.
+
+**The NIST PDF does not move either, and the reason is a limit rather than a
+defect.** Its graph is the document's own structure — section names, front
+matter fields, table rows — and its ten questions are prose questions
+("how many characters shall a memorized secret be"), answered out of the
+evidence index rather than the graph. All three arms answer 10 of 10 at 8.0
+calls per question. The graph-first path declined every one of them, correctly:
+nothing in that graph is the record those questions ask for.
+
+**Across the fifty questions:** zero-call answers go 0 → 13 → **15**, calls per
+question 6.9 → 5.1 → **4.8**, and correct answers 44 → 47 → **48**, with the
+wrong count fixed at 0 throughout.
+
+### 8.2 The answer cache: the same question, over a memory that has not moved
+
+The second pass asks the identical ten questions against the identical memory.
+Its cost is the measurement.
+
+| document | pass | calls/q | s/q | answers identical |
+|---|---|---|---|---|
+| corpus TR (10) | 1 | 4.4 | 7.0 | 9/10 |
+| corpus TR (10) | **2** | **0.9** | **1.3** | 9/10 |
+| corpus EN (10) | 1 | 4.5 | 7.2 | 9/10 |
+| corpus EN (10) | **2** | **0.9** | **1.3** | 9/10 |
+| corpus ES (10) | 1 | 4.3 | 6.7 | 9/10 |
+| corpus ES (10) | **2** | **0.9** | **1.3** | 9/10 |
+| NIST SP 800-63B, pdf (10) | 1 | 8.0 | 12.9 | 10/10 |
+| NIST SP 800-63B, pdf (10) | **2** | **0.0** | **0.0** | 10/10 |
+| US Census, xlsx (10) | 1 | 2.7 | 3.7 | 10/10 |
+| US Census, xlsx (10) | **2** | **0.0** | **0.0** | 10/10 |
+
+**On the two field documents the second pass is free** — 0.0 calls, 0.0
+seconds, and every answer byte-identical to the first.
+
+**On the three corpora it is 0.9 calls per question rather than 0.0, and the
+0.9 is a correctness decision rather than a miss.** Two of those ten questions
+sit inside the research-offer flow: "melvarit nedir" names a subject the
+document does not define, which makes the session OFFER to look it up, and the
+turn after that offer means yes or no to it. A replayed answer would not
+consume the offer, so it would still be standing when the next turn arrived and
+that turn would be read as the approval. Both turns therefore bypass the cache
+entirely — and the one answer of ten that differs between the passes is exactly
+the regenerated refusal.
+
+**What invalidates a kept answer is not a record count.** A count does not move
+when a second source reinforces a fact, when `sleep()` fades one, or when a
+contradiction lowers a rival's trust — and each of those changes what is spoken
+or whether it is hedged. The stamp sums the trust and the source counts as well
+as the counts, so every mutation the graph has moves it. The residue is stated
+in `Memory._state` rather than hidden: two trust changes that cancel to the
+same total would not move it, and nothing in the graph moves trust in pairs.
+
+### 8.3 What this does not say
+
+It does not say the architecture became cheaper than embedding RAG. §6's
+sentence stands: on a hosted per-token engine, RAG is cheaper for one-hop
+lookup and there is no break-even. What moved is the FLOOR — the share of
+questions that cost nothing at all — and on a document whose facts are a table,
+that share is now most of them.
