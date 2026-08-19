@@ -31,11 +31,9 @@ def layout_char(ch):
     """Is this character LAYOUT rather than part of a word?
 
     Unicode's own general category answers it (P*, the punctuation classes),
-    so the question is asked once, in the place `fold` already lives, and the
-    three organs that need it — the span grammar's word forms
-    (`lmm/grammar.py`), a table's row label (`lmm/tables.py`, where a leading
-    dot is the sheet's indentation and not part of `.Puerto Rico`) — ask the
-    same one. No character is named anywhere.
+    so the question is asked once, in the place `fold` already lives, rather
+    than each caller deciding for itself what a dot is. No character is named
+    anywhere. Its reader today is `bare`, below.
     """
     return unicodedata.category(ch).startswith("P")
 
