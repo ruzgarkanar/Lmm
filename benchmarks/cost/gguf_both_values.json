@@ -1,0 +1,332 @@
+{
+ "backend": "gguf",
+ "gpu_layers": "0",
+ "corpus": "corpus.txt",
+ "ingest": {
+  "wall_seconds": 79.4,
+  "facts": 92,
+  "skipped": 7,
+  "calls": 127,
+  "derived": 0
+ },
+ "engine_only": {
+  "questions": [
+   {
+    "soru": "zerbalit nedir",
+    "cevap": "Zerbalit bir maddedir. (~ #doc:corpus)",
+    "ms": 4671,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 10,
+    "engine_seconds": 4.663
+   },
+   {
+    "soru": "vorlin nedir",
+    "cevap": "Vorlin bir içecektir. (~ #doc:corpus)",
+    "ms": 4568,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 4.564
+   },
+   {
+    "soru": "morlan nedir",
+    "cevap": "Morlan bir canlıdır. (~ #doc:corpus)",
+    "ms": 4479,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 4.476
+   },
+   {
+    "soru": "norgul nedir",
+    "cevap": "Norgul bir canlıdır. (~ #doc:corpus)",
+    "ms": 5091,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 10,
+    "engine_seconds": 5.088
+   },
+   {
+    "soru": "karvel nedir",
+    "cevap": "Karvel bir canlıdır. (~ #doc:corpus)",
+    "ms": 4370,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 4.368
+   },
+   {
+    "soru": "kelvit nedir",
+    "cevap": "Kelvit bir maddedir. (~ #doc:corpus)",
+    "ms": 4360,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 4.357
+   },
+   {
+    "soru": "selvin nedir",
+    "cevap": "Selvin bir içecektir. (~ #doc:corpus)",
+    "ms": 4300,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 4.297
+   },
+   {
+    "soru": "Velmar nedir",
+    "cevap": "Velmar bir köydür. (~ #doc:corpus)",
+    "ms": 4458,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 4.454
+   },
+   {
+    "soru": "vorlin bir sıvı mıdır",
+    "cevap": "Vorlin bir sıvıdır. (~ #doc:corpus)",
+    "ms": 5937,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 11,
+    "engine_seconds": 5.933
+   },
+   {
+    "soru": "zilfen bir canlı mıdır",
+    "cevap": "Ben sadece bu metin üzerinde bilgiyüm.",
+    "ms": 4477,
+    "abstained": true,
+    "from_graph": false,
+    "calls": 9,
+    "engine_seconds": 4.475
+   },
+   {
+    "soru": "torvanit bir madde midir",
+    "cevap": "Torvanit bir metaldir. (~ #doc:corpus)",
+    "ms": 4353,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 10,
+    "engine_seconds": 4.35
+   },
+   {
+    "soru": "yağmur yağarsa ne olur",
+    "cevap": "Yağmur yağarsa bataklık büyür. (~ #doc:corpus)",
+    "ms": 5116,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 5.113
+   },
+   {
+    "soru": "norgul çoğalırsa ne olur",
+    "cevap": "Norgul çoğalırsa morlan çoğalır. (~ #doc:corpus)",
+    "ms": 5243,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 5.24
+   },
+   {
+    "soru": "melvarit nedir",
+    "cevap": "Nie weet nie weet hoe verder. Kan jy 'n definisie gee vir die woord?",
+    "ms": 1419,
+    "abstained": true,
+    "from_graph": false,
+    "calls": 3,
+    "engine_seconds": 1.419
+   },
+   {
+    "soru": "Nortlann'ın başkenti neresidir",
+    "cevap": "Nortlann'ın başkenti neresidir",
+    "ms": 2802,
+    "abstained": true,
+    "from_graph": false,
+    "calls": 5,
+    "engine_seconds": 2.802
+   },
+   {
+    "soru": "vorlin kaç derecede kaynar",
+    "cevap": "Vorlin sıcak içilir. (~ #doc:corpus)",
+    "ms": 4408,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 4.405
+   },
+   {
+    "soru": "adanın nüfusu kaçtır",
+    "cevap": "Ben bu bilgiye ulaşamadım",
+    "ms": 3012,
+    "abstained": true,
+    "from_graph": false,
+    "calls": 7,
+    "engine_seconds": 3.01
+   }
+  ],
+  "calls": 137,
+  "zero_call_questions": 0,
+  "question_count": 17
+ },
+ "graph_first": {
+  "questions": [
+   {
+    "soru": "zerbalit nedir",
+    "cevap": "Zerbalit bir maddedir. (~ #doc:corpus)",
+    "ms": 4800,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 10,
+    "engine_seconds": 4.796
+   },
+   {
+    "soru": "vorlin nedir",
+    "cevap": "Vorlin bir içecektir. (~ #doc:corpus)",
+    "ms": 4602,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 4.598
+   },
+   {
+    "soru": "morlan nedir",
+    "cevap": "Morlan bir canlıdır. (~ #doc:corpus)",
+    "ms": 4604,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 4.601
+   },
+   {
+    "soru": "norgul nedir",
+    "cevap": "Norgul bir canlıdır. (~ #doc:corpus)",
+    "ms": 5129,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 10,
+    "engine_seconds": 5.125
+   },
+   {
+    "soru": "karvel nedir",
+    "cevap": "Karvel bir canlıdır. (~ #doc:corpus)",
+    "ms": 4432,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 4.43
+   },
+   {
+    "soru": "kelvit nedir",
+    "cevap": "Kelvit bir maddedir. (~ #doc:corpus)",
+    "ms": 4537,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 4.534
+   },
+   {
+    "soru": "selvin nedir",
+    "cevap": "Selvin bir içecektir. (~ #doc:corpus)",
+    "ms": 4549,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 4.546
+   },
+   {
+    "soru": "Velmar nedir",
+    "cevap": "Velmar bir köydür. (~ #doc:corpus)",
+    "ms": 4744,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 4.741
+   },
+   {
+    "soru": "vorlin bir sıvı mıdır",
+    "cevap": "Vorlin bir sıvıdır. (~ #doc:corpus)",
+    "ms": 6032,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 11,
+    "engine_seconds": 6.028
+   },
+   {
+    "soru": "zilfen bir canlı mıdır",
+    "cevap": "Ben sadece çevrimiçi bilgiye sahibim, bu bilgi yok.",
+    "ms": 4611,
+    "abstained": true,
+    "from_graph": false,
+    "calls": 9,
+    "engine_seconds": 4.609
+   },
+   {
+    "soru": "torvanit bir madde midir",
+    "cevap": "Torvanit bir metaldir. (~ #doc:corpus)",
+    "ms": 5692,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 10,
+    "engine_seconds": 5.689
+   },
+   {
+    "soru": "yağmur yağarsa ne olur",
+    "cevap": "Yağmur yağarsa bataklık büyür. (~ #doc:corpus)",
+    "ms": 8780,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 8.777
+   },
+   {
+    "soru": "norgul çoğalırsa ne olur",
+    "cevap": "Norgul çoğalırsa morlan çoğalır. (~ #doc:corpus)",
+    "ms": 9121,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 9.118
+   },
+   {
+    "soru": "melvarit nedir",
+    "cevap": "Nie weet nie weet nie weet",
+    "ms": 1791,
+    "abstained": true,
+    "from_graph": false,
+    "calls": 3,
+    "engine_seconds": 1.791
+   },
+   {
+    "soru": "Nortlann'ın başkenti neresidir",
+    "cevap": "Nortlann'ın başkenti neresidir",
+    "ms": 4561,
+    "abstained": true,
+    "from_graph": false,
+    "calls": 5,
+    "engine_seconds": 4.56
+   },
+   {
+    "soru": "vorlin kaç derecede kaynar",
+    "cevap": "Vorlin sıcak içilir. (~ #doc:corpus)",
+    "ms": 6860,
+    "abstained": false,
+    "from_graph": false,
+    "calls": 8,
+    "engine_seconds": 6.857
+   },
+   {
+    "soru": "adanın nüfusu kaçtır",
+    "cevap": "Ben bu bilgiye ulaşamadım",
+    "ms": 5138,
+    "abstained": true,
+    "from_graph": false,
+    "calls": 7,
+    "engine_seconds": 5.136
+   }
+  ],
+  "calls": 137,
+  "zero_call_questions": 0,
+  "question_count": 17
+ }
+}

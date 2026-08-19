@@ -164,6 +164,16 @@ median (`benchmarks/COST.md` §8): **5 correct → 9 correct, 0 zero-call → 6,
 three invented corpora do not move — their subjects are single invented words,
 so there is nothing multi-word to name — and they lose nothing either.
 
+**A row is only reachable by the name a question calls it.** That sheet nests
+its rows by drawing the indentation with a character — `.Alabama`,
+`.Puerto Rico`, because a cell has no margin — and every nested row was
+invisible to the name anyone would use for it. The plain name is now an alias
+of the row: Unicode's category decides what is layout, and the cell keeps its
+own text, so nothing the document wrote is edited. Same protocol, 5 documents
+(`benchmarks/COST.md` §8.4): **48/50 → 49/50 correct, 15 → 16 answered with no
+model call, 0 wrong answers**, the four other documents unmoved. The question
+that moved had been refused at every commit in this history and is now free.
+
 **And the same question over a memory that has not moved is free.** Asking the
 same ten questions a second time costs **0.0 calls and 0.0 seconds** on both
 field documents, every answer byte-identical. On the invented corpora it is
@@ -190,6 +200,19 @@ close, however clean the subjects are. A subject-normalization pass was built,
 measured against a PERFECT-normalization ceiling, found to buy nothing on
 either side of that split, and reverted. The remaining work is extraction
 quality on the local engine, not the wiring behind it.
+
+**Both of those were then attacked directly, and both attempts were reverted
+too** (`benchmarks/COST.md` §7.1.1). llama.cpp can constrain its DECODER with a
+grammar, so a per-sentence GBNF was built in which a subject can only be a
+contiguous run of that sentence's own words and never the whole sentence — the
+wrong answer made unsayable rather than asked against — and beside it a
+sentence began to be written BOTH ways, as a causal edge and as a triple, so
+the taxonomy stopped being split. The engine answered by saying the longest
+thing still allowed (`kelvit bir metaldir` → `kelvit bir`). It is the first
+local run in which a predicate ever became transitive, and it derived nothing
+all the same, because the triangles that qualified it are triangles the corpus
+states outright. The 61 cached readings are kept beside the section so the next
+attempt starts from the measurement.
 
 ## Architecture
 
@@ -304,6 +327,12 @@ Kept current, and deliberately specific.
   screen", where the line reads `Screen 15.6" LCD` and never says *inches*) are
   a lexical-retrieval ceiling. One such case is rescued by an append-only
   mechanism; the class is not closed.
+- A spreadsheet whose header occupies two rows can be read two ways and neither
+  is free. Reading one row destroys the columns the second row names; reading
+  the block recovers them and gives a question that names no column four
+  equally good answers instead of one. The block reader is built and ships OFF
+  (`LMM_XLSX_HEADER_BLOCK=1`), with both halves of the measurement in
+  `benchmarks/COST.md` §8.4.
 - Two benchmark questions are stable failures and are named rather than hidden:
   one whose answer sits in a table row sharing a single stem with the question,
   and one needing a heading plus a line eight sentences below it in one window.

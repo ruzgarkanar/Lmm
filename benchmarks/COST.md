@@ -294,6 +294,83 @@ graph path, in exchange for a gain that measures zero. The change was reverted;
 the finding is kept here and the ordering is now pinned by a model-free test
 (`O3`), so the next reader does not have to spend the ingestion to learn it.
 
+### 7.1.1 Making the wrong subject UNSAYABLE — a grammar, and what it bought
+
+§7.1 ends by saying the fix has to be in EXTRACTION QUALITY. A prompt asks for
+a short subject and the local 3B ignores it. llama.cpp can do better than ask:
+`create_chat_completion` takes a GBNF grammar and constrains the DECODER, so
+what the grammar cannot spell the engine cannot say. The attempt below built,
+per sentence, a grammar whose `subject` (and optionally `value`) field can only
+be **a contiguous run of that sentence's own words, the whole sentence
+excluded** — a prefix-sharing trie, so an n-word sentence costs n rules rather
+than n²/2 literals, and nothing in it is a list, a constant or a keyword: every
+literal comes from the sentence being read. Beside it, the second half of
+§7.1's diagnosis was addressed by writing BOTH readings of a sentence — the
+causal edge AND the triple — so the taxonomy stops being split across two
+predicates without `#causes` being emptied, which is what the reversal in §7.1
+did.
+
+Measured end to end on the local engine (`benchmarks/gguf_run.py`, TR corpus,
+61 sentences, `LMM_BACKEND=gguf`, Metal, one ingestion per arm):
+
+| arm | facts | derived | transitive | zero-call | ingest calls | ingest wall |
+|---|---|---|---|---|---|---|
+| base (shipped) | 60 | **0** | — | 0/17 | 88 | 40 s |
+| span grammar only | 59 | **0** | — | 0/17 | 88 | 43 s |
+| both readings only | 95 | **0** | — | 0/17 | 126 | 76 s |
+| **grammar + both readings** | 93 | **0** | **`tür`** | **0/17** | 128 | 83 s |
+| grammar + both, values constrained too | 92 | **0** | `tür` | 0/17 | 127 | 79 s |
+
+**The grammar does exactly what it was built to do, and the engine walks around
+it.** "Subject = the whole sentence" became unsayable, so the model said the
+longest thing that was still sayable — the sentence minus its last word:
+
+    Kelvit bir metaldir.   base: subject `kelvit bir metaldir`
+                           grammar: subject `kelvit bir`
+    Selvin bir içecektir.  base: `selvin bir içecektir` -> grammar: `selvin bir`
+
+Which is not nothing — those subjects are now CONSISTENT across sentences, and
+`core/transitive.py` marks `tür` transitive for the first time on this engine
+(no predicate ever qualified in any earlier local run). But no derivation
+follows, and the reason is worth more than the attempt: the triangles that
+qualified `tür` are triangles the corpus STATES, so the closing edge is already
+an observed fact and there is nothing left to derive. Adding `Mind.run()`'s
+closure pass afterwards changes none of the numbers above.
+
+**The floor is blocked one layer lower down, and that layer is a gate.** Even
+with a clean subject, `lookup` answers "is vorlin a liquid" only if the question
+word `sıvı` reaches the node the document wrote, which is `sıvıdır` — and
+`inflect.ROOT` is five letters, so a four-letter Turkish root cannot be joined
+to its inflected form. Loosening that is loosening the identity rule that keeps
+`kart`/`kartal` and `organ`/`organizma` apart, which is not a trade this
+repository makes for a benchmark number.
+
+The oracle rows confirm the shape of it, replayed offline from the cached
+readings (`benchmarks/cost/gguf_readings_gbnf.json`, the same method as §7.1 —
+no engine, so the columns differ only in the variable named):
+
+| readings | both readings | subject normalization | facts | derived | lookup |
+|---|---|---|---|---|---|
+| base | no | as read | 60 | 0 | 0/17 |
+| base | yes | as read | 95 | 0 | 0/17 |
+| base | yes | **oracle (first word)** | 94 | **7** | **1/17** |
+| grammar | yes | as read | 93 | 0 | 0/17 |
+| grammar | yes | document-attested shortening | 93 | **0** | 0/17 |
+| grammar | yes | **oracle (first word)** | 90 | **7** | **1/17** |
+
+Only the oracle derives, only on this corpus, and §7.1's warning about what it
+derives still holds — `norgul -[tür]-> bir`, `kar -[tür]-> çoğalır`. The
+"document-attested shortening" row is §7.1's reverted fix re-tested on top of
+the grammar, on the theory that the grammar now attests the short forms it
+needs: it does attest `zerbalit`, `morlan`, `telvas` alone, and it never once
+attests `metal`, which is the node the only interesting chain runs through.
+
+**Both changes were reverted.** They are not in the tree: the grammar cost
+nothing but bought nothing, and writing both readings costs 40 more engine
+calls per ingestion for a graph that answers identically. What is kept is this
+section and the 61 cached readings beside it, so the next attempt starts from
+the measurement instead of paying 128 calls to reach it.
+
 ### 7.2 The local engine now uses the hardware it is running on
 
 Unrelated to the graph, and measured on the same machine: `runtime_gguf.py`
@@ -458,6 +535,84 @@ or whether it is hedged. The stamp sums the trust and the source counts as well
 as the counts, so every mutation the graph has moves it. The residue is stated
 in `Memory._state` rather than hidden: two trust changes that cancel to the
 same total would not move it, and nothing in the graph moves trust in pairs.
+
+### 8.4 What a table loses on its way to an answer — three repairs, one kept
+
+`benchmarks/field/REPORT.md` names three table defects. Each was built, each
+was measured on its own, and ONE of the three is in the shipped path — which is
+the only reason that one can be trusted.
+
+**KEPT — the row's name (§4).** A spreadsheet cell has no margin, so a sheet
+that nests rows draws the indentation with a character: the Census file writes
+`.Alabama`, `.Puerto Rico`. Every nested row was unreachable by the name a
+question uses — `about("puerto rico")` came back empty while
+`about(".puerto rico")` held the whole row. The plain name is now registered as
+an ALIAS of the row and the cell's own text stays the label, so nothing the
+document wrote is edited (`-5` would lose its sign to the same rule). What
+counts as layout is Unicode's category, asked once in `core/dataset.bare`.
+
+**REVERTED — the cell's company (§3).** A flattened PDF table emits its cells
+out of reading order, so the evidence window holding `Reauthentication` held
+AAL2's `12 hours` and not AAL1's `30 days` — a wrong answer no gate can refuse,
+because the claim really is in the evidence. `learn_rows` was given a second
+evidence unit per CELL (`row · column: value`) so that a correctly bound unit
+could compete with the mis-ordered line on both words instead of on the row's
+alone. It does not work, and the report's own probe says so directly: *"According
+to Table 4-1, what is the reauthentication requirement at AAL1?"* answers
+`12 hours of inactivity` with the units and without them. 1260 units were
+written into the NIST graph and not one carries the binding, because pdfplumber
+never hands `learn_rows` a clean row for that table at all — the loss is
+upstream of the index, in the rendering. The census evidence store grew from
+12 KB to 22.5 KB for it and no column of the measurement moved.
+
+**BUILT, OFF BY DEFAULT — the header block (§4).** `read_xlsx` picked one
+header row where the Census sheet has two, so three columns had no name and
+`row[h or ""]` collapsed them onto one dict key: 2021 and 2022 were overwritten
+out of existence. The sheet says where its header ends in its own merges
+(`A3:A4` — this name occupies both rows; `C3:F3` — this name covers four
+columns), and the reader now reads them, inheriting a spanning name into the
+columns under it. No row number is written down: `_header_row` still decides
+where the header begins.
+
+Measured, 5 documents × 10 questions × 3 samples, median, the shipped answer
+path, one ingestion per arm:
+
+| document | arm | correct | abstain | WRONG | zero-call | calls/q |
+|---|---|---|---|---|---|---|
+| census | before | 9 | 1 | 0 | 6 | 2.7 |
+| census | **row name (shipped)** | **10** | 0 | **0** | **7** | **2.0** |
+| census | row name + cell units | 10 | 0 | 0 | 7 | 2.0 |
+| census | row name + header block | 6 | 2 | **2** | 3 | 4.4 |
+| nist | before | 10 | 0 | 0 | 0 | 8.0 |
+| nist | row name (shipped) | 10 | 0 | 0 | 0 | 8.0 |
+| nist | row name + cell units | 10 | 0 | 0 | 0 | 8.0 |
+| tr · en · es | before | 10 · 10 · 9 | 0 · 0 · 1 | 0 | 3 · 3 · 3 | 4.4 · 4.5 · 4.3 |
+| tr · en · es | row name (shipped) | 10 · 10 · 9 | 0 · 0 · 1 | 0 | 3 · 3 · 3 | 4.4 · 4.5 · 4.3 |
+
+**48/50 → 49/50 correct, zero-call 15/50 → 16/50, and zero wrong answers in
+every arm.** The one question that moved is `puerto rico population estimate as
+of july 1`, refused at every commit in this history, now answered with NO MODEL
+CALL AT ALL — the row was always in the graph, wearing a dot. The three corpora
+do not touch `learn_rows` and do not move.
+
+**The header block's own row says why it is off.** It recovers two columns the
+reader was destroying AND it costs two correct answers and buys two wrong ones,
+and those are the same fact: the four recovered columns are all named
+`Population Estimate (as of July 1) <year>`, so "population estimate as of july
+1" — a question naming no year — went from one answer to four equally good
+ones, and the path picked 2023 where the question set's gold is 2020. The gold
+is not obviously right and the answer is not obviously wrong; what is certain
+is that the choice became arbitrary, and an arbitrary choice among four is not
+something to ship because a benchmark happens to prefer one of them.
+`LMM_XLSX_HEADER_BLOCK=1` turns it on for anyone whose questions name their
+columns.
+
+**The third question the report asked answered itself before it was measured.**
+Whether a document triple may stand in the answer block beside the evidence:
+the rule that drops them tests the `#doc:` stamp, and only `Memory.learn(text)`
+writes that stamp — a table adapter stamps `#xlsx:`/`#pdf:`, so a cell written
+by `learn_rows` was never excluded by that rule. The exclusion only ever
+reached prose extraction, which is exactly what it was built for.
 
 ### 8.3 What this does not say
 
