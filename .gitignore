@@ -108,3 +108,8 @@ notebooks/
 # ---------------------------------------------------------------------------
 benchmarks/field/documents/
 benchmarks/field/work/
+# Derived from those documents by `measure.py` — a graph of a document is the
+# document, so it is no more redistributable than the document is. The QUESTION
+# SETS are committed; the graphs and the per-sample results are not.
+benchmarks/field/graphs/
+benchmarks/field/results/

@@ -510,6 +510,13 @@ class Memory:
         benchmark in this repository does — must not be able to tell a cached
         turn from a paid one, because the two are the same turn. The
         conversation window is appended to as well, for the same reason.
+
+        What a replayed turn does NOT do is count towards `session.turns`, and
+        that is deliberate: the turn counter schedules `sleep()`, which is
+        maintenance over records that were READ and written, and this turn read
+        nothing. The effect is that maintenance is paced by work done rather
+        than by questions asked; it cannot produce a stale answer, because the
+        state stamp is what decides that and `sleep()` moves it.
         """
         session = self.session
         said, abstained, from_graph, subject, kind = kept
