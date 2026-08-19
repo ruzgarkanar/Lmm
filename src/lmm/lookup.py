@@ -87,23 +87,67 @@ def _named_by(words, memory, key):
                for part in parts)
 
 
-def _subjects(memory, words):
-    """The graph nodes this message could be ABOUT: the question's own words
-    that resolve to an identity CARRYING RECORDS.
+def _spans(words):
+    """Every contiguous run of the question's content words, longest first.
 
-    Longest word first and ties broken by the word itself, for the same reason
+    A graph node is not always spelled with one word. A spreadsheet's row
+    label, a PDF spec table's field, a country — `united states`, `ser vivo`,
+    `screen diagonal` — is one identity whose label is several words, and a
+    scan of the question's words ONE AT A TIME can never name it: neither
+    `united` nor `states` resolves, so a question that says exactly what the
+    graph stores was falling through to the paid path. The runs are the
+    question's own word ORDER, so nothing is assembled that the question did
+    not say in that order.
+
+    There is no length bound, and deliberately no constant: a run is a
+    candidate only if the index resolves it, which is a dict lookup, and a
+    question has a handful of content words. Bounding the run length would be
+    a guess about how long a document's labels are — exactly the per-document
+    constant this repository refuses.
+    """
+    return [tuple(words[i:j])
+            for size in range(len(words), 0, -1)
+            for i in range(len(words) - size + 1)
+            for j in (i + size,)]
+
+
+def _subjects(memory, words):
+    """The graph nodes this message could be ABOUT: the question's own word
+    RUNS that resolve to an identity CARRYING RECORDS.
+
+    Longest run first, ties broken by the run itself, for the same reason
     `Session._answer`'s subject fallback sorts that way — a set of strings
     iterated raw comes out in PYTHONHASHSEED order, and here that order would
     decide which node is asked about.
 
+    A run CONTAINED IN a longer run that also resolved is dropped. Both name
+    something the graph holds, and the longer one is the more specific naming
+    — the same judgement `retrieve.specific` makes between two true values,
+    made here between two true readings of the same words. Without it a
+    question naming `ser vivo` would nominate `ser vivo` AND `vivo` as two
+    separate subjects, and `find`'s uniqueness test would then decline a
+    question the graph can settle.
+
     `touch=False` is not used at this stage because nothing is read yet; the
     candidates are drawn from the index alone."""
-    found = []
-    for word in sorted(set(words), key=lambda t: (-len(t), t)):
-        key = link.resolve(memory, word)
-        if key is not None and key not in found and memory.by_subject.get(key):
+    found, spoken = [], []
+    for span in sorted(_spans(words), key=lambda s: (-len(s), s)):
+        if any(_inside(span, wider) for wider in spoken):
+            continue
+        key = link.resolve(memory, " ".join(span))
+        if key is None or not memory.by_subject.get(key):
+            continue
+        spoken.append(span)
+        if key not in found:
             found.append(key)
     return found
+
+
+def _inside(span, wider):
+    """Is this run a contiguous part of that longer one?"""
+    return len(span) < len(wider) and any(
+        wider[i:i + len(span)] == span
+        for i in range(len(wider) - len(span) + 1))
 
 
 def _records(memory, subject):

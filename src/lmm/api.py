@@ -22,9 +22,12 @@ additive.
     m.save()
 """
 import csv
+import math
 import os
 import re
 
+from lmm import extract
+from lmm.core.dataset import fold
 from lmm.session import Session
 
 # EXTENSION → ADAPTER. The routing table is the whole of the dispatch: there is
@@ -258,8 +261,46 @@ class Memory:
     both). Give nothing and it lives for as long as the process does.
     """
 
-    def __init__(self, path=None, who="#operator", mode="STRICT"):
+    def __init__(self, path=None, who="#operator", mode="STRICT", cache=True):
         self.session = Session(path, who=who, mode=mode)
+        # THE SAME QUESTION, ASKED AGAIN, OVER A MEMORY THAT HAS NOT MOVED. The
+        # answer cannot have changed, and re-deriving it costs the full 5.5
+        # model calls a question costs (`benchmarks/COST.md` §2). `cache=False`
+        # turns it off; see `_state` for what "has not moved" means and
+        # `ask` for which turns are eligible at all.
+        self._cache = {} if cache else None
+
+    # A BOUND, so a long-running memory does not accumulate every question ever
+    # asked. Oldest out first (dicts are ordered), which on a repeated workload
+    # is the entry least likely to be asked next.
+    CACHE_KEEP = 512
+
+    def _state(self):
+        """A fingerprint of everything an answer can depend on.
+
+        A stale answer is worse than an expensive one, so this is deliberately
+        NOT a record count: a count does not move when a second source
+        reinforces a fact, when `sleep()` fades one, or when a contradiction
+        lowers a rival's trust — and each of those can change what is spoken or
+        whether it is hedged. Summing the trust and the source counts catches
+        every mutation the graph has (`Memory.write`/`Record.strengthen`,
+        `core/dynamics.py`'s settle/fade/ceiling, `core/transitive.py`'s
+        promotion), and the counts catch what is added.
+
+        It is O(records) per question, which is microseconds against the
+        seconds a model call takes. The residue, stated rather than hidden: two
+        simultaneous trust changes that cancel to the same total would not move
+        it. Nothing in the graph moves trust in pairs, and reading is free of
+        it entirely — `about(touch=True)` updates access counters, which no
+        answer reads.
+        """
+        memory = self.session.memory
+        records = memory.records.values()
+        return (len(memory.records), len(memory.identities),
+                len(memory.transitive),
+                len(self.session.evidence.sentences),
+                round(math.fsum(r.trust for r in records), 9),
+                sum(len(r.sources) for r in records))
 
     # ---------------------------------------------------------------- learn
 
@@ -425,11 +466,67 @@ class Memory:
         roughly seven model calls per question (`benchmarks/COST.md`) and its
         wording depends on the engine, while the record costs nothing and does
         not.
+
+        A question asked twice over an UNCHANGED memory is answered from the
+        first answer, for nothing. Teach the memory anything — a fact, a
+        document, a `sleep()` that fades one — and the kept answer is dropped
+        rather than repeated: see `_state`. `Memory(..., cache=False)` turns it
+        off entirely.
         """
         session = self.session
+        key = (fold(question), bool(fluent))
+        before = self._state() if self._cache is not None else None
+        if before is not None:
+            kept = self._cache.get(key)
+            if kept is not None and kept[0] == before:
+                said = self._replay(question, kept[1])
+                return self._told(said) if explain else said
         said = session.respond(question, fluent=fluent) or ""
-        if not explain:
-            return said
+        # WHICH TURNS MAY BE KEPT, and it is the narrow set. A turn that WROTE
+        # is not a repeat of itself — asking it again re-enters the gate. A
+        # turn that left a research offer outstanding means "shall I?", and
+        # the next turn answers it. A CHAT turn reads `session.history`, which
+        # this fingerprint does not cover and which every turn changes. And if
+        # the turn moved the memory in any other way, the fingerprint it would
+        # be filed under is already gone — so it is compared again afterwards
+        # rather than assumed.
+        if (before is not None
+                and session.last_kind == extract.ASK
+                and not session.last_written
+                and session._pending is None
+                and self._state() == before):
+            self._cache[key] = (before, (
+                said, session.last_abstained, session.last_from_graph,
+                session.last_subject, session.last_kind))
+            while len(self._cache) > self.CACHE_KEEP:
+                del self._cache[next(iter(self._cache))]
+        return self._told(said) if explain else said
+
+    def _replay(self, question, kept):
+        """Re-speak a kept answer, and leave the session saying about this turn
+        exactly what it said about the first one.
+
+        A caller that reads `session.last_abstained` after `ask` — every
+        benchmark in this repository does — must not be able to tell a cached
+        turn from a paid one, because the two are the same turn. The
+        conversation window is appended to as well, for the same reason.
+        """
+        session = self.session
+        said, abstained, from_graph, subject, kind = kept
+        session.last_written = []
+        session.last_abstained = abstained
+        session.last_from_graph = from_graph
+        session.last_subject = subject
+        session.last_kind = kind
+        session._mark = ""
+        session.history.append({"role": "user", "content": question})
+        session.history.append({"role": "assistant", "content": said})
+        session.history = session.history[-12:]
+        return said
+
+    def _told(self, said):
+        """What this turn knows about itself, read off the session."""
+        session = self.session
         return Answer(
             said,
             abstained=session.last_abstained,
