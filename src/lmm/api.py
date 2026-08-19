@@ -475,7 +475,14 @@ class Memory:
         """
         session = self.session
         key = (fold(question), bool(fluent))
-        before = self._state() if self._cache is not None else None
+        # A KEPT ANSWER IS NOT AN ANSWER TO "SHALL I?". While a research offer
+        # is outstanding this turn's meaning is the offer's answer, and the
+        # offer has to be CONSUMED by the flow that made it — replaying an
+        # earlier answer would leave it standing, so the turn after that one
+        # would be read as the approval instead. Measured on the TR set, where
+        # "melvarit nedir" raises exactly this offer.
+        before = (self._state() if self._cache is not None
+                  and session._pending is None else None)
         if before is not None:
             kept = self._cache.get(key)
             if kept is not None and kept[0] == before:

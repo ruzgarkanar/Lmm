@@ -2503,6 +2503,21 @@ def p1():
         off.session.respond = was
     assert ran, "cache=False still served a kept answer"
     assert off._cache is None
+    # AND A KEPT ANSWER IS NOT AN ANSWER TO "SHALL I RESEARCH THAT?". While an
+    # offer is outstanding this turn's meaning is the offer's answer, and the
+    # flow that made the offer has to consume it; a replay would leave it
+    # standing and the NEXT turn would be read as the approval. Measured: the
+    # TR set's "melvarit nedir" raises exactly this offer.
+    front.session._pending = ("melvarit", "melvarit nedir")
+    was, ran = front.session.respond, []
+    front.session.respond = lambda *a, **kw: ran.append(1) or was(*a, **kw)
+    restore, _ = no_engine()        # the offer flow consults the engine; it
+    try:                            # must not be reached for real here
+        front.ask("zerbalit renk nedir")
+    finally:
+        restore()
+        front.session.respond = was
+    assert ran, "a kept answer was served while a research offer stood"
 
 
 @test("P2 a memory that moved does not repeat its old answer")
