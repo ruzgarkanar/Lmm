@@ -174,6 +174,21 @@ own text, so nothing the document wrote is edited. Same protocol, 5 documents
 model call, 0 wrong answers**, the four other documents unmoved. The question
 that moved had been refused at every commit in this history and is now free.
 
+**A question with four right answers gets four right answers.** That sheet's
+header occupies two rows, and reading only one of them overwrote three of its
+four population columns out of existence — silently. Reading the block (the
+sheet's own merges say where the header ends) keeps them, and then a question
+naming no year names four columns equally well; the answer path used to pick
+one and say nothing. It no longer chooses: a reading that names several records
+is answered with all of them, each under the full field name the SHEET wrote,
+which is where the year is. Four census questions that name a year were added
+first, because the old set never asked for a column the single-row reader
+destroys (`benchmarks/COST.md` §8.4.1, four arms, 5 documents × 3 samples):
+**census 10/14 with 3 wrong answers → 14/14 with none, 6 → 10 of them free**,
+field total **53/54 correct, 0 wrong, 19 zero-call**, the four other documents
+unmoved. Both halves ship on; either can be switched off
+(`LMM_XLSX_HEADER_BLOCK=0`, `LMM_LOOKUP_CANDIDATES=0`).
+
 **And the same question over a memory that has not moved is free.** Asking the
 same ten questions a second time costs **0.0 calls and 0.0 seconds** on both
 field documents, every answer byte-identical. On the invented corpora it is
@@ -327,12 +342,14 @@ Kept current, and deliberately specific.
   screen", where the line reads `Screen 15.6" LCD` and never says *inches*) are
   a lexical-retrieval ceiling. One such case is rescued by an append-only
   mechanism; the class is not closed.
-- A spreadsheet whose header occupies two rows can be read two ways and neither
-  is free. Reading one row destroys the columns the second row names; reading
-  the block recovers them and gives a question that names no column four
-  equally good answers instead of one. The block reader is built and ships OFF
-  (`LMM_XLSX_HEADER_BLOCK=1`), with both halves of the measurement in
-  `benchmarks/COST.md` §8.4.
+- A question that names PART of a column's name and nothing that tells the
+  columns apart ("the 2021 population estimate", where the sheet's column is
+  `Population Estimate (as of July 1) 2021`) is not answered from the graph at
+  all — it is one reading of several and the widest reading holds one record,
+  which this path does not speak. It goes to the engine like any other question
+  and is answered there, at the engine's price. What is guaranteed is that the
+  three columns the question ruled out are never spoken over it
+  (`benchmarks/COST.md` §8.4.1).
 - Two benchmark questions are stable failures and are named rather than hidden:
   one whose answer sits in a table row sharing a single stem with the question,
   and one needing a heading plus a line eight sentences below it in one window.

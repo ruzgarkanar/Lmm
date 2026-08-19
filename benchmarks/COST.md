@@ -595,17 +595,111 @@ of july 1`, refused at every commit in this history, now answered with NO MODEL
 CALL AT ALL — the row was always in the graph, wearing a dot. The three corpora
 do not touch `learn_rows` and do not move.
 
-**The header block's own row says why it is off.** It recovers two columns the
-reader was destroying AND it costs two correct answers and buys two wrong ones,
-and those are the same fact: the four recovered columns are all named
+**The header block's own row said why it was off.** It recovered two columns the
+reader was destroying AND it cost two correct answers and bought two wrong ones,
+and those were the same fact: the four recovered columns are all named
 `Population Estimate (as of July 1) <year>`, so "population estimate as of july
 1" — a question naming no year — went from one answer to four equally good
 ones, and the path picked 2023 where the question set's gold is 2020. The gold
 is not obviously right and the answer is not obviously wrong; what is certain
 is that the choice became arbitrary, and an arbitrary choice among four is not
 something to ship because a benchmark happens to prefer one of them.
-`LMM_XLSX_HEADER_BLOCK=1` turns it on for anyone whose questions name their
-columns.
+
+**§8.4.1 below is the next turn of that measurement: the arbitrary choice was
+the defect, it was fixed where it lived, and the block now ships ON.**
+
+### 8.4.1 The silent choice, and the four arms that decided it
+
+Two silences, one shape. This project had already called the first one a defect
+and fixed it — a document the reader could not parse is now REPORTED rather
+than dropped (`M2`) — and then shipped the second: four columns the sheet
+distinguishes, one question that distinguishes none of them, and a path that
+answered from one of the four without saying that the other three were equally
+named. Swallowing a column silently and choosing among columns silently are the
+same fault seen from two sides.
+
+**The mechanism (`lmm/lookup.py`, shape 3).** The graph path already had the
+right instinct — it declines whenever the question does not settle to ONE
+record — and the fix generalises that condition instead of opening a route
+past it. What must be unique is not the record, it is the QUESTION'S READING:
+the records are grouped by which words of the question their field name
+carries, the widest reading wins (the same judgement `_subjects` makes between
+a long naming and a short one), and a reading that names several records is
+answered with ALL of them, each under its own full field name. The
+distinguishing word — `2020`, `2021` — is in that name because the SHEET put
+it there, inherited from the merge `C3:F3` says is one cell. Nothing in the
+code knows what a year is. Ordering matters and is measured: the widest
+reading is chosen BEFORE the several-records test, so "the 2021 population
+estimate" is a single half-named field, which this path does not answer at all
+— it falls through to the semantic path rather than being answered with the
+three columns the question ruled out.
+
+**Four questions were added to the census set first**, because the old ten
+never asked for a column the single-row reader destroys — a set that cannot
+see the loss cannot judge the repair. Three name the column the way the sheet
+names it (`… as of july 1 2022`, `… 2023`, `… 2021`); one names the year
+loosely ("what is the 2021 population estimate for the united states"), which
+is the phrasing the graph path deliberately declines. The census set is
+**14 questions** now, so the field total is 54 and every number below is
+recomputed rather than compared against the old 50.
+
+Same protocol — 5 documents, 3 samples, median, one ingestion per arm, the
+shipped answer path:
+
+| arm | reading | answer path | census correct | census WRONG | census zero-call | all five correct | all five WRONG |
+|---|---|---|---|---|---|---|---|
+| a | single row | choose silently | 10/14 | **3** | 10 | 49/54 | **3** |
+| b | header block | choose silently | 10/14 | **2** | 6 | — | — |
+| c | header block | **say the candidates** | **14/14** | **0** | **10** | **53/54** | **0** |
+| d | single row | say the candidates | 10/14 | **3** | 10 | — | — |
+
+Arms **b** and **d** are census-only: the header block changes ONE of the five
+documents and leaves the other four graphs byte-identical, so re-asking them
+would measure the same graph twice. Arms **a** and **c** are full, and their
+tr · en · es · nist rows are identical to the row — 10 · 10 · 9 · 10 correct,
+0 wrong, 3 · 3 · 3 · 0 zero-call — which is the other half of the result: the
+mechanism does not touch a document whose columns are not shared-named.
+
+**What each arm says.**
+
+- **(a) is the previous HEAD, and the new questions show what it was hiding.**
+  Three of its four year-named questions are answered WRONG **with no model
+  call and full confidence** — "population estimate as of july 1 2022 for the
+  west region" is answered `78661381`, which is the 2020 number, because 2022
+  never survived ingestion and the field's name does not carry the year that
+  would have ruled it out. This is the cost of the single-row reading, and it
+  had never appeared in a score before because no question asked for it.
+- **(d) is (a) exactly.** The mechanism alone changes nothing: with the columns
+  already collapsed there is no group of several to speak, and the three wrong
+  answers stay wrong. The repair is not in the answer path alone.
+- **(b) is the block alone, and it is the arbitrary choice caught in the act.**
+  The engine answers "united states population estimate as of july 1" with the
+  2023 figure and "south population estimate as of july 1" with the 2023
+  figure, each in a fluent sentence, each costing 6–7 calls; two more of the
+  same shape abstain. Four right answers, one picked, nothing said about it.
+- **(c) is both, and it is the arm that ships.** Every year-named question is
+  answered exactly and free (`west — population estimate (as of july 1) 2022 →
+  78759506`, 0 calls); every year-less question is answered with all four
+  columns and their names, also free; the loosely-phrased one still goes to the
+  engine and comes back right at 7 calls. Census zero-call rises 6 → 10 against
+  arm (b) and the calls per question fall 3.5 → 1.9, because a question this
+  path can read is a question nobody pays for.
+
+**Read the 14/14 honestly.** The scorer marks an answer correct when it carries
+the gold string, so a four-line answer that includes the gold value scores the
+same as a one-line one. What the measurement establishes is therefore NOT that
+four lines are better prose — it is that **no arm produces a wrong answer** and
+that the three questions arm (a) got wrong are now right, while the year-less
+questions stop depending on which of four columns a model happened to pick. The
+alternative shape — asking the reader WHICH year they meant — was rejected
+before it was built: it cannot answer a question the document answers four
+times over, and this system's own rule is that a refusal is for what is not in
+the document.
+
+**Decision.** Both default ON: `LMM_XLSX_HEADER_BLOCK=0` restores the
+single-row reading and `LMM_LOOKUP_CANDIDATES=0` restores the silent decline,
+and each is one variable, so any of the four rows above can be reproduced.
+Field baseline, recomputed: **53/54 correct · 0 wrong · 19/54 zero-call**.
 
 **The third question the report asked answered itself, and was measured anyway.**
 Whether a document triple may stand in the answer block beside the evidence: the
