@@ -57,6 +57,12 @@ UNCERTAIN = "~"
 UNKNOWN_SOURCE = "#source"     # a low-trust record with no stamp of its own
 
 
+def _direct_lookup():
+    """Is the graph-first answer path on? Read per call, not at import, so a
+    measurement can flip it between two runs in one process."""
+    return os.environ.get("LMM_DIRECT_LOOKUP", "1") != "0"
+
+
 def _grounded_in(value, message):
     """Does the VALUE to be taught actually appear in the user's MESSAGE — did
     Qwen not fabricate it? "You cannot teach what you didn't say". Fold + stem
@@ -499,7 +505,14 @@ class Session:
         # It is skipped while a research offer is OUTSTANDING: that turn's
         # meaning is "yes"/"no" to a question this session asked, not a lookup,
         # and the pending offer has to be consumed by the flow that made it.
-        if not fluent and self._pending is None:
+        #
+        # `LMM_DIRECT_LOOKUP=0` takes the whole graph-first path out, which is
+        # the A/B CONTROL: same binary, same graph, same questions, one
+        # variable. It exists so a claim about what this path costs or breaks
+        # can be measured rather than argued, and it reads the environment for
+        # the same reason `LMM_BACKEND` does — a measurement's variable is not
+        # a deployment's setting.
+        if not fluent and self._pending is None and _direct_lookup():
             try:
                 held = lookup.find(self.memory, message)
             except Exception:                               # noqa: BLE001

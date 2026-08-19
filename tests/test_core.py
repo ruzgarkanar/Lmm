@@ -1785,7 +1785,11 @@ def l5():
     assert isinstance(a, str) and a == "Bilmiyorum."
     assert a.upper() == "BILMIYORUM." and a.abstained and a.sources == ("#pdf:x",)
 
-    m = Memory()
+    # `cache=False` because this test moves the SESSION's stamps by hand
+    # between two identical questions, which the memory has no way to see and
+    # the answer cache would (correctly) not re-derive for. The cache's own
+    # behaviour is P1/P2's subject.
+    m = Memory(cache=False)
     # `**kw` because `respond` now takes `fluent` too (the graph-first path
     # offers a generated sentence as an option); the stub is standing in for
     # the whole method, so it accepts whatever the front door passes.
@@ -2428,6 +2432,115 @@ def o3():
     finally:
         generate.is_causal, extract.reextract, extract.extract = (
             real_causal, real_re, real_ex)
+
+
+@test("N7 a node whose name is several words can still be named")
+def n7():
+    """A graph node is not always spelled with one word — a spreadsheet's row
+    label, a spec table's field, a country. Scanning the question ONE WORD AT A
+    TIME could never name one, so a question saying exactly what the graph
+    stores fell through to the paid path.
+
+    The uniqueness guarantee is unchanged, and the second half of this test is
+    the one that matters: a shorter run inside a longer one that also resolves
+    is NOT a second subject, or `find` would decline what it can settle."""
+    from lmm import link, lookup
+    s = island()
+    s.learn_cell("ser vivo", "tur", "canli", "#doc:corpus")
+    s.learn_cell("gato", "tur", "ser vivo", "#doc:corpus")
+    # `ser` is dropped by the content-word rule and `vivo` alone resolves to
+    # nothing, so this question named nothing at all before the runs existed.
+    got = lookup.find(s.memory, "ser vivo bir canli midir")
+    assert got is not None, "a two-word subject is still unnameable"
+    assert got.subject == link.resolve(s.memory, "ser vivo"), got
+    # the shorter naming does not compete with the longer one
+    s.learn_cell("vivo", "tur", "madde", "#doc:corpus")
+    again = lookup.find(s.memory, "ser vivo bir canli midir")
+    assert again is not None and again.subject == got.subject, again
+    # and a question that names ONLY the shorter node still reaches it
+    short = lookup.find(s.memory, "vivo bir madde midir")
+    assert short is not None, short
+    assert short.subject == link.resolve(s.memory, "vivo"), short
+
+
+@test("P1 the same question over an unmoved memory is not paid for twice")
+def p1():
+    """The second ask cannot reach the engine at all — `no_engine` makes that
+    an assertion rather than a claim about the code's shape — and it must
+    report itself exactly as the first one did, because it IS the first one."""
+    from lmm.api import Memory
+    front = Memory()
+    front.session = island()
+    first = front.ask("zerbalit renk nedir", explain=True)
+    assert first.kind == "ASK" and not first.wrote, first
+    assert front._cache, "nothing was kept"
+    # The answer path itself is counted, not only the engine: this question is
+    # graph-decidable, so an engine counter alone would pass whether the second
+    # turn was served from the cache or re-derived for free.
+    was, ran = front.session.respond, []
+    front.session.respond = lambda *a, **kw: ran.append(1) or was(*a, **kw)
+    restore, calls = no_engine()
+    try:
+        second = front.ask("zerbalit renk nedir", explain=True)
+    finally:
+        restore()
+        front.session.respond = was
+    assert not calls and not ran, "the answer was derived a second time"
+    assert str(second) == str(first), (first, second)
+    assert second.abstained == first.abstained
+    assert second.from_graph == first.from_graph
+    assert second.subject == first.subject and second.kind == first.kind
+    assert front.session.last_abstained == first.abstained
+    # and the switch is a switch
+    off = Memory(cache=False)
+    off.session = island()
+    off.ask("zerbalit renk nedir")
+    was, ran = off.session.respond, []
+    off.session.respond = lambda *a, **kw: ran.append(1) or was(*a, **kw)
+    try:
+        off.ask("zerbalit renk nedir")
+    finally:
+        off.session.respond = was
+    assert ran, "cache=False still served a kept answer"
+    assert off._cache is None
+
+
+@test("P2 a memory that moved does not repeat its old answer")
+def p2():
+    """A STALE ANSWER IS WORSE THAN AN EXPENSIVE ONE, so the fingerprint has to
+    move for every mutation the graph has — not just for a new record. Trust
+    moving under a record that is already there is the case a record COUNT
+    misses, and it is the case that changes whether an answer is hedged."""
+    from lmm.api import Memory
+    from lmm.core import dynamics
+    front = Memory()
+    front.session = island()
+    question = "zerbalit renk nedir"
+    front.ask(question)
+    stamp = front._state()
+    assert front._cache, "nothing was kept"
+    # a new fact under a different subject: the count moves
+    front.session.learn_cell("karvel", "tur", "balik", "#doc:corpus")
+    assert front._state() != stamp
+    stamp = front._state()
+    # trust alone moves, with no record added and none removed
+    record = next(iter(front.session.memory.records.values()))
+    before = record.trust
+    dynamics.fade(front.session.memory, record,
+                  now=record.last_seen + dynamics.FRESH + 1)
+    if record.trust != before:              # fade declines to touch some records
+        assert front._state() != stamp, "a trust change left the state stamp still"
+    # and the kept answer is not served under the new state
+    restore, calls = no_engine()
+    try:
+        front.ask(question)
+    finally:
+        restore()
+    # the question is graph-decidable, so no engine call is expected — what is
+    # asserted is that the answer was RE-DERIVED under a state the cache had
+    # never seen, which the entry's key proves.
+    assert not calls
+    assert all(kept[0] == front._state() for kept in front._cache.values())
 
 
 def main():
