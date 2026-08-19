@@ -63,13 +63,6 @@ def _direct_lookup():
     return os.environ.get("LMM_DIRECT_LOOKUP", "1") != "0"
 
 
-def _cell_evidence():
-    """Does a table cell get an evidence unit of its own — `LMM_CELL_EVIDENCE`
-    = 1 (default) | 0. The A/B arm for the row-column binding described in
-    `learn_rows`; measured in `benchmarks/COST.md` §8.4."""
-    return (os.environ.get("LMM_CELL_EVIDENCE") or "1").strip() != "0"
-
-
 def _doc_triples():
     """May a triple that came from a DOCUMENT stand in the answer block beside
     the evidence — `LMM_DOC_TRIPLES` = 0 (default) | structural | 1.
@@ -955,18 +948,6 @@ class Session:
             if rich and len(rich[1].split()) >= 2:
                 self.memory.identify(fold(rich[1]), same_as=sk)
             for col, val in cells[1:]:
-                # ONE EVIDENCE UNIT PER CELL, carrying BOTH the row's name and
-                # the column's. The row sentence above holds the whole row, so
-                # a question naming a row and a column matched it — and so did
-                # the flattened page the same table was rendered into, in which
-                # the columns arrive out of reading order (the measured NIST
-                # Table 4-1 failure, REPORT.md §3: the window holding
-                # `Reauthentication` held AAL2's `12 hours` and not AAL1's `30
-                # days`). A unit that carries exactly one row-column binding
-                # can win against that neighbour on its own words. Formatting a
-                # cell is not a language rule; nothing here reads the text.
-                if col and _cell_evidence():
-                    self.evidence.add(f"{anchor} · {col}: {val}", source)
                 wrote += self.learn_cell(anchor, col, val, source)
         self._bulk = prev_bulk
         if wrote:
