@@ -582,7 +582,7 @@ path, one ingestion per arm:
 | census | before | 9 | 1 | 0 | 6 | 2.7 |
 | census | **row name (shipped)** | **10** | 0 | **0** | **7** | **2.0** |
 | census | row name + cell units | 10 | 0 | 0 | 7 | 2.0 |
-| census | row name + header block | 6 | 2 | **2** | 3 | 4.4 |
+| census | row name + cell units + header block | 6 | 2 | **2** | 3 | 4.4 |
 | nist | before | 10 | 0 | 0 | 0 | 8.0 |
 | nist | row name (shipped) | 10 | 0 | 0 | 0 | 8.0 |
 | nist | row name + cell units | 10 | 0 | 0 | 0 | 8.0 |
