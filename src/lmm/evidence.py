@@ -939,14 +939,15 @@ class SentenceStore:
         # block's CONTENT changes: the seats are still filled with
         # `self.sentences`, which is the document.
         if self.expand_index and _expansion_on():
-            guessed, _named = self._score_over(qwords, self.expand_index, {})
+            guessed, _named = self._score_over(qwords, self.expand_index, {},
+                                               weigh=self.index)
             for sid, sc in guessed.items():
                 scores[sid] = scores.get(sid, 0.0) + sc / CHANNEL
         if not scores:
             return []
         return self._seats(qwords, scores, named, most)
 
-    def _score_over(self, qwords, index, keys):
+    def _score_over(self, qwords, index, keys, weigh=None):
         """The lexical scoring, over ONE index — {sid: score}, and the sentences
         where a query word is the FIELD NAME.
 
@@ -954,7 +955,20 @@ class SentenceStore:
         SAME rule as the document's own words rather than by a second, quietly
         different one. `keys` is the field-name index for this channel; the
         expansion channel has none (a guessed question names no record's slot),
-        and passes an empty mapping."""
+        and passes an empty mapping.
+
+        `weigh` is a second index consulted for the IDF DENOMINATOR only, and
+        it exists because rarity measured inside the expansion index is a lie
+        about the document. The expansion index is sparse by construction — a
+        few queries per line, and only the words the line does not already
+        carry — so a word the document uses on forty lines, appearing in ONE
+        generated query, comes out of an expansion-only count looking as
+        informative as a word that occurs once in the whole text. It would then
+        outweigh several real matches, on the strength of a rarity it does not
+        have. Counting the postings of BOTH channels answers the question IDF
+        is actually asking — how much does this word narrow THIS DOCUMENT down
+        — and leaves a genuinely unseen word (`spire`, which the document never
+        writes) at its full weight, because that word really is that rare."""
         # IDF: frequent words count little, rare words a lot ("screen" occurs
         # hundreds of times in a manual — it was pushing the spec line behind
         # the UI sentences). A universal information-theory weight; not a
@@ -1024,7 +1038,11 @@ class SentenceStore:
             union = set()
             for ids in cand.values():
                 union |= ids
-            weight = math.log(1 + total / len(union))
+            seen = set(union)
+            if weigh is not None:
+                for w in cand:
+                    seen |= weigh.get(w, set())
+            weight = math.log(1 + total / len(seen))
             keyed = set()
             for w, ids in cand.items():
                 keyed |= ids & keys.get(w, set())
