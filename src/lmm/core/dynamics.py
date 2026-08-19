@@ -46,16 +46,6 @@ FLOOR = 0.1
 FRESH = 3600.0
 
 
-def reinforce(memory, record, source, level=None):
-    """Another source also stated the same fact — a share of the doubt closes.
-
-    Not additive: in the old memory, when it was additive, the fourth
-    document pierced the ceiling. Each witness closes a fixed share of the
-    remaining doubt; the ceiling is approached but never reached.
-    """
-    return record.strengthen(source, level)   # protection and math in one place
-
-
 def settle(memory, record):
     """Promotes an episodic record to semantic — if there are enough witnesses.
 
