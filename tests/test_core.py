@@ -2844,6 +2844,50 @@ def x4():
     assert not plain.find("spire", most=4)
 
 
+@test("W1 a question that names a document gets that document's sentences")
+def w1():
+    """THE SOURCE-NAME CHANNEL, and the corpus class it was measured on: many
+    sibling documents sharing one template. Asked for one programme BY NAME,
+    `find` returned sentences from the siblings — the name's words scored as
+    ordinary query words, and the words every sibling shares separate nothing.
+
+    The channel weighs a query word by its power to separate SOURCES,
+    log(S/s): a word in one source name of many is decisive, a word in every
+    source name weighs exactly zero. That zero is asserted below twice,
+    because it is what makes the channel safe: it is inert on a single
+    document (every benchmark before this one), and inert for the genre words
+    a corpus's names all share."""
+    from lmm import evidence
+    st = evidence.SentenceStore()
+    # the failing class: the document's NAME never appears in its body
+    st.add("The morning block covers goal setting and priorities.",
+           "#docx:Alpha Programme.docx")
+    st.add("The morning block covers goal setting and reviews.",
+           "#docx:Beta Programme.docx")
+    hits = st.find("what does the alpha morning block cover", most=1)
+    assert hits and "priorities" in hits[0], hits
+    hits = st.find("what does the beta morning block cover", most=1)
+    assert hits and "reviews" in hits[0], hits
+    # a name word EVERY source carries separates nothing and moves nothing:
+    # the query with it retrieves byte for byte what the query without it
+    # retrieves (near-identical siblings may collapse to one seat — that is
+    # the region dedup, older than this channel, and not its business)
+    assert (st.find("what does the programme morning block cover", most=2)
+            == st.find("what does the morning block cover", most=2))
+    # single-source store: the channel vanishes entirely (weight log(1) = 0),
+    # so retrieval is what it was before the channel existed
+    one = evidence.SentenceStore()
+    one.add("The morning block covers goal setting and priorities.",
+            "#docx:Alpha Programme.docx")
+    one.add("Lunch is at noon.", "#docx:Alpha Programme.docx")
+    assert one.find("what does the alpha morning block cover",
+                    most=1)[0].startswith("The morning block")
+    # and a name match ALONE is not evidence: a sentence sharing no content
+    # word with the question is not seated by its document's name
+    assert not st.find("alpha", most=4) or all(
+        "morning" in h or "goal" in h for h in st.find("alpha", most=4))
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
