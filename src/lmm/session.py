@@ -954,6 +954,17 @@ class Session:
         ALIAS of the row node so a question can find it by its natural name
         ("yangın ekipmanı tespiti..."). rows: [{column: value}]."""
         wrote = 0
+        rows = list(rows)
+        # HOW OFTEN THE TABLE SAYS EACH VALUE. A name belongs to one row; a
+        # value that the sheet repeats belongs to none of them. This count is
+        # what separates the two, and it is the table counting itself — no
+        # column is named here and no document is read.
+        seen = {}
+        for row in rows:
+            for value in row.values():
+                key = fold(str(value).strip())
+                if key:
+                    seen[key] = seen.get(key, 0) + 1
         prev_bulk = getattr(self, "_bulk", False)
         self._bulk = True       # no per-cell engine calls (see _are_rivals)
         for row in rows:
@@ -993,7 +1004,17 @@ class Session:
             # or a status word ("NEW", "2026-03-01") is not what anyone would
             # call the row by, while "yangın ekipmanı tespiti" is. Word count
             # says that without measuring any document.
-            if rich and len(rich[1].split()) >= 2:
+            #
+            # AND IT HAS TO BE THIS ROW'S ALONE. Word count is not enough on a
+            # sheet whose columns hold other entities: with a `supplier` column
+            # reading "Delta AS" the rule aliased that supplier onto the FIRST
+            # row that named it, so `about("delta as")` came back with Acme's
+            # facts — and the row whose own company was Delta AS could no
+            # longer be reached at all. Fusing two identities is the one
+            # mistake the memory cannot undo later, so the alias is only taken
+            # when the whole table says it once.
+            if (rich and len(rich[1].split()) >= 2
+                    and seen.get(fold(rich[1]), 0) == 1):
                 self.memory.identify(fold(rich[1]), same_as=sk)
             for col, val in cells[1:]:
                 wrote += self.learn_cell(anchor, col, val, source)
