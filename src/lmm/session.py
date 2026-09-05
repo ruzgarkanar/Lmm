@@ -435,13 +435,30 @@ class Session:
             # such token must be in the tally or the question; the plain
             # words in between are the engine doing its one job, phrasing.
             if offered and evidence.digits_ok(offered, census_line):
-                tally_words = set(evidence._words(census_line))
-                allowed = (tally_words | set(evidence._words(message))
-                           | set(evidence._words("\n".join(lines))))
+                # ACCENT-BLIND ON BOTH SIDES, locally. The engine writes
+                # "Zeka" where the document writes "Zekâ", and the core fold
+                # normalises NFC before stripping combining marks — which
+                # strips nothing, the same defect the benchmark scorer's
+                # fold carried until this morning. Repairing core fold
+                # re-keys every identity in every saved graph and is a
+                # measured migration, not a rider on this gate (ledgered);
+                # here both sides pass through one NFD-stripping normaliser,
+                # so they cannot disagree.
+                def _plain(text):
+                    import unicodedata                     # noqa: PLC0415
+                    return "".join(
+                        ch for ch in unicodedata.normalize("NFD", text)
+                        if not unicodedata.combining(ch))
+                tally_words = {_plain(w)
+                               for w in evidence._words(census_line)}
+                allowed = (tally_words
+                           | {_plain(w) for w in evidence._words(message)}
+                           | {_plain(w) for w in evidence._words(
+                                 "\n".join(lines))})
                 sound, names_spoken = True, 0
                 for m in re.finditer(r"\w+", offered, re.UNICODE):
                     token = m.group()
-                    folded = fold(token)
+                    folded = _plain(fold(token))
                     # CREDIT reads every position: a tally name counts
                     # wherever it stands — offers habitually OPEN with the
                     # name, and the first cut's sentence-start exemption
