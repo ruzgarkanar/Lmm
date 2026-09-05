@@ -224,6 +224,14 @@ def digits_ok(answer, block):
     this condition is non-negotiable — not even the engine-support check
     (generate.supported) can RESCUE a digit violation (a changed number =
     fabrication, period)."""
+    # AN ORDINAL LIST MARKER IS FORMAT, NOT A QUANTITY. Measured on a live
+    # catalogue: the engine numbered its sections — the one structural act
+    # the compose contract grants it — and this gate killed sections 1 and
+    # 2 while 3 survived on the accident of a "3 hours" in the brief. The
+    # exemption is the digit twin of the name gate's sentence-start rule
+    # and just as narrow: one or two digits OPENING a line, closed by a dot
+    # or bracket. Every other digit still answers for itself.
+    answer = re.sub(r"(?m)^\s*\d{1,2}[.)]\s+", "", answer)
     bt = _tokens(block)
     bigrams = set(zip(bt, bt[1:]))
     block_digits = {t for t in bt if t.isdigit()}

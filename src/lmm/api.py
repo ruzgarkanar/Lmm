@@ -266,11 +266,14 @@ class Memory:
     """
 
     def __init__(self, path=None, who="#operator", mode="STRICT", cache=True,
-                 persona=""):
+                 persona="",
+                 warmth=None, reply_tokens=None, style=""):
         # `persona` colours the voice of every spoken turn — greeting style,
         # tone, when to ask a clarifying question — and can never loosen the
         # gates, which read the output rather than any prompt.
-        self.session = Session(path, who=who, mode=mode, persona=persona)
+        self.session = Session(path, who=who, mode=mode, persona=persona,
+                               warmth=warmth, reply_tokens=reply_tokens,
+                               style=style)
         # THE SAME QUESTION, ASKED AGAIN, OVER A MEMORY THAT HAS NOT MOVED. The
         # answer cannot have changed, and re-deriving it costs the full 5.5
         # model calls a question costs (`benchmarks/COST.md` §2). `cache=False`
@@ -602,7 +605,7 @@ class Memory:
         return [(_source_name(src), n)
                 for src, n in self.session.evidence.where(term)]
 
-    def compose(self, brief, seats=24, topics=None):
+    def compose(self, brief, seats=24, topics=None, on_line=None):
         """A structured draft from the memory — blend, but never invent.
 
         `ask` answers a question in a sentence; this builds a DOCUMENT: a
@@ -614,7 +617,8 @@ class Memory:
 
         Returns (text, sources). An empty store, or a brief the memory holds
         nothing about, refuses rather than improvising."""
-        return self.session.compose(brief, seats=seats, topics=topics)
+        return self.session.compose(brief, seats=seats, topics=topics,
+                                    on_line=on_line)
 
     def save(self, path=None):
         """Persist the graph and the evidence index. A path given here becomes

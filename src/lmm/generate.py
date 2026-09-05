@@ -45,28 +45,44 @@ def _voiced(system, persona):
         else system
 
 
-def answer(question, facts_block, warmth=0.2, persona=""):
+def answer(question, facts_block, warmth=0.2, persona="", max_tokens=None):
     """Answer the question fluently, using only the given facts. If there is no
     fact, the model is steered to say 'I don't know' (system prompt)."""
     return runtime.generate(answer_prompt(question, facts_block),
                             system=_voiced(prompts.ANSWER_SYSTEM, persona),
-                            max_tokens=200, temperature=warmth)
+                            max_tokens=max_tokens or 200, temperature=warmth)
 
 
-def compose(brief, material_block, warmth=0.2, persona=""):
+def compose(brief, material_block, warmth=0.2, persona="", max_tokens=None,
+            style=""):
     """Draft a long-form document from labelled material — the long-form
     counterpart of `answer`, under the same contract: the engine phrases, it
     does not know. The token budget is the one thing that differs, because a
     draft is not a sentence; the verification that makes the budget safe to
     raise lives in the caller (`Session.compose`), which re-reads the draft
     line by line against this same material."""
+    fmt = f"\n\nFORMAT (the operator's sheet \u2014 follow it):\n{style}" \
+        if style else ""
     return runtime.generate(
-        f"REQUEST:\n{brief}\n\nMATERIAL:\n{material_block}",
+        f"REQUEST:\n{brief}{fmt}\n\nMATERIAL:\n{material_block}",
         system=_voiced(prompts.COMPOSE_SYSTEM, persona),
-        max_tokens=900, temperature=warmth)
+        max_tokens=max_tokens or 900, temperature=warmth)
 
 
-def chat(message, identity_block="", warmth=0.7, history=None, persona=""):
+def compose_stream(brief, material_block, warmth=0.2, persona="",
+                   max_tokens=None, style=""):
+    """`compose` as a stream of chunks — same prompt, same contract; the
+    caller (Session.compose) judges each completed line as it arrives."""
+    fmt = f"\n\nFORMAT (the operator's sheet \u2014 follow it):\n{style}" \
+        if style else ""
+    yield from runtime.generate_stream(
+        f"REQUEST:\n{brief}{fmt}\n\nMATERIAL:\n{material_block}",
+        system=_voiced(prompts.COMPOSE_SYSTEM, persona),
+        max_tokens=max_tokens or 900, temperature=warmth)
+
+
+def chat(message, identity_block="", warmth=0.7, history=None, persona="",
+         max_tokens=None):
     """Chat reply (greeting, thanks, small talk). If it carries a fact claim,
     verify filters it — so speak naturally, but a fabricated fact still drops at
     the exit.
@@ -98,7 +114,7 @@ def chat(message, identity_block="", warmth=0.7, history=None, persona=""):
     messages = list(history or [])
     messages.append({"role": "user", "content": message})
     return runtime.generate(messages, system=system,
-                            max_tokens=120, temperature=warmth)
+                            max_tokens=max_tokens or 120, temperature=warmth)
 
 
 def are_rivals(a, b):
@@ -299,6 +315,42 @@ def is_identity_question(message):
     return "yes" in out.strip().lower()
 
 
+def wants_material(message):
+    """Is the message asking the responder to PRODUCE a deliverable NOW — a
+    plan, programme, draft, catalogue, recommendation — rather than sharing
+    context, asking about a fact, or making small talk? Language-independent,
+    few-shot on both sides of the boundary (the is_identity_question
+    pattern). Called only on abstained consultation turns — one tiny call,
+    exactly where the conversation would otherwise end in a shrug."""
+    system = ("Classify if the message asks the responder to PRODUCE or "
+              "DELIVER content now (a plan, programme, draft, catalogue, "
+              "proposal, recommendation). Sharing context, factual "
+              "questions, greetings and thanks are NO. Output ONLY yes/no.\n"
+              "give me your best three-hour plan -> yes\n"
+              "put together a programme for my team -> yes\n"
+              "you decide everything, I don't know -> yes\n"
+              "stell mir bitte einen Katalog zusammen -> yes\n"
+              "prepara una propuesta para nosotros -> yes\n"
+              "bana uygun bir eğitim öner -> yes\n"
+              # the boundary, measured live: an OFFER OF HELP and a BRAKE
+              # both wear request grammar and are not orders to produce —
+              # "can you help us" opened a catalogue, and "wait, you
+              # suggested too fast" opened ANOTHER one.
+              "we want to run trainings, can you help us -> no\n"
+              "bize yardımcı olur musun -> no\n"
+              "wait, hold on \u2014 I did not ask for anything yet -> no\n"
+              "dur biraz, hemen önerme -> no\n"
+              "un momento, espera un poco -> no\n"
+              "we are in banking, my team is ten people -> no\n"
+              "what is the duration of the Alpha module -> no\n"
+              "wie lange dauert das Training -> no\n"
+              "risk is our main focus -> no\n"
+              "thanks, that helps -> no\nmerhaba -> no\nhola -> no")
+    out = runtime.generate(message, system=system, max_tokens=3,
+                           temperature=0.0)
+    return "yes" in out.strip().lower()
+
+
 def identity_answer(question, name, id_block):
     """Answers the identity question FROM THE GRAPH. The bridge is built in
     ROUTE (subject=self); here the instruction gives the model its NAME ('name',
@@ -336,14 +388,14 @@ def offer_research(subject, message):
     return runtime.generate(message, system=system, max_tokens=40, temperature=0.3)
 
 
-def refusal(message, persona=""):
+def refusal(message, persona="", warmth=0.3, max_tokens=None):
     """In the user's language: 'I don't have this information'. No fabrication, short."""
     system = (_MATCH_LANGUAGE +
               "The user asked about something that is NOT in your memory. Reply "
               "briefly and honestly, saying you don't have that information yet. "
               "Do NOT invent any fact. One short sentence.")
     return runtime.generate(message, system=_voiced(system, persona),
-                            max_tokens=50, temperature=0.3)
+                            max_tokens=max_tokens or 50, temperature=warmth)
 
 
 def confirm(learned, conflicts, message):

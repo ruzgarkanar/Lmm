@@ -22,8 +22,8 @@ from lmm.core.dataset import bare, fold
 from lmm.core.gate import Gate
 from lmm.core.memory import Memory, OPERATOR, STRANGER, DOCUMENT
 from lmm.core.transitive import Transitivity
-from lmm import (evidence, extract, generate, inflect, link, lookup, research, retrieve,
-                 verify)
+from lmm import (evidence, extract, generate, inflect, link, lookup,
+                 research, retrieve, runtime, verify)
 
 SLEEP_EVERY = 50   # sleep every N turns (distill/fade/adjudicate) — v3 §117
 
@@ -83,9 +83,15 @@ class Session:
     # class-level default, so a Session built without __init__ (tests use
     # __new__ to skip the heavy constructor) still has a voice — an empty one
     persona = ""
+    _no_teach = False
+    _brief = ()
+    voice_warmth = None
+    voice_tokens = None
+    style = ""
+    _composed = False
 
     def __init__(self, path=None, who="#operator", mode="STRICT",
-                 persona=""):
+                 persona="", warmth=None, reply_tokens=None, style=""):
         # THE OPERATOR'S VOICE — tone, greeting style, when to ask a
         # clarifying question. It rides in front of the PHRASING prompts only
         # (generate._voiced): the gates read the output, never the prompt, so
@@ -93,6 +99,19 @@ class Session:
         # the invariant test (W11) orders a fabrication through it and
         # watches the turn refuse anyway.
         self.persona = persona or ""
+        # THE VOICE KNOBS — they travel exactly where the persona travels
+        # (chat, answer, refusal, compose) and nowhere else: a judge whose
+        # thermostat the caller can turn is not a judge. Unset = the
+        # measured defaults, byte for byte.
+        self.voice_warmth = warmth
+        self.voice_tokens = reply_tokens
+        # THE OPERATOR'S FORMAT SHEET — the persona's mirror twin. The
+        # persona is the voice and stops at the document's edge; the style
+        # is the document's shape (sections, headings, ordering) and
+        # travels ONLY to the composer's request. Its words are
+        # operator-attested the way the brief's are; the material still
+        # owns every fact beneath them.
+        self.style = style or ""
         self.path = path
         self.memory = (Memory.load(path) if path and os.path.exists(path)
                        else Memory())
@@ -118,6 +137,16 @@ class Session:
         # phrases in one language — see `_refuse`.
         self.last_abstained = False
         self.last_kind = ""     # extract's classification: WRITE / ASK / CHAT
+        # THE CONSULTATION'S LEDGER — the topic terms of a no-teach
+        # conversation, harvested from the extractor's triples turn by turn.
+        # Raw sentences were tried first and measured wrong: conversational
+        # words ("you", "actually", "for me") are RARE in formal documents,
+        # so the seat weighting read them as discriminative and handed the
+        # catalogue to whichever document happens to quote its reader — the
+        # third member of the IDF-inversion family. The extractor is the
+        # organ whose one job is "what does this sentence talk about", and
+        # it is already called on every turn; its terms are the brief.
+        self._brief = []
         self.last_subject = ""  # the subject label the turn was about, if any
         self.last_from_graph = False   # the turn was answered by `lookup` —
         # straight out of the graph, with no model call anywhere in it
@@ -280,7 +309,8 @@ class Session:
         # is internal prompt structure, not output language.
         block = "\n".join(f"[{i}] CAUSE: {c}  EFFECT: {e}"
                           for i, (c, e) in enumerate(edges, 1))
-        raw = generate.answer(message, block, persona=self.persona)
+        raw = generate.answer(message, block,
+                              **self._voice(persona=self.persona))
         # WORD-COVERAGE gate (benchmark finding): a causal sentence doesn't fit
         # the is-a pattern — reextract mistook "yağarsa" for a value and dropped
         # a CORRECT answer. Principle: if ALL of the answer's content-words come
@@ -354,7 +384,16 @@ class Session:
             frontier = nxt
         return chain            # [(cause, effect)] edges — root→leaf chain
 
-    def respond(self, message, fluent=False, teach=True):
+    def _voice(self, **base):
+        """The caller's voice settings, laid over a surface's defaults —
+        only the knobs the caller actually set."""
+        if self.voice_warmth is not None:
+            base["warmth"] = self.voice_warmth
+        if self.voice_tokens is not None:
+            base["max_tokens"] = self.voice_tokens
+        return base
+
+    def respond(self, message, fluent=False, teach=True, on_line=None):
         """Answer one message + update the CONVERSATION CONTEXT. The real logic
         is in _respond; this wrapper keeps the last N turns in `history`
         (conversation continuity). `last_written`: the triples the GATE
@@ -371,6 +410,12 @@ class Session:
         self.last_written = []
         self.last_abstained = False
         self.last_kind = ""
+        # which CONTRACT this turn runs under, readable by the organs below:
+        # a conversation that may not teach is a CONSULTATION, and two of
+        # its behaviours (the search reading prior turns, the composer
+        # bridge) exist only there — the teaching surface and the
+        # benchmarks keep their single-turn semantics byte for byte.
+        self._no_teach = not teach
         # what the CONVERSATION was about a turn ago — kept before the reset,
         # for the follow-up whose own words name no subject (see the
         # retrieval call)
@@ -379,8 +424,22 @@ class Session:
         self.last_from_graph = False
         self._mark = ""
         self._last_proof = []
+        # the tally too — it is written by retrieval, and a turn that never
+        # retrieves (chat, context statements) must not inherit the previous
+        # turn's census, or the informed refusal would answer small talk
+        # with a document count.
+        self._census_line = ""
+        self._spec_wants = None
+        self._spec_chat = None
+        self._composed = False
+        self._on_line = on_line
         said = self._respond(message, fluent=fluent, teach=teach)
-        if said and not self.last_abstained and not self.last_from_graph:
+        if said and not self.last_abstained and not self.last_from_graph \
+                and not self._composed:
+            # (a composed delivery is exempt the way a graph answer is: every
+            # line of it was admitted by the composer's gate, so it ASSERTS by
+            # construction — re-reading it would put a model call back into a
+            # path that already proved itself)
             # A GRAPH ANSWER NEEDS NO READING BACK. The re-extractor below is
             # asked "did this turn assert anything", and it is a MODEL CALL —
             # on the graph path the answer is a record the graph holds, so the
@@ -413,6 +472,42 @@ class Session:
         # (refused + tally in hand), not any reading of the question's
         # wording — which is what lets "what would you recommend" get a
         # useful, sourced reply without anyone classifying intent.
+        # THE COMPOSER BRIDGE. The store can HOLD the very catalogue the
+        # user is asking for while the refusal speaks — measured, live:
+        # "you decide everything, give me the material" ended in a shrug
+        # with compose() sitting unreachable behind a command prefix. The
+        # bridge is a STATE in the informed-refusal family: a CONSULTATION
+        # turn (teach=False) that ended in abstention, with prior turns in
+        # hand, asks the engine one cheap structured question — is this
+        # turn asking me to PRODUCE something? — and on yes the composer
+        # runs over the whole consultation as its brief. The draft passes
+        # the composer's own gate as always; when the composer refuses,
+        # this turn falls back to the paths below unchanged. A teaching
+        # turn never asks the question, so the benchmarks cannot pay a
+        # call for a bridge they never cross.
+        if (said and self.last_abstained and self._no_teach
+                and not self.last_from_graph
+                and any(h.get("role") == "user" for h in self.history)):
+            wants = False
+            try:
+                spec_wants = getattr(self, "_spec_wants", None)
+                wants = (bool(spec_wants.result()) if spec_wants is not None
+                         else generate.wants_material(message))
+            except Exception:                           # noqa: BLE001
+                pass
+            if wants:
+                brief = " ".join([h["content"] for h in self.history
+                                  if h.get("role") == "user"] + [message])
+                try:
+                    text, sources = self.compose(
+                        brief, topics=list(self._brief) or None,
+                        on_line=getattr(self, "_on_line", None))
+                except Exception:                       # noqa: BLE001
+                    text, sources = "", []
+                if text and sources:
+                    said = text
+                    self.last_abstained = False
+                    self._composed = True
         census_line = getattr(self, "_census_line", "")
         if (said and self.last_abstained and census_line
                 and not self.last_from_graph):
@@ -505,6 +600,23 @@ class Session:
         # asserted anything — the same organ the fabrication gate trusts — and
         # an abstention leaves this method byte-for-byte as the answer path
         # produced it.
+        # THE CONVERSATION IS THE FALLBACK, NOT THE SHRUG. Measured with
+        # the wager's receipts in hand: the answering chain abstained (its
+        # candidates died at the gate wearing an unattested persona
+        # introduction) and the turn ended in a bare refusal — while the
+        # wagered chat reply, already written and already through its own
+        # reading, said exactly the right thing and had been discarded on
+        # a classifier's verdict. In a consultation, when delivery and the
+        # informed refusal have both declined, that reply speaks; the bare
+        # refusal remains for surfaces that have no conversation.
+        if (said and self.last_abstained and self._no_teach
+                and getattr(self, "_spec_chat", None) is not None):
+            try:
+                voiced = self._chat(message, self._spec_chat)
+            except Exception:                           # noqa: BLE001
+                voiced = ""
+            if voiced:
+                said = voiced
         if said and self._mark and not self.last_abstained:
             said = f"{said} ({UNCERTAIN} {self._mark})"
         if message and message.strip():
@@ -563,9 +675,12 @@ class Session:
                                                 text.strip())
                        if sentence.strip())
         try:
-            for sentence in re.split(r"(?<=[.!?])\s+", text.strip()):
-                if sentence.strip() and extract.reextract(sentence):
-                    return True
+            sentences = [x for x in re.split(r"(?<=[.!?])\s+", text.strip())
+                         if x.strip()]
+            # independent reads go side by side where the backend allows —
+            # and the memo on reextract means sentences the gate already
+            # read this turn cost nothing here
+            return any(runtime.parallel_map(extract.reextract, sentences))
         except Exception:                                   # noqa: BLE001
             return True
         return False
@@ -587,7 +702,8 @@ class Session:
         moves: this method only records what the code was already doing.
         """
         self.last_abstained = True
-        return (generate.refusal(message, persona=self.persona)
+        return (generate.refusal(message,
+                                 **self._voice(persona=self.persona))
                 or FALLBACK_DONT_KNOW)
 
     def _graph_answer(self, record, message):
@@ -671,8 +787,39 @@ class Session:
             if held is not None:
                 return self._graph_answer(held, message)
         try:
+            # THE WAGER: on the consultation surface most turns end at the
+            # chat voice, so the voice starts speaking WHILE the router
+            # classifies — both calls leave together where the backend can
+            # carry them, and the router's verdict decides whether the
+            # prepared reply is used (CHAT, and the context statements) or
+            # quietly dropped (a question takes the answer path as always).
+            # One small discarded call on consultation question turns; a
+            # teaching turn — the benchmarks — never places the bet.
+            spec = None
+            spec_wants = None
+            if self._no_teach and runtime.parallel_ok():
+                from concurrent.futures import ThreadPoolExecutor
+                pool = ThreadPoolExecutor(max_workers=2)
+                spec = pool.submit(self._chat_raw, message)
+                self._spec_chat = spec
+                # the delivery question rides out beside the router too —
+                # measured with the stream clock, asking it LAST put the
+                # catalogue's first line at second 13 of an 18-second turn
+                spec_wants = pool.submit(generate.wants_material, message)
+                pool.shutdown(wait=False)
+            self._spec_wants = spec_wants
             op = extract.extract(message)
             self.last_kind = op.get("kind") or ""
+            if self._no_teach and op.get("triples"):
+                if not isinstance(self._brief, list):   # __new__-built
+                    self._brief = list(self._brief)
+                for t in op["triples"]:
+                    for term in (t[0], t[2] if len(t) > 2 else ""):
+                        term = (term or "").strip()
+                        if term and term.lower() not in (
+                                x.lower() for x in self._brief):
+                            self._brief.append(term)
+                self._brief = self._brief[-12:]         # recency window
             # RESEARCH APPROVAL (architecture — content decides): if last turn
             # offered "shall I research?", is this message NEW CONTENT
             # (teaching/question) or a pure affirmation — EXTRACT tells. New
@@ -713,6 +860,46 @@ class Session:
                 # e.g. "X nedir" wrongly came as WRITE): instead of
                 # fabricating, treat it like a QUESTION → retrieve/refuse.
                 # Falls through.
+            if not teach and op["kind"] == extract.WRITE:
+                # AND THE MIRROR RULE, measured in the field: in a
+                # conversation that may NOT teach, a statement is neither a
+                # lesson nor a query — it is CONTEXT. "I am in banking and my
+                # team is ten people" was classified WRITE (correctly), the
+                # write was skipped (correctly), and the turn then fell into
+                # the QUESTION treatment: retrieval found nothing to a
+                # sentence that asked nothing, and the refusal spoke — with
+                # the persona's greeting leaking into it. Three correct
+                # mechanisms, one uncovered seam. The chat surface carries
+                # the history and the persona; the sentence lands there and
+                # the conversation simply continues. Nothing written, nothing
+                # refused.
+                return self._chat(message, spec)
+            # A DELIVERY REQUEST GOES STRAIGHT TO THE COMPOSER. When the
+            # wagered verdict is already in hand and says YES, the turn
+            # routes to the organ built for deliverables before the
+            # answering chain ever starts; the composer's own refusal is
+            # the fallback that keeps the old path whole. Without the
+            # wager (a backend that cannot parallelise) the tail bridge
+            # below still catches the same state, as before.
+            if spec_wants is not None and self._brief:
+                try:
+                    early_wants = bool(spec_wants.result())
+                except Exception:                       # noqa: BLE001
+                    early_wants = False
+                if early_wants:
+                    brief = " ".join(
+                        [h["content"] for h in self.history
+                         if h.get("role") == "user"] + [message])
+                    try:
+                        text, sources = self.compose(
+                            brief, topics=list(self._brief) or None,
+                            on_line=getattr(self, "_on_line", None))
+                    except Exception:                   # noqa: BLE001
+                        text, sources = "", []
+                    if text and sources:
+                        self.last_abstained = False
+                        self._composed = True
+                        return text
             subject = op["triples"][0][0] if op["triples"] else None
             self.last_subject = subject or ""
             subject_key = (link.resolve(self.memory, subject, self.vectors)
@@ -747,7 +934,7 @@ class Session:
                     # retrieval path still gets its turn (see _causal_answer)
             if op["kind"] in (extract.WRITE, extract.ASK):
                 return self._answer(message, subject)
-            return self._chat(message)
+            return self._chat(message, spec)
         except Exception:                                   # noqa: BLE001
             # A crashed turn says nothing, which is an abstention like any
             # other — and the flag has to say so, or a benchmark would read
@@ -1085,7 +1272,7 @@ class Session:
         return len(pending), kept
 
     # --- long-form composition (evidence -> draft, gate per line) -------
-    def compose(self, brief, seats=24, topics=None):
+    def compose(self, brief, seats=24, topics=None, on_line=None):
         """A structured draft built from the evidence — the long-form answer.
 
         The short path proved the rule; this is the same rule at document
@@ -1116,8 +1303,14 @@ class Session:
         # store). Topics are the CALLER's — an application knows what its
         # user asked for; the library guesses no wording.
         found, origins = [], []
-        queries = ([f"{topic} {brief}" for topic in topics]
-                   if topics else [brief])
+        # THE TOPIC IS THE WHOLE QUERY. The first cut appended the brief
+        # to every per-topic search — and measured on a 61-document store,
+        # every such query converged on the same generic winners, because
+        # the brief's words re-ran the seat race the per-topic split exists
+        # to prevent. "risk management" alone finds the risk document;
+        # "risk management" plus the brief finds whatever the brief's
+        # commonest words find. Dedicated seats need dedicated queries.
+        queries = (list(topics) if topics else [brief])
         share = max(4, seats // len(queries))
         for query in queries:
             for text, src in zip(
@@ -1173,43 +1366,40 @@ class Session:
         # nine-turn conversation ended in a title over thirteen sources and
         # no content. The voice colours the turns; the draft speaks in the
         # material's words.
-        draft = (generate.compose(brief, material) or "").strip()
-        if not draft:
-            return self._refuse(brief), []
-        # THE GATE, SECOND FORM: NAMES AND NUMBERS MAY NOT BE INVENTED;
-        # EVERYTHING ELSE MAY BE PHRASED FREELY. The first form was the
-        # mixture test — coverage 0 or 1 per line — and against a real
-        # catalogue request it returned raw evidence dumps, because every
-        # fluent rephrasing mixes connectives the material does not carry.
-        # The informed refusal's offer gate had already solved this exact
-        # problem: the dangerous tokens have a SHAPE — capitals off the
-        # sentence start, digits — the same format cue the benchmark scorer
-        # reads, and each must be attested by the material or the brief. The
-        # plain words between them are the engine doing its one job.
-        #
-        # The stated residue: an invented lowercase quality ("certified",
-        # uncapitalised) can pass. Names, designations and every number
-        # cannot, and the digit discipline keeps its bigram-neighbour form
-        # (digits_ok), which the shape test alone would weaken. Both sides
-        # of the token comparison pass one NFD-stripping normaliser, for the
-        # accent defect the core fold still carries (ledgered).
+        # THE GATE'S TABLE IS SET BEFORE THE ENGINE SPEAKS — allowed
+        # tokens depend only on material and brief, so a streamed line can
+        # be judged the moment its newline arrives (see below).
         def _plain(text):
             import unicodedata                             # noqa: PLC0415
             return "".join(
                 ch for ch in unicodedata.normalize("NFD", text)
                 if not unicodedata.combining(ch))
         allowed = ({_plain(fold(w)) for w in evidence._words(material)}
-                   | {_plain(fold(w)) for w in evidence._words(brief)})
-        kept_lines = []
-        for line in draft.splitlines():
+                   | {_plain(fold(w)) for w in evidence._words(brief)}
+                   | {_plain(fold(w)) for w in evidence._words(self.style)})
+
+        def _admit(line):
+            """One draft line through the gate, SECOND FORM: names and
+            numbers may not be invented; everything else may be phrased
+            freely. Returns the kept text, "" for a blank line, or None
+            for a refused one. (History: the first form was the mixture
+            test — coverage 0 or 1 per line — and against a real catalogue
+            request it returned raw evidence dumps. The offer gate had
+            already solved this: the dangerous tokens have a SHAPE —
+            capitals off the sentence start, digits — and each must be
+            attested by the material or the brief. Stated residue: an
+            invented lowercase quality can pass; names, designations and
+            every number cannot, and the digit discipline keeps its
+            bigram-neighbour form. Both sides of the token comparison pass
+            one NFD-stripping normaliser, for the accent defect the core
+            fold still carries — ledgered.)"""
             text = line.strip()
             if not text:
-                kept_lines.append("")
-                continue
-            # the digit veto first — non-negotiable on the short path, and a
-            # composed agenda is where invented numbers would try to live
+                return ""
+            # the digit veto first — non-negotiable on the short path, and
+            # a composed agenda is where invented numbers would try to live
             if not evidence.digits_ok(text, material):
-                continue
+                return None
             # A TITLE IS STRUCTURE, AND TITLE CASE IS ITS FORMAT. In a
             # heading every word is capitalised, so capitals there carry no
             # designation signal — but a heading can still smuggle an
@@ -1223,7 +1413,7 @@ class Session:
             for m in re.finditer(r"\w+", text, re.UNICODE):
                 token = m.group()
                 starts = m.start() == 0 or text[
-                    :m.start()].rstrip()[-1:] in ".!?:•-–—([\n"
+                    :m.start()].rstrip()[-1:] in ".!?:\u2022-\u2013\u2014([\n"
                 named = (any(ch.isupper() for ch in token[1:])
                          or (token[:1].isupper() and not starts)
                          or any(ch.isdigit() for ch in token))
@@ -1236,12 +1426,51 @@ class Session:
                     break
             if titled:
                 sound = earned
-            if sound:
-                kept_lines.append(text)
+            return text if sound else None
+
+        kept_lines = []
+        if on_line is not None:
+            # THE DRAFT STREAMS THROUGH THE GATE. The composer writes ~900
+            # tokens; waiting for the last before showing the first is the
+            # whole of the catalogue turn's perceived delay. The gate above
+            # is pure string arithmetic, so each line is judged the moment
+            # its newline arrives and handed to the caller while the engine
+            # still writes — same gate, same verdicts, same returned draft;
+            # only the waiting moves. On a backend that cannot stream, the
+            # generator yields once and this loop IS the batch path.
+            buffer = ""
+            for chunk in generate.compose_stream(brief, material,
+                                                 style=self.style,
+                                                 **self._voice()):
+                buffer += chunk or ""
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    kept = _admit(line)
+                    if kept is None:
+                        continue
+                    kept_lines.append(kept)
+                    if kept:
+                        on_line(kept)
+            if buffer.strip():
+                kept = _admit(buffer)
+                if kept is not None:
+                    kept_lines.append(kept)
+                    if kept:
+                        on_line(kept)
+        else:
+            draft = (generate.compose(brief, material, style=self.style,
+                                      **self._voice()) or "").strip()
+            if not draft:
+                return self._refuse(brief), []
+            for line in draft.splitlines():
+                kept = _admit(line)
+                if kept is not None:
+                    kept_lines.append(kept)
         text = "\n".join(kept_lines).strip()
         if not text:
             return self._refuse(brief), []
         self.last_abstained = False
+        self._composed = True
         used = sorted({src for src in origins if src})
         return text, used
 
@@ -1498,8 +1727,25 @@ class Session:
             # is still the resolved one — write it back, or the next
             # follow-up inherits the useless pointer instead of the chain
             self.last_subject = anchor_label
-        proof = self.evidence.find(f"{anchor_label or ''} {question}",
-                                   most=seats)
+        # A CONSULTATION'S SEARCH READS THE WHOLE CONSULTATION. Measured,
+        # live: "in banking, ten people" · "risk management is our side" ·
+        # "the best three-hour material, please" — and the third turn's
+        # search saw three words of nothing, because the query has always
+        # been this turn's sentence while the topic lived two turns back.
+        # W14's seam, seen from the other side: context turns were dropped
+        # from memory (correctly) but thereby also from RETRIEVAL, where
+        # they were needed. So in a no-teach conversation the user's prior
+        # turns ride along as query words — and only there: a teaching
+        # turn and the benchmarks keep the single-turn query. No wording is
+        # read, no cap is ours: the seat weighting (log S/s zeroes a word
+        # every source speaks) already decides which of the ridden words
+        # matter.
+        consult = ""
+        if self._no_teach and self._brief:
+            consult = " ".join(self._brief)
+        proof = self.evidence.find(
+            f"{anchor_label or ''} {question} {consult}".strip(),
+            most=seats)
         # which document each seat came from, aligned with `proof` — read off
         # the store's `last_sources`, which `find` leaves beside its result
         proof_origins = list(self.evidence.last_sources[:len(proof)])
@@ -2026,7 +2272,19 @@ class Session:
         return self._answer(question, subject_label)     # now in the graph → answer+hedge
 
     # --- chat ----------------------------------------------------------
-    def _chat(self, message):
+    def _chat_raw(self, message):
+        """The chat voice's ENGINE CALL alone — factored out so the wager
+        above and the chat path below speak with byte-identical arguments;
+        the gate below never moves."""
+        id_records = retrieve.gather(self.memory, self._lmm_key)
+        id_block = "\n".join(
+            f"{link.label_of(self.memory, r.subject)} "
+            f"{link.label_of(self.memory, r.predicate)} \u2192 "
+            f"{link.label_of(self.memory, r.value)}" for r in id_records)
+        return generate.chat(message, id_block, history=self.history,
+                             **self._voice(persona=self.persona))
+
+    def _chat(self, message, spec=None):
         """Chat answer — the gate still filters any leaking factual claim.
 
         HOLE CLOSED (F2): this used to be `safe or raw` — if verify found all
@@ -2034,25 +2292,22 @@ class Session:
         returned, bypassing the gate entirely. Now on empty it falls to the
         safe side, no raw fabrication is returned.
         """
-        id_records = retrieve.gather(self.memory, self._lmm_key)
-        # The IDENTITY block is PREDICATED (the maker must not be hidden) — so
-        # "who made you" can be answered.
-        id_block = "\n".join(
-            f"{link.label_of(self.memory, r.subject)} "
-            f"{link.label_of(self.memory, r.predicate)} → "
-            f"{link.label_of(self.memory, r.value)}" for r in id_records)
-        # CONVERSATION CONTEXT: give the recent turns too → conversation
-        # continuity (what "look it up" refers to, the context of "what are you
-        # doing"
-        # is kept). Fabrication is still filtered in verify.
-        raw = generate.chat(message, id_block, history=self.history,
-                            persona=self.persona)
+        # The IDENTITY block (the maker must not be hidden) and the recent
+        # turns both ride inside _chat_raw — the wager and this path speak
+        # with byte-identical arguments. Fabrication is still filtered below.
+        raw = spec.result() if spec is not None \
+            else self._chat_raw(message)
         # In chat, allowed = ONLY the identity facts. anchor="value": the
         # subject is a self-referential pronoun (ben/beni) that can't be
         # resolved; it suffices that the OBJECT (rüzgar) is allowed; external
-        # fabrication (Google) still falls. See verify.verify.
+        # fabrication (Google) still falls. And the ECHO: the user's own
+        # words in this conversation are things the reply may repeat back —
+        # listening is not asserting. See verify.verify.
+        self._spec_chat = None          # the wager is spent
+        echo = " ".join([h["content"] for h in self.history
+                         if h.get("role") == "user"] + [message])
         safe = verify.verify(self.memory, raw, self._identity, self.mode,
-                             anchor="value")
+                             anchor="value", echo=echo)
         return safe or self._refuse(message)
 
     # --- LMM strength: self-awareness (curiosity + contradiction pressure)

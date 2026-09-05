@@ -2945,7 +2945,8 @@ def w3():
              "The listening exercise takes 45 minutes.\n"
              "The trust module is certified by the Ministry.\n")
     real = generate.compose
-    generate.compose = lambda brief, material, warmth=0.2, persona="": draft
+    generate.compose = (lambda brief, material, warmth=0.2, persona="",
+                        max_tokens=None, style="": draft)
     try:
         text, used = s.compose(
             "draft a one day programme with the trust module "
@@ -3267,7 +3268,8 @@ def w12():
              "The listening exercise takes 45 minutes.\n"
              "[no material]\n")
     real = generate.compose
-    generate.compose = lambda brief, material, warmth=0.2, persona="": draft
+    generate.compose = (lambda brief, material, warmth=0.2, persona="",
+                        max_tokens=None, style="": draft)
     try:
         text, used = s.compose("draft a day with the trust module and the "
                                "fire task")
@@ -3303,7 +3305,8 @@ def w13():
                  source="#docx:Field Day.docx", deep=False)
     seen = {}
     real = generate.compose
-    def spy(brief, material, warmth=0.2, persona=""):
+    def spy(brief, material, warmth=0.2, persona="", max_tokens=None,
+            style=""):
         seen["material"] = material
         return "The trust module opens with a listening exercise."
     generate.compose = spy
@@ -3318,6 +3321,642 @@ def w13():
     # the fact-sheets rode along though no topic word touches them
     assert "16-18" in mat, mat[-400:]
     assert "SEATS: 12" in mat, mat[-400:]
+
+
+@test("W14 in a no-teach conversation, a statement is context, not a query")
+def w14():
+    """Measured, live: 'I am in banking, my team is ten people' — the user
+    SHARING context — was classified WRITE (correctly), skipped the write
+    (teach=False, correctly), and then fell through to the QUESTION
+    treatment: retrieval found no answer to a sentence that asked nothing,
+    the refusal path spoke, and the persona's greeting instruction leaked
+    into it — the bot replied to a customer's needs with its own
+    introduction. Three correct mechanisms, one uncovered seam. In a
+    conversation that may not teach, a statement is neither a lesson nor a
+    query: it is CONTEXT, and it routes to the chat surface, which carries
+    the history and the persona. No memory is written, nothing is refused,
+    and the reply is the conversation continuing."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None, persona="You are a warm consultant.")
+    s.learn_text("The trust walk closes the morning arc.",
+                 source="#docx:Alpha.docx", deep=False)
+    real_ex, real_chat = extract.extract, generate.chat
+    extract.extract = lambda m: {"kind": extract.WRITE,
+                                 "triples": [("my team", "size", "ten")]}
+    called = {}
+    def fake_chat(message, identity_block="", warmth=0.7, history=None,
+                  persona=""):
+        called["chat"] = True
+        called["persona"] = persona
+        return "Ten people in banking — noted! What outcome do you want?"
+    generate.chat = fake_chat
+    try:
+        before = len(s.memory.records)
+        s._census_line = "2 documents \u00b7 Alpha"   # stale, from last turn
+        said = s.respond("I am in banking and my team is ten people",
+                         teach=False)
+    finally:
+        extract.extract, generate.chat = real_ex, real_chat
+    assert called.get("chat"), "statement did not route to the chat surface"
+    assert said == "Ten people in banking \u2014 noted! What outcome do you want?", (
+        "the reply was hijacked \u2014 stale census + informed refusal?: %r" % said)
+    assert "consultant" in called.get("persona", ""), "persona missing"
+    assert len(s.memory.records) == before, "teach=False wrote a record"
+
+
+@test("W15 a consultation's search reads the whole consultation")
+def w15():
+    """Measured, live, five turns: "in banking, ten people" then "risk
+    management is our side" then "give me the best three-hour material" —
+    and the retrieval for the last turn searched THREE WORDS OF NOTHING,
+    because the query has always been this turn's sentence and the topic
+    lived two turns back. The engine saw the history; the search never did.
+    The seam is the same one W14 closed, seen from the other side: in a
+    conversation that may not teach (a CONSULTATION), context turns were
+    dropped from memory — correctly — but also dropped from RETRIEVAL,
+    which is where they were needed. The fix is one sentence: a
+    consultation's question searches with the consultation's prior turns
+    riding along. The weighting organ (log S/s zeroes corpus-wide words)
+    decides what matters — no keyword, no language, no cap of ours. A
+    teaching conversation (teach=True — the benchmarks) keeps its
+    single-turn query byte for byte."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The abseil drill anchors the ravine module.",
+                 source="#docx:Alpha.docx", deep=False)
+    real = (extract.extract, generate.chat, generate.offer_research,
+            generate.refusal)
+    queries = []
+    orig_find = s.evidence.find
+    def spy_find(query, most=4, floor_share=0.5):
+        queries.append(query)
+        s.evidence.last_sources = []
+        s.evidence.last_census = []
+        return []
+    s.evidence.find = spy_find
+    kinds = iter([{"kind": extract.WRITE,
+                   "triples": [("our team", "focus", "ravine work")]},
+                  {"kind": extract.ASK,
+                   "triples": [("material", "duration", "")]},
+                  {"kind": extract.ASK,
+                   "triples": [("material", "duration", "")]}])
+    extract.extract = lambda m: next(kinds)
+    generate.chat = (lambda message, identity_block="", warmth=0.7,
+                     history=None, persona="": "Noted!")
+    generate.offer_research = lambda subject, question: ""
+    generate.refusal = lambda message, persona="": "I do not know."
+    if not hasattr(generate, "wants_material"):
+        generate.wants_material = lambda m: False
+        added = True
+    else:
+        added = False
+    real_wm = generate.wants_material
+    generate.wants_material = lambda m: False
+    try:
+        s.respond("our team focuses on ravine work", teach=False)
+        queries.clear()
+        s.respond("the best two hour material please", teach=False)
+        consult = " ".join(queries)
+        queries.clear()
+        s.respond("the best two hour material please", teach=True)
+        teaching = " ".join(queries)
+    finally:
+        (extract.extract, generate.chat, generate.offer_research,
+         generate.refusal) = real
+        if added:
+            del generate.wants_material
+        else:
+            generate.wants_material = real_wm
+        s.evidence.find = orig_find
+    assert "ravine" in consult, consult
+    assert "ravine" not in teaching, teaching
+
+
+@test("W16 when the user asks for the material, the composer answers")
+def w16():
+    """The other half of the live failure: the store HELD the catalogue the
+    user asked for, and the organ that writes catalogues (compose) sat
+    unreachable behind a command prefix while the refusal spoke. The bridge
+    is a STATE, in the informed-refusal family: a consultation turn that
+    ended in abstention with prior context in hand asks the engine ONE
+    cheap question — is this turn asking me to PRODUCE something? — and on
+    yes, the composer runs over the whole consultation as its brief. The
+    composed draft is gated as always; on a composer refusal the turn falls
+    back to the paths that already exist. A teaching conversation never
+    even asks the question — the benchmarks cannot pay a call for a bridge
+    they never cross."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The abseil drill anchors the ravine module.",
+                 source="#docx:Alpha.docx", deep=False)
+    real = (extract.extract, generate.chat, generate.offer_research,
+            generate.refusal)
+    orig_find = s.evidence.find
+    def empty_find(query, most=4, floor_share=0.5):
+        s.evidence.last_sources = []
+        s.evidence.last_census = []
+        return []
+    s.evidence.find = empty_find
+    kinds = iter([{"kind": extract.WRITE,
+                   "triples": [("our team", "focus", "ravine work")]},
+                  {"kind": extract.ASK,
+                   "triples": [("material", "duration", "")]}])
+    extract.extract = lambda m: next(kinds)
+    generate.chat = (lambda message, identity_block="", warmth=0.7,
+                     history=None, persona="": "Noted!")
+    generate.offer_research = lambda subject, question: ""
+    generate.refusal = lambda message, persona="": "I do not know."
+    had = hasattr(generate, "wants_material")
+    real_wm = getattr(generate, "wants_material", None)
+    generate.wants_material = lambda m: True
+    briefs = []
+    def fake_compose(brief, seats=24, topics=None, on_line=None):
+        briefs.append(brief)
+        # the ledger's terms arrive as the composer's topics — dedicated
+        # seats for each thing the consultation actually named
+        assert topics and any("ravine" in t for t in topics), topics
+        return "THE CATALOGUE\nAlpha \u2014 the abseil drill", \
+               ["#docx:Alpha.docx"]
+    s.compose = fake_compose
+    try:
+        s.respond("our team focuses on ravine work", teach=False)
+        said = s.respond("the best two hour material please", teach=False)
+    finally:
+        (extract.extract, generate.chat, generate.offer_research,
+         generate.refusal) = real
+        if had:
+            generate.wants_material = real_wm
+        else:
+            del generate.wants_material
+        s.evidence.find = orig_find
+    assert briefs, "the bridge never reached the composer"
+    assert "ravine" in briefs[0], briefs
+    assert said.startswith("THE CATALOGUE"), said
+    assert not s.last_abstained
+    # and the teaching surface never pays for the question
+    s2 = Session(None)
+    def boom(m):
+        raise AssertionError("wants_material asked on a teaching turn")
+    generate.wants_material = boom
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("thing", "", "")]}
+    generate.refusal = lambda message, persona="": "I do not know."
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s2.respond("what is the thing", teach=True)
+    finally:
+        (extract.extract, generate.chat, generate.offer_research,
+         generate.refusal) = real
+        if had:
+            generate.wants_material = real_wm
+        else:
+            del generate.wants_material
+
+
+@test("W17 an ordinal list marker is format, not a quantity")
+def w17():
+    """Measured on the live catalogue: the engine drafted exactly what the
+    prompt asks — numbered sections opening with attested document names,
+    "1. Value Chain (Alpha)" — and the digit gate killed sections 1 and 2
+    while section 3 survived, because "3" happened to be attested by the
+    brief's "3 hours" and "1" and "2" were attested by nothing. The digit
+    discipline exists to kill invented durations and prices; a section
+    NUMBER at the head of a line is the engine numbering its own structure,
+    which the compose contract explicitly grants ("structure is yours").
+    The exemption is the digit twin of the name gate's sentence-start rule,
+    and just as narrow: one or two digits, opening a line, closed by a dot
+    or bracket. A digit anywhere else still answers for itself."""
+    from lmm import evidence
+    mat = "Alpha.docx \u2014 the trust walk closes the morning arc"
+    assert evidence.digits_ok("1. The Morning Arc (Alpha)", mat)
+    assert evidence.digits_ok("2) The Trust Walk", mat)
+    # ...and only the marker is forgiven: quantities still die
+    assert not evidence.digits_ok("the walk takes 2 days", mat)
+    assert not evidence.digits_ok("1. The Arc lasts 4 hours", mat)
+
+
+@test("W18 the gate reads sentences side by side, not single file")
+def w18():
+    """Measured, live: a greeting turn cost 15.9 seconds, and 10.4 of them
+    were the verifier re-reading the reply ONE SENTENCE PER CALL, each call
+    waiting for the last — seven independent questions asked in single
+    file. The reads are independent by construction (each sentence answers
+    for itself), so the waiting is the only thing the fix touches: the
+    engine's runtime, which alone knows whether its backend can take
+    parallel calls (an HTTP endpoint can; a local model owns one set of
+    weights and cannot), maps the re-reads concurrently or serially. Same
+    sentences, same claims, same order, same verdicts — measured on the
+    greeting turn, ~10 seconds of queue become ~2 of chorus."""
+    import os, threading, time
+    from lmm import extract, runtime
+    from lmm.session import Session
+    from lmm import verify as verify_mod
+    s = Session(None)
+    s.learn_text("The trust walk closes the morning arc.",
+                 source="#docx:Alpha.docx", deep=False)
+    lock = threading.Lock()
+    state = {"now": 0, "peak": 0}
+    real = extract.reextract
+    def slow_reextract(sentence):
+        with lock:
+            state["now"] += 1
+            state["peak"] = max(state["peak"], state["now"])
+        time.sleep(0.12)
+        with lock:
+            state["now"] -= 1
+        return []                       # no claims → every sentence passes
+    extract.reextract = slow_reextract
+    answer = "One here. Two here. Three here. Four here."
+    old = os.environ.get("LMM_BACKEND")
+    try:
+        os.environ["LMM_BACKEND"] = "azure"     # HTTP backend: may chorus
+        kept = verify_mod.verify(s.memory, answer, set(), anchor="value")
+        peak_http = state["peak"]
+        state["peak"] = 0
+        os.environ["LMM_BACKEND"] = ""          # local backend: single file
+        kept2 = verify_mod.verify(s.memory, answer, set(), anchor="value")
+        peak_local = state["peak"]
+    finally:
+        extract.reextract = real
+        if old is None:
+            os.environ.pop("LMM_BACKEND", None)
+        else:
+            os.environ["LMM_BACKEND"] = old
+    assert kept == answer and kept2 == answer, (kept, kept2)
+    assert peak_http > 1, "an HTTP backend still reads in single file"
+    assert peak_local == 1, "a local model was read concurrently"
+
+
+@test("W19 a sentence is re-read once per verdict, not once per reader")
+def w19():
+    """Measured on the greeting turn: the gate re-read every sentence of
+    the reply, and two calls later the abstention stamp re-read the SAME
+    sentences again — ten engine calls where five questions existed. The
+    re-extractor runs at temperature zero: the same sentence yields the
+    same claims by design, so asking twice buys latency and tokens and
+    nothing else. A small memo on the re-extractor keeps the second reader
+    on the first reader's notes. Distinct sentences still cost a call
+    each; the memo hands back a fresh copy, so no reader can scribble on
+    another's result."""
+    from lmm import extract, runtime
+    calls = []
+    real = runtime.generate
+    runtime.generate = lambda *a, **k: (calls.append(1) or
+                                        '{"triples": []}')
+    extract._reextract_cached.cache_clear()
+    try:
+        one = extract.reextract("The walk closes the arc.")
+        two = extract.reextract("The walk closes the arc.")
+        extract.reextract("A different sentence entirely.")
+    finally:
+        runtime.generate = real
+    assert len(calls) == 2, calls
+    assert one == two and one is not two
+
+
+@test("W20 the caller tunes the voice, never the gate")
+def w20():
+    """The persona rule, extended to the knobs: an application choosing LMM
+    also chooses how the voice sounds — how warm, how long. Those settings
+    travel EXACTLY where the persona travels (chat, answer, refusal,
+    compose) and nowhere else: every classifier and every verifier call
+    keeps its pinned temperature, because a judge whose thermostat the
+    user can turn is not a judge. Left unset, every surface keeps its
+    measured defaults byte for byte."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None, persona="Warm consultant.", warmth=0.9,
+                reply_tokens=333)
+    got = {}
+    real = (extract.extract, generate.chat)
+    extract.extract = lambda m: {"kind": extract.CHAT, "triples": []}
+    def spy_chat(message, identity_block="", warmth=0.7, history=None,
+                 persona="", max_tokens=None):
+        got.update(warmth=warmth, max_tokens=max_tokens)
+        return "Hello there!"
+    generate.chat = spy_chat
+    try:
+        s.respond("hello", teach=False)
+    finally:
+        extract.extract, generate.chat = real
+    assert got == {"warmth": 0.9, "max_tokens": 333}, got
+    # unset → the defaults stand
+    s2 = Session(None)
+    got.clear()
+    extract.extract = lambda m: {"kind": extract.CHAT, "triples": []}
+    generate.chat = spy_chat
+    try:
+        s2.respond("hello", teach=False)
+    finally:
+        extract.extract, generate.chat = real
+    assert got == {"warmth": 0.7, "max_tokens": None}, got
+
+
+@test("W21 a consultation turn speculates: the voice warms up while the router reads")
+def w21():
+    """The chain's floor is its depth, not its width: classify, THEN speak
+    — two calls in single file, on every turn, forever. But on the
+    consultation surface most turns end at the chat voice anyway, so the
+    voice can start speaking WHILE the router classifies: both calls go
+    out together, and the router's verdict decides whether the prepared
+    reply is used (CHAT, and W14's context statements) or quietly dropped
+    (a question, which takes the answer path as always). The wager costs
+    one small discarded call on consultation question turns and is never
+    placed where tokens are counted: a teaching turn — the benchmarks —
+    still classifies first and speaks second, byte for byte."""
+    import os, threading, time
+    from lmm import generate, extract, runtime
+    from lmm.session import Session
+    s = Session(None, persona="Warm.")
+    lock = threading.Lock()
+    state = {"now": 0, "peak": 0, "chat_calls": 0}
+    def enter():
+        with lock:
+            state["now"] += 1
+            state["peak"] = max(state["peak"], state["now"])
+        time.sleep(0.12)
+        with lock:
+            state["now"] -= 1
+    real = (extract.extract, generate.chat)
+    def slow_extract(m):
+        enter()
+        return {"kind": extract.CHAT, "triples": []}
+    def slow_chat(message, identity_block="", warmth=0.7, history=None,
+                  persona="", max_tokens=None):
+        state["chat_calls"] += 1
+        enter()
+        return "Hello there!"
+    extract.extract, generate.chat = slow_extract, slow_chat
+    old = os.environ.get("LMM_BACKEND")
+    try:
+        os.environ["LMM_BACKEND"] = "azure"
+        said = s.respond("hello", teach=False)
+        peak_consult, calls_consult = state["peak"], state["chat_calls"]
+        state.update(peak=0, chat_calls=0)
+        s2 = Session(None, persona="Warm.")
+        s2.respond("hello", teach=True)
+        peak_teach = state["peak"]
+    finally:
+        extract.extract, generate.chat = real
+        if old is None:
+            os.environ.pop("LMM_BACKEND", None)
+        else:
+            os.environ["LMM_BACKEND"] = old
+    assert said == "Hello there!", said
+    assert peak_consult == 2, "the consultation turn never speculated"
+    assert calls_consult == 1, "the prepared reply was not reused"
+    assert peak_teach == 1, "a teaching turn placed the wager"
+
+
+@test("W22 the draft streams through the gate line by line")
+def w22():
+    """Measured: the catalogue turn holds its 18 seconds because the
+    composer writes 900 tokens and the reader waits for the last one
+    before seeing the first. The gate's second form is pure string
+    arithmetic — no model call — so a line can be judged THE MOMENT its
+    newline arrives and handed to the caller while the engine is still
+    writing the next. Same gate, same verdicts, same returned draft; only
+    the waiting moves. A line the gate refuses is never seen by the
+    caller, streamed or not — an invented number does not become
+    printable by arriving early. On a backend that cannot stream, the
+    generator yields the whole draft once and the loop degrades to the
+    batch path by itself."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The trust walk closes the morning arc.",
+                 source="#docx:Alpha.docx", deep=False)
+    s.learn_text("The abseil drill anchors the ravine module.",
+                 source="#docx:Beta.docx", deep=False)
+    log = []
+    def fake_stream(brief, material_block, warmth=0.2, persona="",
+                    max_tokens=None, style=""):
+        log.append("emit1")
+        yield "the trust walk closes the morning arc.\n"
+        log.append("emit2")
+        yield "the session lasts 9 days\nthe abseil "
+        log.append("emit3")
+        yield "drill anchors the ravine module."
+    real = generate.compose_stream if hasattr(generate,
+                                              "compose_stream") else None
+    generate.compose_stream = fake_stream
+    lines = []
+    try:
+        text, sources = s.compose(
+            "a day around the trust walk and the abseil drill",
+            on_line=lambda line: (log.append("cb"), lines.append(line)))
+    finally:
+        if real is None:
+            del generate.compose_stream
+        else:
+            generate.compose_stream = real
+    assert lines == ["the trust walk closes the morning arc.",
+                     "the abseil drill anchors the ravine module."], lines
+    # the first line reached the caller BEFORE the engine wrote the last
+    assert log.index("cb") < log.index("emit3"), log
+    assert "9 days" not in text and len(lines) == 2
+    assert text == "\n".join(lines), text
+    assert sources
+
+
+@test("W23 a delivery request goes straight to the composer")
+def w23():
+    """Measured with the stream clock: the catalogue's first line reached
+    the screen at second 13 of an 18-second turn, because the delivery
+    question was asked LAST — the turn ran the whole answering chain,
+    abstained as it was always going to, and only then asked "is this a
+    request to produce?" and composed. The verdict is one tiny call, and
+    the wager pool is already open at the turn's first instant: it rides
+    out beside the router, and a YES routes the turn to the composer
+    before the answering chain ever starts. The composer's refusal is the
+    fallback that keeps the old path whole — no material, and the turn
+    answers the way it always did. A teaching turn places no bets, asks
+    no delivery question, and composes nothing — the benchmarks keep
+    their chain byte for byte."""
+    import os
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None, persona="Warm.")
+    s.learn_text("The trust walk closes the morning arc.",
+                 source="#docx:Alpha.docx", deep=False)
+    real = (extract.extract, generate.chat)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("programme", "best", "")]}
+    generate.chat = (lambda *a, **k: "Hello!")
+    had = hasattr(generate, "wants_material")
+    real_wm = getattr(generate, "wants_material", None)
+    generate.wants_material = lambda m: True
+    def no_answer(*a, **k):
+        raise AssertionError("the answering chain ran before the composer")
+    real_ans = generate.answer
+    generate.answer = no_answer
+    def fake_compose(brief, seats=24, topics=None, on_line=None):
+        return "THE PROGRAMME\nAlpha \u2014 the trust walk", \
+               ["#docx:Alpha.docx"]
+    s.compose = fake_compose
+    s._brief = ["trust walk"]
+    old = os.environ.get("LMM_BACKEND")
+    try:
+        os.environ["LMM_BACKEND"] = "azure"
+        said = s.respond("put together the best programme for us",
+                         teach=False)
+    finally:
+        extract.extract, generate.chat = real
+        generate.answer = real_ans
+        if had:
+            generate.wants_material = real_wm
+        else:
+            del generate.wants_material
+        if old is None:
+            os.environ.pop("LMM_BACKEND", None)
+        else:
+            os.environ["LMM_BACKEND"] = old
+    assert said.startswith("THE PROGRAMME"), said
+    assert not s.last_abstained
+
+
+@test("W24 echoing the user is conversation, not assertion")
+def w24():
+    """Measured, live: "I am the HR manager at a bank, looking for
+    training" — and the reply was the bot's own introduction, alone. The
+    engine had answered well; the chat gate struck every sentence that
+    mentioned the user's bank or the user's role, because in chat the
+    allowed set is the identity facts and nothing else — and the one
+    sentence that claims nothing is the greeting. But a claim whose words
+    the user THEMSELF just spoke is not a fabrication: repeating your
+    interlocutor is what listening sounds like. The ECHO rule: in the
+    chat reading, a claim passes when its value — and its subject, unless
+    the subject is an unresolvable pronoun — is covered word for word by
+    what the user has said in this conversation. An external fact stays
+    external: a word the user never said still answers to the graph."""
+    from lmm import extract
+    from lmm import verify as verify_mod
+    from lmm.session import Session
+    s = Session(None)
+    real = extract.reextract
+    def fake_reextract(sentence):
+        if "ops team" in sentence:
+            return [("you", "lead", "the ops team at Acme")]
+        if "founded" in sentence:
+            return [("Acme", "founded", "1999")]
+        return []
+    extract.reextract = fake_reextract
+    answer = ("Nice to meet you! So you lead the ops team at Acme. "
+              "Acme was founded in 1999. What should the training fix?")
+    try:
+        kept = verify_mod.verify(
+            s.memory, answer, set(), anchor="value",
+            echo="hello I lead the ops team at Acme and need training")
+    finally:
+        extract.reextract = real
+    assert "ops team" in kept, kept          # the echo survives
+    assert "founded" not in kept, kept       # the invention still dies
+    assert "What should the training fix?" in kept
+
+
+@test("W25 in a consultation, the conversation is the fallback, not the shrug")
+def w25():
+    """Measured, live, with the wager's receipts in hand: "I am the HR
+    manager at a bank, researching training" was read as a QUESTION, the
+    answering chain ran and abstained — every candidate died at the gate,
+    wearing a persona introduction the evidence could not attest — and
+    the turn ended in a bare refusal... while the wagered chat reply,
+    already written, already through its own gate, said exactly the right
+    thing and had been thrown away for the crime of a classifier verdict.
+    The rule: in a consultation, when the answering chain ends empty —
+    delivery bridge declined, informed refusal declined — the WAGERED
+    conversational reply speaks. It passed the chat reading (identity +
+    echo); continuing the conversation is what a consultant does with an
+    unanswerable turn. The bare refusal remains for surfaces that have no
+    conversation: a teaching turn, the benchmarks, keep it byte for byte."""
+    import os
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None, persona="Warm.")
+    s.learn_text("The trust walk closes the morning arc.",
+                 source="#docx:Alpha.docx", deep=False)
+    orig_find = s.evidence.find
+    def empty_find(query, most=4, floor_share=0.5):
+        s.evidence.last_sources = []
+        s.evidence.last_census = []
+        return []
+    s.evidence.find = empty_find
+    real = (extract.extract, generate.chat, generate.offer_research,
+            generate.refusal)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("materials", "for", "")]}
+    generate.chat = (lambda message, identity_block="", warmth=0.7,
+                     history=None, persona="", max_tokens=None:
+                     "Got it \u2014 HR training. What should it fix?")
+    generate.offer_research = lambda subject, question: ""
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    had = hasattr(generate, "wants_material")
+    real_wm = getattr(generate, "wants_material", None)
+    generate.wants_material = lambda m: False
+    old = os.environ.get("LMM_BACKEND")
+    try:
+        os.environ["LMM_BACKEND"] = "azure"
+        s.respond("hello there", teach=False)
+        said = s.respond("I am researching training materials", teach=False)
+        s2 = Session(None)
+        s2.evidence.find = empty_find
+        teach_said = s2.respond("what are the materials", teach=True)
+    finally:
+        (extract.extract, generate.chat, generate.offer_research,
+         generate.refusal) = real
+        if had:
+            generate.wants_material = real_wm
+        else:
+            del generate.wants_material
+        s.evidence.find = orig_find
+        if old is None:
+            os.environ.pop("LMM_BACKEND", None)
+        else:
+            os.environ["LMM_BACKEND"] = old
+    assert "HR training" in said, said
+    assert "I do not know" in teach_said, teach_said
+
+
+@test("W26 the operator's format sheet travels to the composer alone")
+def w26():
+    """The persona's mirror twin. The persona is the operator's VOICE and
+    stops at the document's edge (measured: persona-induced rephrasing
+    died at the verbatim gate). The STYLE is the operator's FORMAT — which
+    sections a catalogue opens, what its headings are called — and it
+    travels exactly where the persona does not: into the composer's
+    REQUEST, and nowhere else. Its words are operator-attested the way
+    the brief's are, so a heading the sheet names does not die for its
+    capitals; the material still owns every fact under it. Field need,
+    live: the operator wanted the catalogue shaped like their house
+    format, and the only lever was rewriting the library's prompt."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None, style="Uygunluk Sayfasi: duration and fit per item")
+    s.learn_text("The trust walk closes the morning arc.",
+                 source="#docx:Alpha.docx", deep=False)
+    s.learn_text("The abseil drill anchors the ravine module.",
+                 source="#docx:Beta.docx", deep=False)
+    seen = {}
+    real = generate.compose
+    def spy(brief, material, warmth=0.2, persona="", max_tokens=None,
+            style=""):
+        seen["style"] = style
+        seen["persona"] = persona
+        return ("Uygunluk Sayfasi\n"
+                "the trust walk closes the morning arc.")
+    generate.compose = spy
+    try:
+        text, sources = s.compose("a day around the trust walk")
+    finally:
+        generate.compose = real
+    assert "Uygunluk" in seen["style"], seen
+    assert seen["persona"] == "", "the persona crossed the document's edge"
+    # the sheet's own heading survives the capitals rule
+    assert "Uygunluk Sayfasi" in text, text
 
 
 @test("X5 an expansion written in another language never reaches the index")
