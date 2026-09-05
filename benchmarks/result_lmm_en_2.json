@@ -1,0 +1,127 @@
+{
+ "ingest_ms": 21035,
+ "yazilan": 62,
+ "atlanan": 0,
+ "turetilen": 8,
+ "cevaplar": [
+  {
+   "soru": "what is zerbalit",
+   "cevap": "Zerbalit is a metal. (~ #doc:corpus)",
+   "ms": 10205,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "what is vorlin",
+   "cevap": "Vorlin is a drink. (~ #doc:corpus)",
+   "ms": 8937,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "what is morlan",
+   "cevap": "Morlan is a bird. (~ #doc:corpus)",
+   "ms": 9400,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "what is norgul",
+   "cevap": "Norgul is a plant. (~ #doc:corpus)",
+   "ms": 8738,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "what is karvel",
+   "cevap": "Karvel is a fish. (~ #doc:corpus)",
+   "ms": 9225,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "what is kelvit",
+   "cevap": "Kelvit is a metal. (~ #doc:corpus)",
+   "ms": 9117,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "what is selvin",
+   "cevap": "Selvin is a drink. (~ #doc:corpus)",
+   "ms": 9128,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "what is Velmar",
+   "cevap": "Velmar is a village. (~ #doc:corpus)",
+   "ms": 9094,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "is vorlin a liquid",
+   "cevap": "vorlin — type → liquid (~ #inference)",
+   "ms": 0,
+   "abstained": false,
+   "from_graph": true
+  },
+  {
+   "soru": "is zilfen a creature",
+   "cevap": "zilfen — type → creature (~ #inference)",
+   "ms": 0,
+   "abstained": false,
+   "from_graph": true
+  },
+  {
+   "soru": "is torvanit a substance",
+   "cevap": "torvanit — type → substance (~ #inference)",
+   "ms": 0,
+   "abstained": false,
+   "from_graph": true
+  },
+  {
+   "soru": "what happens if it rains",
+   "cevap": "If it rains, a marsh occurs.",
+   "ms": 5916,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "what happens if norgul multiplies",
+   "cevap": "If norgul multiplies, morlan multiplies. (~ #doc:corpus)",
+   "ms": 9237,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "what is melvarit",
+   "cevap": "I don't know what melvarit is yet. Would you like me to look it up?",
+   "ms": 3613,
+   "abstained": true,
+   "from_graph": false
+  },
+  {
+   "soru": "what is the capital of Nortlann",
+   "cevap": "I do not know.",
+   "ms": 8834,
+   "abstained": true,
+   "from_graph": false
+  },
+  {
+   "soru": "at how many degrees does vorlin boil",
+   "cevap": "I do not know.",
+   "ms": 7416,
+   "abstained": true,
+   "from_graph": false
+  },
+  {
+   "soru": "what is the population of the island",
+   "cevap": "I do not know.",
+   "ms": 7881,
+   "abstained": true,
+   "from_graph": false
+  }
+ ]
+}

@@ -1,0 +1,90 @@
+{
+ "ingest_ms": 4615,
+ "cevaplar": [
+  {
+   "soru": "what is zerbalit",
+   "cevap": "Zerbalit is a blue metal found exclusively on Nortlann Island, where substantial mining operations occur near Velmar, linking it significantly to the local economy and potential environmental considerations [Data: Entities (3); Reports (3); Sources (0)].",
+   "ms": 5728
+  },
+  {
+   "soru": "what is vorlin",
+   "cevap": "Vorlin is a drink made from the norgul plant, typically consumed hot [Data: Sources (0)].",
+   "ms": 1732
+  },
+  {
+   "soru": "what is morlan",
+   "cevap": "Morlan is a nocturnal bird species native to Nortlann Island, primarily known for its dependence on the seeds of the Norgu plant for food, highlighting its role within the local ecosystem [Data: Reports (1); Entities (8); Relationships (3)].",
+   "ms": 1839
+  },
+  {
+   "soru": "what is norgul",
+   "cevap": "Norgul is a plant endemic to marsh areas on Nortlann Island, known for its white flowers, and it plays a vital role in the local ecosystem by serving as a crucial food source for various species, including the nocturnal bird Morlan, which feeds primarily on its seeds [Data: Reports (1); Entities (11, 8); Relationships (3)].",
+   "ms": 4134
+  },
+  {
+   "soru": "what is karvel",
+   "cevap": "Karvel is a fish that resides in deep water and is observed in the lake of Nortlann Island [Data: Entities (10)].",
+   "ms": 1803
+  },
+  {
+   "soru": "what is kelvit",
+   "cevap": "Kelvit is a grey-colored metal found on Nortlann Island, specifically mined near Doruk, and plays a significant role in the local economy due to its extraction and potential trade [Data: Entities (4); Reports (0)].",
+   "ms": 3680
+  },
+  {
+   "soru": "what is selvin",
+   "cevap": "I don't have information on \"Selvin\" in the provided data tables.",
+   "ms": 1677
+  },
+  {
+   "soru": "what is Velmar",
+   "cevap": "Velmar is a village located in the northern part of Nortlann Island, primarily known for its fishing community and as a hub for mining activities related to the unique metal Zerbalit, which is mined nearby [Data: Reports (3); Entities (1); Relationships (2)].",
+   "ms": 1903
+  },
+  {
+   "soru": "is vorlin a liquid",
+   "cevap": "Vorlin is described as a drink, which categorizes it as a liquid [Data: Sources (0)].",
+   "ms": 1711
+  },
+  {
+   "soru": "is zilfen a creature",
+   "cevap": "Yes, Zilfen is classified as a bird, which falls under the broader category of creatures [Data: Sources (0); Entities (9)].",
+   "ms": 3308
+  },
+  {
+   "soru": "is torvanit a substance",
+   "cevap": "There is no information in the provided data tables regarding Torvanit or its classification as a substance. Therefore, I cannot answer the question about Torvanit.",
+   "ms": 3389
+  },
+  {
+   "soru": "what happens if it rains",
+   "cevap": "If it rains on Nortlann Island, the marsh areas where the Norgu plant grows will expand, leading to an increase in Norgu populations, which in turn supports the growth of the Morlan bird population due to their dependency on Norgu seeds for food [Data: Reports (1); Sources (0)].",
+   "ms": 3682
+  },
+  {
+   "soru": "what happens if norgul multiplies",
+   "cevap": "If Norgu multiplies, it leads to an increase in the Morlan bird population, as Morlan relies on Norgu seeds for food, indicating a direct ecological relationship where the health of the plant supports the health of the bird species [Data: Reports (1); Relationships (3); Entities (11, 8)].",
+   "ms": 2564
+  },
+  {
+   "soru": "what is melvarit",
+   "cevap": "I don't have any information regarding \"melvarit.\"",
+   "ms": 1491
+  },
+  {
+   "soru": "what is the capital of Nortlann",
+   "cevap": "I don't know the answer.",
+   "ms": 4241
+  },
+  {
+   "soru": "at how many degrees does vorlin boil",
+   "cevap": "I don't know the answer.",
+   "ms": 4456
+  },
+  {
+   "soru": "what is the population of the island",
+   "cevap": "I do not have information on the population of Nortlann Island.",
+   "ms": 2192
+  }
+ ]
+}

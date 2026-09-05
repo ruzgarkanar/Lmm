@@ -1,0 +1,90 @@
+{
+ "ingest_ms": 4480,
+ "cevaplar": [
+  {
+   "soru": "what is zerbalit",
+   "cevap": "Zerbalit is a blue metal found exclusively on Nortlann Island, where it is mined near the village of Velmar, playing a significant role in local economic activities and potential exports, but also raises environmental concerns related to mining operations [Data: Sources (0); Reports (3); Entities (3)].",
+   "ms": 4762
+  },
+  {
+   "soru": "what is vorlin",
+   "cevap": "Vorlin is a drink made from the norgul plant, which is also used to produce a type of liquid beverage that is consumed hot [Data: Sources (0)].",
+   "ms": 1817
+  },
+  {
+   "soru": "what is morlan",
+   "cevap": "Morlan is a nocturnal bird species found on Nortlann Island that primarily feeds on the seeds of the Norgu plant, establishing a significant ecological dependence [Data: Reports (1); Entities (8); Relationships (3)].",
+   "ms": 1704
+  },
+  {
+   "soru": "what is norgul",
+   "cevap": "Norgul is a plant endemic to the marsh areas on Nortlann Island, known for its white flowers and serves as a vital food source for various species, particularly the nocturnal bird Morlan, highlighting its importance in maintaining ecological balance in the region [Data: Reports (1); Entities (11); Relationships (3)].",
+   "ms": 2002
+  },
+  {
+   "soru": "what is karvel",
+   "cevap": "Karvel is a fish that resides in deep water and is primarily observed in the lake of Nortlann Island [Data: Entities (10); Sources (0)].",
+   "ms": 3160
+  },
+  {
+   "soru": "what is kelvit",
+   "cevap": "Kelvit is a grey-colored metal that is mined near Doruk, a village on Nortlann Island, playing a significant role in the local economy [Data: Entities (4); Reports (0); Relationships (1)].",
+   "ms": 3518
+  },
+  {
+   "soru": "what is selvin",
+   "cevap": "I don't know the answer.",
+   "ms": 1591
+  },
+  {
+   "soru": "what is Velmar",
+   "cevap": "Velmar is a village located in the northern part of Nortlann Island, serving as a key area for both fishing and the nearby Zerbalit mining operations, highlighting its significance to the local economy and community sustainability [Data: Reports (3); Entities (1); Relationships (2)].",
+   "ms": 3811
+  },
+  {
+   "soru": "is vorlin a liquid",
+   "cevap": "Yes, Vorlin is classified as a liquid, as indicated in the data [Data: Sources (0)].",
+   "ms": 1584
+  },
+  {
+   "soru": "is zilfen a creature",
+   "cevap": "Yes, Zilfen is classified as a bird and is categorized as a creature [Data: Entities (9); Sources (0)].",
+   "ms": 3685
+  },
+  {
+   "soru": "is torvanit a substance",
+   "cevap": "There is no information provided in the data tables regarding a substance named Torvanit, so I cannot confirm whether it is a substance or provide any details on it.",
+   "ms": 3151
+  },
+  {
+   "soru": "what happens if it rains",
+   "cevap": "If it rains on Nortlann Island, the marsh areas grow, which leads to the multiplication of the Norgu plant, subsequently supporting the local Morlan bird population that feeds on its seeds [Data: Sources (0)].",
+   "ms": 1828
+  },
+  {
+   "soru": "what happens if norgul multiplies",
+   "cevap": "If Norgu multiplies, it leads to an increase in Morlan populations, as Morlan relies on Norgu seeds for food, creating a symbiotic relationship that signifies the ecological balance of the Nortlann Island ecosystem [Data: Reports (1); Entities (11, 8); Relationships (3)].",
+   "ms": 3822
+  },
+  {
+   "soru": "what is melvarit",
+   "cevap": "I don't have any information on \"melvarit.\" It does not appear in the provided data tables.",
+   "ms": 1945
+  },
+  {
+   "soru": "what is the capital of Nortlann",
+   "cevap": "I don't know the answer.",
+   "ms": 4235
+  },
+  {
+   "soru": "at how many degrees does vorlin boil",
+   "cevap": "I don't have that specific information about the boiling point of Vorlin.",
+   "ms": 5629
+  },
+  {
+   "soru": "what is the population of the island",
+   "cevap": "I do not have information about the population of Nortlann Island.",
+   "ms": 2925
+  }
+ ]
+}
