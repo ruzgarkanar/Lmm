@@ -3072,6 +3072,54 @@ def w7():
         generate.supported = real
 
 
+@test("W8 a refusal with a full tally offers the tally, and nothing more")
+def w8():
+    """THE INFORMED REFUSAL. A turn that declines while the census is rich is
+    refusing with its hands full — the memory holds an attested tally of
+    documents that speak to the topic, and a bare refusal hides it. The
+    trigger is a STATE (refused, tally in hand), never a reading of the
+    question's wording, which is what lets a recommendation-shaped question
+    get a sourced reply without anyone classifying intent. And the offer is
+    read like any other turn: an engine that pads the tally with an invented
+    programme or a number the tally does not carry stays unspoken, and the
+    honest refusal stands."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The trust circle closes the morning block.",
+                 source="#docx:Alpha.docx", deep=False)
+    s.learn_text("Trust pairs open the afternoon walk.",
+                 source="#docx:Beta.docx", deep=False)
+    real_ex, real_ans = extract.extract, generate.answer
+    extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
+    calls = {"n": 0}
+    def fake_answer(question, block_, warmth=0.2):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return "I do not know."         # the path refuses first
+        return "Alpha and Beta both touch on trust."     # the tally offer
+    generate.answer = fake_answer
+    try:
+        said = s.respond("which sessions would you recommend for trust",
+                         teach=False)
+        assert "Alpha" in said and "Beta" in said, said
+        assert not s.last_abstained
+        # a padded offer is refused: the engine invents a programme name
+        calls["n"] = 0
+        def padded(question, block_, warmth=0.2):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return "I do not know."
+            return "Alpha, Beta and the Gamma masterclass cover trust."
+        generate.answer = padded
+        said = s.respond("which sessions would you recommend for trust",
+                         teach=False)
+        assert "Gamma" not in said, said
+        assert s.last_abstained
+    finally:
+        extract.extract, generate.answer = real_ex, real_ans
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
