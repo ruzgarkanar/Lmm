@@ -126,7 +126,9 @@ document says *Circular A-130*.
 *LMM's two misses are refusals.* Both are reworded questions whose answer is in
 the document and was not retrieved; both came back "I do not know" rather than
 approximated. Retrieval recall on synonyms is the open work item — and nothing
-was fabricated to cover it.
+was fabricated to cover it. The offline expansion channel was built for exactly
+this class and has since been measured against it: it does not close these two.
+See **Honest limits** for what was measured and why.
 
 Cost, on the 45k-token standard:
 
@@ -421,7 +423,6 @@ listed here because a feature with no documented entry point is not a feature.
 | `m.session.curiosity()` | what it has been asked and cannot answer | no engine |
 | `m.session.sleep()` | fade, reinforce, settle episodic into semantic | no engine |
 | `m.session.verdict(old, new)` | arbitrate two rival values | engine |
-| `m.session.expand()` | the offline synonym channel (`LMM_EXPAND`) | engine |
 
 A record is a `core.memory.Record`: `.subject`, `.predicate`, `.value` are
 concept **keys**, not strings, because one spelling can be two entities and one
@@ -454,6 +455,18 @@ Kept current, and deliberately specific.
   and is answered there, at the engine's price. What is guaranteed is that the
   three columns the question ruled out are never spoken over it
   (`benchmarks/COST.md` §8.4.1).
+- **The offline expansion channel does not work on a large document, and the
+  reason is structural.** It generates the questions each line answers and
+  indexes them, filtering with the document: a generated query is kept when it
+  reaches its own line better than any other. Measured on NIST SP 800-63B, that
+  filter is inverted. The line reads *"Memorized secrets SHALL be at least 8
+  characters in length"*; a reader asks *"what is the shortest password"* —
+  which shares not one distinguishing word with it. A real rephrasing never
+  reaches its own line, so the filter keeps only the queries that COPY the
+  line, which are the ones that buy nothing. Handed the perfect queries by
+  hand, it kept zero of them. `session.expand()` still exists and is off unless
+  asked for; it is not counted as a capability here until this is solved, and
+  solving it needs a relevance judgement rather than a lexical one.
 - Two benchmark questions are stable failures and are named rather than hidden:
   one whose answer sits in a table row sharing a single stem with the question,
   and one needing a heading plus a line eight sentences below it in one window.
