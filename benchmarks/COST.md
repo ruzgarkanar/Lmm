@@ -93,10 +93,10 @@ What each architecture requires on disk before it can answer anything. Measured 
 
 | | pip packages | site-packages | plus model weights |
 |---|---|---|---|
-| **LMM** — `pip install lmm` | **1** (`dependencies = []` in pyproject.toml) | **1.1 MB** | none — the graph, gate, trust ordering and derivation are pure python |
+| **LMM** — `pip install living-memory-model` | **1** (`dependencies = []` in pyproject.toml) | **1.1 MB** | none — the graph, gate, trust ordering and derivation are pure python |
 | **RAG** — `pip install langchain-chroma langchain-openai langchain-text-splitters sentence-transformers` | **114** | **1.35 GB** | **458 MB** embedding checkpoint, fetched at first use |
 
-Both venvs also carry the same ~21 MB of `pip`/`setuptools`, excluded from both rows. The RAG figure is dominated by `torch` (534 MB), `transformers` (110 MB), `scipy` (100 MB), `onnxruntime` (81 MB) and — via Chroma — `kubernetes` (84 MB). That is roughly **1,200x the disk and 114x the packages**, before a single question is asked. To be fair to RAG: this weight is what buys it the zero-API-token ingestion in section 1, and an LMM deployment that runs its own local engine pulls in a comparable stack (`pip install lmm[local]`). The 1.1 MB figure is the *core* — the part that stores, derives and gates, which is the part that has no dependencies.
+Both venvs also carry the same ~21 MB of `pip`/`setuptools`, excluded from both rows. The RAG figure is dominated by `torch` (534 MB), `transformers` (110 MB), `scipy` (100 MB), `onnxruntime` (81 MB) and — via Chroma — `kubernetes` (84 MB). That is roughly **1,200x the disk and 114x the packages**, before a single question is asked. To be fair to RAG: this weight is what buys it the zero-API-token ingestion in section 1, and an LMM deployment that runs its own local engine pulls in a comparable stack (`pip install living-memory-model[local]`). The 1.1 MB figure is the *core* — the part that stores, derives and gates, which is the part that has no dependencies.
 
 ## 5. Price, as a separate layer
 

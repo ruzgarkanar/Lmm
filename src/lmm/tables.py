@@ -36,6 +36,13 @@ _EXTRAS = {
 }
 
 
+# THE NAME ON PyPI IS NOT THE NAME IN THE IMPORT. `import lmm` is the package;
+# `lmm` as a DISTRIBUTION was refused by PyPI as too similar to an existing
+# project, so the thing people type after `pip install` is this. Written once,
+# because a name written in two places is eventually two different names.
+DIST = "living-memory-model"
+
+
 def _require(module, what):
     """Import an optional reader, or say exactly how to get it."""
     try:
@@ -44,7 +51,7 @@ def _require(module, what):
         extra, dist = _EXTRAS.get(module, (module, module))
         raise ImportError(
             f"reading {what} needs {dist}, which is not installed.\n"
-            f"    pip install 'lmm[{extra}]'      (or: pip install {dist})"
+            f"    pip install '{DIST}[{extra}]'   (or: pip install {dist})"
         ) from gone
 
 

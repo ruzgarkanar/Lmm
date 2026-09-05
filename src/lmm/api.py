@@ -216,7 +216,7 @@ def _read_with(adapter, path, reader, *args, **kwargs):
     Measured: a truncated PDF gave 51 lines of pdfminer traceback, an empty one
     29, and a password-protected one 38 lines ending in `PdfminerException:`
     with an empty message. The install path already sets the standard here
-    ("reading PDF files needs pdfplumber ... pip install 'lmm[pdf]'"); a broken
+    ("reading PDF files needs pdfplumber ... pip install 'living-memory-model[pdf]'"); a broken
     FILE is the more common event and had no such contract. Our own errors
     (a missing extra, an unsupported format) pass through untouched.
     """

@@ -1756,7 +1756,9 @@ def l3():
             try:
                 reader(arg)
             except ImportError as said:
-                assert f"lmm[{extra}]" in str(said), said
+                # the DISTRIBUTION name, read from the one place that
+                # states it — `lmm` is what you import, not what you install
+                assert f"{tables.DIST}[{extra}]" in str(said), said
                 assert dist in str(said), said
             else:
                 raise AssertionError(f"{arg} read with its reader missing")
@@ -1904,7 +1906,7 @@ def m2():
     All four are decided on structure — zero characters, the share of
     characters inside tags, the shape of a filename — and none of them on any
     document's content. No model runs in this test."""
-    from lmm import api
+    from lmm import api, tables
     from lmm.api import Memory
     home = tempfile.mkdtemp()
 
@@ -1979,12 +1981,12 @@ def m2():
         raise AssertionError("the reader's own exception reached the caller")
 
     def missing(*a, **k):
-        raise ImportError("pip install 'lmm[pdf]'")
+        raise ImportError(f"pip install '{tables.DIST}[pdf]'")
 
     try:
         api._read_with("pdf", "/tmp/x.pdf", missing)
     except ImportError as said:
-        assert "lmm[pdf]" in str(said)
+        assert f"{tables.DIST}[pdf]" in str(said)
     else:
         raise AssertionError("the install line was swallowed")
 

@@ -13,7 +13,7 @@ the system.
 > which is what makes "I don't know" trustworthy rather than polite.
 
 ```bash
-pip install lmm
+pip install living-memory-model      # the import is `lmm`
 ```
 
 ```python
@@ -355,14 +355,14 @@ Full description: [`docs/architecture.md`](docs/architecture.md).
 ## Install
 
 ```bash
-pip install lmm                      # core: pure python, zero dependencies
-pip install 'lmm[pdf]'               # pdfplumber + pypdf
-pip install 'lmm[xlsx]'              # pandas + openpyxl
-pip install 'lmm[docx]'              # python-docx
-pip install 'lmm[local]'             # torch + transformers + peft (local engine)
-pip install 'lmm[gguf]'              # llama.cpp, CPU
-pip install 'lmm[openai]'            # OpenAI, OpenRouter, Groq, vLLM, Ollama
-pip install 'lmm[azure]'             # Azure OpenAI
+pip install living-memory-model                      # core: pure python, zero dependencies
+pip install 'living-memory-model[pdf]'               # pdfplumber + pypdf
+pip install 'living-memory-model[xlsx]'              # pandas + openpyxl
+pip install 'living-memory-model[docx]'              # python-docx
+pip install 'living-memory-model[local]'             # torch + transformers + peft (local engine)
+pip install 'living-memory-model[gguf]'              # llama.cpp, CPU
+pip install 'living-memory-model[openai]'            # OpenAI, OpenRouter, Groq, vLLM, Ollama
+pip install 'living-memory-model[azure]'             # Azure OpenAI
 ```
 
 Extras are opt-in and lazy: nothing is imported until you hand LMM a file of
