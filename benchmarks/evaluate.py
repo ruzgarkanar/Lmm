@@ -33,7 +33,7 @@ def correct(question, row):
     stamp and falls back to wording only when the file has none (see
     score.declined) — that is what makes the score language-independent."""
     if question["altin"] is None:
-        return declined(row)
+        return declined(row, question["soru"])
     ans = fold(row.get("cevap") or "")
     return any(fold(gold) in ans for gold in question["altin"])
 

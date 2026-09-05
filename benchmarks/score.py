@@ -119,15 +119,28 @@ def _claim(answer):
     return " ".join(w for w in text.split() if not w.startswith("#"))
 
 
-def _claims_a_value(answer):
+def _claims_a_value(answer, question=""):
     """Does this sentence assert something SPECIFIC — a figure or a code.
 
     Structural, no language in it: a digit, or a token that carries a capital
     letter after its first character ('IPX7', 'DICOM', 'BF'), which is how a
     designation is written in any Latin-script document. An answer that names
     a value is answering, whatever else it hedges around it — and an ABSENCE
-    question is exactly the one where naming a value is the failure."""
+    question is exactly the one where naming a value is the failure.
+
+    A TOKEN ECHOED FROM THE QUESTION IS NOT A CLAIM. Measured: GraphRAG
+    refused the absence question "what minimum password length does the GDPR
+    require" with "I don't have the information regarding ... the GDPR", and
+    the echoed GDPR — uppercase after its first character — scored that honest
+    refusal as a fabrication. Repeating the subject back is how refusals are
+    worded in every language; the designation only counts when the answer
+    introduces it.
+    """
+    asked = {token.casefold()
+             for token in re.findall(r"\w+", question or "", re.UNICODE)}
     for token in re.findall(r"\w+", _claim(answer), re.UNICODE):
+        if token.casefold() in asked:
+            continue
         if any(ch.isdigit() for ch in token):
             return True
         if len(token) > 1 and any(ch.isupper() for ch in token[1:]):
@@ -135,7 +148,7 @@ def _claims_a_value(answer):
     return False
 
 
-def abstains(answer):
+def abstains(answer, question=""):
     """Does the answer DECLINE to answer.
 
     Two conditions, and the interesting one is the second. (1) One of the
@@ -147,7 +160,7 @@ def abstains(answer):
     (2) The sentence names no specific value, because an answer that supplies a
     figure to a question the document cannot answer is a fabrication, not an
     abstention, no matter how politely it is framed."""
-    if _claims_a_value(answer):
+    if _claims_a_value(answer, question):
         return False
     toks = _words(answer)
     for pattern in ABSTAIN:
@@ -167,7 +180,7 @@ def abstains(answer):
     return False
 
 
-def declined(row):
+def declined(row, question=""):
     """Did this turn DECLINE to answer — the language-independent reading.
 
     The system's own stamp first ("abstained", written by the engine that took
@@ -178,8 +191,8 @@ def declined(row):
     """
     answer = row.get("cevap") or ""
     if "abstained" in row:
-        return bool(row["abstained"]) and not _claims_a_value(answer)
-    return abstains(answer)
+        return bool(row["abstained"]) and not _claims_a_value(answer, question)
+    return abstains(answer, question)
 
 
 def score(path, questions):
@@ -190,7 +203,7 @@ def score(path, questions):
         r = by_q[q["soru"]]
         ans = fold(r["cevap"] or "")
         if q["altin"] is None:
-            ok = declined(r)
+            ok = declined(r, q["soru"])
         else:
             ok = any(fold(g) in ans for g in q["altin"])
         rows.append((q["tip"], q["soru"], ok, r["ms"]))

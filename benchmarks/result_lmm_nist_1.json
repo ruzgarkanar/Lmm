@@ -1,0 +1,99 @@
+{
+ "ingest_ms": 881,
+ "yazilan": 0,
+ "atlanan": 0,
+ "turetilen": 0,
+ "cevaplar": [
+  {
+   "soru": "how many characters shall a subscriber-chosen memorized secret be at least",
+   "cevap": "A subscriber-chosen memorized secret shall be at least 8 characters in length. (~ #doc:corpus)",
+   "ms": 13408,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "what length of memorized secret should verifiers permit",
+   "cevap": "Verifiers should permit subscriber-chosen memorized secrets to be at least 64 characters in length. (~ #doc:corpus)",
+   "ms": 11264,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "what is the publication date of this document",
+   "cevap": "The publication date of this document is July 2025. (~ #doc:corpus)",
+   "ms": 10228,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "what is the series number of this publication",
+   "cevap": "The series number of this publication is NIST SP 800-63B-4. (~ #doc:corpus)",
+   "ms": 9946,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "how often should reauthentication be repeated at AAL1",
+   "cevap": "Reauthentication should be repeated at least once per 30 days at AAL1. (~ #doc:corpus)",
+   "ms": 10445,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "how often shall authentication be repeated at AAL2",
+   "cevap": "Authentication shall be repeated at least once per 12 hours at AAL2. (~ #doc:corpus)",
+   "ms": 12107,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "who is the acting NIST director",
+   "cevap": "The acting NIST director is Kent Rochford. (~ #doc:corpus)",
+   "ms": 10201,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "which OMB circular is this guideline consistent with",
+   "cevap": "This guideline is consistent with the requirements of the Office of Management and Budget (OMB) Circular A-130. (~ #doc:corpus)",
+   "ms": 8530,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "what does a hardware authenticator cost in dollars",
+   "cevap": "I do not know.",
+   "ms": 10600,
+   "abstained": true,
+   "from_graph": false
+  },
+  {
+   "soru": "what minimum password length does the GDPR require",
+   "cevap": "I do not know.",
+   "ms": 7897,
+   "abstained": true,
+   "from_graph": false
+  },
+  {
+   "soru": "what is the shortest password a user may choose",
+   "cevap": "I do not know.",
+   "ms": 10727,
+   "abstained": true,
+   "from_graph": false
+  },
+  {
+   "soru": "how long a passphrase must verifiers allow",
+   "cevap": "Verifiers must allow at least 64 characters in length for passphrases. (~ #doc:corpus)",
+   "ms": 11612,
+   "abstained": false,
+   "from_graph": false
+  },
+  {
+   "soru": "who currently heads NIST",
+   "cevap": "I do not know.",
+   "ms": 10623,
+   "abstained": true,
+   "from_graph": false
+  }
+ ]
+}

@@ -1,0 +1,81 @@
+{
+ "ingest_ms": 26893,
+ "cevaplar": [
+  {
+   "soru": "how many characters shall a subscriber-chosen memorized secret be at least",
+   "cevap": "The minimum length requirement for a subscriber-chosen memorized secret is not explicitly defined in the provided data. However, it is emphasized that establishing minimum length requirements is crucial to enhance the security of user passwords and to resist guessing and brute-force tactics [Data: Reports (33); Entities (254); Relationships (309)].",
+   "ms": 5324
+  },
+  {
+   "soru": "what length of memorized secret should verifiers permit",
+   "cevap": "Verifiers are recommended to enforce minimum length requirements for memorized secrets, as these requirements are essential for enhancing security against various attacks; specific guidelines suggest that password length is a primary factor in characterizing their strength to mitigate risks such as brute-force attacks and dictionary attacks [Data: Sources (39); Entities (254, 192); Relationships (309)].",
+   "ms": 2473
+  },
+  {
+   "soru": "what is the publication date of this document",
+   "cevap": "The publication date of NIST Special Publication 800-63B is June 2017, with updates included as of March 2, 2020 [Data: Sources (0)].",
+   "ms": 3913
+  },
+  {
+   "soru": "what is the series number of this publication",
+   "cevap": "The series number of the publication is NIST Special Publication 800-63B [Data: Sources (38)].",
+   "ms": 3269
+  },
+  {
+   "soru": "how often should reauthentication be repeated at AAL1",
+   "cevap": "At AAL1, reauthentication should be repeated at least once per 30 days during an extended usage session, regardless of user activity [Data: Sources (6)].",
+   "ms": 4486
+  },
+  {
+   "soru": "how often shall authentication be repeated at AAL2",
+   "cevap": "At AAL2, authentication must be repeated at least once every 12 hours during an extended usage session, regardless of user activity, and reauthentication is also required after any period of inactivity lasting 30 minutes or more [Data: Reports (1); Relationships (30)].",
+   "ms": 2319
+  },
+  {
+   "soru": "who is the acting NIST director",
+   "cevap": "I don't have that information.",
+   "ms": 4126
+  },
+  {
+   "soru": "which OMB circular is this guideline consistent with",
+   "cevap": "The guideline is consistent with OMB Memorandum M-03-22, which provides guidance for implementing privacy provisions of the E-Government Act of 2002, and OMB Memorandum M-04-04, which offers e-Authentication guidance for federal agencies [Data: Sources (37, 37)].",
+   "ms": 2673
+  },
+  {
+   "soru": "what does a hardware authenticator cost in dollars",
+   "cevap": "I'm sorry, but I don't have information regarding the cost of hardware authenticators in dollars.",
+   "ms": 1614
+  },
+  {
+   "soru": "what minimum password length does the GDPR require",
+   "cevap": "I don't know the answer.",
+   "ms": 3630
+  },
+  {
+   "soru": "what is the shortest password a user may choose",
+   "cevap": "The minimum password length requirement dictates that passwords must meet specific baseline criteria for security, with various guidelines recommending a minimum length of at least 8 characters to adequately defend against attacks [Data: Entities (254); Reports (33)].",
+   "ms": 4291
+  },
+  {
+   "soru": "how long a passphrase must verifiers allow",
+   "cevap": "Verifiers must establish a minimum password length requirement to enhance security, as shorter passwords may be vulnerable to various attacks, and while specific requirements may vary based on threat models, allowing users to create long passphrases is recommended to improve security against guessing and brute force attacks [Data: Entities (254); Relationships (309, 293, 40)].",
+   "ms": 2544
+  },
+  {
+   "soru": "who currently heads NIST",
+   "cevap": "I'm sorry, but the data provided does not include information on the current head of the National Institute of Standards and Technology (NIST).",
+   "ms": 1824
+  }
+ ],
+ "usage_indexing": {
+  "calls": 0,
+  "prompt": 0,
+  "completion": 0
+ },
+ "usage_questions": {
+  "calls": 26,
+  "prompt": 131715,
+  "completion": 0,
+  "estimated": 13
+ }
+}

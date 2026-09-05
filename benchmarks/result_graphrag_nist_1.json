@@ -1,0 +1,81 @@
+{
+ "ingest_ms": 106399,
+ "cevaplar": [
+  {
+   "soru": "how many characters shall a subscriber-chosen memorized secret be at least",
+   "cevap": "The minimum length requirement for a subscriber-chosen memorized secret, such as a password, is crucial for enhancing security and should be established to resist guessing and brute-force tactics; specific requirements often depend on organizational policies, but typically, NIST guidelines recommend at least 8 characters, with longer lengths providing better security against attacks [Data: Reports (33); Entities (254); Relationships (309)].",
+   "ms": 4146
+  },
+  {
+   "soru": "what length of memorized secret should verifiers permit",
+   "cevap": "Verifiers should establish minimum length requirements for memorized secrets to enhance security, as passwords that are too short are vulnerable to various attacks, and guidelines recommend specific lengths based on the threat model [Data: Entities (254); Relationships (309); Sources (39)].",
+   "ms": 3733
+  },
+  {
+   "soru": "what is the publication date of this document",
+   "cevap": "The publication date of NIST Special Publication 800-63B is June 2017, which includes updates as of March 2, 2020, and it is set to be withdrawn on August 1, 2025, as it will be superseded by NIST SP 800-63B-4, published in July 2025 [Data: Sources (0)].",
+   "ms": 3377
+  },
+  {
+   "soru": "what is the series number of this publication",
+   "cevap": "The series number of the publication discussed is NIST Special Publication 800-63B, which focuses on Digital Identity Guidelines for authentication and lifecycle management [Data: Reports (5); Sources (38)].",
+   "ms": 3169
+  },
+  {
+   "soru": "how often should reauthentication be repeated at AAL1",
+   "cevap": "At Authenticator Assurance Level 1 (AAL1), reauthentication of the subscriber should be repeated at least once per 30 days during an extended usage session, regardless of user activity [Data: Sources (6)].",
+   "ms": 3187
+  },
+  {
+   "soru": "how often shall authentication be repeated at AAL2",
+   "cevap": "At Authentication Assurance Level 2 (AAL2), authentication of the subscriber should be repeated at least once every 12 hours during an extended usage session and also after any period of inactivity that lasts 30 minutes or longer [Data: Reports (1); Entities (24); Relationships (49, 53)].",
+   "ms": 3839
+  },
+  {
+   "soru": "who is the acting NIST director",
+   "cevap": "I'm sorry, but the data provided does not contain information about the current acting NIST director.",
+   "ms": 3322
+  },
+  {
+   "soru": "which OMB circular is this guideline consistent with",
+   "cevap": "The Digital Identity Guidelines, specifically NIST SP 800-63B, are consistent with OMB Memorandum M-04-04, which provides e-Authentication guidance for federal agencies [Data: Reports (1); Entities (213); Relationships (261)].",
+   "ms": 4184
+  },
+  {
+   "soru": "what does a hardware authenticator cost in dollars",
+   "cevap": "I don't have specific information on the cost of hardware authenticators in dollars.",
+   "ms": 4810
+  },
+  {
+   "soru": "what minimum password length does the GDPR require",
+   "cevap": "I don't have the information regarding the minimum password length required by the GDPR.",
+   "ms": 5523
+  },
+  {
+   "soru": "what is the shortest password a user may choose",
+   "cevap": "The shortest password a user may choose is determined by minimum length requirements, which typically dictate that passwords must meet certain baseline security standards; for instance, the NIST guidelines suggest a minimum length of 8 characters for user-chosen passwords [Data: Entities (254); Relationships (309)].",
+   "ms": 4039
+  },
+  {
+   "soru": "how long a passphrase must verifiers allow",
+   "cevap": "Verifiers should establish minimum length requirements for passphrases, which are defined as guidelines to enhance security, generally recommending that passwords be complex and long enough to resist brute-force and dictionary attacks, although the exact length is not specified in the provided data [Data: Entities (254); Relationships (309); Sources (40)].",
+   "ms": 4029
+  },
+  {
+   "soru": "who currently heads NIST",
+   "cevap": "I don't know the answer to that.",
+   "ms": 2913
+  }
+ ],
+ "usage_indexing": {
+  "calls": 220,
+  "prompt": 498230,
+  "completion": 79519
+ },
+ "usage_questions": {
+  "calls": 26,
+  "prompt": 131715,
+  "completion": 0,
+  "estimated": 13
+ }
+}
