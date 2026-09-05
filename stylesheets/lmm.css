@@ -1,0 +1,32 @@
+/* The repository's own palette — the teal/bronze the architecture diagram
+   and the article figures already speak. */
+:root {
+  --md-primary-fg-color: #0E7C86;
+  --md-primary-fg-color--dark: #0A5A62;
+  --md-accent-fg-color: #A6712E;
+}
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #3BC4C9;
+  --md-accent-fg-color: #D6A050;
+  --md-hue: 210;
+}
+.md-typeset h1, .md-typeset h2 { letter-spacing: -0.01em; }
+.md-typeset table:not([class]) th { background: var(--md-primary-fg-color); color: #fff; }
+
+/* the announcement bar */
+.md-banner { background: var(--md-primary-fg-color); color: #fff; }
+.md-banner a { color: #fff; text-decoration: underline; }
+
+/* the "Measured" admonition — the site's signature callout: a claim in this
+   box carries a number someone can re-run */
+.md-typeset .admonition.measured, .md-typeset details.measured {
+  border-color: var(--md-primary-fg-color);
+}
+.md-typeset .measured > .admonition-title {
+  background-color: rgba(14, 124, 134, 0.12);
+}
+.md-typeset .measured > .admonition-title::before {
+  background-color: var(--md-primary-fg-color);
+  -webkit-mask-image: var(--md-admonition-icon--note);
+          mask-image: var(--md-admonition-icon--note);
+}
