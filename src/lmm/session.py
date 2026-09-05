@@ -342,7 +342,7 @@ class Session:
             frontier = nxt
         return chain            # [(cause, effect)] edges — root→leaf chain
 
-    def respond(self, message, fluent=False):
+    def respond(self, message, fluent=False, teach=True):
         """Answer one message + update the CONVERSATION CONTEXT. The real logic
         is in _respond; this wrapper keeps the last N turns in `history`
         (conversation continuity). `last_written`: the triples the GATE
@@ -363,7 +363,7 @@ class Session:
         self.last_from_graph = False
         self._mark = ""
         self._last_proof = []
-        said = self._respond(message, fluent=fluent)
+        said = self._respond(message, fluent=fluent, teach=teach)
         if said and not self.last_abstained and not self.last_from_graph:
             # A GRAPH ANSWER NEEDS NO READING BACK. The re-extractor below is
             # asked "did this turn assert anything", and it is a MODEL CALL —
@@ -500,7 +500,7 @@ class Session:
             said = self._hedge(said, record, message) or said
         return said
 
-    def _respond(self, message, fluent=False):
+    def _respond(self, message, fluent=False, teach=True):
         """Answer one message. The return is always text; never an unsupported
         fact.
 
@@ -568,7 +568,16 @@ class Session:
                     except Exception:                       # noqa: BLE001
                         pass
                 # new content or not an approval → processed normally below
-            if op["kind"] == extract.WRITE and op["triples"]:
+            # A QUESTION API CANNOT WRITE MEMORY. `ask` passes teach=False:
+            # a single-shot question, however imperative its grammar, is not
+            # an act of teaching — measured: "draft a programme for the sales
+            # team" was classified WRITE, written into the graph as operator
+            # fact, and answered with a confirmation of having learned it.
+            # The conversational surface keeps teach=True, because teaching
+            # IS one of its jobs; what changes is that the caller now states
+            # which contract it wants, instead of the classifier deciding
+            # both.
+            if teach and op["kind"] == extract.WRITE and op["triples"]:
                 # Is it a CAUSAL sentence ("X causes Y") — store SEPARATE from
                 # is-a (#causes predicate). If so learn_cause; else the normal
                 # is-a write.

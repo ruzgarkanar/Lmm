@@ -1863,7 +1863,7 @@ def m1():
     s = lmm_session.Session(None)
     refusal = "Bilmiyorum."
 
-    def spoke(message, fluent=False):
+    def spoke(message, fluent=False, teach=True):
         s._mark = "#pdf:rfc2119.txt"       # a low-trust source, as _hedge sets
         return refusal
 
@@ -3004,6 +3004,32 @@ def w5():
     # the footnote is not a claim: a sourced refusal is still a refusal
     assert not s._asserted_a_fact(
         "I do not know. (~ #docx:Alpha Programme.docx)")
+
+
+@test("W6 a question API cannot write memory, however imperative the grammar")
+def w6():
+    """Measured: "draft a programme for the sales team" was classified WRITE,
+    written into the graph as an operator fact, and answered with a
+    confirmation of having learned it. The contract is the caller's to state,
+    not the classifier's to guess: ask() passes teach=False and the WRITE
+    branch is simply not there for it; the conversational surface keeps
+    teach=True because teaching is one of its jobs. The classifier below is
+    faked to force the misfire the fix exists for."""
+    from lmm import extract
+    from lmm.session import Session
+    s = Session(None)
+    real = extract.extract
+    extract.extract = lambda message: {
+        "kind": extract.WRITE,
+        "triples": [("sales team", "programme", "draft")]}
+    try:
+        before = len(s.memory.records)
+        s.respond("draft a day programme for the sales team", teach=False)
+        assert len(s.memory.records) == before, "teach=False wrote a record"
+        # (the teach=True write path is engine-bearing and is exercised by
+        # the session tests above; this test guards only the new contract)
+    finally:
+        extract.extract = real
 
 
 @test("X5 an expansion written in another language never reaches the index")
