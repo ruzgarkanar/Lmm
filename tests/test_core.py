@@ -1426,21 +1426,33 @@ def k1():
     (`Session.last_abstained`, written into the result file as "abstained"),
     which is a fact the code knows rather than a wording a reader guesses at.
 
-    Here is what that buys, stated as the assertions below: a German and a
-    Spanish refusal — invisible to every pattern in the list — are read as
-    abstentions, and a Turkish one still is. The value check survives the
+    Here is what that buys, stated as the assertions below: a German refusal —
+    invisible to every pattern in the list — is read as an abstention, and a
+    Turkish one still is. Where the list DOES have the wording, the stamp still
+    outranks it in both directions, which is the property that makes the stamp
+    the criterion rather than a second opinion. The value check survives the
     stamp: an "abstention" that names a figure is a fabrication whichever path
     the engine thinks it took, so a stamped turn that supplies 2 años is not
-    counted as a refusal. Rows with no stamp (the RAG baseline's, every
-    historical file on disk) fall back to the patterns unchanged."""
+    counted as a refusal. Rows with no stamp (the RAG and GraphRAG baselines',
+    every historical file on disk) fall back to the patterns.
+
+    THE FALLBACK IS NO LONGER TURKISH-ONLY, and that is a fairness fix, not a
+    retreat from the stamp. A baseline writes no stamp and answers in the
+    document's language: measured with a Turkish-only list, GraphRAG's four
+    honest English refusals scored as fabrications and cost it 13/17 against a
+    true 16/17. The list only ever judges a third party — this system is read
+    by its stamp — so it has to cover the languages the third party speaks."""
     sys.path.insert(0, os.path.join(ROOT, "benchmarks"))
     from score import abstains, declined
-    foreign = ("Das weiß ich leider nicht.",
-               "No tengo esa información.",
-               "That is not stated in the document.")
-    for answer in foreign:
-        # the pattern list is blind to all three — that is the whole problem
-        assert not abstains(answer), answer
+    # German is outside every pattern — the case the stamp exists for.
+    unseen = "Das weiß ich leider nicht."
+    assert not abstains(unseen)
+    assert declined({"cevap": unseen, "abstained": True})
+    assert not declined({"cevap": unseen, "abstained": False})
+    # Where the list does reach, the stamp still decides — both ways.
+    for answer in ("That is not stated in the document.",
+                   "No tengo esa información."):
+        assert abstains(answer), answer          # the fallback sees it
         assert declined({"cevap": answer, "abstained": True}), answer
         assert not declined({"cevap": answer, "abstained": False}), answer
     # Turkish keeps working through the same door.
@@ -1449,9 +1461,9 @@ def k1():
     # A stamp cannot launder a fabricated value.
     assert not declined({"cevap": "La garantía es de 2 años.",
                          "abstained": True})
-    # No stamp -> the old reading, unchanged (back-compat for RAG/old files).
+    # No stamp -> the wording is read, in whichever language it was written.
     assert declined({"cevap": "Bu konuda bilgim yok."})
-    assert not declined({"cevap": "No tengo esa información."})
+    assert declined({"cevap": "No tengo esa información."})
 
 
 @test("K2 every refusal leaves by one door, and that door raises the flag")

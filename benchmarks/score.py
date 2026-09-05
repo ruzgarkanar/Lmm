@@ -84,7 +84,15 @@ SLACK = 2
 
 
 def fold(t):
-    t = unicodedata.normalize("NFC", t)
+    # NFD, NOT NFC. The line below drops combining marks, and NFC had just
+    # finished composing them into letters that carry no combining mark at all
+    # — so "información" stayed accented and the pattern "no tengo informacion"
+    # never fired on the commonest Spanish refusal there is. Decomposing first
+    # is what makes the stripping real. It applies to the patterns and to the
+    # answer through the same function, so the two sides cannot disagree, and
+    # Turkish is unaffected: "ı" has no decomposition, and "değil" folds to
+    # "degil" on both sides at once.
+    t = unicodedata.normalize("NFD", t)
     return "".join(ch.casefold()[0] for ch in t if not unicodedata.combining(ch))
 
 
