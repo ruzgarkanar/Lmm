@@ -404,7 +404,27 @@ class Session:
         census_line = getattr(self, "_census_line", "")
         if (said and self.last_abstained and census_line
                 and not self.last_from_graph):
-            offered = (generate.answer(message, f"[K1] {census_line}",
+            # v2: THE OFFER GETS REASONS, NOT JUST NAMES. With only the tally
+            # to read, the best rescue the engine could write was a list; the
+            # named documents are sitting in the store with the very
+            # sentences that justify naming them. So the rescue block is
+            # rebuilt the way the composer gathers: floor off (weak material
+            # is harmless — the gate below still rules the OUTPUT), source
+            # cap giving the spread, every line datelined, tally at the end.
+            # The gate is v1's, unchanged: names and numbers only from what
+            # the block attests.
+            gathered = self.evidence.find(message, most=8, floor_share=0.0)
+            origins2 = list(self.evidence.last_sources[:len(gathered)])
+            named_in_tally = set()
+            for src, _hits in self.evidence.last_census:
+                named_in_tally.add(src)
+            lines = [f"{evidence._source_name(src)} — {text}"
+                     for text, src in zip(gathered, origins2)
+                     if src in named_in_tally]
+            rescue_block = "\n".join(
+                f"[K{i}] {line}"
+                for i, line in enumerate(lines + [census_line], 1))
+            offered = (generate.answer(message, rescue_block,
                                        warmth=0.0) or "").strip()
             # WHAT THE OFFER MUST NOT DO IS INVENT A MEMBER OR A NUMBER.
             # Full word-coverage was tried first and refused every honest
@@ -416,23 +436,31 @@ class Session:
             # words in between are the engine doing its one job, phrasing.
             if offered and evidence.digits_ok(offered, census_line):
                 tally_words = set(evidence._words(census_line))
-                allowed = tally_words | set(evidence._words(message))
+                allowed = (tally_words | set(evidence._words(message))
+                           | set(evidence._words("\n".join(lines))))
                 sound, names_spoken = True, 0
                 for m in re.finditer(r"\w+", offered, re.UNICODE):
                     token = m.group()
+                    folded = fold(token)
+                    # CREDIT reads every position: a tally name counts
+                    # wherever it stands — offers habitually OPEN with the
+                    # name, and the first cut's sentence-start exemption
+                    # zeroed exactly those (measured: a correct reasoned
+                    # offer refused as "naming no member")
+                    if any(inflect.same_stem(folded, w)
+                           for w in tally_words):
+                        names_spoken += 1
+                        continue
+                    # SUSPICION keeps the exemption: an unknown capitalised
+                    # word at a sentence start is ordinary orthography, not a
+                    # designation
                     starts = m.start() == 0 or offered[
                         :m.start()].rstrip()[-1:] in ".!?:•-–—\n"
                     named = (any(ch.isupper() for ch in token[1:])
                              or (token[:1].isupper() and not starts)
                              or any(ch.isdigit() for ch in token))
-                    if not named:
-                        continue
-                    folded = fold(token)
-                    if any(inflect.same_stem(folded, w)
-                           for w in tally_words):
-                        names_spoken += 1
-                    elif not any(inflect.same_stem(folded, w)
-                                 for w in allowed):
+                    if named and not any(inflect.same_stem(folded, w)
+                                         for w in allowed):
                         sound = False
                         break
                 # an offer that names no member offers nothing — the honest
