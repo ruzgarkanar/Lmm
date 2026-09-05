@@ -1,0 +1,81 @@
+{
+ "ingest_ms": 26673,
+ "cevaplar": [
+  {
+   "soru": "how many characters shall a subscriber-chosen memorized secret be at least",
+   "cevap": "The minimum length requirement for a subscriber-chosen memorized secret, such as a password, should be established to enhance security against guessing and brute-force tactics, thereby reinforcing the overall security framework in digital environments [Data: Reports (33); Entities (254); Relationships (309)].",
+   "ms": 5606
+  },
+  {
+   "soru": "what length of memorized secret should verifiers permit",
+   "cevap": "Verifiers should enforce minimum length requirements for memorized secrets, which are crucial for enhancing security and minimizing vulnerabilities; for example, the National Institute of Standards and Technology (NIST) provides guidelines stating that password length is a primary factor in characterizing password strength, with a recommended minimum length to mitigate risks associated with brute-force and dictionary attacks [Data: Sources (39); Entities (254); Relationships (309)].",
+   "ms": 3981
+  },
+  {
+   "soru": "what is the publication date of this document",
+   "cevap": "The publication date of NIST Special Publication 800-63B is June 2017, with updates as of March 2, 2020, and it has been withdrawn effective August 1, 2025, superseded by NIST SP 800-63B-4 [Data: Reports (5); Sources (0)].",
+   "ms": 2304
+  },
+  {
+   "soru": "what is the series number of this publication",
+   "cevap": "The series number of the publication is NIST Special Publication 800-63B. [Data: Reports (5); Sources (38)].",
+   "ms": 1995
+  },
+  {
+   "soru": "how often should reauthentication be repeated at AAL1",
+   "cevap": "At Authenticator Assurance Level 1 (AAL1), reauthentication of the subscriber should be repeated at least once per 30 days during an extended usage session, regardless of user activity [Data: Sources (6)].",
+   "ms": 3569
+  },
+  {
+   "soru": "how often shall authentication be repeated at AAL2",
+   "cevap": "At Authentication Assurance Level 2 (AAL2), authentication of the subscriber should be repeated at least once every 12 hours during an extended usage session, regardless of user activity, and it must also be repeated following any period of inactivity lasting 30 minutes or longer [Data: Reports (1); Sources (6)].",
+   "ms": 4510
+  },
+  {
+   "soru": "who is the acting NIST director",
+   "cevap": "I do not have information regarding the identity of the current acting NIST director.",
+   "ms": 1806
+  },
+  {
+   "soru": "which OMB circular is this guideline consistent with",
+   "cevap": "The guidelines are consistent with OMB Memorandum M-04-04, which provides e-Authentication guidance for federal agencies [Data: Sources (37)].",
+   "ms": 2444
+  },
+  {
+   "soru": "what does a hardware authenticator cost in dollars",
+   "cevap": "I'm sorry, but I don't have any information regarding the cost of hardware authenticators in dollars.",
+   "ms": 2115
+  },
+  {
+   "soru": "what minimum password length does the GDPR require",
+   "cevap": "I'm sorry, but the provided data tables do not include information regarding minimum password length requirements specified by the GDPR.",
+   "ms": 3606
+  },
+  {
+   "soru": "what is the shortest password a user may choose",
+   "cevap": "The shortest password a user may choose is determined by minimum length requirements, which are guidelines that dictate how long a password must be to enhance security [Data: Entities (254); Relationships (309)].",
+   "ms": 2687
+  },
+  {
+   "soru": "how long a passphrase must verifiers allow",
+   "cevap": "Verifiers must allow passphrases to meet specific minimum length requirements to enhance security against unauthorized access, though the exact minimum length is not explicitly defined in the provided data [Data: Entities (254); Relationships (293)].",
+   "ms": 2937
+  },
+  {
+   "soru": "who currently heads NIST",
+   "cevap": "I'm sorry, but the data provided does not specify who currently heads the National Institute of Standards and Technology (NIST).",
+   "ms": 2069
+  }
+ ],
+ "usage_indexing": {
+  "calls": 0,
+  "prompt": 0,
+  "completion": 0
+ },
+ "usage_questions": {
+  "calls": 26,
+  "prompt": 131715,
+  "completion": 0,
+  "estimated": 13
+ }
+}
