@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="560" viewBox="0 0 1120 560"><rect width="1120" height="560" fill="#FFFFFF"/><style>.t{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;fill:#14181F}.s{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13.5px;fill:#5A6472}.h{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:19px;font-weight:600;fill:#14181F}.k{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;fill:#5A6472;letter-spacing:.09em}.g{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;fill:#0E7C86;letter-spacing:.08em;font-weight:600}.b{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;fill:#A6712E;letter-spacing:.08em;font-weight:600}.big{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:26px;font-weight:700}</style>
+<text x="40" y="46" class="h">Where does the knowledge live?</text>
+<line x1="560" y1="80" x2="560" y2="520" stroke="#C9CFD8"/>
+<text x="40" y="96" class="b">AN LLM</text>
+<text x="40" y="124" class="t">Knowledge is fused into the weights at training time.</text>
+<rect x="40" y="146" width="470" height="150" rx="3" fill="#A6712E" opacity="0.13" stroke="#A6712E"/>
+<circle cx="62" cy="172" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="62" cy="206" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="62" cy="240" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="62" cy="274" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="98" cy="172" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="98" cy="206" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="98" cy="240" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="98" cy="274" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="134" cy="172" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="134" cy="206" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="134" cy="240" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="134" cy="274" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="170" cy="172" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="170" cy="206" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="170" cy="240" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="170" cy="274" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="206" cy="172" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="206" cy="206" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="206" cy="240" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="206" cy="274" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="242" cy="172" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="242" cy="206" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="242" cy="240" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="242" cy="274" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="278" cy="172" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="278" cy="206" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="278" cy="240" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="278" cy="274" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="314" cy="172" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="314" cy="206" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="314" cy="240" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="314" cy="274" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="350" cy="172" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="350" cy="206" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="350" cy="240" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="350" cy="274" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="386" cy="172" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="386" cy="206" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="386" cy="240" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="386" cy="274" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="422" cy="172" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="422" cy="206" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="422" cy="240" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="422" cy="274" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="458" cy="172" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="458" cy="206" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="458" cy="240" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="458" cy="274" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="494" cy="172" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="494" cy="206" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="494" cy="240" r="9" fill="#A6712E" opacity="0.5"/>
+<circle cx="494" cy="274" r="9" fill="#A6712E" opacity="0.5"/>
+<text x="275" y="318" text-anchor="middle" class="k">ONE UNDIFFERENTIATED BLOCK</text>
+<text x="40" y="356" class="t">✕&#160; You cannot point at a single fact.</text><text x="40" y="386" class="t">✕&#160; You cannot correct one without retraining.</text><text x="40" y="416" class="t">✕&#160; You cannot ask where it came from.</text><text x="40" y="446" class="t">✕&#160; Every answer reads the whole block.</text>
+<text x="40" y="500" class="b">The bill: a data centre, and a sentence with no source.</text>
+<text x="600" y="96" class="g">LMM</text>
+<text x="600" y="124" class="t">Knowledge is kept as records you can read.</text>
+<rect x="600" y="146" width="470" height="150" rx="3" fill="#EEF3F4" stroke="#0E7C86"/>
+<rect x="618" y="157" width="434" height="30" rx="2" fill="#FFFFFF" stroke="#C9CFD8"/>
+<text x="632" y="178" class="t">penguin</text>
+<text x="716" y="178" class="s">is-a</text>
+<text x="836" y="178" class="t">bird</text>
+<rect x="936" y="162" width="104" height="20" rx="10" fill="#0E7C86" opacity="0.12"/>
+<text x="988" y="177" text-anchor="middle" class="k" fill="#0E7C86">#manual.pdf</text>
+<rect x="618" y="197" width="434" height="30" rx="2" fill="#FFFFFF" stroke="#C9CFD8"/>
+<text x="632" y="218" class="t">penguin</text>
+<text x="716" y="218" class="s">can-fly</text>
+<text x="836" y="218" class="t">no</text>
+<rect x="936" y="202" width="104" height="20" rx="10" fill="#0E7C86" opacity="0.12"/>
+<text x="988" y="217" text-anchor="middle" class="k" fill="#0E7C86">#manual.pdf</text>
+<rect x="618" y="237" width="434" height="30" rx="2" fill="#FFFFFF" stroke="#C9CFD8"/>
+<text x="632" y="258" class="t">screen</text>
+<text x="716" y="258" class="s">diagonal</text>
+<text x="836" y="258" class="t">15.6 in</text>
+<rect x="936" y="242" width="104" height="20" rx="10" fill="#0E7C86" opacity="0.12"/>
+<text x="988" y="257" text-anchor="middle" class="k" fill="#0E7C86">#manual.pdf</text>
+<text x="835" y="318" text-anchor="middle" class="k">EACH RECORD CARRIES ITS SOURCE</text>
+<text x="600" y="356" class="t">✓&#160; Read any single fact.</text><text x="600" y="386" class="t">✓&#160; Correct or delete one, in milliseconds.</text><text x="600" y="416" class="t">✓&#160; Ask where it came from, and get an answer.</text><text x="600" y="446" class="t">✓&#160; Most questions never reach a model at all.</text>
+<text x="600" y="500" class="g">The bill: what you cannot support, you do not say.</text>
+</svg>
