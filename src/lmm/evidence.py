@@ -12,6 +12,7 @@ Persistence: `<path>.evidence` (JSON) next to the memory path — the v3 core is
 untouched, its format stays closed.
 """
 import json
+import math
 import os
 import re
 import unicodedata
@@ -124,6 +125,14 @@ def _boundaries(text):
         run = run + 1 if ch.isalnum() else 0
         prev = ch
     return "".join(out)
+
+
+def _source_name(source):
+    """The human name inside a source stamp — '#docx:Delegation Basics.docx'
+    -> 'Delegation Basics'. Format only: the tag prefix before the first ':'
+    and the file extension are shape, not name. No word is inspected."""
+    name = source.split(":", 1)[1] if ":" in source else source.lstrip("#")
+    return os.path.splitext(name)[0]
 
 
 def _words(text, known=()):
@@ -720,6 +729,7 @@ class SentenceStore:
     def __init__(self):
         self.sentences = []                 # id -> (sentence, source)
         self.index = {}                     # folded word -> set(id)
+        self.by_source = {}                 # source -> set(id)  (see find)
         # THE EXPANSION SIDE (doc2query--), AND THE WALL AROUND IT.
         #
         # `expansions` holds text NO DOCUMENT WROTE — questions a model guessed
@@ -920,6 +930,7 @@ class SentenceStore:
         #                             itself if it did (see the property)
         for w in set(_words(sentence)):
             self.index.setdefault(w, set()).add(sid)
+        self.by_source.setdefault(source, set()).add(sid)
         return sid
 
     def find(self, query, most=4):
@@ -943,6 +954,38 @@ class SentenceStore:
                                                weigh=self.index)
             for sid, sc in guessed.items():
                 scores[sid] = scores.get(sid, 0.0) + sc / CHANNEL
+        # THE SOURCE-NAME CHANNEL. A document's name is part of what it says
+        # about itself, and a question that speaks it deserves that document's
+        # sentences. Measured (62 near-identical training outlines): asked for
+        # one programme BY NAME, the store returned sentences from its
+        # SIBLINGS and then refused — the name's words scored as ordinary
+        # query words, and words like the corpus's own genre terms separate
+        # nothing when every sibling carries them.
+        #
+        # THE WEIGHT IS THE NAME-WORD'S POWER TO SEPARATE SOURCES, log(S/s):
+        # in how many of the S source names does this word appear. A word in
+        # ONE name of sixty-two weighs log(62); a word in every name weighs
+        # log(1) = 0 — exactly nothing — which also proves the single-document
+        # case unchanged: there, every name word covers its whole population
+        # and the channel vanishes. No threshold, no list, no language.
+        #
+        # It boosts only sentences that already scored on their own words. A
+        # name match alone is not evidence — the question still has to touch
+        # the sentence's content, the name only settles WHOSE sentences win.
+        if scores and len(self.by_source) > 1:
+            total_sources = len(self.by_source)
+            names = [(src, set(_words(_source_name(src), known=self.units)))
+                     for src in self.by_source]
+            for qw in qwords:
+                matched = [src for src, words in names
+                           if any(inflect.same_stem(qw, w) for w in words)]
+                if not matched or len(matched) == total_sources:
+                    continue
+                weight = math.log(total_sources / len(matched))
+                for src in matched:
+                    for sid in self.by_source[src]:
+                        if sid in scores:
+                            scores[sid] += weight
         if not scores:
             return []
         return self._seats(qwords, scores, named, most)
