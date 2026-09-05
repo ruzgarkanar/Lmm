@@ -265,8 +265,12 @@ class Memory:
     both). Give nothing and it lives for as long as the process does.
     """
 
-    def __init__(self, path=None, who="#operator", mode="STRICT", cache=True):
-        self.session = Session(path, who=who, mode=mode)
+    def __init__(self, path=None, who="#operator", mode="STRICT", cache=True,
+                 persona=""):
+        # `persona` colours the voice of every spoken turn — greeting style,
+        # tone, when to ask a clarifying question — and can never loosen the
+        # gates, which read the output rather than any prompt.
+        self.session = Session(path, who=who, mode=mode, persona=persona)
         # THE SAME QUESTION, ASKED AGAIN, OVER A MEMORY THAT HAS NOT MOVED. The
         # answer cannot have changed, and re-deriving it costs the full 5.5
         # model calls a question costs (`benchmarks/COST.md` §2). `cache=False`
