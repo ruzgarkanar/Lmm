@@ -586,6 +586,16 @@ class Memory:
 
     # ----------------------------------------------------------------- keep
 
+    def where(self, term):
+        """Which documents mention this — names and counts, no engine, ms.
+
+        The census counterpart of `about`: `about` reads what the graph holds
+        on a concept, `where` counts which DOCUMENTS speak of a term. Returns
+        [(document_name, sentence_count)], most-mentioned first."""
+        from lmm.evidence import _source_name       # noqa: PLC0415
+        return [(_source_name(src), n)
+                for src, n in self.session.evidence.where(term)]
+
     def compose(self, brief, seats=24):
         """A structured draft from the memory — blend, but never invent.
 

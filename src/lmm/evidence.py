@@ -933,6 +933,33 @@ class SentenceStore:
         self.by_source.setdefault(source, set()).add(sid)
         return sid
 
+    def where(self, term):
+        """Which documents speak of this term — counted, not retrieved.
+
+        The listing question ("which programmes cover X?") is not a retrieval
+        problem, and treating it as one was measured to fail: the term lived
+        in EIGHT documents and the answer named one, because retrieval's job
+        is the best evidence, not the census. The census is a COUNT, and a
+        count needs no engine: every sentence that carries every word of the
+        term (inflection-tolerant, the shared criterion) votes for its
+        source. GraphRAG answers this class from an LLM-written community
+        summary, paid for at indexing time; this is the same answer computed
+        exactly, in milliseconds, with the vote counts as receipts.
+
+        Returns [(source, sentence_count)], most-mentioned first. An unknown
+        term returns [] — there is nothing to say, and nothing is invented.
+        """
+        wanted = _words(term, known=self.units)
+        if not wanted:
+            return []
+        tally = {}
+        for text, source in self.sentences:
+            held = set(_words(text))
+            if all(any(inflect.same_stem(q, w) for w in held)
+                   for q in wanted):
+                tally[source] = tally.get(source, 0) + 1
+        return sorted(tally.items(), key=lambda kv: (-kv[1], kv[0]))
+
     def find(self, query, most=4, floor_share=0.5):
         """Sentences whose content-words intersect the query the MOST.
         Prefix-tolerant (inflection: "doluluğu"~"doluluk"). Score = number of
