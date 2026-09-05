@@ -1723,6 +1723,25 @@ class Session:
         The narrow view can only be a SUBSET of the retrieved evidence, so
         nothing outside what the gate already admitted can be confirmed here.
         """
+        # A RESTATED EVIDENCE LINE IS NOT A CASE FOR THE JURY. The judge's
+        # one measured failure class is denying a claim the evidence carries
+        # essentially verbatim, for sitting in spec noise — and its verdict
+        # on that class also wobbles across identical runs. When some single
+        # evidence line and the claim cover EACH OTHER's content words
+        # (footnote stripped, inflection tolerated), the claim is that line,
+        # re-inflected; there is nothing left to judge. One-directional
+        # coverage is NOT enough and the first cut of this proved why before
+        # it could ship: a subset of a line's words can invert it — "optional"
+        # lifted out of "is not optional" is fully covered and false — which
+        # is exactly the veto the selector test (G5) pins down. The jury
+        # keeps everything short of mutual coverage.
+        claim = re.sub(r"\([^)]*\)", " ", raw)
+        claim = " ".join(w for w in claim.split() if not w.startswith("#"))
+        if claim.strip():
+            for line in proof:
+                if (evidence.coverage(claim, line) == 1.0
+                        and evidence.coverage(line, claim) == 1.0):
+                    return True
         views = []
         for view in (self._focus_view(raw, proof), block):
             if view and view not in views:

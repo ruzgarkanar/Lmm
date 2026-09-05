@@ -3039,6 +3039,39 @@ def w6():
         extract.extract = real
 
 
+@test("W7 a restated evidence line needs no jury")
+def w7():
+    """The read-back judge was measured to wobble on identical input — the
+    same fully-grounded claim confirmed, then denied, at temperature zero —
+    and a verbatim claim denied for sitting in spec noise. When the claim
+    and a single evidence line cover each other's content words, the claim
+    IS that line re-inflected; the judge below is rigged to EXPLODE to prove
+    it is never consulted for that class. One-way coverage still goes to the
+    jury — a subset of a line can invert it — and so does everything else."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    proof = ["The valve opens at forty degrees."]
+    blk = "[K1] " + proof[0]
+    real = generate.supported
+    def boom(answer, view):
+        raise AssertionError("jury consulted for a restated evidence line")
+    generate.supported = boom
+    try:
+        assert s._read_back(
+            "The valve opens at forty degrees. (~ #docx:Alpha.docx)",
+            proof, blk)
+    finally:
+        generate.supported = real
+    # partial coverage: the jury IS consulted, and its verdict rules
+    generate.supported = lambda answer, view: False
+    try:
+        assert not s._read_back(
+            "The valve opens at forty degrees under pressure.", proof, blk)
+    finally:
+        generate.supported = real
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
