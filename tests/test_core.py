@@ -2924,8 +2924,8 @@ def w2():
 
 @test("W3 a composed draft keeps its structure and loses its inventions")
 def w3():
-    """COMPOSITION IS THE SHORT PATH AT DOCUMENT LENGTH — same two vetoes,
-    applied line by line, no model in the loop. The engine below is faked so
+    """COMPOSITION IS THE SHORT PATH AT DOCUMENT LENGTH — the digit veto and
+    the designation discipline, applied line by line, no model in the loop. The engine below is faked so
     the test exercises exactly the part this layer adds: what happens to a
     draft AFTER the engine has written it. Four lines go in: a grounded
     claim, a section title (shares nothing — claims nothing — stands), a
@@ -2943,7 +2943,7 @@ def w3():
     draft = ("Morning Session (Team Basics)\n"
              "The trust module opens with a listening exercise.\n"
              "The listening exercise takes 45 minutes.\n"
-             "The trust module is certified by the ministry.\n")
+             "The trust module is certified by the Ministry.\n")
     real = generate.compose
     generate.compose = lambda brief, material, warmth=0.2, persona="": draft
     try:
@@ -2955,7 +2955,17 @@ def w3():
     assert "listening exercise." in text, text
     assert "Morning Session" in text, text            # structure stands
     assert "45" not in text, text                     # invented number: gone
-    assert "certified" not in text, text              # mixture: gone
+    assert "Ministry" not in text, text               # invented DESIGNATION:
+    #                                                   gone — capitals off
+    #                                                   the sentence start
+    #                                                   must be attested.
+    #                                                   (The stated residue
+    #                                                   of the second-form
+    #                                                   gate: an invented
+    #                                                   LOWERCASE quality
+    #                                                   would pass; names,
+    #                                                   designations and
+    #                                                   numbers cannot.)
     assert not s.last_abstained
     assert any("Team Basics" in u for u in used), used
 
@@ -3229,6 +3239,85 @@ def w11():
     assert s.last_abstained, said
     # ...and no judge view ever carried the persona
     assert all("Coach Alpha" not in v for v in seen["judge"]), "judge saw it"
+
+
+@test("W12 a composed line may rephrase freely; names and numbers may not")
+def w12():
+    """COMPOSE'S GATE, SECOND FORM. The first form demanded verbatim reuse —
+    coverage 0 or 1 per line — and measured against a real catalogue request
+    it returned raw evidence dumps, because every fluent rephrasing mixes
+    connectives the material does not carry. The offer gate had already
+    solved this exact problem for the informed refusal: the dangerous tokens
+    have a SHAPE — capitals off the sentence start, digits — and those must
+    be attested by the material or the brief; the plain words between them
+    are the engine doing its one job. Below, the rephrased line survives,
+    the invented programme dies, the invented number dies, structure and
+    the [no material] marker stand."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The trust module opens with a listening exercise for "
+                 "twelve people.", source="#docx:Team Basics.docx", deep=False)
+    s.learn_text("The outdoor day closes with a fire-building task.",
+                 source="#docx:Field Day.docx", deep=False)
+    draft = ("Morning (Team Basics)\n"
+             "Kicking things off, the trust module gently opens with a "
+             "listening exercise suited to twelve people.\n"
+             "Then the Gamma Masterclass rounds out the day.\n"
+             "The listening exercise takes 45 minutes.\n"
+             "[no material]\n")
+    real = generate.compose
+    generate.compose = lambda brief, material, warmth=0.2, persona="": draft
+    try:
+        text, used = s.compose("draft a day with the trust module and the "
+                               "fire task")
+    finally:
+        generate.compose = real
+    assert "listening exercise" in text, text          # rephrasing SURVIVES
+    assert "Kicking things off" in text, text          # connectives free
+    assert "Gamma" not in text, text                   # invented name: dead
+    assert "45" not in text, text                      # invented number: dead
+    assert "Morning" in text, text                     # structure stands
+    assert "[no material]" in text, text               # the marker stands
+
+
+@test("W13 a contributing document brings its fact-sheet along")
+def w13():
+    """Measured on a catalogue request: the chosen trainings' duration and
+    participant lines never reached the material, because a logistics line
+    ("DURATION 2 days · SEATS 16-18") shares no word with any topic — it is
+    a RECORD, and records lose lexical seat races by construction. The rule
+    is format, not language: every source that contributes material also
+    contributes its record-shaped lines, the way a brochure's fact box rides
+    with its prose. And topics= gathers per topic, so a four-topic brief
+    cannot starve its fourth topic of seats."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The trust module opens with a listening exercise.\n"
+                 "DURATION: 2 full days · SEATS: 16-18 people\n"
+                 "Participants pair up for the feedback round.",
+                 source="#docx:Team Basics.docx", deep=False)
+    s.learn_text("The outdoor day closes with a fire-building task.\n"
+                 "DURATION: 1 day · SEATS: 12 people",
+                 source="#docx:Field Day.docx", deep=False)
+    seen = {}
+    real = generate.compose
+    def spy(brief, material, warmth=0.2, persona=""):
+        seen["material"] = material
+        return "The trust module opens with a listening exercise."
+    generate.compose = spy
+    try:
+        s.compose("draft a day around the trust module and the fire task",
+                  topics=["trust module", "fire task"])
+    finally:
+        generate.compose = real
+    mat = seen["material"]
+    assert "listening exercise" in mat            # topic 1 material
+    assert "fire-building" in mat                 # topic 2 not starved
+    # the fact-sheets rode along though no topic word touches them
+    assert "16-18" in mat, mat[-400:]
+    assert "SEATS: 12" in mat, mat[-400:]
 
 
 @test("X5 an expansion written in another language never reaches the index")

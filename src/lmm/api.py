@@ -602,7 +602,7 @@ class Memory:
         return [(_source_name(src), n)
                 for src, n in self.session.evidence.where(term)]
 
-    def compose(self, brief, seats=24):
+    def compose(self, brief, seats=24, topics=None):
         """A structured draft from the memory — blend, but never invent.
 
         `ask` answers a question in a sentence; this builds a DOCUMENT: a
@@ -614,7 +614,7 @@ class Memory:
 
         Returns (text, sources). An empty store, or a brief the memory holds
         nothing about, refuses rather than improvising."""
-        return self.session.compose(brief, seats=seats)
+        return self.session.compose(brief, seats=seats, topics=topics)
 
     def save(self, path=None):
         """Persist the graph and the evidence index. A path given here becomes
