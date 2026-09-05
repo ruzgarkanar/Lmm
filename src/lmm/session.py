@@ -22,7 +22,7 @@ from lmm.core.dataset import bare, fold
 from lmm.core.gate import Gate
 from lmm.core.memory import Memory, OPERATOR, STRANGER, DOCUMENT
 from lmm.core.transitive import Transitivity
-from lmm import (evidence, extract, generate, link, lookup, research, retrieve,
+from lmm import (evidence, extract, generate, inflect, link, lookup, research, retrieve,
                  verify)
 
 SLEEP_EVERY = 50   # sleep every N turns (distill/fade/adjudicate) — v3 §117
@@ -386,6 +386,57 @@ class Session:
             # whatever language it was written. One short model call per
             # answering turn, and only on turns that did not already refuse.
             self.last_abstained = not self._asserted_a_fact(said)
+        # THE INFORMED REFUSAL. A turn that declines while the census is
+        # rich is refusing with its hands full: the memory could not answer
+        # WHAT WAS ASKED, but it holds an attested tally of documents that
+        # speak to the topic, and "I don't know" hides it. So the engine is
+        # asked once more, over a block that is ONLY the tally, and the
+        # replacement speaks solely if it survives the same reading as any
+        # other turn — no invented number, no words beyond tally and
+        # question, and it must actually assert. The trigger is a STATE
+        # (refused + tally in hand), not any reading of the question's
+        # wording — which is what lets "what would you recommend" get a
+        # useful, sourced reply without anyone classifying intent.
+        census_line = getattr(self, "_census_line", "")
+        if (said and self.last_abstained and census_line
+                and not self.last_from_graph):
+            offered = (generate.answer(message, f"[K1] {census_line}",
+                                       warmth=0.0) or "").strip()
+            # WHAT THE OFFER MUST NOT DO IS INVENT A MEMBER OR A NUMBER.
+            # Full word-coverage was tried first and refused every honest
+            # phrasing over its connectives ("and", "both" are in no tally).
+            # The dangerous tokens have a SHAPE: a designation is written
+            # with capitals off the sentence start, and a quantity with
+            # digits — the same format cue the benchmark scorer reads. Every
+            # such token must be in the tally or the question; the plain
+            # words in between are the engine doing its one job, phrasing.
+            if offered and evidence.digits_ok(offered, census_line):
+                tally_words = set(evidence._words(census_line))
+                allowed = tally_words | set(evidence._words(message))
+                sound, names_spoken = True, 0
+                for m in re.finditer(r"\w+", offered, re.UNICODE):
+                    token = m.group()
+                    starts = m.start() == 0 or offered[
+                        :m.start()].rstrip()[-1:] in ".!?:•-–—\n"
+                    named = (any(ch.isupper() for ch in token[1:])
+                             or (token[:1].isupper() and not starts)
+                             or any(ch.isdigit() for ch in token))
+                    if not named:
+                        continue
+                    folded = fold(token)
+                    if any(inflect.same_stem(folded, w)
+                           for w in tally_words):
+                        names_spoken += 1
+                    elif not any(inflect.same_stem(folded, w)
+                                 for w in allowed):
+                        sound = False
+                        break
+                # an offer that names no member offers nothing — the honest
+                # refusal stands (an engine can decline twice, and a second
+                # refusal must not be spoken as if it were a tally)
+                if sound and names_spoken:
+                    said = offered
+                    self.last_abstained = False
         # THE MARK GOES ON LAST, AND ONLY ON A STATEMENT. Provenance qualifies a
         # claim; there is nothing to qualify in "I don't know", and the field
         # trial's four fabrications were all text appended to exactly that. So
