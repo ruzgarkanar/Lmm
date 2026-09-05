@@ -5,8 +5,11 @@ claim carries its source, and an answer the memory does not support cannot leave
 the system.
 
 [![CI](https://github.com/ruzgarkanar/Lmm/actions/workflows/ci.yml/badge.svg)](https://github.com/ruzgarkanar/Lmm/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/living-memory-model.svg)](https://pypi.org/project/living-memory-model/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.9%20%E2%80%93%203.13-blue.svg)](https://pypi.org/project/lmm/)
+[![Python](https://img.shields.io/badge/python-3.9%20%E2%80%93%203.13-blue.svg)](https://pypi.org/project/living-memory-model/)
+
+📄 **[Scaling Memory Instead of Scaling Parameters](https://medium.com/@ruzgar.kanar/scaling-memory-instead-of-scaling-parameters-f70959142c33)** — why this exists, measured against GraphRAG, and the two bugs I found in my own scorer.
 
 > In an LLM, knowledge is frozen into weights at training time.
 > In LMM, knowledge lives in a memory you can write to, inspect and audit —
