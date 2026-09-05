@@ -1085,7 +1085,7 @@ class Session:
         return len(pending), kept
 
     # --- long-form composition (evidence -> draft, gate per line) -------
-    def compose(self, brief, seats=24):
+    def compose(self, brief, seats=24, topics=None):
         """A structured draft built from the evidence — the long-form answer.
 
         The short path proved the rule; this is the same rule at document
@@ -1109,14 +1109,61 @@ class Session:
 
         Returns (text, sources): the draft and the source stamps it rests on.
         """
-        found = self.evidence.find(brief, most=seats, floor_share=0.0)
-        origins = list(self.evidence.last_sources[:len(found)])
+        # PER-TOPIC GATHERING, when the caller names the topics. One find()
+        # over a four-topic brief makes the topics race each other for
+        # seats, and the fourth loses (measured: a catalogue's fourth
+        # section came back [no material] while its document sat in the
+        # store). Topics are the CALLER's — an application knows what its
+        # user asked for; the library guesses no wording.
+        found, origins = [], []
+        queries = ([f"{topic} {brief}" for topic in topics]
+                   if topics else [brief])
+        share = max(4, seats // len(queries))
+        for query in queries:
+            for text, src in zip(
+                    self.evidence.find(query, most=share, floor_share=0.0),
+                    self.evidence.last_sources):
+                if text not in found:
+                    found.append(text)
+                    origins.append(src)
         if not found:
             return self._refuse(brief), []
         many = len(self.evidence.by_source) > 1
         lines = [(f"{evidence._source_name(src)} — {text}"
                   if many and src else text)
                  for text, src in zip(found, origins)]
+        # THE FACT-SHEET RIDES WITH THE PROSE. A logistics line ("DURATION 2
+        # days · SEATS 16-18") shares no word with any topic — it is a
+        # RECORD, and records lose lexical seat races by construction, which
+        # is how a catalogue kept arriving without the durations its brief
+        # asked for. So every source that contributed material also
+        # contributes its record-shaped lines, recognised by FORMAT alone
+        # (the same key_index reading the whole store uses), capped so a
+        # table-heavy document cannot flood the block.
+        bounds = self.evidence._record_bounds()
+        brief_words = set(evidence._words(brief))
+        many = len(self.evidence.by_source) > 1
+        for src in dict.fromkeys(origins):
+            sheet = []
+            for sid in sorted(self.evidence.by_source.get(src, ())):
+                if sid in self.evidence._derived:
+                    continue
+                sentence = self.evidence.sentences[sid][0]
+                keys = self.evidence._key_words(sentence, *bounds)
+                if keys and sentence not in found:
+                    # the records the BRIEF asked about ride first — a
+                    # duration line answers "state the duration", and the
+                    # first cut's first-four-by-position cap was filling the
+                    # quota with whatever records came earliest in the file
+                    asked = sum(1 for k in keys
+                                if any(inflect.same_stem(k, w)
+                                       for w in brief_words))
+                    sheet.append((-asked, sid, sentence))
+            for _rank, sid, sentence in sorted(sheet)[:4]:
+                found.append(sentence)
+                origins.append(src)
+                lines.append(f"{evidence._source_name(src)} — {sentence}"
+                             if many else sentence)
         material = "\n".join(lines)
         # THE PERSONA STOPS AT THE DOCUMENT'S EDGE. A composed draft is a
         # document, not a conversational turn: the operator's voice has no
@@ -1129,24 +1176,30 @@ class Session:
         draft = (generate.compose(brief, material) or "").strip()
         if not draft:
             return self._refuse(brief), []
-        # THE MIXTURE TEST, APPLIED LINE BY LINE — `grounded_sentences`'
-        # criterion, restated here for two reasons. That function carries a
-        # safety valve this caller must not inherit (it refuses to empty an
-        # answer, and a single-line call makes every mixture "the whole
-        # answer" — measured: the invented-certification line survived
-        # exactly that way); here the valve is explicit — when nothing
-        # survives, the composition REFUSES through the same door as
-        # everything else. And the measure has to be `coverage`, the ONE
-        # inflection-tolerant criterion everything else uses: a first draft
-        # of this gate compared raw word sets, and in an agglutinative
-        # language that read every legitimate re-inflection as a foreign
-        # word — a ten-seat composition came back as a title and one bullet,
-        # everything else executed as fabrication.
+        # THE GATE, SECOND FORM: NAMES AND NUMBERS MAY NOT BE INVENTED;
+        # EVERYTHING ELSE MAY BE PHRASED FREELY. The first form was the
+        # mixture test — coverage 0 or 1 per line — and against a real
+        # catalogue request it returned raw evidence dumps, because every
+        # fluent rephrasing mixes connectives the material does not carry.
+        # The informed refusal's offer gate had already solved this exact
+        # problem: the dangerous tokens have a SHAPE — capitals off the
+        # sentence start, digits — the same format cue the benchmark scorer
+        # reads, and each must be attested by the material or the brief. The
+        # plain words between them are the engine doing its one job.
         #
-        # coverage 1.0: the line rests entirely on the material — it stands.
-        # coverage 0.0: it shares nothing, so it claims nothing (a title, a
-        # marker) — it stands. Anything between is the mixture: material
-        # words wrapped around content the material never supplied.
+        # The stated residue: an invented lowercase quality ("certified",
+        # uncapitalised) can pass. Names, designations and every number
+        # cannot, and the digit discipline keeps its bigram-neighbour form
+        # (digits_ok), which the shape test alone would weaken. Both sides
+        # of the token comparison pass one NFD-stripping normaliser, for the
+        # accent defect the core fold still carries (ledgered).
+        def _plain(text):
+            import unicodedata                             # noqa: PLC0415
+            return "".join(
+                ch for ch in unicodedata.normalize("NFD", text)
+                if not unicodedata.combining(ch))
+        allowed = ({_plain(fold(w)) for w in evidence._words(material)}
+                   | {_plain(fold(w)) for w in evidence._words(brief)})
         kept_lines = []
         for line in draft.splitlines():
             text = line.strip()
@@ -1157,16 +1210,34 @@ class Session:
             # composed agenda is where invented numbers would try to live
             if not evidence.digits_ok(text, material):
                 continue
-            # the test reads the line's CLAIM, not its footnote: a
-            # parenthetical is where this system puts provenance (the prompt
-            # asks for "(source, source)" after a title; the short path
-            # appends its hedge the same way). Format only — no word is
-            # inspected.
-            claim = re.sub(r"\([^)]*\)", " ", text).strip()
-            if claim and evidence.coverage(claim, material,
-                                           brief) not in (0.0, 1.0):
-                continue                    # the mixture — see above
-            kept_lines.append(text)
+            # A TITLE IS STRUCTURE, AND TITLE CASE IS ITS FORMAT. In a
+            # heading every word is capitalised, so capitals there carry no
+            # designation signal — but a heading can still smuggle an
+            # invented programme name, so it must EARN its capitals: at
+            # least one capitalised word the material or brief attests.
+            # Prose keeps the strict rule: every shaped token attested.
+            tokens = re.findall(r"\w+", text, re.UNICODE)
+            alpha = [t for t in tokens if t[:1].isalpha()]
+            titled = bool(alpha) and all(t[:1].isupper() for t in alpha)
+            sound, earned = True, False
+            for m in re.finditer(r"\w+", text, re.UNICODE):
+                token = m.group()
+                starts = m.start() == 0 or text[
+                    :m.start()].rstrip()[-1:] in ".!?:•-–—([\n"
+                named = (any(ch.isupper() for ch in token[1:])
+                         or (token[:1].isupper() and not starts)
+                         or any(ch.isdigit() for ch in token))
+                attested = any(inflect.same_stem(_plain(fold(token)), w)
+                               for w in allowed)
+                if token[:1].isupper() and attested:
+                    earned = True
+                if named and not attested and not titled:
+                    sound = False
+                    break
+            if titled:
+                sound = earned
+            if sound:
+                kept_lines.append(text)
         text = "\n".join(kept_lines).strip()
         if not text:
             return self._refuse(brief), []
