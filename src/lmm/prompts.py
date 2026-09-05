@@ -321,7 +321,6 @@ Use OTHER words where other words exist — the point is to reach this line from
 a question that does not repeat its wording.
 
 Rules:
-- Write in the SAME LANGUAGE as the line. Never translate it.
 - One question per line. No numbering, no bullets, no explanation, no quotes.
 - Every question must be answerable from this line ALONE. Do not ask about
   anything the line does not state, and invent nothing.
