@@ -113,3 +113,8 @@ benchmarks/field/work/
 # SETS are committed; the graphs and the per-sample results are not.
 benchmarks/field/graphs*/
 benchmarks/field/results*/
+
+# GraphRAG comparison side: its virtualenv (~100 packages) and its index
+# working directory are both generated, and neither belongs in the tree.
+benchmarks/.graphrag-venv/
+benchmarks/.graphrag-work/

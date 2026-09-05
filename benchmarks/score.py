@@ -42,9 +42,39 @@ HERE = os.path.dirname(os.path.abspath(__file__))   # benchmarks/
 # morphology and inserted adverbs cost nothing.
 #
 # Each entry is a sequence of STEMS, not a phrase to find verbatim.
-ABSTAIN = ("bilmiyorum", "bilgi yok", "bilgim yok", "bilgi sahip değil", "bilemem",
-           "bulunmuyor", "yer almıyor", "belirtilmemiş", "bilinmiyor",
-           "bilmem", "ulaşamadım", "emin değil", "yoktur")
+# THIS LIST IS THE FALLBACK, AND IT ONLY EVER JUDGES A THIRD PARTY.
+#
+# A side that emits its own `abstained` stamp is read structurally and never
+# reaches these patterns — that is how the LMM side is scored, and it is why
+# its numbers are language-independent. But a baseline cannot be asked to
+# stamp its own turns: `rag_side` and `graphrag_side` return whatever their
+# pipeline says, so the only reading left for them is the wording.
+#
+# Which means a Turkish-only list does not measure them, it PENALISES them.
+# Measured: GraphRAG abstained correctly on all four absence questions in the
+# English corpus — "I don't have information on melvarit" — and the scorer
+# marked all four wrong, because no pattern here was English. That is four
+# points taken off a competitor by the measuring tool rather than by the
+# system, and a benchmark that does that to its baseline is not evidence.
+#
+# So the fallback carries the languages the corpora are written in. The
+# structural half of the criterion is unchanged and still does the real work:
+# an "abstention" that names a figure is a fabrication in every language.
+ABSTAIN = (
+    # Turkish
+    "bilmiyorum", "bilgi yok", "bilgim yok", "bilgi sahip değil", "bilemem",
+    "bulunmuyor", "yer almıyor", "belirtilmemiş", "bilinmiyor",
+    "bilmem", "ulaşamadım", "emin değil", "yoktur",
+    # English
+    "no information", "not have information", "not mention", "not appear",
+    "not provide", "not specified", "not available", "not stated",
+    "not know", "not contain", "not include", "unable", "not find",
+    "no data", "not present", "no mention",
+    # Spanish
+    "no tengo informacion", "no hay informacion", "no menciona",
+    "no aparece", "no puedo proporcionar", "no especifica", "se desconoce",
+    "no dispongo", "no consta", "no figura",
+)
 
 # How many words may be INSERTED into a pattern before it stops being that
 # pattern. Two is what "a hedging adverb or two" means ("bu bilgiye HENÜZ sahip
@@ -58,8 +88,15 @@ def fold(t):
     return "".join(ch.casefold()[0] for ch in t if not unicodedata.combining(ch))
 
 
+# An English contraction splits into two tokens that no pattern can match:
+# "don't" becomes ["don", "t"], so "not have information" never fires on the
+# commonest refusal there is. Expanding it is orthography, not vocabulary —
+# the pattern list stays the only place that knows any words.
+CONTRACTED = re.compile(r"n[''’]t\b", re.IGNORECASE)
+
+
 def _words(text):
-    return re.findall(r"\w+", fold(text), re.UNICODE)
+    return re.findall(r"\w+", fold(CONTRACTED.sub(" not", text)), re.UNICODE)
 
 
 def _claim(answer):
