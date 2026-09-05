@@ -30,6 +30,25 @@ picks the adapter.
 
 ---
 
+## How it works
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.svg">
+  <img alt="LMM architecture: documents, tables and messages pass an entry gate into a graph memory with an evidence index; a question retrieves from that memory, a small engine phrases the answer, and an exit gate either releases it with its sources or drops it." src="docs/architecture-light.svg">
+</picture>
+
+The gate is drawn twice on purpose. On the way in it decides what may become a
+record; on the way out it re-reads the sentence the engine produced and drops
+any claim the memory does not support. Everything else in this README —
+the abstention rate, the audit trail, the cost — follows from those two edges.
+
+Two details worth naming. A spreadsheet reaches the graph with **no model call
+at all**, because a table already states its own structure; that is why a sheet
+loads in milliseconds. And the engine is drawn smaller than the memory because
+it is smaller: it phrases, it does not know.
+
+---
+
 ## Why not embedding RAG
 
 |  | Embedding RAG | LMM |
