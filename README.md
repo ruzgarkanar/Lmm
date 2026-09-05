@@ -79,6 +79,58 @@ The honest cost was **62/63 → 59/63**, of which the prompt content alone was 4
 points — that was the share of the score that came from having seen the test.
 Removing the last Turkish from the runtime cost one point more.
 
+## Against GraphRAG, measured
+
+Beating chunk-and-embed is the obvious comparison. The one that matters is
+against graph-structured memory, so this runs **Microsoft's own package** —
+`pip install graphrag`, its indexer, its prompts, its defaults, local search —
+on the same corpora, with the same engine, scored by the same side-blind
+evaluator. Nothing is reimplemented, so nothing here is a strawman.
+[`benchmarks/graphrag_side.py`](benchmarks/graphrag_side.py).
+
+| Same engine (gpt-4o-mini), 3 samples each | LMM | GraphRAG |
+|---|---|---|
+| Fictional corpus (1.6 KB), 17 q | **17/17** · spread 0 | 16/17 · spread 0 |
+| NIST SP 800-63B (45k tokens), 13 q | **11/13** · spread 0 | 7/13 · spread **2** |
+
+**The small corpus nearly saturates both. The real standard separates them**,
+and the shape of the losses matters more than the totals.
+
+*GraphRAG loses specific values.* Three of its misses have the answer sitting
+in the document while the reply talks around it — "verifiers should establish
+minimum length requirements … to enhance security" where the answer is **64**,
+which never appears. That is its indexer working as designed: entity
+descriptions are summarised, and a summary abstracts the number away. It also
+asserted one confident wrong citation, *OMB Memorandum M-04-04* where the
+document says *Circular A-130*.
+
+*LMM's two misses are refusals.* Both are reworded questions whose answer is in
+the document and was not retrieved; both came back "I do not know" rather than
+approximated. Retrieval recall on synonyms is the open work item — and nothing
+was fabricated to cover it.
+
+Cost, on the 45k-token standard:
+
+| | LMM | GraphRAG |
+|---|---|---|
+| Ingestion | **0 model calls** (shallow — the mode a large document is for) | 220 calls · 498,230 prompt tokens |
+| Per question | ~5 calls | 2 calls · 10,132 prompt tokens |
+
+One correction this measurement forced on an earlier claim: **"5× the model
+calls" was against vanilla RAG at one call per question.** Against the real
+competitor at two, it is about 1.3×, and on the small corpus the per-question
+prompt token counts are nearly level (3,840 vs 3,306). Ingestion runs the other
+way in graph mode — 20× the calls — which is what per-fact extraction through
+the gate costs against batch extraction.
+
+**Two scorer bugs were found while running this, both against the baseline,
+both fixed.** The abstention fallback was a Turkish-only phrase list, so
+GraphRAG's honest English refusals scored as fabrications (13/17 → 16/17 once
+fixed). And a token echoed from the question — "…required by the GDPR" — was
+read as a claimed designation, so refusing an absence question scored as
+inventing an answer. Handing points back to a competitor is not generosity; a
+benchmark that takes them by accident is not evidence.
+
 ## Language independence, measured
 
 No hand-written sentences, no word lists, no per-language rules anywhere in the

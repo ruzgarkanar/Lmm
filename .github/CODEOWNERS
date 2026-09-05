@@ -1,0 +1,4 @@
+# Every path needs the maintainer to sign off. GitHub turns this into an
+# automatic review request on every pull request, and with branch protection on
+# it becomes a requirement rather than a courtesy.
+*       @ruzgarkanar
