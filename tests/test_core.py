@@ -2960,6 +2960,26 @@ def w3():
     assert any("Team Basics" in u for u in used), used
 
 
+@test("W4 the census question is answered by counting, not by retrieving")
+def w4():
+    """Which documents cover X — measured to fail as retrieval (eight
+    documents held the term; the answer named one, because retrieval's job is
+    the best evidence, not the census). `where` counts instead: every
+    sentence carrying the term votes for its source, inflection-tolerantly,
+    with no engine anywhere. The unknown term returns the empty census — not
+    a guess."""
+    from lmm import evidence
+    st = evidence.SentenceStore()
+    st.add("The feedback round closes every module.", "#docx:Alpha.docx")
+    st.add("Feedback pairs practise daily.", "#docx:Alpha.docx")
+    st.add("Written feedback follows the workshop.", "#docx:Beta.docx")
+    st.add("Lunch is served at the barn.", "#docx:Gamma.docx")
+    census = st.where("feedback")
+    assert [(src.split(":")[-1], n) for src, n in census] == [
+        ("Alpha.docx", 2), ("Beta.docx", 1)], census
+    assert st.where("blockchain") == []
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
