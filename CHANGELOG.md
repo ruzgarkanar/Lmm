@@ -4,6 +4,65 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-09-05
+
+The consultation release. One evening of field dialogue against a live
+customer bot — a RAG competitor on the other screen — surfaced every gap in
+turn, and every fix below is architectural: no keyword, no language rule, no
+corpus-specific line anywhere. The published numbers were re-measured
+unchanged after every change batch (NIST 11/13, EN 17/17; 110 unit
+invariants, W14–W26).
+
+### Added
+
+- **The consultation surface.** `respond(msg, teach=False)`: a statement is
+  CONTEXT (routes to the chat voice; its extracted terms accumulate in the
+  consultation's brief), a question searches with the whole consultation
+  riding along, and a delivery request routes straight to the composer,
+  which returns a source-stamped catalogue built from the brief. The bare
+  refusal is reserved for surfaces that have no conversation — when the
+  answering chain comes back empty, the already-gated conversational reply
+  speaks instead.
+- **The echo rule.** In the chat reading, repeating what the user themselves
+  said this conversation is not an assertion — a consultant may sound like
+  one. A word the user never spoke still answers to the graph.
+- **Gated streaming.** `compose(..., on_line=)` (and `respond(...,
+  on_line=)`): each draft line is judged by the composer's gate the moment
+  its newline arrives and handed to the callback while the engine is still
+  writing. A refused line is never seen; a backend that cannot stream
+  degrades to batch by itself.
+- **The operator's knobs.** `Memory(..., persona=, style=, warmth=,
+  reply_tokens=)`. The persona is the voice and stops at the document's
+  edge; the style is the document's shape and travels only to the
+  composer; warmth and reply_tokens tune the voice surfaces alone. None of
+  them can reach a classifier or a verifier.
+- `compose(..., topics=)` gathers per topic — dedicated seats, dedicated
+  queries.
+
+### Changed
+
+- **Latency, halved and then some** (measured, same dialogue): a greeting
+  turn 15.9 s → ~6 s, a catalogue's first line on screen 13.4 s → ~5 s.
+  The verifier's per-sentence re-reads now go to the engine side by side
+  where the backend allows; the re-extractor memoises (the gate and the
+  abstention stamp used to read the same sentences twice); on the
+  consultation surface the chat voice and the delivery question ride out
+  beside the router and the loser is discarded.
+- Per-topic composer queries use the topic alone — appending the brief
+  made every query converge on the same generic winners (measured on a
+  61-document store).
+- An ordinal list marker ("1.", "2)") at the head of a draft line is
+  format, not a quantity — the digit gate no longer kills the engine's own
+  section numbering.
+
+### Fixed
+
+- A context statement in a no-teach conversation no longer falls through to
+  the question treatment (it used to end in a refusal wearing the
+  persona's greeting).
+- A stale census line can no longer leak from a previous turn into the
+  informed refusal.
+
 ## [0.2.0] — 2026-09-05
 
 The multi-document release. Everything below came out of one field trial: a
