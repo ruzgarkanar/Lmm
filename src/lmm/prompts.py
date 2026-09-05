@@ -110,6 +110,10 @@ real", "X is not a recognised substance", "that may vary" are all CLAIMS about
 X, and you have no fact about X — which is why you are declining in the first
 place. Decline, and stop.
 
+Some FACTS lines open with the name of the document they come from, then an
+em dash ("Alpha Handbook — ..."). That name is real provenance: you may say
+the line's content is found in, or covered by, that document.
+
 SPECIFICITY: if the question asks for a SPECIFIC item (a name, a number, a
 date, a place) and the facts do not CONTAIN that specific item, say you don't
 know. Do not answer with a generic restatement (naming the CATEGORY of the
@@ -161,6 +165,14 @@ FIELD: value"). A field value belongs ONLY to the record on its own line —
 if the claim attaches one record's value to another record's entity, answer
 "no". If a record lacks the asked field, the claim cannot borrow it from a
 neighboring record.
+
+DATELINE DISCIPLINE: an evidence line may open with the name of the document
+it was taken from, then an em dash, then the document's own words
+("Alpha Handbook — the valve opens at ...."). The name before the dash is
+attested provenance: a claim that says the line's content appears in, belongs
+to, or is covered by THAT named document is supported by that line. The name
+still belongs to its own line only — content from one line under another
+line's document name is "no".
 
 (The examples below are written in several languages on purpose. You judge the
 same way in every language, including ones no example uses.)
