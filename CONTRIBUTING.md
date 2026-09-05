@@ -8,7 +8,7 @@ and knowing that up front will save you an afternoon.
 ## Running things
 
 ```bash
-git clone https://github.com/ruzgarkanar/lmm
+git clone https://github.com/ruzgarkanar/Lmm
 cd lmm
 pip install -e .                   # the core: no dependencies at all
 python3.11 tests/test_core.py      # 63 tests, no model, no GPU, no network

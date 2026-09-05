@@ -47,10 +47,10 @@ azure = ["openai>=1.0"]
 docs-all = ["lmm[pdf,xlsx,docx]"]
 
 [project.urls]
-Homepage = "https://github.com/ruzgarkanar/lmm"
-Repository = "https://github.com/ruzgarkanar/lmm"
-Issues = "https://github.com/ruzgarkanar/lmm/issues"
-Changelog = "https://github.com/ruzgarkanar/lmm/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/ruzgarkanar/Lmm"
+Repository = "https://github.com/ruzgarkanar/Lmm"
+Issues = "https://github.com/ruzgarkanar/Lmm/issues"
+Changelog = "https://github.com/ruzgarkanar/Lmm/blob/main/CHANGELOG.md"
 
 [project.scripts]
 lmm = "lmm.chat:main"
