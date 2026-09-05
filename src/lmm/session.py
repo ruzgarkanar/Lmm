@@ -873,13 +873,17 @@ class Session:
         """How many sentences may be read at once. One definition, because the
         expansion pass reads the same way the extractor does and had no business
         deciding this a second time."""
+        # A HOSTED ENDPOINT IS WAITED ON, A LOCAL MODEL IS RUN. The two cloud
+        # backends are httpx calls whose cost is latency, so asking eight at
+        # once costs nothing and saves seven waits; the local torch model is a
+        # single object that is NOT thread-safe (review #3), and no env
+        # override may permit parallel generation on it.
         backend = os.environ.get("LMM_BACKEND", "")
+        hosted = backend in ("azure", "openai")
         workers = int(os.environ.get("LMM_INGEST_WORKERS",
-                                     "8" if backend == "azure" else "1"))
-        if backend != "azure":
-            workers = 1     # the local torch model is NOT thread-safe (review
-            #                 #3): even an env override doesn't permit parallel
-            #                 local generation
+                                     "8" if hosted else "1"))
+        if not hosted:
+            workers = 1
         return workers
 
     def expand(self):
