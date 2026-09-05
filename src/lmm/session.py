@@ -359,6 +359,10 @@ class Session:
         self.last_written = []
         self.last_abstained = False
         self.last_kind = ""
+        # what the CONVERSATION was about a turn ago — kept before the reset,
+        # for the follow-up whose own words name no subject (see the
+        # retrieval call)
+        self._prior_subject = self.last_subject
         self.last_subject = ""
         self.last_from_graph = False
         self._mark = ""
@@ -1312,7 +1316,52 @@ class Session:
         # triple come from here. The graph is structure, the sentence is
         # evidence.
         seats = evidence.WINDOW
-        proof = self.evidence.find(f"{subject_label or ''} {question}",
+        # A FOLLOW-UP NAMES ITS SUBJECT BY POINTING, and retrieval cannot
+        # see a pointer. Measured, five-turn conversation: "what does the
+        # Alpha programme teach?" answered correctly, then "and who
+        # is it for?" answered from a DIFFERENT document — the engine gets
+        # the history, the search got only this turn's words. The first cut
+        # keyed on the subject's ABSENCE and never fired: the extractor
+        # dutifully returns the pointer itself as a subject, so the signal is
+        # not that the turn has no subject but that its subject RESOLVES TO
+        # NOTHING THE MEMORY KNOWS — the exact condition the identity route
+        # already reads one screen up. An unresolvable subject in a turn that
+        # follows a resolvable one is the conversation pointing backwards,
+        # and the previous turn's subject rides along as query words. No
+        # wording is read anywhere.
+        # DOES THIS TURN'S SUBJECT NAME ANYTHING HERE — two oracles, because
+        # the memories come in two builds. A deep memory answers through the
+        # graph: the label resolves, or it does not. An evidence-mode memory
+        # holds almost no graph (measured: 16 identities over 62 documents),
+        # and against it EVERY subject looked unresolved — the first cut of
+        # this fell back on explicit topic switches too, and the write-back
+        # then dragged the stale subject across the switch ("let's move to
+        # Delegation" was answered right and REMEMBERED wrong). There the
+        # oracle is the evidence itself: a subject stands when it is a NAME,
+        # and a name is a phrase — more than one word, each known to the
+        # index — the same reading the table alias rule earned. A pointer
+        # ("this one") and a bare generic never pass both; a programme's
+        # name always does.
+        def _names_something(label):
+            if not label:
+                return False
+            if link.resolve(self.memory, label, self.vectors) is not None:
+                return True
+            words = evidence._words(label)
+            return len(words) >= 2 and all(
+                any(inflect.same_stem(w, key) for key in self.evidence.index)
+                for w in words)
+        if _names_something(subject_label):
+            anchor_label = subject_label
+        else:
+            anchor_label = (getattr(self, "_prior_subject", "")
+                            or subject_label)
+        if anchor_label and anchor_label != subject_label:
+            # the pointer resolved BACKWARDS, so the conversation's subject
+            # is still the resolved one — write it back, or the next
+            # follow-up inherits the useless pointer instead of the chain
+            self.last_subject = anchor_label
+        proof = self.evidence.find(f"{anchor_label or ''} {question}",
                                    most=seats)
         # which document each seat came from, aligned with `proof` — read off
         # the store's `last_sources`, which `find` leaves beside its result
