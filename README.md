@@ -438,6 +438,54 @@ m.save()
 
 `learn()` returns a small report (`.facts`, `.tables`, `.adapter`, `.source`).
 
+### The operator's knobs
+
+Everything a RAG system prompt bundles into one block is a named parameter
+here, and each travels exactly where it belongs — none of them can reach the
+verifiers, because a judge whose thermostat the caller can turn is not a judge:
+
+```python
+m = Memory("mind.lmm",
+           persona="You are Ada, a warm onboarding coach. Ask before you advise.",
+           style="One section per course: name, duration, audience, outcomes.",
+           warmth=0.6,          # temperature of the VOICE surfaces only
+           reply_tokens=1200)   # length cap of the voice surfaces only
+```
+
+- **`persona`** is the voice. It rides in front of the phrasing prompts —
+  chat, answer, refusal — and stops at the document's edge: the composer
+  never sees it (measured: persona-flavoured rephrasing dies at the
+  verbatim gate).
+- **`style`** is the document's shape — the persona's mirror twin. It
+  travels ONLY to the composer's request: sections, headings, ordering are
+  the operator's; every fact beneath them still has to be attested by the
+  material.
+- **`warmth` / `reply_tokens`** tune temperature and length of the same
+  voice surfaces. Unset, every surface keeps its measured default. The
+  classifiers and the gate keep their pinned settings regardless.
+
+### A conversation that may not teach
+
+`m.session.respond(msg, teach=False)` is the consultation surface — a
+customer-facing bot that listens, remembers the conversation, and delivers,
+without ever letting a visitor write into the operator's memory:
+
+- a statement ("we are a bank, team of ten") is CONTEXT — it routes to the
+  chat voice and its terms accumulate in the consultation's brief;
+- a question searches with the whole consultation riding along, so "the
+  best three-hour material" still knows the topic named two turns earlier;
+- a delivery request ("you decide, put a programme together") goes straight
+  to the composer, which returns a source-stamped catalogue built from the
+  brief — and echoing the user's own words back is conversation, not
+  assertion, so the gate lets a consultant sound like one.
+
+Pass `on_line=` to `respond` or `compose` and the draft STREAMS: each line
+is judged by the composer's gate the moment its newline arrives and handed
+to your callback while the engine is still writing. A line the gate refuses
+is never seen — an invented number does not become printable by arriving
+early. On a backend that cannot stream, the same code degrades to batch by
+itself.
+
 ### The whole surface
 
 Five methods cover ingesting and asking. Everything else this README claims —
@@ -452,9 +500,9 @@ listed here because a feature with no documented entry point is not a feature.
 | `m.about(label)` | the records held on a concept | no engine |
 | `m.facts` | how many records exist | no engine |
 | `m.save(path)` | graph and evidence, both | no engine |
-| `m.compose(brief)` | a structured draft from the evidence — blended, gated line by line, returned with its sources | engine |
+| `m.compose(brief, topics=, on_line=)` | a structured draft from the evidence — per-topic gathering, gated line by line, streamed to `on_line` as lines survive, returned with its sources | engine |
 | `m.where(term)` | which documents mention this — names and counts, the census | no engine |
-| `m.session.respond(msg)` | a conversational turn at operator trust | engine |
+| `m.session.respond(msg, teach=False, on_line=)` | a conversational turn — `teach=False` is the consultation surface (context, brief, delivery; cannot write memory) | engine |
 | `m.session.learn_rows(rows)` | `[{column: value}]` straight to the graph | no engine |
 | `m.session.learn_cause(a, b)` | record that a causes b | no engine |
 | `m.session.root_causes(x)` | walk the causal chain back | no engine |
