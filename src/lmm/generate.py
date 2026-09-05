@@ -369,7 +369,17 @@ def expansions(sentence):
     count = int(os.environ.get("LMM_EXPAND_K", EXPANSIONS))
     if count <= 0:
         return []
-    out = runtime.generate(sentence, system=prompts.EXPAND_SYSTEM,
+    # THE LANGUAGE RULE GOES FIRST, and it is the one this codebase already
+    # measured: a language instruction buried inside a list of rules is not
+    # enough (see `_MATCH_LANGUAGE`). Measured here too, and expensively — the
+    # first full run of this pass expanded an ENGLISH corpus and an English NIST
+    # publication entirely in SPANISH, 4,766 units of it, because the rule sat
+    # third in a list while three few-shot examples sat under it in three
+    # languages. Every generated word was then novel to the document by virtue
+    # of being in the wrong language, which is index bloat wearing the shape of
+    # a synonym.
+    out = runtime.generate(sentence,
+                           system=_MATCH_LANGUAGE + prompts.EXPAND_SYSTEM,
                            max_tokens=40 * count, temperature=0.0)
     seen, kept = {_flat(sentence)}, []
     for line in (out or "").splitlines():
