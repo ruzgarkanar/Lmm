@@ -730,6 +730,7 @@ class SentenceStore:
         self.sentences = []                 # id -> (sentence, source)
         self.index = {}                     # folded word -> set(id)
         self.by_source = {}                 # source -> set(id)  (see find)
+        self.last_census = []               # [(source, hits)] of the last find
         # THE EXPANSION SIDE (doc2query--), AND THE WALL AROUND IT.
         #
         # `expansions` holds text NO DOCUMENT WROTE — questions a model guessed
@@ -1019,7 +1020,23 @@ class SentenceStore:
                         if sid in scores:
                             scores[sid] += weight
         if not scores:
+            self.last_census = []
             return []
+        # THE CENSUS RIDES ALONG. Scoring has already touched every sentence
+        # this question reaches; grouping those hits by source costs one pass
+        # and answers a question retrieval cannot: not "what is the best
+        # evidence" but "who all speaks of this". `find` records it beside
+        # its result the way it records `last_sources`, and the session hands
+        # it to the answer path as one line of store-attested fact — which is
+        # what lets a conversational turn say "this appears in eight
+        # programmes" instead of naming whichever single one won the seats.
+        counted = {}
+        for sid in base:
+            if base[sid] > 0:
+                src = self.sentences[sid][1]
+                counted[src] = counted.get(src, 0) + 1
+        self.last_census = sorted(counted.items(),
+                                  key=lambda kv: (-kv[1], kv[0]))
         return self._seats(qwords, scores, named, most, base=base,
                            floor_share=floor_share)
 
