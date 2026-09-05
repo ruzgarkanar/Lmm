@@ -2842,6 +2842,46 @@ def x4():
     assert not plain.find("spire", most=4)
 
 
+@test("X5 an expansion written in another language never reaches the index")
+def x5():
+    """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
+
+    A query in another language reaches nothing lexically and scores a zero
+    margin, which is the exact signature of the genuinely-new vocabulary the
+    expansion exists to buy — so `X3`'s filter waves it through. Measured on
+    NIST SP 800-63B, an English publication: the engine expanded it into
+    Turkish, German, Spanish, Portuguese and French, 62% of that survived, and
+    one survivor was a refusal sentence indexed as a query.
+
+    It is not a prompt defect and cannot be fixed as one. Putting the language
+    rule first changed nothing; removing the multilingual examples moved the
+    drift from Spanish to French. A 3B engine does not hold a language
+    instruction across this task, so the property has to be structural.
+
+    The document is the only language sample there is. Below, the store speaks
+    English, and the two assertions are the whole rule: an English question
+    that introduces a NEW word still reaches the index, because the rest of it
+    is words this document uses — while a translation of that same question
+    does not, because almost none of it is. No language is named in the
+    implementation; a Turkish document keeps its Turkish expansions by the same
+    reading."""
+    from lmm import evidence
+    store = evidence.SentenceStore()
+    for line in ("The Kelvane tower measures 42 metres and was finished early.",
+                 "The Nordheim archive opened in 1904 and holds the county maps.",
+                 "Visitors reach the archive by the western stair in the tower."):
+        store.add(line, "#doc:x")
+    store.learn_expansions({0: [
+        "how tall is the Kelvane spire",          # English, one new word
+        "wie hoch ist der Kelvane Turm",          # the same question, German
+        "quelle est la hauteur de la tour",       # French
+    ]})
+    kept = store.expansions.get(0, [])
+    assert "how tall is the Kelvane spire" in kept, kept
+    assert "wie hoch ist der Kelvane Turm" not in kept, kept
+    assert "quelle est la hauteur de la tour" not in kept, kept
+
+
 def main():
     failed = 0
     for name, function in PASSED:
