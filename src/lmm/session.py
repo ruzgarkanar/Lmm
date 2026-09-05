@@ -1118,8 +1118,15 @@ class Session:
                   if many and src else text)
                  for text, src in zip(found, origins)]
         material = "\n".join(lines)
-        draft = (generate.compose(brief, material,
-                                  persona=self.persona) or "").strip()
+        # THE PERSONA STOPS AT THE DOCUMENT'S EDGE. A composed draft is a
+        # document, not a conversational turn: the operator's voice has no
+        # work to do in it, and measured, it did damage instead — a
+        # consultative persona made the engine REPHRASE every material line,
+        # the verbatim gate read each rephrasing as a mixture, and a
+        # nine-turn conversation ended in a title over thirteen sources and
+        # no content. The voice colours the turns; the draft speaks in the
+        # material's words.
+        draft = (generate.compose(brief, material) or "").strip()
         if not draft:
             return self._refuse(brief), []
         # THE MIXTURE TEST, APPLIED LINE BY LINE — `grounded_sentences`'
