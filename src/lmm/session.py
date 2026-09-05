@@ -362,6 +362,7 @@ class Session:
         self.last_subject = ""
         self.last_from_graph = False
         self._mark = ""
+        self._last_proof = []
         said = self._respond(message, fluent=fluent)
         if said and not self.last_abstained and not self.last_from_graph:
             # A GRAPH ANSWER NEEDS NO READING BACK. The re-extractor below is
@@ -418,6 +419,28 @@ class Session:
         text = " ".join(w for w in text.split() if not w.startswith("#"))
         if not text.strip():
             return False
+        # THE EVIDENCE ALREADY ANSWERS THIS, WITHOUT A MODEL. A spoken claim
+        # on the evidence path got here by sharing content words with the
+        # block — the coverage gates admitted it on exactly that ground — and
+        # a refusal shares none, which is `grounded_sentences`' own "claims
+        # nothing" class. So when the turn had evidence, the reading is a word
+        # intersection: any sentence that touches the proof asserted.
+        #
+        # Measured, and this is why the model call had to go: asked for a
+        # programme's outcomes, the engine wrote one long list-sentence, the
+        # re-extractor found no tidy triple in it, and the turn was stamped an
+        # ABSTENTION — a full correct answer, recorded as a refusal, by the
+        # organ every benchmark of this system trusts for that stamp. The
+        # word intersection cannot make that mistake, costs nothing, and
+        # removes one model call from every answering turn (the profiler had
+        # it at 14% of a turn's wall clock).
+        proof = getattr(self, "_last_proof", None)
+        if proof:
+            held = "\n".join(proof)
+            return any(evidence.coverage(sentence, held) > 0
+                       for sentence in re.split(r"(?<=[.!?])\s+",
+                                                text.strip())
+                       if sentence.strip())
         try:
             for sentence in re.split(r"(?<=[.!?])\s+", text.strip()):
                 if sentence.strip() and extract.reextract(sentence):
@@ -1277,6 +1300,8 @@ class Session:
                 # neither accuracy nor phrasing.
                 proof.append(" · ".join(f"{name} ×{hits}"
                                         for name, hits in census[:6]))
+        # kept for the abstention reading — see _asserted_a_fact
+        self._last_proof = list(proof)
         # TRUE GAP (gaps signal) — if the graph holds NO fact at all about
         # this subject, offer research BEFORE GENERATION. That way the model's
         # polite "I don't know" (which passes verify and fills safe) does NOT

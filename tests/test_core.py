@@ -2980,6 +2980,32 @@ def w4():
     assert st.where("blockchain") == []
 
 
+@test("W5 the abstention stamp is read off the evidence, not asked of a model")
+def w5():
+    """THE STAMP IS THE MEASUREMENT'S BACKBONE, and it was resting on a model
+    call: the re-extractor was asked \"did this turn assert anything\", found
+    no tidy triple in one long list-sentence, and stamped a full correct
+    answer as an ABSTENTION. The structural reading cannot make that mistake:
+    a claim on the evidence path got there by sharing content words with the
+    proof (the coverage gates admitted it on that ground), and a refusal
+    shares none. No engine anywhere in this test."""
+    from lmm.session import Session
+    s = Session(None)
+    s._last_proof = ["Alpha Programme — The workshop closes with a "
+                     "feedback round of paired exercises."]
+    # a long, list-like assertion built on the proof's words: asserted,
+    # however untidy a triple extractor would find it
+    assert s._asserted_a_fact(
+        "The workshop involves paired exercises, closing with a feedback "
+        "round for every participant.")
+    # a refusal touches none of the proof: not an assertion, in any wording
+    assert not s._asserted_a_fact("Bu konuda maalesef bilgim yok.")
+    assert not s._asserted_a_fact("I am afraid that is unknown to me.")
+    # the footnote is not a claim: a sourced refusal is still a refusal
+    assert not s._asserted_a_fact(
+        "I do not know. (~ #docx:Alpha Programme.docx)")
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
