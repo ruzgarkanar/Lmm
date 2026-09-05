@@ -436,8 +436,17 @@ class Session:
         # it at 14% of a turn's wall clock).
         proof = getattr(self, "_last_proof", None)
         if proof:
+            # THE MAJORITY, NOT A TOUCH. The first cut of this read "any
+            # shared word = asserted", and one incidental function word sank
+            # it: "I do not know" shares "not" with a standard full of
+            # SHALL-NOTs, and an honest refusal was stamped an assertion — a
+            # benchmark point lost to a stopword. A claim admitted by the
+            # gates carries MOST of its words from the evidence; a refusal
+            # carries almost none; the mixture in between asserted something
+            # either way. More-than-half is the same non-dial boundary every
+            # other mixture reading in this codebase uses.
             held = "\n".join(proof)
-            return any(evidence.coverage(sentence, held) > 0
+            return any(evidence.coverage(sentence, held) > 0.5
                        for sentence in re.split(r"(?<=[.!?])\s+",
                                                 text.strip())
                        if sentence.strip())
