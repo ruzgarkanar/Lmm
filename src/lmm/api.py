@@ -517,7 +517,9 @@ class Memory:
             if kept is not None and kept[0] == before:
                 said = self._replay(question, kept[1])
                 return self._told(said) if explain else said
-        said = session.respond(question, fluent=fluent) or ""
+        # teach=False: a question API cannot write memory — an imperative
+        # brief ("draft a programme...") is a request here, never a lesson
+        said = session.respond(question, fluent=fluent, teach=False) or ""
         # WHICH TURNS MAY BE KEPT, and it is the narrow set. A turn that WROTE
         # is not a repeat of itself — asking it again re-enters the gate. A
         # turn that left a research offer outstanding means "shall I?", and
