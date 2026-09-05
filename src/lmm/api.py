@@ -586,6 +586,20 @@ class Memory:
 
     # ----------------------------------------------------------------- keep
 
+    def compose(self, brief, seats=24):
+        """A structured draft from the memory — blend, but never invent.
+
+        `ask` answers a question in a sentence; this builds a DOCUMENT: a
+        training outline, a briefing, a comparison — organised by the engine,
+        grounded line by line in the evidence, each material line carrying
+        the name of the document it came from. Lines the evidence does not
+        support are dropped on the way out, exactly as the short path drops
+        them; what survives is returned with the sources it rests on.
+
+        Returns (text, sources). An empty store, or a brief the memory holds
+        nothing about, refuses rather than improvising."""
+        return self.session.compose(brief, seats=seats)
+
     def save(self, path=None):
         """Persist the graph and the evidence index. A path given here becomes
         this memory's path, so `Memory()` can be given one late."""

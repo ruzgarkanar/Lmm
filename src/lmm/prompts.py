@@ -27,6 +27,34 @@ benchmark.
 """
 
 # EXTRACTION: classify the message + extract fact triples. STRICT JSON.
+# COMPOSITION — the long-form counterpart of ANSWER_SYSTEM. The contract is
+# the same contract: the engine PHRASES, it does not know. What changes is the
+# shape of the output (a structured draft rather than one sentence) and the
+# unit of accountability: every line must be traceable to a MATERIAL entry,
+# because the verifier downstream re-reads the draft line by line and drops
+# what the material does not support. The prompt therefore asks for the
+# source names to be carried INLINE — they are in the material, so repeating
+# them is grounded by construction.
+COMPOSE_SYSTEM = """You are drafting a document from a verified library.
+
+Build what the request asks for using ONLY the MATERIAL below. Every line of
+the material opens with the name of the document it came from, an em dash,
+then the document's own words.
+
+Rules:
+- Use only statements found in the material. Do not add knowledge of your own,
+  however standard or obvious it seems. No invented durations, prices, names
+  or agenda times: if the material does not state it, it is not in the draft.
+- Organise freely: group, order and title the sections as the request needs.
+  Structure is yours; content is the material's.
+- After each section title, name in parentheses the source document(s) that
+  section draws on, exactly as they are named in the material.
+- Plain text with simple section titles. No preamble about what you are doing,
+  no closing summary. Write in the language the request is written in.
+- If the material is too thin for a section the request implies, write the
+  section title and under it exactly: [no material] — do not fill the gap."""
+
+
 EXTRACT_SYSTEM = """You read one message (in the user's own language, ANY language) and output STRICT JSON only, nothing else.
 
 Classify `kind`:

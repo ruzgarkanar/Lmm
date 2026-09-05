@@ -2922,6 +2922,44 @@ def w2():
     assert len(one.last_sources) >= 3, one.last_sources
 
 
+@test("W3 a composed draft keeps its structure and loses its inventions")
+def w3():
+    """COMPOSITION IS THE SHORT PATH AT DOCUMENT LENGTH — same two vetoes,
+    applied line by line, no model in the loop. The engine below is faked so
+    the test exercises exactly the part this layer adds: what happens to a
+    draft AFTER the engine has written it. Four lines go in: a grounded
+    claim, a section title (shares nothing — claims nothing — stands), a
+    MIXTURE (material words around an invented conclusion), and an invented
+    number. Two survive, and the invented number is the line the digit veto
+    exists for: a composed agenda is where fabricated times try to live."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The trust module opens with a listening exercise. "
+                 "Participants pair up for the feedback round.",
+                 source="#docx:Team Basics.docx", deep=False)
+    s.learn_text("The outdoor day closes with a fire-building task.",
+                 source="#docx:Field Day.docx", deep=False)
+    draft = ("Morning Session (Team Basics)\n"
+             "The trust module opens with a listening exercise.\n"
+             "The listening exercise takes 45 minutes.\n"
+             "The trust module is certified by the ministry.\n")
+    real = generate.compose
+    generate.compose = lambda brief, material, warmth=0.2: draft
+    try:
+        text, used = s.compose(
+            "draft a one day programme with the trust module "
+            "and the outdoor fire task")
+    finally:
+        generate.compose = real
+    assert "listening exercise." in text, text
+    assert "Morning Session" in text, text            # structure stands
+    assert "45" not in text, text                     # invented number: gone
+    assert "certified" not in text, text              # mixture: gone
+    assert not s.last_abstained
+    assert any("Team Basics" in u for u in used), used
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
