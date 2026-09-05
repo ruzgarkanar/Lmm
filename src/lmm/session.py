@@ -1140,6 +1140,9 @@ class Session:
         seats = evidence.WINDOW
         proof = self.evidence.find(f"{subject_label or ''} {question}",
                                    most=seats)
+        # which document each seat came from, aligned with `proof` — read off
+        # the store's `last_sources`, which `find` leaves beside its result
+        proof_origins = list(self.evidence.last_sources[:len(proof)])
         if proof and len(proof) < seats:
             # TWO-HOP (only when the first search did not FILL the block): a
             # second search with the best evidence's words — composition
@@ -1149,10 +1152,34 @@ class Session:
             # plenty. "Scarce" used to be the constant 4 against a block of 6;
             # what it means is that retrieval came back UNDER-SUBSCRIBED, which
             # is a comparison with the number of seats asked for, not a number.
-            for extra in self.evidence.find(f"{proof[0]} {question}",
-                                            most=seats - len(proof)):
+            second = self.evidence.find(f"{proof[0]} {question}",
+                                        most=seats - len(proof))
+            for extra, origin in zip(second, self.evidence.last_sources):
                 if extra not in proof and len(proof) < seats:
                     proof.append(extra)
+                    proof_origins.append(origin)
+        # IN A MULTI-DOCUMENT STORE, EVERY EVIDENCE LINE OPENS WITH ITS
+        # DOCUMENT'S NAME — a dateline, the way a wire story opens with its
+        # city. Measured (62 sibling training outlines): asked WHICH programme
+        # uses a certain exercise, the engine answered with a section heading,
+        # the only name-shaped thing it could see — the true answer sat in the
+        # source stamp the evidence never showed. And the dateline has to be
+        # IN THE LINE, not in some block header, because everything downstream
+        # re-reads the evidence: the candidate blocks are rebuilt from these
+        # lines (`_subsets`), the read-back verifies the answer against them,
+        # coverage counts their words. A name the verifier cannot see is a
+        # name the answer is forbidden to say — the first version of this
+        # labelled only one of the three block builders, and the gate kept
+        # dropping exactly the phrasing the fix existed to allow.
+        #
+        # The name is provenance the store already attests, so an answer that
+        # quotes it is grounded by construction. A single-document store adds
+        # nothing, and keeps its benchmarks byte for byte.
+        if len(self.evidence.by_source) > 1:
+            proof_origins += [""] * (len(proof) - len(proof_origins))
+            proof = [f"{evidence._source_name(origin)} — {line}"
+                     if origin else line
+                     for line, origin in zip(proof, proof_origins)]
         # TRUE GAP (gaps signal) — if the graph holds NO fact at all about
         # this subject, offer research BEFORE GENERATION. That way the model's
         # polite "I don't know" (which passes verify and fills safe) does NOT
