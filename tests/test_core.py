@@ -3150,6 +3150,44 @@ def w9():
     assert any("Beta" in src for src in st.last_sources), st.last_sources
 
 
+@test("W10 the informed refusal offers reasons, and every reason has a dateline")
+def w10():
+    """v1 handed the rescue engine ONE line — the tally — so the best offer it
+    could write was a list of names. The names' own documents are sitting in
+    the store with the very sentences that justify them; v2 hands those over,
+    datelined, beside the tally. The gate does not change: an offer may still
+    only name what the tally or the material names, and the fake below that
+    cites a programme from NOWHERE is still refused. What this test pins is
+    the material: the rescue block must carry datelined lines from more than
+    one census source, or the reasons have nothing to rest on."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The trust walk closes the morning arc gently.",
+                 source="#docx:Alpha.docx", deep=False)
+    s.learn_text("Trust walk pairs shape the afternoon arc.",
+                 source="#docx:Beta.docx", deep=False)
+    real_ex, real_ans = extract.extract, generate.answer
+    extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
+    seen = {"blocks": []}
+    def fake_answer(question, block_, warmth=0.2):
+        seen["blocks"].append(block_)
+        if len(seen["blocks"]) == 1:
+            return "I do not know."
+        return "Alpha suits you: the trust walk closes the morning arc."
+    generate.answer = fake_answer
+    try:
+        said = s.respond("which programme would you suggest for trust walk",
+                         teach=False)
+        assert "Alpha" in said, said
+        assert not s.last_abstained
+        rescue = seen["blocks"][-1]
+        assert "Alpha —" in rescue and "Beta —" in rescue, rescue[:200]
+        assert "×" in rescue, rescue[:200]          # the tally still rides
+    finally:
+        extract.extract, generate.answer = real_ex, real_ans
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
