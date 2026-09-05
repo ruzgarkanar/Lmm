@@ -1005,6 +1005,7 @@ class SentenceStore:
         #                         boosted best was inflating best/2 and
         #                         sweeping the OTHER document's grounded
         #                         sentences out of a two-topic question)
+        named_sources = set()
         if scores and len(self.by_source) > 1:
             total_sources = len(self.by_source)
             names = [(src, set(_words(_source_name(src), known=self.units)))
@@ -1016,6 +1017,7 @@ class SentenceStore:
                     continue
                 weight = math.log(total_sources / len(matched))
                 for src in matched:
+                    named_sources.add(src)
                     for sid in self.by_source[src]:
                         if sid in scores:
                             scores[sid] += weight
@@ -1031,7 +1033,8 @@ class SentenceStore:
         # what lets a conversational turn say "this appears in eight
         # programmes" instead of naming whichever single one won the seats.
         found = self._seats(qwords, scores, named, most, base=base,
-                            floor_share=floor_share)
+                            floor_share=floor_share,
+                            named_sources=named_sources)
         # THE CENSUS COUNTS THE TOPIC, NOT THE QUESTION — and the topic is
         # what actually LANDED. Three cuts of this failed instructively:
         # any-overlap and floor-passer counting both let the question's
@@ -1195,7 +1198,7 @@ class SentenceStore:
         return scores, named
 
     def _seats(self, qwords, scores, named, most, base=None,
-               floor_share=0.5):
+               floor_share=0.5, named_sources=()):
         """The ranking, the noise floor and the seats — unchanged, and moved
         here only so that `find` can score two channels before ranking once."""
         # on a tie the LONG one wins: a short table crumb ("Orta · 3") must not
@@ -1345,6 +1348,19 @@ class SentenceStore:
         seat = self._measurement_seat(qwords, ranked, keep, named)
         if seat is not None:
             keep.append(seat)
+        # THE NAMED DOCUMENT SPEAKS FIRST. Measured, conversation trace: the
+        # anchored programme was seated third and fourth while a sibling's
+        # rare stem took the top seats, and the engine — which reads the
+        # block top-down — answered from the sibling. Admission was right;
+        # order was not. When the question named sources (the source-name
+        # channel matched them), their seats move to the front, each group
+        # keeping its own internal order; nothing enters, nothing leaves.
+        # With no named source — every single-document store, every question
+        # that names nothing — the key is False for all and the sort is
+        # stable: byte-for-byte the old order.
+        if named_sources:
+            keep.sort(key=lambda sid: self.sentences[sid][1]
+                      not in named_sources)
         self.last_sources = [self.sentences[sid][1] for sid in keep]
         return [self.sentences[sid][0] for sid in keep]
 

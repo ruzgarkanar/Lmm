@@ -3120,6 +3120,36 @@ def w8():
         extract.extract, generate.answer = real_ex, real_ans
 
 
+@test("W9 the named document speaks first")
+def w9():
+    """Measured, conversation trace: the anchored programme WAS seated — third
+    and fourth — while a sibling document's rare stem took the top seats, and
+    the engine, which reads the block top-down, answered from the sibling.
+    Admission was never the problem; ORDER was. When the source-name channel
+    has boosted a document (the question named it), that document's seats
+    come first, in their own relative order; everything else follows,
+    unmoved. A store where no name matched — every single-document benchmark
+    — reorders nothing, byte for byte."""
+    from lmm import evidence
+    st = evidence.SentenceStore()
+    # the sibling catches TWO rare query stems; the anchored name is one
+    # word — the live defeat's arithmetic, where a rare stem out-logged the
+    # name boost in a large store
+    st.add("The chronometer calibration drill closes the module.",
+           "#docx:Beta.docx")
+    st.add("The module covers listening and closing practice.",
+           "#docx:Alpha.docx")
+    st.add("Lunch is served in the barn.", "#docx:Gamma.docx")
+    st.add("The barn hosts the evening reflection.", "#docx:Delta.docx")
+    hits = st.find("what does the alpha module cover in chronometer "
+                   "calibration", most=4)
+    assert hits, "nothing seated"
+    first_src = st.last_sources[0]
+    assert "Alpha" in first_src, (first_src, st.last_sources)
+    # the sibling is still seated — order moved, admission did not
+    assert any("Beta" in src for src in st.last_sources), st.last_sources
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
