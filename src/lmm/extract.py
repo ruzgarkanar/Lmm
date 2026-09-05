@@ -2,6 +2,7 @@
 extracted triples enter the GATE as candidates (session/verify decides). Replaces
 reader.py; the contract stays the same (kind + triples) so session logic doesn't break.
 """
+import functools
 import json
 import unicodedata
 
@@ -120,9 +121,22 @@ def extract(message):
     return {"kind": kind, "triples": triples}
 
 
-def reextract(sentence):
-    """For the verification gate: extracts the FACT claims a sentence carries.
-    If there is no fact, [] (greeting, opinion, 'I don't know')."""
+@functools.lru_cache(maxsize=512)
+def _reextract_cached(sentence):
     raw = runtime.generate(sentence, system=prompts.REEXTRACT_SYSTEM,
                            max_tokens=120, temperature=0.0)
-    return _clean(_json(raw).get("triples"))
+    return tuple(_clean(_json(raw).get("triples")))
+
+
+def reextract(sentence):
+    """For the verification gate: extracts the FACT claims a sentence carries.
+    If there is no fact, [] (greeting, opinion, 'I don't know').
+
+    MEMOIZED: measured on a live greeting turn, the gate read every
+    sentence and two calls later the abstention stamp read the same
+    sentences again — ten engine calls where five questions existed. The
+    read runs at temperature zero, so the same sentence yields the same
+    claims by design; the memo keeps the second reader on the first
+    reader's notes. A fresh list is handed out each time, so no caller can
+    scribble on another's result."""
+    return list(_reextract_cached(sentence))

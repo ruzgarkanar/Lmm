@@ -127,6 +127,55 @@ def device():
     return _DEVICE
 
 
+def parallel_ok():
+    """Can this backend take concurrent calls? An HTTP endpoint can; a local
+    model owns one set of weights and one device queue, and cannot."""
+    return os.environ.get("LMM_BACKEND") in ("azure", "openai")
+
+
+def parallel_map(fn, items, workers=8):
+    """Run independent engine calls side by side WHEN THE BACKEND CAN TAKE
+    IT. Only the runtime knows: an HTTP endpoint (azure/openai) serves
+    concurrent requests as a matter of course; a local model owns one set
+    of weights and one device queue, so parallel callers would only fight
+    over it — there the map stays serial, byte for byte the old behaviour.
+    Order is preserved either way, so every caller stays deterministic.
+    Measured need: the verifier's per-sentence re-reads — seven independent
+    ~1.5s calls that used to stand in single file (10.4s of a 15.9s
+    greeting turn was this queue)."""
+    items = list(items)
+    if len(items) < 2 or not parallel_ok():
+        return [fn(x) for x in items]
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=min(workers, len(items))) as pool:
+        return list(pool.map(fn, items))
+
+
+def generate_stream(messages, max_tokens=256, temperature=0.7, system=None):
+    """Like `generate`, but a GENERATOR of text chunks — the engine's words
+    as they arrive. Only the HTTP backends truly stream; everywhere else
+    the whole reply is yielded once, so a consumer written against this
+    contract degrades to the batch behaviour by itself. The gate this
+    exists for (the composer's line reader) is pure string arithmetic, so
+    a streamed line can be judged and handed on while the engine is still
+    writing the next."""
+    backend = os.environ.get("LMM_BACKEND")
+    if backend == "azure":
+        from . import runtime_azure
+        yield from runtime_azure.generate_stream(
+            messages, max_tokens=max_tokens, temperature=temperature,
+            system=system)
+        return
+    if backend == "openai":
+        from . import runtime_openai
+        yield from runtime_openai.generate_stream(
+            messages, max_tokens=max_tokens, temperature=temperature,
+            system=system)
+        return
+    yield generate(messages, max_tokens=max_tokens, temperature=temperature,
+                   system=system)
+
+
 def generate(messages, max_tokens=256, temperature=0.7, system=None):
     """Generates. `messages`: str (a single user utterance) or [{role,content}].
     `system`: the system instruction (for grounding). Returns: plain text.

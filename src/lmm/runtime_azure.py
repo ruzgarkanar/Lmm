@@ -83,3 +83,27 @@ def generate(messages, max_tokens=256, temperature=0.7, system=None):
         return (out.choices[0].message.content or "").strip()
 
     return runtime.within_budget(call, _retryable(), what="the Azure endpoint")
+
+
+def generate_stream(messages, max_tokens=256, temperature=0.7, system=None):
+    """The streamed twin of `generate` — same client, same budget discipline
+    on OPENING the stream (a 429 is still a wait); once tokens flow, they
+    are handed on as they arrive."""
+    client = _load()
+    if isinstance(messages, str):
+        messages = [{"role": "user", "content": messages}]
+    if system:
+        messages = [{"role": "system", "content": system}] + list(messages)
+
+    def call(left):
+        api = client if left is None else client.with_options(timeout=left)
+        return api.chat.completions.create(
+            model=os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini"),
+            messages=messages, max_tokens=max_tokens,
+            temperature=temperature if temperature > 0 else 0, stream=True)
+
+    stream = runtime.within_budget(call, _retryable(),
+                                   what="the Azure endpoint")
+    for chunk in stream:
+        if chunk.choices and chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content

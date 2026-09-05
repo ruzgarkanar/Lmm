@@ -27,7 +27,7 @@ Mode: STRICT (an unsupported sentence drops) · ASSIST (marked ‹unverified›)
 """
 import re
 
-from lmm import extract, inflect, link
+from lmm import extract, inflect, link, runtime
 from lmm.core.dataset import fold
 
 
@@ -92,7 +92,7 @@ def _has_edge(memory, sk, vk, v_label=None):
     return False
 
 
-def verify(memory, answer, allowed, mode="STRICT", anchor="edge"):
+def verify(memory, answer, allowed, mode="STRICT", anchor="edge", echo=""):
     """Check the answer sentence by sentence. A sentence carrying no fact
     (greeting/opinion) passes. The edge check looks at the whole graph via
     `_has_edge` (derived edges included), not at the injected set.
@@ -106,10 +106,39 @@ def verify(memory, answer, allowed, mode="STRICT", anchor="edge"):
               it is NOT an anchor, BUT if the subject resolves to a real node it
               must either be allowed or an edge must be found — "Rüzgar wrote
               Python" (python≠allowed, no {python,rüzgar} edge) thus drops;
-              "Rüzgar made me" (me→None) passes."""
+              "Rüzgar made me" (me→None) passes.
+      `echo` (chat only) — the user's own words in this conversation.
+              ECHOING THE USER IS CONVERSATION, NOT ASSERTION: measured
+              live, a consultant reply repeating the user's bank and role
+              was struck to its greeting, because the chat reading allows
+              only the identity facts. A claim passes on echo when its
+              value — and its subject, unless that subject is an
+              unresolvable pronoun — is covered word for word (stem-folded)
+              by what the user has said. A word the user never spoke still
+              answers to the graph."""
+    echo_words = set()
+    if echo:
+        import unicodedata                                 # noqa: PLC0415
+        def _plain(text):
+            return "".join(
+                ch for ch in unicodedata.normalize("NFD", text)
+                if not unicodedata.combining(ch))
+        echo_words = {_plain(fold(w))
+                      for w in re.findall(r"\w+", echo, re.UNICODE)}
+
+        def _echoed(phrase):
+            words = [_plain(fold(w))
+                     for w in re.findall(r"\w+", phrase or "", re.UNICODE)]
+            return bool(words) and all(
+                any(inflect.same_stem(w, e) for e in echo_words)
+                for w in words)
     kept = []
-    for sentence in _sentences(answer):
-        claims = extract.reextract(sentence)
+    # the re-reads are independent by construction — each sentence answers
+    # for itself — so they go to the engine side by side where the backend
+    # allows (see runtime.parallel_map); verdicts keep sentence order
+    sentences = _sentences(answer)
+    all_claims = runtime.parallel_map(extract.reextract, sentences)
+    for sentence, claims in zip(sentences, all_claims):
         if not claims:
             kept.append(sentence)          # no fact claim → passes
             continue
@@ -122,6 +151,9 @@ def verify(memory, answer, allowed, mode="STRICT", anchor="edge"):
                                           or _has_edge(memory, sk, vk, value))
             else:                          # "edge": must be a real edge in the graph
                 ok = _has_edge(memory, sk, vk, value)
+            if not ok and echo_words:
+                sk_echo = sk is None or _echoed(subject)
+                ok = _echoed(value) and sk_echo
             if not ok:
                 grounded = False
                 break
