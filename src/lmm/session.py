@@ -1335,11 +1335,35 @@ class Session:
         # quoting the scaffold.
         evidence_text = "\n".join(proof) if proof else fact_block
         graded, tried, seen = [], [], {}
-        for one in self._subsets(records, proof, fact_block):
-            # warmth 0: each candidate is the DETERMINISTIC answer to its own
-            # evidence, so the differences between candidates carry
-            # information (which evidence) instead of sampling noise.
-            raw = (generate.answer(question, one, warmth=0.0) or "").strip()
+        # THE CANDIDATES DO NOT DEPEND ON EACH OTHER, so on a backend that
+        # permits it they are asked at once. Measured on six NIST questions,
+        # this call is 43% of the time a question takes — the largest single
+        # share, and the whole of it was being spent in sequence for no reason
+        # but the shape of the loop.
+        #
+        # NOTHING ELSE MOVES. The subsets are built in the same order and the
+        # grading below still walks them in that order, so `len(graded)` — the
+        # rank a tie falls back on — and the `seen` de-duplication are what
+        # they were. Every call is warmth 0, so the answers are the same
+        # answers, and `_workers()` is the ONE definition of how much
+        # concurrency the engine tolerates: it pins the local torch model to a
+        # single worker because that model is not thread-safe, which means this
+        # is a cloud-backend speedup and honestly nothing at all on a laptop.
+        subsets = list(self._subsets(records, proof, fact_block))
+        workers = min(self._workers(), len(subsets)) if subsets else 1
+        # warmth 0: each candidate is the DETERMINISTIC answer to its own
+        # evidence, so the differences between candidates carry information
+        # (which evidence) instead of sampling noise.
+        def _say(one):
+            return generate.answer(question, one, warmth=0.0)
+        if workers > 1:
+            from concurrent.futures import ThreadPoolExecutor  # noqa: PLC0415
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                spoken = list(pool.map(_say, subsets))
+        else:
+            spoken = [_say(one) for one in subsets]
+        for said in spoken:
+            raw = (said or "").strip()
             if not raw:
                 continue
             # TRIM BEFORE JUDGING, so that what every gate below reads is what
