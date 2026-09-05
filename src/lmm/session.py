@@ -1013,7 +1013,31 @@ class Session:
             # longer be reached at all. Fusing two identities is the one
             # mistake the memory cannot undo later, so the alias is only taken
             # when the whole table says it once.
+            # ONLY A ROW THAT HAS NO NAME OF ITS OWN BORROWS ONE. Measured, and
+            # this is the whole condition: on `{part: "Valve V2", supplier:
+            # "Delta AS"}` the rule aliased the supplier onto the part, and
+            # because the two were now one concept `learn_cell`'s `sk == vk`
+            # guard refused the record — so the alias DESTROYED the very fact
+            # it was drawn from. `about("Valve V2")` came back empty while the
+            # same sheet with a one-word supplier answered normally.
+            #
+            # A row whose anchor is already a phrase is already reachable by
+            # the name a question uses. The rule exists for the sheet that
+            # names its rows `R-1`, where the description is the only human
+            # name in the row and its own record says nothing anyway. One word
+            # in the anchor is what tells those two apart, and it is the row
+            # counting its own words.
+            #
+            # THE ALIAS STILL RUNS BEFORE THE CELLS, and so the aliased cell's
+            # own record is still not written — the two are one concept by
+            # then and `learn_cell` declines. That loss is the point rather
+            # than a leak: "R-1 is called the fire-equipment inspection" is
+            # exactly what the alias records, and it is the reading a question
+            # can actually use. What was wrong before was firing this on rows
+            # where the cell was a SEPARATE FACT about a row that already had
+            # a name; the two conditions above are what keep it off those.
             if (rich and len(rich[1].split()) >= 2
+                    and len(anchor.split()) == 1
                     and seen.get(fold(rich[1]), 0) == 1):
                 self.memory.identify(fold(rich[1]), same_as=sk)
             for col, val in cells[1:]:
