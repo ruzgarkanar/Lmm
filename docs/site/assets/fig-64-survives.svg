@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="540" viewBox="0 0 1120 540"><rect width="1120" height="540" fill="#FFFFFF"/><style>.t{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;fill:#14181F}.s{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13.5px;fill:#5A6472}.h{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:19px;font-weight:600;fill:#14181F}.k{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;fill:#5A6472;letter-spacing:.09em}.g{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;fill:#0E7C86;letter-spacing:.08em;font-weight:600}.b{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;fill:#A6712E;letter-spacing:.08em;font-weight:600}.big{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:26px;font-weight:700}</style>
+<text x="40" y="46" class="h">Both build a graph. Only one keeps the number.</text>
+<text x="40" y="72" class="s">The same question, against the same 45,000-token standard, with the same engine on both sides.</text>
+<line x1="560" y1="100" x2="560" y2="500" stroke="#C9CFD8"/>
+<text x="40" y="130" class="b">GRAPHRAG</text>
+<text x="40" y="158" class="t">Ingestion SUMMARISES each entity into a description.</text>
+<rect x="40" y="176" width="470" height="86" rx="3" fill="#A6712E" opacity="0.10" stroke="#A6712E"/>
+<text x="58" y="204" class="s">the document said:</text>
+<text x="58" y="228" class="t">"Verifiers SHALL permit memorized secrets at least</text>
+<text x="58" y="248" class="t">64 characters in length."</text>
+<path d="M275,266 L275,296" stroke="#A6712E" fill="none" marker-end="url(#b)"/>
+<text x="292" y="288" class="k" fill="#A6712E">SUMMARISED</text>
+<rect x="40" y="302" width="470" height="72" rx="3" fill="none" stroke="#A6712E" stroke-dasharray="5 4"/>
+<text x="58" y="332" class="t">"verifiers should establish minimum length</text>
+<text x="58" y="354" class="t">requirements to enhance security"</text>
+<text x="40" y="410" class="big" fill="#A6712E">64 is gone.</text>
+<text x="40" y="440" class="s">It is not wrong. It is not the answer either.</text>
+<text x="40" y="482" class="b">7 / 13&#160;&#160;·&#160;&#160;spread 2 across three identical runs</text>
+<text x="600" y="130" class="g">LMM</text>
+<text x="600" y="158" class="t">Ingestion KEEPS the sentence, and the record beside it.</text>
+<rect x="600" y="176" width="470" height="86" rx="3" fill="#EEF3F4" stroke="#0E7C86"/>
+<text x="618" y="204" class="s">the document said:</text>
+<text x="618" y="228" class="t">"Verifiers SHALL permit memorized secrets at least</text>
+<text x="618" y="248" class="t">64 characters in length."</text>
+<path d="M835,266 L835,296" stroke="#0E7C86" fill="none" marker-end="url(#c)"/>
+<text x="852" y="288" class="g">KEPT VERBATIM</text>
+<rect x="600" y="302" width="470" height="72" rx="3" fill="#FFFFFF" stroke="#0E7C86"/>
+<text x="618" y="330" class="t">memorized secret</text>
+<text x="790" y="330" class="s">max length</text>
+<text x="900" y="330" class="t" font-weight="700">64</text>
+<rect x="618" y="342" width="200" height="20" rx="10" fill="#0E7C86" opacity="0.12"/>
+<text x="718" y="357" text-anchor="middle" class="k" fill="#0E7C86">#pdf:nist_sp800-63b.pdf</text>
+<text x="600" y="410" class="big" fill="#0E7C86">64 survives.</text>
+<text x="600" y="440" class="s">With the line it came from, still readable.</text>
+<text x="600" y="482" class="g">11 / 13&#160;&#160;·&#160;&#160;spread 0 — the same answer every run</text>
+<defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#A6712E"/></marker><marker id="c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#0E7C86"/></marker></defs>
+</svg>

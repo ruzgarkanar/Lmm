@@ -1,0 +1,103 @@
+# The documentation site — mkdocs-material, deployed to GitHub Pages.
+#
+# Structure follows the two references the site was modelled on: Microsoft
+# GraphRAG's docs for the sectioning (Concepts / Guides / Reference), FastAPI's
+# for the tone. The palette is the repository's own — the teal/bronze the
+# architecture diagram and the article figures already speak.
+#
+#   local preview:  mkdocs serve
+#   publish:        mkdocs gh-deploy --force   (writes the gh-pages branch)
+
+site_name: LMM — Living Memory Model
+site_description: >-
+  A verifiable memory layer for language models. Facts live in a graph, every
+  claim carries its source, and an answer the memory does not support cannot
+  leave the system.
+site_url: https://ruzgarkanar.github.io/Lmm/
+repo_url: https://github.com/ruzgarkanar/Lmm
+repo_name: ruzgarkanar/Lmm
+edit_uri: edit/main/docs/site/
+
+docs_dir: docs/site
+
+theme:
+  name: material
+  custom_dir: docs/site/overrides
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/lmm.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ruzgarkanar/Lmm
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/living-memory-model/
+    - icon: fontawesome/brands/medium
+      link: https://medium.com/@ruzgar.kanar/scaling-memory-instead-of-scaling-parameters-f70959142c33
+
+markdown_extensions:
+  - admonition
+  - tables
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Concepts:
+      - Why a memory, not a bigger model: concepts/why.md
+      - The gate, drawn twice: concepts/architecture.md
+      - Honest limits: concepts/limits.md
+  - Guides:
+      - Getting started: guides/getting-started.md
+      - Bring your own engine: guides/engines.md
+      - Multi-document stores: guides/multi-document.md
+  - Reference:
+      - The API surface: reference/api.md
+      - Measurements: reference/measurements.md
+  - Changelog: changelog.md
+  - Contributing: contributing.md

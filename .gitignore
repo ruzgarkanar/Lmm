@@ -118,3 +118,4 @@ benchmarks/field/results*/
 # working directory are both generated, and neither belongs in the tree.
 benchmarks/.graphrag-venv/
 benchmarks/.graphrag-work/
+/site/
