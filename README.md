@@ -397,9 +397,42 @@ m.save()
 ```
 
 `learn()` returns a small report (`.facts`, `.tables`, `.adapter`, `.source`).
-`m.about("Nortlann")` reads the graph directly, and `m.session` is the full
-`Session` API if you need it — `Session`, `learn_text` and `tables.*` are
-unchanged and still supported.
+
+### The whole surface
+
+Five methods cover ingesting and asking. Everything else this README claims —
+contradiction, causality, the trust ladder, the memory dynamics — lives on
+`m.session`, which is public and is the same object `Memory` is built on. It is
+listed here because a feature with no documented entry point is not a feature.
+
+| | | |
+|---|---|---|
+| `m.learn(what)` | teach it a file or a string | no engine for tables |
+| `m.ask(q, explain=True)` | answer, with `.sources` and `.abstained` | engine |
+| `m.about(label)` | the records held on a concept | no engine |
+| `m.facts` | how many records exist | no engine |
+| `m.save(path)` | graph and evidence, both | no engine |
+| `m.session.respond(msg)` | a conversational turn at operator trust | engine |
+| `m.session.learn_rows(rows)` | `[{column: value}]` straight to the graph | no engine |
+| `m.session.learn_cause(a, b)` | record that a causes b | no engine |
+| `m.session.root_causes(x)` | walk the causal chain back | no engine |
+| `m.session.causes_of(x)` / `.effects_of(x)` | one step either way | no engine |
+| `m.session.tension()` | the contradictions it is holding | no engine |
+| `m.session.curiosity()` | what it has been asked and cannot answer | no engine |
+| `m.session.sleep()` | fade, reinforce, settle episodic into semantic | no engine |
+| `m.session.verdict(old, new)` | arbitrate two rival values | engine |
+| `m.session.expand()` | the offline synonym channel (`LMM_EXPAND`) | engine |
+
+A record is a `core.memory.Record`: `.subject`, `.predicate`, `.value` are
+concept **keys**, not strings, because one spelling can be two entities and one
+entity can carry labels in several languages — read the labels through
+`m.session.memory.identities`. `.sources` and `.trust` are the provenance the
+gate reads on the way out.
+
+The column that says *no engine* is not a footnote. Those calls are plain
+python over a dict — microseconds, no network, no key — which is why a
+spreadsheet loads in milliseconds and why the reasoning half of this system
+costs nothing to run.
 
 See [`examples/`](examples/) — including one that runs with no engine at all.
 
