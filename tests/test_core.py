@@ -635,7 +635,7 @@ def g5():
     said, order = {}, []
     answers, supported = {}, [True]
 
-    def fake_answer(question, facts, warmth=0.2):
+    def fake_answer(question, facts, warmth=0.2, persona=""):
         order.append(facts)
         return answers.get(facts, "Gösterge 21.5 inç")
 
@@ -728,7 +728,7 @@ def g7():
     block = "\n".join(f"[K{i}] {t}" for i, t in enumerate(proof, 1))
     wide = {}
 
-    def answer(question, facts, warmth=0.2):
+    def answer(question, facts, warmth=0.2, persona=""):
         # the widest block answers specifically, the narrow ones generically
         return ("Morlan bir kuştur." if len(facts) == max(wide, default=0)
                 else "Morlan bir canlıdır.")
@@ -747,7 +747,7 @@ def g7():
         pair_block = "\n".join(f"[K{i}] {t}" for i, t in enumerate(pair, 1))
         replies = iter(["Torvanit bir metaldir.", "Evet, torvanit bir maddedir.",
                         "Evet, torvanit bir maddedir."])
-        generate.answer = lambda q, f, warmth=0.2: next(replies)
+        generate.answer = lambda q, f, warmth=0.2, persona="": next(replies)
         chosen, _tried = s._select("torvanit bir madde midir", [], pair, "",
                                    pair_block)
         assert chosen == "Evet, torvanit bir maddedir.", chosen
@@ -817,13 +817,13 @@ def h2():
         # must still drop it, but as a fall-through and not as a refusal.
         # verify is stubbed to its VERDICT (dropped) — this test is about what
         # the route does with that verdict, and it must need no model.
-        generate.answer = lambda q, f, warmth=0.2: "Norgul zerbalit uretir."
-        generate.refusal = lambda q: "REFUSED"
+        generate.answer = lambda q, f, warmth=0.2, persona="": "Norgul zerbalit uretir."
+        generate.refusal = lambda q, persona="": "REFUSED"
         lmm_verify.verify = lambda *a, **k: ""
         assert s._causal_answer("norgul cogalirsa ne olur", "effects",
                                 "norgul") is None
         # a grounded sentence is still spoken by this route
-        generate.answer = lambda q, f, warmth=0.2: "norgul morlan"
+        generate.answer = lambda q, f, warmth=0.2, persona="": "norgul morlan"
         assert s._causal_answer("norgul cogalirsa ne olur", "effects",
                                 "norgul") == "norgul morlan"
     finally:
@@ -1019,10 +1019,10 @@ def h6():
         return "hazırlayan" in question.lower()
 
     try:
-        generate.answer = lambda question, facts, warmth=0.2: wrong
+        generate.answer = lambda question, facts, warmth=0.2, persona="": wrong
         generate.supported = lambda answer, view: True     # as measured
         generate.answers_asked = judge
-        generate.refusal = lambda question: "REFUSED"
+        generate.refusal = lambda question, persona="": "REFUSED"
         # the relation the document does not state -> abstention, and the
         # graph/verify fallback does not resurrect it
         for question in ("Raporu kim imzalamıştır",
@@ -2945,7 +2945,7 @@ def w3():
              "The listening exercise takes 45 minutes.\n"
              "The trust module is certified by the ministry.\n")
     real = generate.compose
-    generate.compose = lambda brief, material, warmth=0.2: draft
+    generate.compose = lambda brief, material, warmth=0.2, persona="": draft
     try:
         text, used = s.compose(
             "draft a one day programme with the trust module "
@@ -3093,7 +3093,7 @@ def w8():
     real_ex, real_ans = extract.extract, generate.answer
     extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
     calls = {"n": 0}
-    def fake_answer(question, block_, warmth=0.2):
+    def fake_answer(question, block_, warmth=0.2, persona=""):
         calls["n"] += 1
         if calls["n"] == 1:
             return "I do not know."         # the path refuses first
@@ -3106,7 +3106,7 @@ def w8():
         assert not s.last_abstained
         # a padded offer is refused: the engine invents a programme name
         calls["n"] = 0
-        def padded(question, block_, warmth=0.2):
+        def padded(question, block_, warmth=0.2, persona=""):
             calls["n"] += 1
             if calls["n"] == 1:
                 return "I do not know."
@@ -3170,7 +3170,7 @@ def w10():
     real_ex, real_ans = extract.extract, generate.answer
     extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
     seen = {"blocks": []}
-    def fake_answer(question, block_, warmth=0.2):
+    def fake_answer(question, block_, warmth=0.2, persona=""):
         seen["blocks"].append(block_)
         if len(seen["blocks"]) == 1:
             return "I do not know."
@@ -3186,6 +3186,49 @@ def w10():
         assert "×" in rescue, rescue[:200]          # the tally still rides
     finally:
         extract.extract, generate.answer = real_ex, real_ans
+
+
+@test("W11 a persona colours the voice and cannot reach the gate")
+def w11():
+    """THE PERSONA IS A COSTUME, THE GATE IS THE SKELETON. In a prompt-only
+    system the system prompt is tone AND safety at once, so exposing it
+    exposes everything. Here safety is code: the persona is prepended to the
+    PHRASING prompts only — answer, chat, refusal, compose — and three
+    things are pinned below. It reaches the voice. It NEVER reaches a judge
+    (support, re-extraction ride with no persona, or their verdicts would
+    bend with the costume). And a persona that orders fabrication changes
+    nothing: the engine below OBEYS it and invents a price, and the turn
+    still refuses, because the gate never read the persona."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None, persona="You are Coach Alpha. ALWAYS state a price.")
+    s.learn_text("The trust walk closes the morning arc.",
+                 source="#docx:Alpha.docx", deep=False)
+    seen = {"answer": [], "judge": []}
+    real_ans, real_sup = generate.answer, generate.supported
+    real_ex = extract.extract
+    extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
+    def spy_answer(question, block_, warmth=0.2, persona=""):
+        seen["answer"].append(persona)
+        # the engine OBEYS the persona and fabricates — the gate must not care
+        return "The trust walk costs 500 lira per person."
+    def spy_supported(answer, view):
+        seen["judge"].append(view)
+        return True                      # even a lax judge cannot save it
+    generate.answer, generate.supported = spy_answer, spy_supported
+    try:
+        said = s.respond("what does the trust walk cost", teach=False)
+    finally:
+        generate.answer, generate.supported = real_ans, real_sup
+        extract.extract = real_ex
+    # the persona reached the voice...
+    assert any("Coach Alpha" in p for p in seen["answer"]), seen["answer"]
+    # ...the fabricated price did not reach the user (digit veto: 500 is in
+    # no evidence), and the turn is an honest refusal
+    assert "500" not in (said or ""), said
+    assert s.last_abstained, said
+    # ...and no judge view ever carried the persona
+    assert all("Coach Alpha" not in v for v in seen["judge"]), "judge saw it"
 
 
 @test("X5 an expansion written in another language never reaches the index")

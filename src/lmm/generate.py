@@ -31,15 +31,29 @@ def answer_prompt(question, facts_block):
             "the SAME LANGUAGE as the question above.)")
 
 
-def answer(question, facts_block, warmth=0.2):
+def _voiced(system, persona):
+    """The persona rides in front of a PHRASING prompt — and only there.
+
+    In a prompt-only system the system prompt is tone and safety at once, so
+    exposing it exposes everything. Here safety is code: the gates read the
+    OUTPUT, never the prompt, so an operator's persona can colour the voice
+    of every spoken turn while being structurally unable to loosen what may
+    be spoken. It is prepended, the way _MATCH_LANGUAGE is, so the identity
+    reads first and the operational rules keep the last word. The judge
+    prompts (support, re-extraction, relation) never pass through here."""
+    return f"{persona.strip()}\n\n{system}" if persona and persona.strip() \
+        else system
+
+
+def answer(question, facts_block, warmth=0.2, persona=""):
     """Answer the question fluently, using only the given facts. If there is no
     fact, the model is steered to say 'I don't know' (system prompt)."""
     return runtime.generate(answer_prompt(question, facts_block),
-                            system=prompts.ANSWER_SYSTEM,
+                            system=_voiced(prompts.ANSWER_SYSTEM, persona),
                             max_tokens=200, temperature=warmth)
 
 
-def compose(brief, material_block, warmth=0.2):
+def compose(brief, material_block, warmth=0.2, persona=""):
     """Draft a long-form document from labelled material — the long-form
     counterpart of `answer`, under the same contract: the engine phrases, it
     does not know. The token budget is the one thing that differs, because a
@@ -48,10 +62,11 @@ def compose(brief, material_block, warmth=0.2):
     line by line against this same material."""
     return runtime.generate(
         f"REQUEST:\n{brief}\n\nMATERIAL:\n{material_block}",
-        system=prompts.COMPOSE_SYSTEM, max_tokens=900, temperature=warmth)
+        system=_voiced(prompts.COMPOSE_SYSTEM, persona),
+        max_tokens=900, temperature=warmth)
 
 
-def chat(message, identity_block="", warmth=0.7, history=None):
+def chat(message, identity_block="", warmth=0.7, history=None, persona=""):
     """Chat reply (greeting, thanks, small talk). If it carries a fact claim,
     verify filters it — so speak naturally, but a fabricated fact still drops at
     the exit.
@@ -66,7 +81,7 @@ def chat(message, identity_block="", warmth=0.7, history=None):
     an injected fact works in every language). Since the fact comes from the
     graph, it passes verify.
     """
-    system = prompts.CHAT_SYSTEM
+    system = _voiced(prompts.CHAT_SYSTEM, persona)
     if identity_block.strip():
         system += (
             "\n\nFACTS about yourself, as [entity relation value] rows from your "
@@ -321,14 +336,14 @@ def offer_research(subject, message):
     return runtime.generate(message, system=system, max_tokens=40, temperature=0.3)
 
 
-def refusal(message):
+def refusal(message, persona=""):
     """In the user's language: 'I don't have this information'. No fabrication, short."""
     system = (_MATCH_LANGUAGE +
               "The user asked about something that is NOT in your memory. Reply "
               "briefly and honestly, saying you don't have that information yet. "
               "Do NOT invent any fact. One short sentence.")
-    return runtime.generate(message, system=system, max_tokens=50,
-                            temperature=0.3)
+    return runtime.generate(message, system=_voiced(system, persona),
+                            max_tokens=50, temperature=0.3)
 
 
 def confirm(learned, conflicts, message):

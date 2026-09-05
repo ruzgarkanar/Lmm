@@ -80,7 +80,19 @@ def _grounded_in(value, message):
 class Session:
     """One conversation. Qwen (language) + graph/gate (truth & growth)."""
 
-    def __init__(self, path=None, who="#operator", mode="STRICT"):
+    # class-level default, so a Session built without __init__ (tests use
+    # __new__ to skip the heavy constructor) still has a voice — an empty one
+    persona = ""
+
+    def __init__(self, path=None, who="#operator", mode="STRICT",
+                 persona=""):
+        # THE OPERATOR'S VOICE — tone, greeting style, when to ask a
+        # clarifying question. It rides in front of the PHRASING prompts only
+        # (generate._voiced): the gates read the output, never the prompt, so
+        # a persona is structurally unable to loosen what may be spoken —
+        # the invariant test (W11) orders a fabrication through it and
+        # watches the turn refuse anyway.
+        self.persona = persona or ""
         self.path = path
         self.memory = (Memory.load(path) if path and os.path.exists(path)
                        else Memory())
@@ -268,7 +280,7 @@ class Session:
         # is internal prompt structure, not output language.
         block = "\n".join(f"[{i}] CAUSE: {c}  EFFECT: {e}"
                           for i, (c, e) in enumerate(edges, 1))
-        raw = generate.answer(message, block)
+        raw = generate.answer(message, block, persona=self.persona)
         # WORD-COVERAGE gate (benchmark finding): a causal sentence doesn't fit
         # the is-a pattern — reextract mistook "yağarsa" for a value and dropped
         # a CORRECT answer. Principle: if ALL of the answer's content-words come
@@ -424,8 +436,8 @@ class Session:
             rescue_block = "\n".join(
                 f"[K{i}] {line}"
                 for i, line in enumerate(lines + [census_line], 1))
-            offered = (generate.answer(message, rescue_block,
-                                       warmth=0.0) or "").strip()
+            offered = (generate.answer(message, rescue_block, warmth=0.0,
+                                       persona=self.persona) or "").strip()
             # WHAT THE OFFER MUST NOT DO IS INVENT A MEMBER OR A NUMBER.
             # Full word-coverage was tried first and refused every honest
             # phrasing over its connectives ("and", "both" are in no tally).
@@ -575,7 +587,8 @@ class Session:
         moves: this method only records what the code was already doing.
         """
         self.last_abstained = True
-        return generate.refusal(message) or FALLBACK_DONT_KNOW
+        return (generate.refusal(message, persona=self.persona)
+                or FALLBACK_DONT_KNOW)
 
     def _graph_answer(self, record, message):
         """Speak a record the graph already holds — the whole answer, with no
@@ -1105,7 +1118,8 @@ class Session:
                   if many and src else text)
                  for text, src in zip(found, origins)]
         material = "\n".join(lines)
-        draft = (generate.compose(brief, material) or "").strip()
+        draft = (generate.compose(brief, material,
+                                  persona=self.persona) or "").strip()
         if not draft:
             return self._refuse(brief), []
         # THE MIXTURE TEST, APPLIED LINE BY LINE — `grounded_sentences`'
@@ -1552,7 +1566,8 @@ class Session:
             allowed = verify.allowed_of(self.memory, records)
             safe = verify.verify(self.memory,
                                  spare[0] if spare
-                                 else generate.answer(question, block),
+                                 else generate.answer(question, block,
+                                                      persona=self.persona),
                                  allowed, self.mode, anchor="edge")
             if not safe:
                 return self._refuse(question)
@@ -1682,7 +1697,8 @@ class Session:
         # evidence, so the differences between candidates carry information
         # (which evidence) instead of sampling noise.
         def _say(one):
-            return generate.answer(question, one, warmth=0.0)
+            return generate.answer(question, one, warmth=0.0,
+                                   persona=self.persona)
         if workers > 1:
             from concurrent.futures import ThreadPoolExecutor  # noqa: PLC0415
             with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -1951,7 +1967,8 @@ class Session:
         # continuity (what "look it up" refers to, the context of "what are you
         # doing"
         # is kept). Fabrication is still filtered in verify.
-        raw = generate.chat(message, id_block, history=self.history)
+        raw = generate.chat(message, id_block, history=self.history,
+                            persona=self.persona)
         # In chat, allowed = ONLY the identity facts. anchor="value": the
         # subject is a self-referential pronoun (ben/beni) that can't be
         # resolved; it suffices that the OBJECT (rüzgar) is allowed; external
