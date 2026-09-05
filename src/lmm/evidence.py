@@ -1030,15 +1030,60 @@ class SentenceStore:
         # it to the answer path as one line of store-attested fact — which is
         # what lets a conversational turn say "this appears in eight
         # programmes" instead of naming whichever single one won the seats.
-        counted = {}
-        for sid in base:
-            if base[sid] > 0:
+        found = self._seats(qwords, scores, named, most, base=base,
+                            floor_share=floor_share)
+        # THE CENSUS COUNTS THE TOPIC, NOT THE QUESTION — and the topic is
+        # what actually LANDED. Three cuts of this failed instructively:
+        # any-overlap and floor-passer counting both let the question's
+        # generic words vote (a sales outline out-tallied the true list on a
+        # psychological-safety question), and IDF-rarity then picked the
+        # scaffolding over the subject, because a corpus ABOUT a topic uses
+        # the topic's words everywhere and the scaffolding nowhere — the same
+        # inversion that broke the expansion filter. The seats already answer
+        # it: retrieval chose them for this question, so the question words
+        # the seated sentences actually carry ARE the topic as this corpus
+        # understands it. The tally is `where` over those — every sentence
+        # carrying all of them votes for its source.
+        seated = " ".join(found)
+        held = set(_words(seated))
+        landed = [w for w in qwords
+                  if any(inflect.same_stem(w, h) for h in held)]
+        # THE TOPIC IS A PAIR, AND THE CORPUS PICKS IT. Single-word topic
+        # extraction failed in both directions on the same question: a word
+        # in every source ("training", via the template headings the windows
+        # carry) flooded the tally, and a word in ONE source ("regarding", a
+        # freak occurrence) strangled the AND down to that source. A topic,
+        # as a census can use one, is two question words that the documents
+        # answer TOGETHER — and which pair that is, the corpus says itself:
+        # the landed pair whose co-occurring sentences span the MOST sources.
+        # No dial anywhere; ties fall to the pair whose words are rarer.
+        matched = {}
+        for w in landed:
+            sids = set()
+            for key, postings in self.index.items():
+                if inflect.same_stem(w, key):
+                    sids |= postings
+            matched[w] = sids
+        best, best_span = None, 1
+        for i, a in enumerate(landed):
+            for b in landed[i + 1:]:
+                both = matched[a] & matched[b]
+                span = len({self.sentences[sid][1] for sid in both})
+                rarity = -(len(matched[a]) + len(matched[b]))
+                if span > best_span or (span == best_span and best and
+                                        rarity > best[0]):
+                    best, best_span = (rarity, both), span
+        if best and best_span > 1:
+            tally = {}
+            for sid in best[1]:
                 src = self.sentences[sid][1]
-                counted[src] = counted.get(src, 0) + 1
-        self.last_census = sorted(counted.items(),
-                                  key=lambda kv: (-kv[1], kv[0]))
-        return self._seats(qwords, scores, named, most, base=base,
-                           floor_share=floor_share)
+                tally[src] = tally.get(src, 0) + 1
+            self.last_census = sorted(tally.items(),
+                                      key=lambda kv: (-kv[1], kv[0]))
+        else:
+            self.last_census = []
+        return found
+
 
     def _score_over(self, qwords, index, keys, weigh=None):
         """The lexical scoring, over ONE index — {sid: score}, and the sentences

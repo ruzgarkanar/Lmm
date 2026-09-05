@@ -114,6 +114,12 @@ Some FACTS lines open with the name of the document they come from, then an
 em dash ("Alpha Handbook — ..."). That name is real provenance: you may say
 the line's content is found in, or covered by, that document.
 
+A FACTS line of the form "Name ×12 · Name ×5 · Name ×2" is a tally: it lists
+the documents that mention the asked topic, with how many of their sentences
+do. When the question asks WHICH documents, programmes or sources cover the
+topic, enumerate the names from that tally — all of them, not the first one
+or two.
+
 SPECIFICITY: if the question asks for a SPECIFIC item (a name, a number, a
 date, a place) and the facts do not CONTAIN that specific item, say you don't
 know. Do not answer with a generic restatement (naming the CATEGORY of the
@@ -165,6 +171,11 @@ FIELD: value"). A field value belongs ONLY to the record on its own line —
 if the claim attaches one record's value to another record's entity, answer
 "no". If a record lacks the asked field, the claim cannot borrow it from a
 neighboring record.
+
+TALLY DISCIPLINE: an EVIDENCE line of the form "Name ×12 · Name ×5" is an
+attested tally of the documents that mention the claim's topic. A claim that
+says the topic appears in, or is covered by, the documents that tally names
+is supported by that line.
 
 DATELINE DISCIPLINE: an evidence line may open with the name of the document
 it was taken from, then an em dash, then the document's own words

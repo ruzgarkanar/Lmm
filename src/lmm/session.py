@@ -1310,14 +1310,16 @@ class Session:
             # names and numbers only, no sentence is written for the engine.
             census = [(evidence._source_name(src), hits)
                       for src, hits in self.evidence.last_census]
+            self._census_line = ""
             if len(census) > 1:
                 # six entries, not twelve: the line is read by ~5 model calls
                 # per question, and the measured cost of the longer form on a
                 # local engine was a 217-second turn. Six names still answer
                 # "who all speaks of this"; the tail was paying for itself in
                 # neither accuracy nor phrasing.
-                proof.append(" · ".join(f"{name} ×{hits}"
-                                        for name, hits in census[:6]))
+                self._census_line = " · ".join(
+                    f"{name} ×{hits}" for name, hits in census[:6])
+                proof.append(self._census_line)
         # kept for the abstention reading — see _asserted_a_fact
         self._last_proof = list(proof)
         # TRUE GAP (gaps signal) — if the graph holds NO fact at all about
@@ -1442,10 +1444,19 @@ class Session:
         width having to be right for every question.
         """
         sizes, subsets = [], []
+        # THE TALLY RIDES IN EVERY SUBSET. The census line sits last in the
+        # proof, and prefix subsets were cutting exactly it — so the narrow
+        # candidates, which usually win the grading, never saw the one line
+        # that answers "which documents". Metadata the store attests belongs
+        # in every view of the evidence, the same rule the dateline follows.
+        tail = getattr(self, "_census_line", "")
         for size in (len(proof), max(1, len(proof) // 2), 1):
             if proof and size not in sizes:
                 sizes.append(size)
-                subsets.append(proof[:size])
+                sub = list(proof[:size])
+                if tail and tail not in sub:
+                    sub.append(tail)
+                subsets.append(sub)
         blocks = []
         for sub in subsets:
             pb = "\n".join(f"[K{i}] {s}" for i, s in enumerate(sub, 1))
