@@ -1,31 +1,73 @@
 """LMM chat — interactive. Qwen (language) + graph/gate (truth & growth).
 
 Usage:
-    python3.11 -m lmm.chat            # memory: models/lmm/memory.lmm
+    lmm                               # memory: ./models/lmm/memory.lmm
+    python3.11 -m lmm.chat            # the same thing
 
 Every turn is logged (logs/lmm-<time>.jsonl): input · answer · the operation
 the reader saw · duration. Memory is saved on exit — carried into the next
 session (growth without retraining). Exit: Ctrl+D on an empty line or Ctrl+C.
+
+THE FILES BELONG TO THE USER, NOT TO THE PACKAGE. This entry point used to
+chdir to two directories above its own source and write `models/` and `logs/`
+there. At the repository root that was the repository; installed from PyPI it
+was SITE-PACKAGES — measured on a clean venv, a first run left the operator's
+memory inside the install directory, where the next `pip install -U` deletes
+it and a shared or read-only install cannot write at all. `lmm.paths` was
+written for exactly this and says so in its own docstring; this file simply
+never got converted. It resolves against the user's working directory now,
+`LMM_HOME` if they set one.
 """
 import json
 import os
+import sys
 import time
+
+from lmm import paths
+
+HELP = """lmm — an interactive session against a living memory.
+
+    lmm                    start talking; memory persists between sessions
+    lmm --help             this text
+    lmm --version          the installed version
+
+Files, all under the current directory (or $LMM_HOME if set):
+    models/lmm/memory.lmm  the graph and its evidence
+    logs/lmm-<time>.jsonl  one line per turn
+
+An engine is needed to put answers into words. The default is a local
+Qwen2.5-3B; set LMM_BACKEND=openai with OPENAI_API_KEY for a hosted one, or
+LMM_BACKEND=gguf for llama.cpp. The graph, the gate and the derivation need
+no engine at all.
+
+As a library:
+    from lmm import Memory
+    m = Memory("mind.lmm"); m.learn("manual.pdf"); print(m.ask("..."))
+
+Docs: https://github.com/ruzgarkanar/Lmm"""
 
 
 def main():
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    os.chdir(root)
-    os.makedirs("models/lmm", exist_ok=True)
-    os.makedirs("logs", exist_ok=True)
+    argv = sys.argv[1:]
+    if any(a in ("-h", "--help", "help") for a in argv):
+        print(HELP)
+        return
+    if any(a in ("-V", "--version") for a in argv):
+        from lmm import __version__                    # noqa: PLC0415
+        print(f"lmm {__version__}")
+        return
+
+    os.makedirs(paths.under("models", "lmm"), exist_ok=True)
+    os.makedirs(paths.under("logs"), exist_ok=True)
 
     from lmm.session import Session
 
-    memory_path = os.path.join("models", "lmm", "memory.lmm")
-    legacy = os.path.join("models", "lmm", "hafiza.lmm")
+    memory_path = paths.under("models", "lmm", "memory.lmm")
+    legacy = paths.under("models", "lmm", "hafiza.lmm")
     if not os.path.exists(memory_path) and os.path.exists(legacy):
         memory_path = legacy            # backward compat: old Turkish default
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    log_path = os.path.join("logs", f"lmm-{stamp}.jsonl")
+    log_path = paths.under("logs", f"lmm-{stamp}.jsonl")
 
     print("# LMM loading (Qwen-3B, ~10 s on first run)...")
     session = Session(memory_path)
