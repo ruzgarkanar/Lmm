@@ -807,13 +807,70 @@
 <p>All notable changes to this project are documented here. The format follows
 <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>, and this project
 follows <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<h2 id="030-2026-09-05">[0.3.0] — 2026-09-05<a class="headerlink" href="#030-2026-09-05" title="Permanent link">&para;</a></h2>
+<p>The consultation release. One evening of field dialogue against a live
+customer bot — a RAG competitor on the other screen — surfaced every gap in
+turn, and every fix below is architectural: no keyword, no language rule, no
+corpus-specific line anywhere. The published numbers were re-measured
+unchanged after every change batch (NIST 11/13, EN 17/17; 110 unit
+invariants, W14–W26).</p>
+<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The consultation surface.</strong> <code>respond(msg, teach=False)</code>: a statement is
+  CONTEXT (routes to the chat voice; its extracted terms accumulate in the
+  consultation's brief), a question searches with the whole consultation
+  riding along, and a delivery request routes straight to the composer,
+  which returns a source-stamped catalogue built from the brief. The bare
+  refusal is reserved for surfaces that have no conversation — when the
+  answering chain comes back empty, the already-gated conversational reply
+  speaks instead.</li>
+<li><strong>The echo rule.</strong> In the chat reading, repeating what the user themselves
+  said this conversation is not an assertion — a consultant may sound like
+  one. A word the user never spoke still answers to the graph.</li>
+<li><strong>Gated streaming.</strong> <code>compose(..., on_line=)</code> (and <code>respond(...,
+  on_line=)</code>): each draft line is judged by the composer's gate the moment
+  its newline arrives and handed to the callback while the engine is still
+  writing. A refused line is never seen; a backend that cannot stream
+  degrades to batch by itself.</li>
+<li><strong>The operator's knobs.</strong> <code>Memory(..., persona=, style=, warmth=,
+  reply_tokens=)</code>. The persona is the voice and stops at the document's
+  edge; the style is the document's shape and travels only to the
+  composer; warmth and reply_tokens tune the voice surfaces alone. None of
+  them can reach a classifier or a verifier.</li>
+<li><code>compose(..., topics=)</code> gathers per topic — dedicated seats, dedicated
+  queries.</li>
+</ul>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Latency, halved and then some</strong> (measured, same dialogue): a greeting
+  turn 15.9 s → ~6 s, a catalogue's first line on screen 13.4 s → ~5 s.
+  The verifier's per-sentence re-reads now go to the engine side by side
+  where the backend allows; the re-extractor memoises (the gate and the
+  abstention stamp used to read the same sentences twice); on the
+  consultation surface the chat voice and the delivery question ride out
+  beside the router and the loser is discarded.</li>
+<li>Per-topic composer queries use the topic alone — appending the brief
+  made every query converge on the same generic winners (measured on a
+  61-document store).</li>
+<li>An ordinal list marker ("1.", "2)") at the head of a draft line is
+  format, not a quantity — the digit gate no longer kills the engine's own
+  section numbering.</li>
+</ul>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A context statement in a no-teach conversation no longer falls through to
+  the question treatment (it used to end in a refusal wearing the
+  persona's greeting).</li>
+<li>A stale census line can no longer leak from a previous turn into the
+  informed refusal.</li>
+</ul>
 <h2 id="020-2026-09-05">[0.2.0] — 2026-09-05<a class="headerlink" href="#020-2026-09-05" title="Permanent link">&para;</a></h2>
 <p>The multi-document release. Everything below came out of one field trial: a
 corpus of 62 sibling documents sharing a template — a class no benchmark had
 covered — worked through question by question, with the published
 single-document numbers re-measured unchanged after every change (NIST 11/13,
 EN corpus 17/17).</p>
-<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>Memory.compose(brief)</code> — long-form drafts from the evidence: the engine
   organises, the material speaks, and every line is re-read on the way out
@@ -841,7 +898,7 @@ EN corpus 17/17).</p>
   not a lesson, however imperative its grammar. Teaching stays on
   <code>Session.respond</code>, deliberately.</li>
 </ul>
-<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>The abstention stamp is read off the evidence, not asked of a model — a
   full correct answer was being recorded as a refusal when the re-extractor
@@ -864,7 +921,7 @@ EN corpus 17/17).</p>
 <h2 id="010-2026-08-18"><a href="https://github.com/ruzgarkanar/lmm/releases/tag/v0.1.0">0.1.0</a> — 2026-08-18<a class="headerlink" href="#010-2026-08-18" title="Permanent link">&para;</a></h2>
 <p>First public release. The layer had been working for some time; this release is
 the work of making it installable, readable and lawful to publish.</p>
-<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
+<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>Memory</code> — one front door.</strong> <code>Memory("mind.lmm")</code>, <code>.learn(...)</code>,
   <code>.ask(...)</code>, <code>.save()</code>. <code>learn()</code> takes a file path or the text itself and
@@ -884,7 +941,7 @@ the work of making it installable, readable and lawful to publish.</p>
   the core installs with no dependencies.</li>
 <li>Six tests for the new surface (59 total), none of which needs a model.</li>
 </ul>
-<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The core install has no dependencies.</strong> <code>pandas</code> was imported at
   <code>tables.py</code>'s top level, which meant the pure-python layer could not be

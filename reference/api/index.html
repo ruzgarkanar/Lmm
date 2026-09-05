@@ -723,6 +723,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-consultation-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The consultation surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#answer-object" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -880,6 +891,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-consultation-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The consultation surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#answer-object" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -921,6 +943,25 @@ claims — contradiction, causality, the trust ladder, the memory dynamics —
 lives on <code>m.session</code>, which is public and is the same object <code>Memory</code> is
 built on. A feature with no documented entry point is not a feature.</p>
 <h2 id="memory">Memory<a class="headerlink" href="#memory" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">m</span> <span class="o">=</span> <span class="n">Memory</span><span class="p">(</span><span class="s2">"mind.lmm"</span><span class="p">,</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>           <span class="n">persona</span><span class="o">=</span><span class="s2">"You are Ada, a warm onboarding coach."</span><span class="p">,</span>   <span class="c1"># the VOICE</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>           <span class="n">style</span><span class="o">=</span><span class="s2">"One section per course: name, duration, outcomes."</span><span class="p">,</span>  <span class="c1"># the FORMAT</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>           <span class="n">warmth</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>          <span class="c1"># temperature of the voice surfaces</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>           <span class="n">reply_tokens</span><span class="o">=</span><span class="mi">1200</span><span class="p">)</span>   <span class="c1"># length cap of the voice surfaces</span>
+</code></pre></div>
+<p>The operator's knobs, each travelling exactly where it belongs — and none of
+them reaching a verifier, because a judge whose thermostat the caller can
+turn is not a judge:</p>
+<ul>
+<li><strong><code>persona</code></strong> — the voice. Rides in front of the phrasing prompts (chat,
+  answer, refusal) and stops at the document's edge: the composer never
+  sees it.</li>
+<li><strong><code>style</code></strong> — the document's shape, the persona's mirror twin. Travels
+  ONLY to the composer's request; headings and ordering are the operator's,
+  every fact beneath them is still the material's.</li>
+<li><strong><code>warmth</code> / <code>reply_tokens</code></strong> — temperature and length of the same voice
+  surfaces. Unset, every surface keeps its measured default.</li>
+</ul>
 <table>
 <thead>
 <tr>
@@ -941,8 +982,8 @@ built on. A feature with no documented entry point is not a feature.</p>
 <td>engine</td>
 </tr>
 <tr>
-<td><code>m.compose(brief)</code></td>
-<td>a structured draft from the evidence — blended, gated line by line, returned with its sources</td>
+<td><code>m.compose(brief, topics=, on_line=)</code></td>
+<td>a structured draft from the evidence — per-topic gathering, gated line by line, streamed to <code>on_line</code> as lines survive, returned with its sources</td>
 <td>engine</td>
 </tr>
 <tr>
@@ -978,8 +1019,13 @@ built on. A feature with no documented entry point is not a feature.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>m.session.respond(msg, teach=True)</code></td>
+<td><code>m.session.respond(msg, teach=True, on_line=)</code></td>
 <td>a conversational turn at operator trust — the surface that may teach</td>
+<td>engine</td>
+</tr>
+<tr>
+<td><code>m.session.respond(msg, teach=False)</code></td>
+<td>the CONSULTATION surface — statements are context, questions search the whole conversation, a delivery request routes to the composer; cannot write memory</td>
 <td>engine</td>
 </tr>
 <tr>
@@ -1029,6 +1075,26 @@ concept <strong>keys</strong>, not strings — one spelling can be two entities,
 can carry labels in several languages. Read labels through
 <code>m.session.memory.identities</code>. <code>.sources</code> and <code>.trust</code> are the provenance
 the gate reads on the way out.</p>
+<h2 id="the-consultation-surface">The consultation surface<a class="headerlink" href="#the-consultation-surface" title="Permanent link">&para;</a></h2>
+<p><code>respond(msg, teach=False)</code> is the customer-facing conversation — it can
+never write into the operator's memory, and four behaviours exist only
+there:</p>
+<ul>
+<li>a <strong>statement</strong> ("we are a bank, team of ten") is context: it routes to
+  the chat voice, and its terms accumulate in the consultation's brief;</li>
+<li>a <strong>question</strong> searches with the whole consultation riding along — "the
+  best three-hour material" still knows the topic named two turns earlier;</li>
+<li>a <strong>delivery request</strong> ("you decide, put a programme together") goes
+  straight to the composer and returns a source-stamped catalogue built
+  from the brief;</li>
+<li><strong>echoing the user's own words</strong> back is conversation, not assertion —
+  the gate lets a consultant repeat what the customer just said, while a
+  word the customer never said still answers to the graph.</li>
+</ul>
+<p>Pass <code>on_line=</code> to <code>respond</code> or <code>compose</code> and the draft <strong>streams</strong>: each
+line is judged the moment its newline arrives and handed to the callback
+while the engine still writes. A refused line is never seen; a backend
+that cannot stream degrades to batch by itself.</p>
 <p>The <em>no engine</em> column is not a footnote. Those calls are plain Python over
 a dict — microseconds, no network, no key — which is why a spreadsheet loads
 in milliseconds and why the reasoning half of this system costs nothing to
