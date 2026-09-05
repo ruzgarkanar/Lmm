@@ -30,7 +30,7 @@ jobs:
       - name: Run the suite
         run: python tests/test_core.py
 
-  # THE CLAIM UNDER TEST: `pip install lmm` pulls in nothing. This is a design
+  # THE CLAIM UNDER TEST: `pip install living-memory-model` pulls in nothing. This is a design
   # statement in the README and in pyproject, so it gets an assertion rather
   # than a promise — a stray top-level `import pandas` would pass the suite
   # above (the runner has it) and silently break the claim.

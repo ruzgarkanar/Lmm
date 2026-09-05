@@ -1,6 +1,6 @@
 """Teaching LMM real files: PDF, Word, Excel, CSV, Markdown.
 
-    pip install 'lmm[pdf,xlsx,docx]'
+    pip install 'living-memory-model[pdf,xlsx,docx]'
     python examples/documents.py manual.pdf spec.docx inspection.xlsx
 
 One method reads all of them. The format is taken from the extension, and the

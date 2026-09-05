@@ -23,7 +23,7 @@ Two layers, and the split is the design:
 **`lmm.core`** — the discrete substrate. Identities, records, links, trust
 ordering, contradiction arbitration, transitive derivation. Pure python; no
 model, no network, no GPU. This is why the whole thing can be tested in seconds
-on a laptop, and why `pip install lmm` pulls in nothing.
+on a laptop, and why `pip install living-memory-model` pulls in nothing.
 
 **`lmm`** — the layer that gives it language. Extraction, retrieval, answer
 generation, the verification chain, the document adapters. It talks to an
