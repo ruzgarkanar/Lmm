@@ -361,16 +361,48 @@ pip install 'lmm[xlsx]'              # pandas + openpyxl
 pip install 'lmm[docx]'              # python-docx
 pip install 'lmm[local]'             # torch + transformers + peft (local engine)
 pip install 'lmm[gguf]'              # llama.cpp, CPU
-pip install 'lmm[azure]'             # hosted API
+pip install 'lmm[openai]'            # OpenAI, OpenRouter, Groq, vLLM, Ollama
+pip install 'lmm[azure]'             # Azure OpenAI
 ```
 
 Extras are opt-in and lazy: nothing is imported until you hand LMM a file of
 that kind, and a missing reader reports the exact install line rather than a
 traceback.
 
-**Engines.** The default is a local Qwen2.5-3B-Instruct; `LMM_BACKEND=gguf` runs
-through llama.cpp, `LMM_BACKEND=azure` against a hosted API. The graph/gate
-layer is engine-agnostic — and most of it needs no engine at all.
+### Bring your own engine
+
+LMM does not ship a model and does not want to pick one for you. It needs an
+engine to turn a retrieved record into a sentence, and any of these will do:
+
+```bash
+# nothing set — a local Qwen2.5-3B-Instruct, on your own machine
+export LMM_MODEL_PATH=/path/to/any-instruct-model   # ...or any HF model you have
+
+# llama.cpp / int4 — the fast option on cheap hardware
+export LMM_BACKEND=gguf
+
+# OpenAI
+export LMM_BACKEND=openai
+export OPENAI_API_KEY=sk-...
+export LMM_MODEL=gpt-4o-mini
+
+# OpenRouter, Groq, Together, a vLLM or Ollama server — same client, one URL
+export LMM_BACKEND=openai
+export OPENAI_BASE_URL=https://openrouter.ai/api/v1
+export OPENAI_API_KEY=...
+export LMM_MODEL=meta-llama/llama-3.3-70b-instruct
+
+# Azure OpenAI — its own client, because a deployment name is Azure's shape
+export LMM_BACKEND=azure
+```
+
+**Nothing about the architecture changes with the engine, and that is the
+point.** The graph, the gate and the derivation are plain python; they never
+call the engine and never learn which one is running. What the engine decides
+is how a record is *worded* — not whether it may be spoken. So a weaker engine
+costs you fluency, never provenance: an unsupported claim is dropped by the
+same rule whichever model produced it, and the calls that read, derive and
+verify are free on every one of these.
 
 The gguf engine offloads to the accelerator **when the installed llama.cpp
 build has one** (it asks the library, not the platform); set

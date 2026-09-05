@@ -131,13 +131,24 @@ def generate(messages, max_tokens=256, temperature=0.7, system=None):
     """Generates. `messages`: str (a single user utterance) or [{role,content}].
     `system`: the system instruction (for grounding). Returns: plain text.
 
-    Backend selection: if LMM_BACKEND=gguf, delegates to the llama.cpp/int4
-    build (speed on cheap/local hardware). Otherwise transformers. Same contract."""
-    if os.environ.get("LMM_BACKEND") == "gguf":
+    Backend selection, by LMM_BACKEND — every one of them keeps this exact
+    contract, because the graph and the gate never learn which one is running:
+    `gguf` is the llama.cpp/int4 build (speed on cheap local hardware),
+    `openai` is any OpenAI-compatible endpoint (OpenAI, OpenRouter, Groq, a
+    vLLM or Ollama server — one client and a base_url), `azure` is Azure's own
+    client, which needs a different one because a deployment name and an
+    api-version are a shape only Azure has. Unset means the local transformers
+    model, which is the product default."""
+    backend = os.environ.get("LMM_BACKEND")
+    if backend == "gguf":
         from . import runtime_gguf
         return runtime_gguf.generate(messages, max_tokens=max_tokens,
                                      temperature=temperature, system=system)
-    if os.environ.get("LMM_BACKEND") == "azure":     # EXPERIMENT: same-engine comparison
+    if backend == "openai":
+        from . import runtime_openai
+        return runtime_openai.generate(messages, max_tokens=max_tokens,
+                                       temperature=temperature, system=system)
+    if backend == "azure":     # EXPERIMENT: same-engine comparison
         from . import runtime_azure
         return runtime_azure.generate(messages, max_tokens=max_tokens,
                                       temperature=temperature, system=system)
