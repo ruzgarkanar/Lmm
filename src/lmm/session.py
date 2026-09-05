@@ -930,6 +930,88 @@ class Session:
         kept = self.evidence.learn_expansions(generated)
         return len(pending), kept
 
+    # --- long-form composition (evidence -> draft, gate per line) -------
+    def compose(self, brief, seats=24):
+        """A structured draft built from the evidence — the long-form answer.
+
+        The short path proved the rule; this is the same rule at document
+        length. The engine is handed MATERIAL — evidence lines, each opening
+        with its document's name — and asked to organise, not to know.
+        Structure (sections, order, titles) is the engine's; content is the
+        material's; and the draft is not trusted for having been asked
+        nicely: it is RE-READ line by line on the way out.
+
+        Two vetoes, both language-free, both already proven on the short path:
+        `grounded_sentences` drops every MIXTURE line — one that wears some
+        material words around content the material never supplied — and
+        `digits_ok` drops any line whose numbers the material does not carry,
+        which is what an invented agenda time or price looks like from
+        outside. A line sharing nothing with the material claims nothing
+        about it (a title, a [no material] marker) and stands.
+
+        What survives is returned with the documents it drew on. When the
+        store has nothing on the brief at all, that is said instead — the
+        composition refuses the way every other path refuses.
+
+        Returns (text, sources): the draft and the source stamps it rests on.
+        """
+        found = self.evidence.find(brief, most=seats, floor_share=0.0)
+        origins = list(self.evidence.last_sources[:len(found)])
+        if not found:
+            return self._refuse(brief), []
+        many = len(self.evidence.by_source) > 1
+        lines = [(f"{evidence._source_name(src)} — {text}"
+                  if many and src else text)
+                 for text, src in zip(found, origins)]
+        material = "\n".join(lines)
+        draft = (generate.compose(brief, material) or "").strip()
+        if not draft:
+            return self._refuse(brief), []
+        # THE MIXTURE TEST, APPLIED LINE BY LINE — `grounded_sentences`'
+        # criterion, restated here for two reasons. That function carries a
+        # safety valve this caller must not inherit (it refuses to empty an
+        # answer, and a single-line call makes every mixture "the whole
+        # answer" — measured: the invented-certification line survived
+        # exactly that way); here the valve is explicit — when nothing
+        # survives, the composition REFUSES through the same door as
+        # everything else. And the measure has to be `coverage`, the ONE
+        # inflection-tolerant criterion everything else uses: a first draft
+        # of this gate compared raw word sets, and in an agglutinative
+        # language that read every legitimate re-inflection as a foreign
+        # word — a ten-seat composition came back as a title and one bullet,
+        # everything else executed as fabrication.
+        #
+        # coverage 1.0: the line rests entirely on the material — it stands.
+        # coverage 0.0: it shares nothing, so it claims nothing (a title, a
+        # marker) — it stands. Anything between is the mixture: material
+        # words wrapped around content the material never supplied.
+        kept_lines = []
+        for line in draft.splitlines():
+            text = line.strip()
+            if not text:
+                kept_lines.append("")
+                continue
+            # the digit veto first — non-negotiable on the short path, and a
+            # composed agenda is where invented numbers would try to live
+            if not evidence.digits_ok(text, material):
+                continue
+            # the test reads the line's CLAIM, not its footnote: a
+            # parenthetical is where this system puts provenance (the prompt
+            # asks for "(source, source)" after a title; the short path
+            # appends its hedge the same way). Format only — no word is
+            # inspected.
+            claim = re.sub(r"\([^)]*\)", " ", text).strip()
+            if claim and evidence.coverage(claim, material,
+                                           brief) not in (0.0, 1.0):
+                continue                    # the mixture — see above
+            kept_lines.append(text)
+        text = "\n".join(kept_lines).strip()
+        if not text:
+            return self._refuse(brief), []
+        self.last_abstained = False
+        used = sorted({src for src in origins if src})
+        return text, used
+
     # --- structured ingestion (table — extractor-LESS) ------------------
     def learn_cell(self, subject_label, predicate_label, value_label, source):
         """A SINGLE structural fact — NO model call, still THROUGH THE GATE.

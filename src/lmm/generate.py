@@ -39,6 +39,18 @@ def answer(question, facts_block, warmth=0.2):
                             max_tokens=200, temperature=warmth)
 
 
+def compose(brief, material_block, warmth=0.2):
+    """Draft a long-form document from labelled material — the long-form
+    counterpart of `answer`, under the same contract: the engine phrases, it
+    does not know. The token budget is the one thing that differs, because a
+    draft is not a sentence; the verification that makes the budget safe to
+    raise lives in the caller (`Session.compose`), which re-reads the draft
+    line by line against this same material."""
+    return runtime.generate(
+        f"REQUEST:\n{brief}\n\nMATERIAL:\n{material_block}",
+        system=prompts.COMPOSE_SYSTEM, max_tokens=900, temperature=warmth)
+
+
 def chat(message, identity_block="", warmth=0.7, history=None):
     """Chat reply (greeting, thanks, small talk). If it carries a fact claim,
     verify filters it — so speak naturally, but a fabricated fact still drops at

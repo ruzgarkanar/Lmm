@@ -933,7 +933,7 @@ class SentenceStore:
         self.by_source.setdefault(source, set()).add(sid)
         return sid
 
-    def find(self, query, most=4):
+    def find(self, query, most=4, floor_share=0.5):
         """Sentences whose content-words intersect the query the MOST.
         Prefix-tolerant (inflection: "doluluğu"~"doluluk"). Score = number of
         intersecting words; on a tie the short sentence wins (denser evidence)."""
@@ -972,6 +972,11 @@ class SentenceStore:
         # It boosts only sentences that already scored on their own words. A
         # name match alone is not evidence — the question still has to touch
         # the sentence's content, the name only settles WHOSE sentences win.
+        base = dict(scores)     # pre-boost scores — the floor reads THESE:
+        #                         the name settles rank, never admission (a
+        #                         boosted best was inflating best/2 and
+        #                         sweeping the OTHER document's grounded
+        #                         sentences out of a two-topic question)
         if scores and len(self.by_source) > 1:
             total_sources = len(self.by_source)
             names = [(src, set(_words(_source_name(src), known=self.units)))
@@ -988,7 +993,8 @@ class SentenceStore:
                             scores[sid] += weight
         if not scores:
             return []
-        return self._seats(qwords, scores, named, most)
+        return self._seats(qwords, scores, named, most, base=base,
+                           floor_share=floor_share)
 
     def _score_over(self, qwords, index, keys, weigh=None):
         """The lexical scoring, over ONE index — {sid: score}, and the sentences
@@ -1099,7 +1105,8 @@ class SentenceStore:
                     CHANNEL if sid in keyed else 1)
         return scores, named
 
-    def _seats(self, qwords, scores, named, most):
+    def _seats(self, qwords, scores, named, most, base=None,
+               floor_share=0.5):
         """The ranking, the noise floor and the seats — unchanged, and moved
         here only so that `find` can score two channels before ranking once."""
         # on a tie the LONG one wins: a short table crumb ("Orta · 3") must not
@@ -1128,8 +1135,18 @@ class SentenceStore:
         # float, so the floor moved in steps. The proportional half is the whole
         # rule and it is scale-free, so it needs no companion term and no
         # per-query-length exception.
-        best = ranked[0][1]
-        floor = best / 2
+        base = base if base is not None else scores
+        best = max(base.values())
+        # AN ANSWER NEEDS A FLOOR; MATERIAL NEEDS BREADTH. The halving floor
+        # exists so one answer is not diluted by noise — and it is exactly
+        # wrong for gathering COMPOSITION material, where a two-topic brief
+        # had its second topic swept out (measured: 3.74 against a 7.98/2
+        # bar, and the draft could then only ever cover one topic). The
+        # composer passes 0: weak material is harmless there, because the
+        # OUTPUT gate judges every drafted line against the material — what
+        # is not used cannot be spoken, and what is not gathered cannot be
+        # covered. Every other caller keeps the half.
+        floor = best * floor_share
         # NEAR-DUPLICATE SUPPRESSION: the same content is indexed at several
         # window scales (raw line, 3-window, 6-window) — without this, one
         # strong-but-wrong region filled ALL top slots and the answer-carrying
@@ -1176,8 +1193,12 @@ class SentenceStore:
         keep = []
         kept = []                           # [[wordset, seats_taken], ...]
         for sid, sc in ranked:
-            if sc < floor and keep:
-                break
+            # `continue`, not `break`: ranked order is the BOOSTED order, and
+            # admission reads the base score — a boosted latecomer may sit
+            # after a below-floor entry. With no boosts the two are the same
+            # walk, ended a few empty iterations later.
+            if base.get(sid, sc) < floor and keep:
+                continue
             words = set(_words(self.sentences[sid][0]))
             dup = False
             for entry in kept:
