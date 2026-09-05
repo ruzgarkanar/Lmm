@@ -445,10 +445,12 @@ listed here because a feature with no documented entry point is not a feature.
 | | | |
 |---|---|---|
 | `m.learn(what)` | teach it a file or a string | no engine for tables |
-| `m.ask(q, explain=True)` | answer, with `.sources` and `.abstained` | engine |
+| `m.ask(q, explain=True)` | answer, with `.sources` and `.abstained` — cannot write memory | engine |
 | `m.about(label)` | the records held on a concept | no engine |
 | `m.facts` | how many records exist | no engine |
 | `m.save(path)` | graph and evidence, both | no engine |
+| `m.compose(brief)` | a structured draft from the evidence — blended, gated line by line, returned with its sources | engine |
+| `m.where(term)` | which documents mention this — names and counts, the census | no engine |
 | `m.session.respond(msg)` | a conversational turn at operator trust | engine |
 | `m.session.learn_rows(rows)` | `[{column: value}]` straight to the graph | no engine |
 | `m.session.learn_cause(a, b)` | record that a causes b | no engine |
