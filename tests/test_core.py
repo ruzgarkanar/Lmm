@@ -3000,6 +3000,13 @@ def w5():
         "round for every participant.")
     # a refusal touches none of the proof: not an assertion, in any wording
     assert not s._asserted_a_fact("Bu konuda maalesef bilgim yok.")
+    # ...and ONE incidental shared word does not flip it: "closes" is in the
+    # proof, and a refusal wearing it is still a refusal (measured: "I do
+    # not know" shared "not" with a standard full of SHALL-NOTs, and an
+    # honest abstention was stamped an assertion — a point lost to a
+    # stopword)
+    assert not s._asserted_a_fact(
+        "I cannot say anything about what closes it.")
     assert not s._asserted_a_fact("I am afraid that is unknown to me.")
     # the footnote is not a claim: a sourced refusal is still a refusal
     assert not s._asserted_a_fact(
