@@ -1155,6 +1155,24 @@ class SentenceStore:
         # sizes. So the cap is stated with the guarantee attached: at most one
         # corroboration, and never the whole block.
         region_cap = max(1, min(2, most - 1))
+        # A SOURCE IS A REGION AT DOCUMENT SCALE, and in a multi-document
+        # store it gets the same cap for the same reason. Measured (62 sibling
+        # training outlines, "which programmes cover X"): the term lived in
+        # EIGHT documents and every seat went to the strongest one, so the
+        # block could only ever name a single programme — the monopoly the
+        # region rule exists to prevent, one level up. The cap is the region
+        # cap itself, because the argument is the same argument: one seat
+        # states, a second corroborates, a third crowds out another voice.
+        #
+        # NOTHING IS DISCARDED: a same-source candidate above the cap steps
+        # aside, and steps back in, in rank order, if the block would
+        # otherwise go unfilled — so a store where one document genuinely
+        # holds all the evidence still fills every seat with it. A
+        # single-document store never enters this path at all and keeps its
+        # ranking byte for byte.
+        source_cap = region_cap if len(self.by_source) > 1 else None
+        source_seats = {}
+        overflow = []
         keep = []
         kept = []                           # [[wordset, seats_taken], ...]
         for sid, sc in ranked:
@@ -1194,10 +1212,20 @@ class SentenceStore:
                     break
             if dup:
                 continue
+            if source_cap is not None:
+                origin = self.sentences[sid][1]
+                if source_seats.get(origin, 0) >= source_cap:
+                    overflow.append(sid)
+                    continue
+                source_seats[origin] = source_seats.get(origin, 0) + 1
             keep.append(sid)
             kept.append([words, 1])
             if len(keep) >= most:
                 break
+        for sid in overflow:
+            if len(keep) >= most:
+                break
+            keep.append(sid)
         if not keep:
             # if the floor swept everything, still return the best 2: if "no
             # evidence at all" is wrong, we are giving the answer gates no

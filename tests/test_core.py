@@ -2888,6 +2888,40 @@ def w1():
         "morning" in h or "goal" in h for h in st.find("alpha", most=4))
 
 
+@test("W2 one document cannot monopolise the block when others hold evidence")
+def w2():
+    """THE SOURCE IS A REGION AT DOCUMENT SCALE. Measured (62 sibling training
+    outlines, "which programmes cover X"): the term lived in eight documents
+    and every seat went to the strongest one, so the block could only ever
+    name a single programme. The cap is the region cap — one seat states, a
+    second corroborates, a third crowds out another voice — and nothing is
+    discarded: with no rival sources left, the same document steps back in
+    and fills the block, so a store where one document genuinely holds all
+    the evidence loses nothing."""
+    from lmm import evidence
+    st = evidence.SentenceStore()
+    for n in range(3):
+        st.add(f"Trust exercises build team safety in module {n} daily.",
+               "#docx:Alpha.docx")
+    st.add("Trust exercises anchor the safety walk outdoors.",
+           "#docx:Beta.docx")
+    st.add("Trust exercises close the safety retrospective meeting.",
+           "#docx:Gamma.docx")
+    st.find("which sessions use trust exercises for safety", most=6)
+    origins = {src.split(":")[-1] for src in st.last_sources}
+    assert {"Beta.docx", "Gamma.docx"} <= origins, st.last_sources
+    # and with ONE source, the cap never engages: distinct regions of the
+    # same document all seat, exactly as they always did
+    one = evidence.SentenceStore()
+    one.add("Trust exercises open the morning safety circle.", "#docx:A.docx")
+    one.add("The afternoon workshop pairs trust exercises with feedback.",
+            "#docx:A.docx")
+    one.add("Evening reflection revisits the trust exercises alone.",
+            "#docx:A.docx")
+    one.find("where do the trust exercises appear", most=6)
+    assert len(one.last_sources) >= 3, one.last_sources
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
