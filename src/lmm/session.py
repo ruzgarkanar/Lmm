@@ -1262,6 +1262,21 @@ class Session:
             proof = [f"{evidence._source_name(origin)} — {line}"
                      if origin else line
                      for line, origin in zip(proof, proof_origins)]
+            # ...AND THE CENSUS AS ONE MORE LINE OF EVIDENCE. The seats hold
+            # the best evidence; the census says who ALL speaks of this, and
+            # a conversational answer to "where does X appear" needs the
+            # second, not the first. Counts are facts the store attests —
+            # names and numbers only, no sentence is written for the engine.
+            census = [(evidence._source_name(src), hits)
+                      for src, hits in self.evidence.last_census]
+            if len(census) > 1:
+                # six entries, not twelve: the line is read by ~5 model calls
+                # per question, and the measured cost of the longer form on a
+                # local engine was a 217-second turn. Six names still answer
+                # "who all speaks of this"; the tail was paying for itself in
+                # neither accuracy nor phrasing.
+                proof.append(" · ".join(f"{name} ×{hits}"
+                                        for name, hits in census[:6]))
         # TRUE GAP (gaps signal) — if the graph holds NO fact at all about
         # this subject, offer research BEFORE GENERATION. That way the model's
         # polite "I don't know" (which passes verify and fills safe) does NOT
