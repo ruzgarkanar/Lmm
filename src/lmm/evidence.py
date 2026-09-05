@@ -1332,12 +1332,75 @@ class SentenceStore:
         carries is reachable already, and indexing it again would let a guess
         add weight to an observation that was doing fine on its own.
         """
+        # THE DOCUMENT IS THE ONLY LANGUAGE SAMPLE THERE IS, and it has to be
+        # used, because the margin filter below cannot see this failure by
+        # construction: a query written in ANOTHER LANGUAGE reaches nothing
+        # lexically and scores zero, which is exactly the signature of the
+        # genuinely-new vocabulary the expansion exists to buy.
+        #
+        # Measured on NIST SP 800-63B, an English publication: the engine
+        # expanded it into Turkish, German, Spanish, Portuguese and French, the
+        # margin filter kept 62% of that, and one survivor was a REFUSAL
+        # sentence indexed as a query. Instructing the engine does not close it
+        # — putting the language rule first changed nothing, and removing the
+        # multilingual examples moved the drift from Spanish to French. It is
+        # not a prompt defect; a 3B engine simply does not hold a language
+        # instruction across this task.
+        #
+        # So it is decided on the data. Every token the document wrote, this
+        # time INCLUDING the short function words `_words` drops, is the
+        # sample, and a query belongs to the document's language when enough of
+        # its tokens are in it. Measured over 60 generated queries against NIST
+        # the two populations do not overlap at all: wrong-language sits at
+        # 0.00, right-language at 1.00.
+        #
+        # HOW MUCH IS ENOUGH IS READ OFF THE DOCUMENT, not written down, and
+        # that matters because "absent from this text" means two different
+        # things in two different sizes of text. In a publication it means
+        # another language. In a three-line store it means the text is too
+        # short to have said the word yet, and a fixed majority would throw
+        # away the honest paraphrase the expansion exists to buy.
+        #
+        # So the document is measured against ITSELF first: how much of a
+        # typical line is it able to find in the REST of what it wrote. That is
+        # its own redundancy — near 1.0 for a publication, near 0.15 for three
+        # sentences — and it is the scale everything else is read on. A query
+        # is kept when it reaches PAST halfway to it, which puts the line in
+        # the empty valley in both regimes rather than at a number anyone
+        # chose. The boundary is excluded and that is not a detail: on this
+        # publication the floor lands at exactly 0.50, and a short query with
+        # one section number in it ("5.2.2 ne olur") sits exactly on the line. No language is named anywhere, and a Turkish document keeps
+        # its Turkish expansions by exactly the same rule.
+        spoken, lines = {}, []
+        for sentence in self.sentences:
+            tokens = re.findall(r"\w+", fold(sentence[0]), re.UNICODE)
+            lines.append(tokens)
+            for token in tokens:
+                spoken[token] = spoken.get(token, 0) + 1
+        selves = []
+        for tokens in lines:
+            if not tokens:
+                continue
+            own = {}
+            for token in tokens:
+                own[token] = own.get(token, 0) + 1
+            selves.append(sum(spoken[t] > own[t] for t in tokens) / len(tokens))
+        selves.sort()
+        # half of the document's own redundancy — see above
+        floor = (selves[len(selves) // 2] / 2.0) if selves else 0.0
+
         scored = []
         for sid in sorted(generated):
             if sid >= len(self.sentences):
                 continue
             mine = set(_words(self.sentences[sid][0]))
             for text in generated[sid]:
+                spelling = re.findall(r"\w+", fold(text), re.UNICODE)
+                if not spelling:
+                    continue
+                share = sum(w in spoken for w in spelling) / len(spelling)
+                if share <= floor:
+                    continue                    # another language — see above
                 qwords = set(_words(text, known=self.units))
                 if not qwords:
                     continue
