@@ -514,20 +514,72 @@ def read_docx(path):
     """
     docx = _require("docx", "Word documents")
     doc = docx.Document(path)
-    prose = "\n".join(p.text.strip() for p in doc.paragraphs if p.text.strip())
+    # A WORD PARAGRAPH IS A DELIBERATE UNIT — the break is drawn by the
+    # author, not the printer (a PDF's newlines are the printer's, and
+    # read_pdf keeps them soft). Headings and bullet paragraphs carry no
+    # terminal punctuation, and downstream the sentence splitter glued
+    # title + headings + first bullets into mega-lines that matched every
+    # query's words and vampirised the retrieval seats (measured, full
+    # corpus). An unpunctuated paragraph closes with a full stop here.
+    paras = []
+    for p in doc.paragraphs:
+        text = p.text.strip()
+        if not text:
+            continue
+        if text[-1:] not in ".!?":
+            text += "."
+        paras.append(text)
+    prose = "\n".join(paras)
 
     tables = []
+    boxes = []
     for table in doc.tables:
         grid = []
+        raw_rows = []
         for row in table.rows:
-            cells = [c.text.replace("\n", " ").strip() for c in row.cells]
+            raw = [c.text.strip() for c in row.cells]
+            cells = [c.replace("\n", " ").strip() for c in raw]
             # A cell merged across a row repeats its text in every position;
             # collapsing runs keeps the row's real arity.
             spread = [c for i, c in enumerate(cells)
                       if i == 0 or c != cells[i - 1]]
             if any(spread):
                 grid.append(spread)
+                raw_rows.append([c for i, c in enumerate(raw)
+                                 if i == 0 or c != raw[i - 1]])
         if len(grid) < 2:
+            # A ONE-ROW GRID IS A FACT BOX, NOT A TABLE. Field finding, a
+            # 61-document corpus: every duration, seat count and audience
+            # line lived in single-row Word tables — boxes — and this rule
+            # dropped them whole, while the prose side read only
+            # doc.paragraphs; the cells reached neither layer, and the
+            # ingest report honestly said "0 tables" while meaning "I did
+            # not count these". A grid without a second row has no header
+            # to read, so its cells are PROSE the document attests — label
+            # and value kept on one line, because a bare value with no
+            # field name is evidence that answers nothing.
+            for row in raw_rows:
+                for cell in row:
+                    lines = [x.strip() for x in cell.splitlines()
+                             if x.strip()]
+                    if lines:
+                        # the cell's FIRST line is its label (Word styles
+                        # it as the box heading), the rest its content —
+                        # written as "LABEL: value", the shape the record
+                        # channel already reads (key_index keys off the
+                        # colon; the seat weighting doubles a field-name
+                        # match; the composer's fact-sheet rider carries
+                        # record lines with their source). And a full stop,
+                        # or the sentence splitter glues the box to its
+                        # neighbours and the fact drowns in a mega-line.
+                        if len(lines) > 1:
+                            joined = (lines[0].rstrip(":") + ": "
+                                      + " \u2014 ".join(lines[1:]))
+                        else:
+                            joined = lines[0]
+                        if joined[-1:] not in ".!?":
+                            joined += "."
+                        boxes.append(joined)
             continue
         # TWO COLUMNS is a key/value sheet, not a record table: the left cell
         # names the field and the right one holds it. Three or more columns is
@@ -548,6 +600,8 @@ def read_docx(path):
                 rows.append(row)
         if rows:
             tables.append(rows)
+    if boxes:
+        prose = (prose + "\n" if prose else "") + "\n".join(boxes)
     return prose, tables
 
 
