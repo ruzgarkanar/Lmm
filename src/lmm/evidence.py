@@ -1695,13 +1695,9 @@ class SentenceStore:
         store = cls()
         path = None
         if memory_path:
-            # New extension first; fall back to the legacy '.kanit' side-file
-            # (backward compatibility — save() writes only '.evidence').
-            for ext in (".evidence", ".kanit"):
-                candidate = memory_path + ext
-                if os.path.exists(candidate):
-                    path = candidate
-                    break
+            candidate = memory_path + ".evidence"
+            if os.path.exists(candidate):
+                path = candidate
         if path:
             try:
                 with open(path, encoding="utf-8") as f:
