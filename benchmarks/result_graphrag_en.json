@@ -1,0 +1,90 @@
+{
+ "ingest_ms": 34248,
+ "cevaplar": [
+  {
+   "soru": "what is zerbalit",
+   "cevap": "Zerbalit is a blue metal found exclusively on Nortlann Island, where it is mined primarily near the village Velmar, linking it to the local economy and resource management strategies [Data: Entities (3); Reports (3); Sources (0)].",
+   "ms": 3592
+  },
+  {
+   "soru": "what is vorlin",
+   "cevap": "Vorlin is a drink made from the norgul plant, which is known for its white flowers and grows in marsh areas on Nortlann Island [Data: Sources (0)].",
+   "ms": 2308
+  },
+  {
+   "soru": "what is morlan",
+   "cevap": "Morlan is a nocturnal bird species found on Nortlann Island that primarily feeds on the seeds of the Norgu plant, indicating a significant ecological relationship as its survival is closely tied to the availability of this plant [Data: Reports (1); Entities (8); Relationships (3)].",
+   "ms": 2065
+  },
+  {
+   "soru": "what is norgul",
+   "cevap": "Norgul is a plant that grows in the marsh areas of Nortlann Island, known for its white flowers and significant ecological role, particularly as a food source for the nocturnal bird species Morlan, which feeds on its seeds, thus indicating a vital interdependence within the local ecosystem [Data: Reports (1); Entities (11, 8); Relationships (3)].",
+   "ms": 2619
+  },
+  {
+   "soru": "what is karvel",
+   "cevap": "Karvel is a fish that resides in deep water and is observed in the lake of Nortlann Island [Data: Entities (10)].",
+   "ms": 3650
+  },
+  {
+   "soru": "what is kelvit",
+   "cevap": "Kelvit is a grey-colored metal found on Nortlann Island, primarily mined near the village of Doruk, and plays an essential role in the local economy [Data: Entities (4); Reports (0, 1)].",
+   "ms": 3886
+  },
+  {
+   "soru": "what is selvin",
+   "cevap": "Selvin is a drink described as a liquid, with no further details provided in the available data [Data: Sources (0)].",
+   "ms": 1867
+  },
+  {
+   "soru": "what is Velmar",
+   "cevap": "Velmar is a village located in the northern part of Nortlann Island, which serves as a key economic hub for both fishing and Zerbalit metal mining activities, significantly influencing local livelihoods and environmental factors [Data: Reports (3); Entities (1); Relationships (2)].",
+   "ms": 4288
+  },
+  {
+   "soru": "is vorlin a liquid",
+   "cevap": "Yes, Vorlin is classified as a drink, which is a type of liquid [Data: Sources (0)].",
+   "ms": 3938
+  },
+  {
+   "soru": "is zilfen a creature",
+   "cevap": "Yes, Zilfen is a bird, which is classified as a creature [Data: Sources (0); Entities (9)].",
+   "ms": 3395
+  },
+  {
+   "soru": "is torvanit a substance",
+   "cevap": "The data does not provide information about \"torvanit,\" so I cannot confirm whether it is a substance.",
+   "ms": 3310
+  },
+  {
+   "soru": "what happens if it rains",
+   "cevap": "If it rains, the marsh on Nortlann Island grows, leading to an increase in the Norgu plant population, which in turn supports the survival and growth of the Morlan bird species that feeds on its seeds; thus, precipitation plays a critical role in maintaining the ecological balance of the area [Data: Sources (0); Reports (1)].",
+   "ms": 4113
+  },
+  {
+   "soru": "what happens if norgul multiplies",
+   "cevap": "If Norgul multiplies, it leads to an increase in food availability for Morlan, the nocturnal bird that feeds on its seeds, and consequently, a potential rise in the Morlan population, which shows a direct ecological interdependency [Data: Reports (1); Relationships (3)].",
+   "ms": 1901
+  },
+  {
+   "soru": "what is melvarit",
+   "cevap": "I don't have information on \"melvarit.\" It does not appear in the provided data tables or context.",
+   "ms": 3605
+  },
+  {
+   "soru": "what is the capital of Nortlann",
+   "cevap": "The provided data does not mention a capital city or location for Nortlann. Therefore, I cannot provide that information.",
+   "ms": 1664
+  },
+  {
+   "soru": "at how many degrees does vorlin boil",
+   "cevap": "I do not have information on the boiling point of Vorlin.",
+   "ms": 3677
+  },
+  {
+   "soru": "what is the population of the island",
+   "cevap": "I do not have information on the population of Nortlann Island.",
+   "ms": 3628
+  }
+ ]
+}

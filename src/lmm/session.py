@@ -1843,19 +1843,11 @@ class Session:
             share = max(2, seats // len(named_two))
             comp, comp_origins = [], []
             for src in sorted(named_two, key=evidence._source_name):
-                got = self.evidence.find(
-                    f"{evidence._source_name(src)} {question}",
-                    most=share * 2, floor_share=0.0)
-                taken = 0
-                for line, origin in zip(got, self.evidence.last_sources):
-                    if origin == src and line not in comp and taken < share:
+                lines, origins2 = self._gather_source(src, question, share)
+                for line, origin in zip(lines, origins2):
+                    if line not in comp:
                         comp.append(line)
                         comp_origins.append(origin)
-                        taken += 1
-                for _sid, sentence in self._record_rows(src, question):
-                    if sentence not in comp:
-                        comp.append(sentence)
-                        comp_origins.append(src)
             # THE COMPARISON VERDICT IS WRITTEN INTO THE EVIDENCE. Laying
             # two records side by side and leaving "same or different?"
             # to the engine gave a verdict that inverted between runs
@@ -1901,6 +1893,33 @@ class Session:
             if comp:
                 proof, proof_origins = comp, comp_origins
                 laid_out = True
+        elif len(named_two) == 1:
+            # A QUESTION THAT NAMES ONE SOURCE GETS THAT SOURCE'S BLOCK —
+            # the single-name completion of the comparison reading.
+            # Measured: the named course was called correctly, its two
+            # capped seats went to its densest windows, and the line that
+            # answered waited outside while a sibling's window supplied
+            # the names and the voice blended a faculty that does not
+            # exist. Naming a document is asking to read THAT document:
+            # it fills the block, and two seats remain for the rest of
+            # the corpus to interject. Questions naming nothing keep the
+            # open race untouched.
+            src = next(iter(named_two))
+            census_keep = list(self.evidence.last_census)
+            sources_keep = list(self.evidence.last_sources)
+            lines, origins2 = self._gather_source(
+                src, question, max(2, seats - 2))
+            self.evidence.last_census = census_keep
+            if len(lines) >= 2:
+                for line, origin in zip(proof, sources_keep[:len(proof)]):
+                    if (origin != src and line not in lines
+                            and len(lines) < seats + 3):
+                        lines.append(line)
+                        origins2.append(origin)
+                proof, proof_origins = lines, origins2
+                laid_out = True
+            else:
+                self.evidence.last_sources = sources_keep
         if not laid_out and proof and len(proof) < seats:
             # TWO-HOP (only when the first search did not FILL the block): a
             # second search with the best evidence's words — composition
@@ -2345,6 +2364,25 @@ class Session:
         focus += [s for s in overlap[:2]
                   if s not in focus and words & set(evidence._words(s))]
         return "\n".join(f"[K{i}] {s}" for i, s in enumerate(focus, 1))
+
+    def _gather_source(self, src, question, share):
+        """One named source's contribution to a laid-out block: its best
+        `share` lines for this question, gathered by name, plus its
+        record rows — the same hand the comparison reading deals, now
+        dealt for one player too."""
+        got = self.evidence.find(
+            f"{evidence._source_name(src)} {question}",
+            most=share * 2, floor_share=0.0)
+        lines, origins = [], []
+        for line, origin in zip(got, self.evidence.last_sources):
+            if origin == src and line not in lines and len(lines) < share:
+                lines.append(line)
+                origins.append(origin)
+        for _sid, sentence in self._record_rows(src, question):
+            if sentence not in lines:
+                lines.append(sentence)
+                origins.append(src)
+        return lines, origins
 
     def _record_rows(self, src, question, cap=4):
         """The fact-sheet rider, on the answering path: the record-shaped

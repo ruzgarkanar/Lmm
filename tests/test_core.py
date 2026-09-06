@@ -4655,6 +4655,62 @@ def w44():
     assert ne, "no difference row for the differing seat counts"
 
 
+@test("W45 a question that names one source gets that source's block")
+def w45():
+    """The single-name completion of the comparison reading, measured on
+    the instructor question: the named course was called correctly, its
+    TWO capped seats went to its densest windows — and the line that
+    answers ("taught jointly by A and B", a box that never says the word
+    'instructor') waited outside while a SIBLING's window supplied the
+    names and the voice blended a faculty that does not exist. Naming a
+    document is asking to read THAT document: when exactly one source is
+    named, it fills the block — dedicated seats gathered from it alone,
+    its record rows riding — and two seats remain for the rest of the
+    corpus to interject. Questions that name nothing keep the open race
+    untouched."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    alpha = ["ALPHA COURSE OUTCOMES."] + [
+        f"The course teaches the {w} module at length daily."
+        for w in ("north", "south", "east", "west", "ridge", "vale")
+    ] + ["Delivered jointly by R. Stone and M. Vale through drama work."]
+    s.learn_text("\n".join(alpha), source="#docx:Alpha Course.docx",
+                 deep=False)
+    s.learn_text("TRAINER: Q. Herbst.\n"
+                 "The garden day is delivered by our trainer in the vale.",
+                 source="#docx:Garden Day.docx", deep=False)
+    for i, w in enumerate(("brook", "cliff", "dune", "fern",
+                           "grove", "heath", "isle", "knoll")):
+        s.learn_text(
+            f"COURSE NOTES {w.upper()}.\n"
+            f"This training is delivered jointly at the {w} site.\n"
+            f"The {w} course training runs with a joint trainer daily.",
+            source=f"#docx:{w.title()} Notes.docx", deep=False)
+    blocks = []
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("alpha course", "trainer", "")]}
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+        blocks.append(block)
+        return "I do not know."
+    generate.answer = spy_answer
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s.respond("who delivers the Alpha Course training jointly?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    joined = "\n".join(blocks)
+    assert "R. Stone" in joined, "the named course's answer line missed its own block"
+    alpha_lines = [l for l in joined.split("\n") if "Alpha Course \u2014" in l]
+    assert len(alpha_lines) >= 4, ("the named source did not fill the block: %d"
+                                   % len(alpha_lines))
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
