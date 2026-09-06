@@ -1176,7 +1176,7 @@ class SentenceStore:
                 for w, ids in index.items():
                     if w in cand:
                         continue
-                    if inflect.same_stem(qw, w):
+                    if inflect.same_stem(qw, w) or inflect.kin(qw, w):
                         cand[w] = ids
             if not cand:
                 continue
@@ -1327,6 +1327,21 @@ class SentenceStore:
                               or inter / max(1, min(len(words),
                                                     len(entry[0]))) > 0.5):
                     if entry[1] < region_cap:
+                        if source_cap is not None:
+                            # A SAME-REGION TWIN IS THE SAME VOICE TWICE.
+                            # In a multi-document store the source cap makes
+                            # the corroborating variant expensive — it
+                            # spends the document's other seat on the same
+                            # paragraph said again, and the record line
+                            # from a different region waits outside
+                            # (measured: eight questions, one shape). The
+                            # twin steps aside into the overflow and steps
+                            # back, in rank order, only if the block would
+                            # otherwise go unfilled. A single-document
+                            # store keeps the corroboration byte for byte.
+                            overflow.append(sid)
+                            dup = True
+                            break
                         entry[1] += 1       # corroborating variant — admit
                         break
                     dup = True
