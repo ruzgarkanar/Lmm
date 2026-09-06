@@ -1594,7 +1594,31 @@ class SentenceStore:
         # half of the document's own redundancy — see above
         floor = (selves[len(selves) // 2] / 2.0) if selves else 0.0
 
-        scored = []
+        # THE DECISION, in two language-free readings. (The first cut of
+        # this was a margin against a median — scored over ALL the query's
+        # words, it threw away a record line's honest bridge ("how many
+        # people can attend" for "SEATS: sixteen people") on the corpus-
+        # common word it shares with every other line: the fourth member
+        # of the IDF-inversion family, measured in the field. And its
+        # median floor quietly killed the zero-margin case its own
+        # docstring names as the reason expansions exist.)
+        #
+        #   PURE ADDITION — the query must add at least one word the
+        #   document does not speak anywhere: that word is what gets
+        #   indexed, and a query that adds nothing indexes nothing (a
+        #   drifting query built of other regions' words lands here too).
+        #
+        #   A POINTING WORD POINTS; a word written everywhere points
+        #   nowhere. When the query carries a word the document wrote in
+        #   EXACTLY ONE unit and that unit is not the query's own region,
+        #   the query is that other unit's, not this one's — dropped.
+        unit_of = {}
+        for usid, (text_u, _src_u) in enumerate(self.sentences):
+            if usid in self._derived:
+                continue
+            for w in set(_words(text_u, known=self.units)):
+                unit_of.setdefault(w, set()).add(usid)
+        kept = 0
         for sid in sorted(generated):
             if sid >= len(self.sentences):
                 continue
@@ -1606,31 +1630,22 @@ class SentenceStore:
                 share = sum(w in spoken for w in spelling) / len(spelling)
                 if share <= floor:
                     continue                    # another language — see above
-                qwords = set(_words(text, known=self.units))
-                if not qwords:
+                novel = set(_words(text, known=self.units)) - mine
+                pure = {w for w in novel if w not in spoken}
+                if not pure:
+                    continue                    # adds nothing → indexes nothing
+                foreign = False
+                for w in novel - pure:
+                    homes = unit_of.get(w, set())
+                    if len(homes) == 1 and not _same_region(
+                            mine, set(_words(
+                                self.sentences[next(iter(homes))][0]))):
+                        foreign = True
+                        break
+                if foreign:
                     continue
-                scores, _named = self._score_over(qwords, self.index,
-                                                  self.key_index)
-                rival = 0.0
-                for other, sc in sorted(scores.items(), key=lambda kv: -kv[1]):
-                    if other == sid:
-                        continue
-                    if _same_region(mine, set(_words(
-                            self.sentences[other][0]))):
-                        continue
-                    rival = sc
-                    break
-                scored.append((scores.get(sid, 0.0) - rival, sid, text))
-        if not scored:
-            return 0
-        margins = sorted(margin for margin, _sid, _t in scored)
-        cut = max(0.0, margins[len(margins) // 2])
-        kept = 0
-        for margin, sid, text in scored:
-            if margin < cut:
-                continue
-            self._index_expansion(sid, text)
-            kept += 1
+                self._index_expansion(sid, text)
+                kept += 1
         # A unit the engine produced nothing usable for is still EXPANDED — it
         # was paid for and asked. Without this it would be handed back by
         # `pending_expansion` and paid for again on the next pass.

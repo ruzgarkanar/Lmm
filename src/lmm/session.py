@@ -541,6 +541,10 @@ class Session:
             # digits — the same format cue the benchmark scorer reads. Every
             # such token must be in the tally or the question; the plain
             # words in between are the engine doing its one job, phrasing.
+            offered = self._strip_marks(offered)
+            if offered and not self._substance_ok(
+                    offered, lines, message):
+                offered = ""
             if offered and evidence.digits_ok(offered, census_line):
                 # ACCENT-BLIND ON BOTH SIDES, locally. The engine writes
                 # "Zeka" where the document writes "Zekâ", and the core fold
@@ -617,11 +621,22 @@ class Session:
                 voiced = ""
             if voiced:
                 said = voiced
+        # A TURN THAT SAYS NOTHING CARRIES NO STAMP. Measured: gate-trimmed
+        # candidates could leave an empty text with the provenance mark
+        # still set, and the caller printed a bare citation — a stamp on
+        # silence. Silence is a refusal, and is flagged as one.
+        if not (said or "").strip():
+            self.last_abstained = True
+            self._mark = ""
+            said = FALLBACK_DONT_KNOW
+        bare = said                      # what the voice may later re-read
         if said and self._mark and not self.last_abstained:
             said = f"{said} ({UNCERTAIN} {self._mark})"
         if message and message.strip():
             self.history.append({"role": "user", "content": message})
-            self.history.append({"role": "assistant", "content": said or ""})
+            # the history carries the UNSTAMPED text: the mark is the
+            # system's, and a voice that reads it learns to imitate it
+            self.history.append({"role": "assistant", "content": bare or ""})
             self.history = self.history[-12:]     # last ~6 turns (sliding window)
         return said
 
@@ -1743,9 +1758,36 @@ class Session:
         consult = ""
         if self._no_teach and self._brief:
             consult = " ".join(self._brief)
-        proof = self.evidence.find(
-            f"{anchor_label or ''} {question} {consult}".strip(),
-            most=seats)
+        if anchor_label and anchor_label != subject_label:
+            # THE RIDE IS A CHALLENGER, NOT A PREEMPTION. Measured on the
+            # NIST sequence: two password questions, then "the publication
+            # date of this document" — the pointer resolves to nothing, the
+            # prior subject rides by design, and a hundred password lines
+            # push the date line out of the seats; the candidates then say
+            # the true date and the reading rightly refuses what the seats
+            # do not attest. The ride exists for the real follow-up, where
+            # the turn's own words seat junk — so both queries run (local,
+            # engine-free) and the ridden proof stands only if it covers
+            # the question at least as well as the turn's own. Ties keep
+            # the ride; the follow-up keeps its fix.
+            own_query = f"{question} {consult}".strip()
+            own = self.evidence.find(own_query, most=seats)
+            cov_own = (evidence.coverage(question, "\n".join(own))
+                       if own else 0.0)
+            ridden_query = f"{anchor_label} {question} {consult}".strip()
+            ridden = self.evidence.find(ridden_query, most=seats)
+            cov_ridden = (evidence.coverage(question, "\n".join(ridden))
+                          if ridden else 0.0)
+            if cov_own > cov_ridden:
+                # re-run the winner LAST: last_sources / last_census must
+                # describe the proof everything downstream reads
+                proof = self.evidence.find(own_query, most=seats)
+            else:
+                proof = ridden
+        else:
+            proof = self.evidence.find(
+                f"{anchor_label or ''} {question} {consult}".strip(),
+                most=seats)
         # which document each seat came from, aligned with `proof` — read off
         # the store's `last_sources`, which `find` leaves beside its result
         proof_origins = list(self.evidence.last_sources[:len(proof)])
@@ -1903,9 +1945,15 @@ class Session:
                 safe = self._hedge(safe, weakest, question) or safe
         elif proof:
             # An EVIDENCE-ONLY answer carries a hedge too (review #5): the
-            # source is DOCUMENT level — same source-transparency principle as
-            # the graph path.
-            src = next((s for s in self.evidence.last_sources if s), "#document")
+            # source is DOCUMENT level — and it names the origin of the
+            # line the answer actually rests on, not whichever seat came
+            # first (see _load_bearing).
+            origins = [""] * len(proof)
+            for i, orig in enumerate(proof_origins[:len(proof)]):
+                origins[i] = orig
+            src = (self._load_bearing(safe, proof, origins)
+                   or next((s for s in self.evidence.last_sources if s),
+                           "#document"))
             self._mark = src
         return safe
 
@@ -2030,7 +2078,7 @@ class Session:
         else:
             spoken = [_say(one) for one in subsets]
         for said in spoken:
-            raw = (said or "").strip()
+            raw = self._strip_marks(said)
             if not raw:
                 continue
             # TRIM BEFORE JUDGING, so that what every gate below reads is what
@@ -2109,7 +2157,8 @@ class Session:
         graded.sort(key=lambda e: (-e[1], -e[0], e[2]))
         self._refused = set()
         for _score, _target, _rank, raw in graded:
-            if proof and not self._read_back(raw, proof, block):
+            if proof and not self._read_back(raw, proof, block,
+                                             question=question):
                 continue
             # THE RELATION MUST BE THE ASKED ONE. Every gate up to here judges
             # the answer's own claim, and a claim built out of true material can
@@ -2187,7 +2236,92 @@ class Session:
                   if s not in focus and words & set(evidence._words(s))]
         return "\n".join(f"[K{i}] {s}" for i, s in enumerate(focus, 1))
 
-    def _read_back(self, raw, proof, block):
+    def _named_lines(self, claim, proof, question):
+        """The full proof lines of every source the CLAIM names — a source
+        is named when all its name words (question words aside) appear in
+        the claim. Empty when the claim names nothing."""
+        claim_words = set(evidence._words(claim))
+        qw = set(evidence._words(question))
+        named = []
+        for line in proof:
+            if " \u2014 " not in line:
+                continue
+            name, _body = line.split(" \u2014 ", 1)
+            name_words = [w for w in evidence._words(name) if w not in qw]
+            if name_words and all(w in claim_words for w in name_words):
+                named.append(line)
+        return named
+
+    def _strip_marks(self, text):
+        """PROVENANCE NOTATION BELONGS TO THE SYSTEM. The engine sees the
+        notation in its instructions and can imitate it — measured: an
+        answer arrived wearing a stamp for a file that does not exist.
+        Anything stamp-shaped in a generated candidate is stripped before
+        any gate reads it; the system attaches its own mark afterwards,
+        from the proof's real origins (see _load_bearing)."""
+        text = re.sub(r"\(~[^)]*\)", "", text or "")
+        text = re.sub(r"#\S+", "", text)
+        return re.sub(r"  +", " ", text).strip()
+
+    def _load_bearing(self, said, proof, origins):
+        """The origin of the proof line the spoken answer covers best — the
+        LOAD-BEARING line. The mark used to name the FIRST seat's origin,
+        whatever line the answer actually rested on: a correct sentence
+        about one course, stamped with another, question after question.
+        Deterministic: word-coverage argmax, first on ties."""
+        best, best_cov = "", -1.0
+        for line, origin in zip(proof, origins):
+            if not origin:
+                continue
+            cov = evidence.coverage(said, line)
+            if cov > best_cov:
+                best, best_cov = origin, cov
+        return best
+
+    def _substance_ok(self, claim, proof, question):
+        """AN ANSWER'S SUBSTANCE CANNOT BE BORROWED FROM THE QUESTION — the
+        one rule, held by one organ, read at BOTH doors (the read-back and
+        the informed refusal's offer). Question words are excused from
+        coverage for fluency; source names are attested by the datelines;
+        a sentence built of nothing else asserts nothing the evidence
+        says. When the substance beyond question and names is EMPTY, the
+        borrowed words must stand in the gathered lines' BODIES — and in
+        the bodies OF THE SOURCE THE CLAIM NAMES, when it names one:
+        measured, "in person" attested in one course's box let the OTHER
+        course's name pass, every word covered somewhere and the pairing
+        nowhere. Returns True when the rule stands aside (free substance
+        exists — the other gates own that case)."""
+        qw = set(evidence._words(question))
+        nw = set()
+        names_bodies = []
+        for line in proof:
+            if " \u2014 " in line:
+                name, body = line.split(" \u2014 ", 1)
+                nw |= set(evidence._words(name))
+                names_bodies.append((name, body))
+            else:
+                names_bodies.append(("", line))
+        aw = evidence._words(claim)
+        substance = [w for w in aw if w not in nw and not any(
+            inflect.same_stem(w, q) for q in qw)]
+        if substance:
+            return True
+        claim_words = set(aw)
+        named_bodies = []
+        for name, body in names_bodies:
+            name_words = [w for w in evidence._words(name) if w not in qw]
+            if name_words and all(w in claim_words for w in name_words):
+                named_bodies.append(body)
+        pool = named_bodies if named_bodies else [b for _, b in names_bodies]
+        bw = set()
+        for body in pool:
+            bw |= set(evidence._words(body))
+        borrowed = [w for w in aw if w not in nw and any(
+            inflect.same_stem(w, q) for q in qw)]
+        return not borrowed or all(
+            any(inflect.same_stem(w, b) for b in bw) for w in borrowed)
+
+    def _read_back(self, raw, proof, block, question=""):
         """Does the evidence SAY this — asked of the evidence it RESTS ON.
 
         This is where the measured oscillation actually lives. Traced on the
@@ -2222,15 +2356,31 @@ class Session:
         # keeps everything short of mutual coverage.
         claim = re.sub(r"\([^)]*\)", " ", raw)
         claim = " ".join(w for w in claim.split() if not w.startswith("#"))
+        # the borrowed-substance rule — see _substance_ok, the one organ
+        # both doors read
+        if question and claim.strip() and not self._substance_ok(
+                claim, proof, question):
+            return False
         if claim.strip():
             for line in proof:
                 if (evidence.coverage(claim, line) == 1.0
                         and evidence.coverage(line, claim) == 1.0):
                     return True
-        views = []
-        for view in (self._focus_view(raw, proof), block):
-            if view and view not in views:
-                views.append(view)
+        # A CLAIM THAT NAMES ITS SOURCE IS JUDGED BY THAT SOURCE ALONE.
+        # Measured: "the Delegation course does not state its seat count" —
+        # real substance, borrowed from ANOTHER course's box, stapled to
+        # the named course — and the jury confirmed it against the full
+        # block, where those words genuinely stand. The fallback view of
+        # everything retrieved is exactly the door the stapled sentence
+        # walks through; when the claim names a source, that door closes.
+        named = self._named_lines(claim, proof, question) if question else []
+        if named:
+            views = ["\n".join(named)]
+        else:
+            views = []
+            for view in (self._focus_view(raw, proof), block):
+                if view and view not in views:
+                    views.append(view)
         return any(generate.supported(raw, view) for view in views)
 
     def _hedge(self, answer, record, message):
@@ -2297,6 +2447,12 @@ class Session:
         # with byte-identical arguments. Fabrication is still filtered below.
         raw = spec.result() if spec is not None \
             else self._chat_raw(message)
+        # the voice may have LEARNED the stamp notation from the history it
+        # reads (prior turns carry system marks) — measured: with every
+        # claiming sentence gate-dropped, the sole survivor of a reply was
+        # an imitated citation, and the turn printed a stamp on silence.
+        # System notation is not the voice's to write.
+        raw = self._strip_marks(raw)
         # In chat, allowed = ONLY the identity facts. anchor="value": the
         # subject is a self-referential pronoun (ben/beni) that can't be
         # resolved; it suffices that the OBJECT (rüzgar) is allowed; external

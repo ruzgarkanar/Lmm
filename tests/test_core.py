@@ -3959,6 +3959,331 @@ def w26():
     assert "Uygunluk Sayfasi" in text, text
 
 
+@test("W27 a one-row grid is a fact box, and a fact box is prose")
+def w27():
+    """Field finding, two harnesses apart: every duration, seat count and
+    audience line of a 61-document corpus lived in ONE-ROW Word tables —
+    boxes, not tables — and read_docx dropped them whole: the header rule
+    needs two rows to read, the grid had one, `continue`. The prose side
+    reads only doc.paragraphs, so the cells reached neither layer, and
+    the report honestly said "0 tables" while meaning "I did not count
+    these". The rule is the shape's own: a grid without a second row has
+    no header to read — it is a FACT BOX, and its cells are prose the
+    document attests, label and value kept on one line. A real table
+    (two rows or more) still goes to the graph exactly as before."""
+    try:
+        import docx as _docx
+    except ImportError:
+        return                       # the adapter itself requires python-docx
+    import tempfile, os
+    from lmm import tables
+    doc = _docx.Document()
+    doc.add_paragraph("The ravine module closes the arc.")
+    t = doc.add_table(rows=1, cols=2)
+    t.rows[0].cells[0].text = "DURATION\n2 full days \u2014 in person"
+    t.rows[0].cells[1].text = "SEATS\nMaximum 18 people"
+    t2 = doc.add_table(rows=2, cols=2)
+    t2.rows[0].cells[0].text = "field"
+    t2.rows[0].cells[1].text = "value"
+    t2.rows[1].cells[0].text = "anchor"
+    t2.rows[1].cells[1].text = "abseil"
+    path = os.path.join(tempfile.mkdtemp(), "box.docx")
+    doc.save(path)
+    prose, grids = tables.read_docx(path)
+    assert "Maximum 18 people" in prose, prose
+    assert "DURATION" in prose
+    # label and value stay on ONE line — evidence retrieval must see them
+    # together, or "the duration" fetches a bare number with no field name
+    line = next(l for l in prose.splitlines() if "18 people" in l)
+    assert "SEATS" in line, line
+    # the two-row grid is still a table for the graph, not prose
+    assert grids and any("abseil" in str(g) for g in grids)
+    assert "abseil" not in prose
+
+
+@test("W28 an answer's substance cannot be borrowed from the question")
+def w28():
+    """Measured twice on the same store, the same question, temperature
+    fixed: "which course runs in person?" — and the engine named ONE
+    course off the datelines and handed the question's own predicate
+    back ("X runs in person"), with no evidence line saying any such
+    thing; two runs picked two different names, one happened to be true.
+    The reading admitted it because question words are excused from
+    coverage — an excusal that exists for FLUENCY, so an answer may
+    restate what was asked — and the source names are attested by the
+    datelines, so the whole sentence was "covered" while asserting
+    nothing the evidence says. The rule: when an answer's entire
+    substance beyond the question and the source names is EMPTY, the
+    borrowed words must themselves stand in the evidence BODIES — the
+    text after the dateline, where the document actually speaks. A real
+    choice-answer passes exactly this way (the chosen option is written
+    in some body); the invented pairing dies before the jury is even
+    seated, because a wobbling judge must not hold the only veto."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The trust walk closes the morning arc.",
+                 source="#docx:Alpha Course.docx", deep=False)
+    s.learn_text("The abseil drill runs in person only.",
+                 source="#docx:Beta Course.docx", deep=False)
+    real = generate.supported
+    def no_jury(*a, **k):
+        raise AssertionError("the jury was seated for a borrowed answer")
+    generate.supported = no_jury
+    proof_without = [
+        "Alpha Course \u2014 the trust walk closes the morning arc",
+        "Beta Course \u2014 the abseil drill anchors the ravine module"]
+    proof_with = [
+        "Alpha Course \u2014 the trust walk closes the morning arc",
+        "Beta Course \u2014 the abseil drill runs in person only"]
+    q = "which course runs in person?"
+    raw = "Beta Course runs in person."
+    try:
+        died = s._read_back(raw, proof_without, "\n".join(proof_without),
+                            question=q)
+    finally:
+        generate.supported = real
+    assert died is False, "the borrowed answer reached the jury or passed"
+    # the same sentence with the evidence actually saying it: the veto
+    # stands aside (the borrowed words are in a body) and the jury gets
+    # its normal seat
+    generate.supported = lambda raw, view: True
+    try:
+        lived = s._read_back(raw, proof_with, "\n".join(proof_with),
+                             question=q)
+    finally:
+        generate.supported = real
+    assert lived is True, "a truly attested choice-answer died"
+    # THE CROSS-SOURCE PAIRING, measured after the first cut of this rule:
+    # once "in person" stood in SOME body, naming the OTHER course passed —
+    # every word attested somewhere, the pairing attested nowhere. When
+    # the claim names a source, the borrowed words must stand in THAT
+    # source's bodies.
+    generate.supported = no_jury
+    raw_wrong = "Alpha Course runs in person."
+    try:
+        crossed = s._read_back(raw_wrong, proof_with,
+                               "\n".join(proof_with), question=q)
+    finally:
+        generate.supported = real
+    assert crossed is False, "the cross-source pairing reached the jury"
+
+
+@test("W29 the rescue offer answers to the same borrowed-substance rule")
+def w29():
+    """The door W28 left open, measured live: the main answer abstained,
+    the informed refusal spoke instead — and the rescue's only gates are
+    the SHAPE checks (capitals, digits). "Gamma Course runs in person": the
+    name's capitals are attested by the tally, "in person" wears no shape
+    at all, and the sentence walked out — the same invented pairing W28
+    kills on the answer path, through the side door. One rule, one organ,
+    both doors: an offer whose substance beyond the question and the
+    tally names is empty must find its borrowed words in the gathered
+    lines' BODIES — of the source it names, when it names one."""
+    from lmm.session import Session
+    s = Session(None)
+    proof = ["Alpha Course \u2014 the trust walk closes the morning arc",
+             "Beta Course \u2014 the abseil drill runs in person only"]
+    q = "which course runs in person?"
+    assert s._substance_ok("Beta Course runs in person.", proof, q)
+    assert not s._substance_ok("Alpha Course runs in person.", proof, q)
+    assert not s._substance_ok(
+        "Alpha Course runs in person.",
+        ["Alpha Course \u2014 the trust walk closes the morning arc"], q)
+    # free words beyond the question: the rule stands aside (other gates own it)
+    assert s._substance_ok("The drill is famous.", proof, q)
+
+
+@test("W30 a Word paragraph is a deliberate unit, and gets its full stop")
+def w30():
+    """The box lesson, generalised — measured on the full corpus: heading
+    paragraphs ("TRAINING OUTCOMES") and bullet paragraphs carry no
+    terminal punctuation, so the sentence splitter glued title + headings
+    + first bullets into MEGA-LINES that matched every query's words and
+    vampirised the seats; the precise line always sat below the cut. In a
+    Word file the paragraph break is drawn by the AUTHOR — it is format,
+    exactly like the box's edge — so the adapter closes every unpunctuated
+    paragraph with a full stop. A PDF's newlines are the printer's, not
+    the author's; read_pdf is untouched."""
+    try:
+        import docx as _docx
+    except ImportError:
+        return
+    import tempfile, os
+    from lmm import tables
+    doc = _docx.Document()
+    doc.add_paragraph("TRAINING OUTCOMES")
+    doc.add_paragraph("masters the abseil drill without a rope")
+    doc.add_paragraph("The ravine module closes the arc.")
+    path = os.path.join(tempfile.mkdtemp(), "para.docx")
+    doc.save(path)
+    prose, _ = tables.read_docx(path)
+    lines = prose.splitlines()
+    assert "TRAINING OUTCOMES." in lines, lines
+    assert "masters the abseil drill without a rope." in lines
+    assert "The ravine module closes the arc." in lines   # not doubled
+
+
+@test("W31 the provenance mark is the system's, and it points at the load-bearing line")
+def w31():
+    """Measured across a 25-question run: the stamp was the FIRST seat's
+    origin, whatever line the surviving answer actually rested on — a
+    correct sentence about the Leader course stamped with the Literacy
+    course, question after question — and once, the engine IMITATED the
+    notation and wrote a stamp of its own for a file that does not exist.
+    Two halves of one rule, provenance notation belongs to the system:
+    anything stamp-shaped in a generated candidate is stripped before the
+    gates ever read it, and the mark the system then attaches names the
+    origin of the proof line the spoken answer covers best — the
+    load-bearing line, chosen by word coverage, deterministically."""
+    from lmm.session import Session
+    s = Session(None)
+    assert s._strip_marks(
+        "The drill runs daily. (~ #docx:Fake File.docx)"
+    ).strip() == "The drill runs daily."
+    assert s._strip_marks("A #docx:Ghost.docx claim") == "A claim"
+    proof = ["Alpha Course \u2014 the trust walk closes the morning arc",
+             "Beta Course \u2014 the abseil drill runs in person only"]
+    origins = ["#docx:Alpha Course.docx", "#docx:Beta Course.docx"]
+    picked = s._load_bearing(
+        "The abseil drill runs in person.", proof, origins)
+    assert picked == "#docx:Beta Course.docx", picked
+    picked2 = s._load_bearing(
+        "The trust walk closes the arc.", proof, origins)
+    assert picked2 == "#docx:Alpha Course.docx", picked2
+
+
+@test("W32 a claim that names its source is judged by that source alone")
+def w32():
+    """The cross-source pairing, third and general form. W28 killed the
+    pairing when the claim's substance was EMPTY; measured next: "the
+    Delegation course does not state its seat count" — real substance
+    ("does not state"), borrowed from ANOTHER course's box, stapled to
+    the named course, and the jury confirmed it against the full block
+    where those words genuinely stand. The rule: when a claim NAMES a
+    source, the jury reads THAT source's lines and nothing else — the
+    fallback view of everything retrieved is exactly the door the
+    stapled sentence walked through. A claim naming nothing keeps the
+    old views; a claim naming two sources is judged by both. And the
+    rescue offer sheds stamp-shaped notation the way the answer path
+    does — an invented filename is not a citation."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The trust walk closes the morning arc.",
+                 source="#docx:Alpha Course.docx", deep=False)
+    proof = ["Alpha Course \u2014 the trust walk closes the morning arc",
+             "Beta Course \u2014 the seat count is not stated at source"]
+    views_seen = []
+    real = generate.supported
+    def spy_jury(raw, view):
+        views_seen.append(view)
+        return "not stated" in view       # an honest jury: it reads
+    generate.supported = spy_jury
+    try:
+        verdict = s._read_back(
+            "Alpha Course does not state a seat count.", proof,
+            "\n".join(proof), question="how many seats does Alpha take?")
+    finally:
+        generate.supported = real
+    assert verdict is False, "the stapled sentence survived"
+    assert views_seen, "the jury never sat"
+    for view in views_seen:
+        assert "Beta" not in view, view   # only the NAMED source is read
+
+
+@test("W33 the prior subject rides only when it carries the question better")
+def w33():
+    """Measured on the NIST sequence: two password questions, then "what
+    is the publication date of this document" — the pointer subject
+    resolves to nothing, the PRIOR subject (memorized secret) rides into
+    the query by design, and the date line is pushed out of the seats by
+    a hundred password lines. The candidates then say the true date, the
+    reading rightly refuses what the seats do not attest, and an honest
+    architecture scores worse than a lucky one — the old pass was the
+    jury confirming an unattested truth. The ride was built for the real
+    follow-up ("and who is it for?"), where the turn's own words seat
+    junk; here the turn's own words seat the answer. So the ride is a
+    CHALLENGER, not a preemption: both queries run (local, no engine),
+    and the ridden proof stands only if it covers the question at least
+    as well as the turn's own proof. Ties keep the ride — the follow-up
+    keeps its fix."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The memorized secret shall be at least 8 characters.",
+                 source="#pdf:guide", deep=False)
+    blocks = []
+    queries = []
+    orig_find = s.evidence.find
+    def fake_find(query, most=4, floor_share=0.5):
+        queries.append(query)
+        s.evidence.last_census = []
+        if "memorized" in query:          # the ridden query: password noise
+            s.evidence.last_sources = ["#pdf:guide"] * 2
+            return ["The memorized secret shall be at least 8 characters.",
+                    "Truncation of the memorized secret is not performed."]
+        s.evidence.last_sources = ["#pdf:guide"]
+        return ["Publication date: July 24, 2025."]
+    s.evidence.find = fake_find
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("this document", "date", "")]}
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+        blocks.append(block)
+        return "I do not know."
+    generate.answer = spy_answer
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    s.last_subject = "memorized secret"     # the prior turn's subject
+    try:
+        s.respond("what is the publication date of this document")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+        s.evidence.find = orig_find
+    assert any("memorized" in q for q in queries), "the ride never ran"
+    assert any("memorized" not in q for q in queries), \
+        "the turn's own words never got their search"
+    assert blocks and any("July" in b for b in blocks), \
+        "the better-covering proof was not chosen"
+
+
+@test("W34 an expansion is judged by the words it adds")
+def w34():
+    """The keep filter's one inconsistency with its own principle, and the
+    fourth member of the IDF-inversion family — measured in the field: a
+    record line ("SEATS: sixteen people maximum") got exactly the bridge
+    it exists for ("how many people can attend"), and the filter threw it
+    away, because the margin was scored over ALL the query's words and
+    "people" reaches every other line of a topical corpus better than it
+    reaches the record. But the filter's own closing rule says only the
+    NOVEL words are ever indexed — a word the line already carries is
+    reachable already. What is indexed is what must be judged: the margin
+    reads the added words alone. A drifting query still dies (its novel
+    words score another region higher); a query whose additions reach
+    nothing at all scores zero, which the docstring already names as the
+    case the expansion exists for."""
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("CAPACITY: sixteen people maximum.\n"
+                 "people join the morning arc in pairs.\n"
+                 "people walk the ravine with a guide.\n"
+                 "the guide counts people at the gate.\n"
+                 "people rest before the abseil drill.",
+                 source="#docx:Alpha.docx", deep=False)
+    ev = s.evidence
+    sid = next(i for i, (t, _src) in enumerate(ev.sentences)
+               if t.strip() == "CAPACITY: sixteen people maximum.")
+    kept = ev.learn_expansions(
+        {sid: ["how many people fit the capacity maximum"]})
+    assert kept == 1, "the record's bridge was thrown away again"
+    assert any(sid in ids for w, ids in ev.expand_index.items()
+               if w not in ("people",)), ev.expand_index.keys()
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
