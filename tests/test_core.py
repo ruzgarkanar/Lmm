@@ -4348,6 +4348,138 @@ def w36():
     assert sum("epsilon" in g for g in got1) == 2, got1
 
 
+@test("W37 a question that names two sources gets them laid side by side")
+def w37():
+    """The comparison reading. "Do Alpha and Beta run the same length?" is
+    answered by NO document — Alpha's sheet says one thing, Beta's says
+    another, and the verdict is born only when the two lines lie side by
+    side. The single race cannot promise that: each field line enters on
+    its own luck, and when one misses a seat the turn honestly refuses a
+    question the store could answer. The trigger is a STATE the name
+    channel already computes — the question NAMES two or more sources —
+    and the assembly is organs off the shelf: each named source gathers
+    its own seats (dedicated seats need dedicated queries), its
+    record-shaped lines ride along (the fact-sheet rider), every line
+    keeps its dateline, and the named-source jury (W32) already holds
+    each claim to the source it names. No new model call, no wording
+    read: two names on the question, two files on the table."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    alpha = ["ALPHA COURSE OUTCOMES."] + [
+        f"The course runs the same arc at length in module {w}."
+        for w in ("north", "south", "east", "west", "ridge", "vale")
+    ] + ["DURATION: two full days."]
+    beta = ["BETA COURSE OUTCOMES."] + [
+        f"The course runs the same ravine at length in station {w}."
+        for w in ("one", "two", "three", "four", "five", "six")
+    ] + ["DURATION: half a day."]
+    s.learn_text("\n".join(alpha), source="#docx:Alpha Course.docx",
+                 deep=False)
+    s.learn_text("\n".join(beta), source="#docx:Beta Course.docx",
+                 deep=False)
+    for name in ("Gamma", "Delta", "Epsilon"):
+        s.learn_text(f"{name.upper()} COURSE OUTCOMES.\n"
+                     f"The course runs its own arc at length daily.\n"
+                     f"DURATION: one day.",
+                     source=f"#docx:{name} Course.docx", deep=False)
+    s.learn_text("The catering tent seats forty guests.",
+                 source="#docx:Logistics.docx", deep=False)
+    blocks = []
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("alpha course", "duration", "")]}
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+        blocks.append(block)
+        return "I do not know."
+    generate.answer = spy_answer
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s.respond("do Alpha Course and Beta Course run the same length?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    assert blocks, "no candidate was asked"
+    joined = "\n".join(blocks)
+    assert "two full days" in joined, "Alpha's record line missed the table"
+    assert "half a day" in joined, "Beta's record line missed the table"
+    assert "forty guests" not in joined, "an unnamed source crashed the table"
+
+
+@test("W38 a source is named by a pointer, not by a family resemblance")
+def w38():
+    """Measured on the coded corpus: "is there a difference between TPK-03
+    and TPK-04?" seated the OVERVIEW documents — the code's letters match
+    every sibling in the family ("tpk" lives in seven names), membership
+    in the named set was a UNION over matched words, and seven documents
+    marched to the front while the two that were actually named waited.
+    The pointing-word rule, third appearance: a source is NAMED when some
+    question word matches ITS name alone, or when at least two of its
+    name words are matched — one shared family word calls nobody. The
+    per-word log(S/s) BOOST is untouched (rarity already prices the
+    family word at nearly nothing); what tightens is who counts as
+    called to the front."""
+    from lmm import evidence
+    st = evidence.SentenceStore()
+    docs = {
+        "#docx:TPK-00 Overview.docx": "The programme overview spans modules.",
+        "#docx:TPK-03 Contact.docx": "DURATION: three hours of contact work.",
+        "#docx:TPK-04 Signals.docx": "DURATION: half a day of signal work.",
+        "#docx:TPK-05 Closing.docx": "The closing round gathers feedback.",
+    }
+    for src, line in docs.items():
+        st.add(line, src)
+        st.add("Participants rotate through the stations.", src)
+    st.find("is there a difference between TPK-03 and TPK-04 durations?",
+            most=4, floor_share=0.0)
+    named = {evidence._source_name(s) for s in st.last_named}
+    assert named == {"TPK-03 Contact", "TPK-04 Signals"}, named
+    # the cross-family trap: "Alpha Delegation and Stress Handling" must
+    # not call "Alpha Conflict Handling" — its two matched words never
+    # stand together in the question
+    st2 = evidence.SentenceStore()
+    for tag, src in (("ropes", "#docx:Alpha Delegation Handling.docx"),
+                     ("cases", "#docx:Alpha Conflict Handling.docx"),
+                     ("brooks", "#docx:Stress Handling.docx"),
+                     ("herbs", "#docx:Quiet Garden Notes.docx")):
+        st2.add(f"DURATION: one day of {tag} practice.", src)
+        st2.add(f"Participants rotate through the {tag} stations.", src)
+    st2.find("are Alpha Delegation Handling and Stress Handling the same "
+             "length?", most=4, floor_share=0.0)
+    named2 = {evidence._source_name(s) for s in st2.last_named}
+    assert named2 == {"Alpha Delegation Handling", "Stress Handling"}, named2
+    # a single shared family word still calls nobody
+    st.find("how do the TPK modules work?", most=4, floor_share=0.0)
+    assert not st.last_named, st.last_named
+
+
+@test("W39 the same sentence in two documents is two attestations")
+def w39():
+    """Measured at the very end of the comparison chase: "is Anxiety the
+    same length as Delegation?" kept refusing while both documents said
+    "DURATION: one full day." — the SAME sentence, and the duplicate
+    guard keyed on the TEXT alone, so whichever document was read first
+    owned the line and the other document's copy never entered the store.
+    The guard exists so that reading one document twice does not multiply
+    its evidence — and that is exactly what the key must say: the same
+    text FROM THE SAME SOURCE is a duplicate; the same text from another
+    source is another document going on record, with its own dateline,
+    its own census entry, its own seat. Sibling corpora share template
+    sentences by construction; provenance is the whole difference."""
+    from lmm import evidence
+    st = evidence.SentenceStore()
+    a = st.add("DURATION: one full day.", "#docx:Anxiety Handling.docx")
+    b2 = st.add("DURATION: one full day.", "#docx:Delegation Handling.docx")
+    again = st.add("DURATION: one full day.", "#docx:Anxiety Handling.docx")
+    assert a is not None and b2 is not None, "the second document was silenced"
+    assert again is None, "re-reading a document multiplied its evidence"
+    srcs = {src for _t, src in st.sentences}
+    assert len(srcs) == 2, srcs
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.

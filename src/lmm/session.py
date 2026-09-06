@@ -1791,7 +1791,42 @@ class Session:
         # which document each seat came from, aligned with `proof` — read off
         # the store's `last_sources`, which `find` leaves beside its result
         proof_origins = list(self.evidence.last_sources[:len(proof)])
-        if proof and len(proof) < seats:
+        # THE COMPARISON READING. "Do A and B run the same length?" is
+        # answered by NO single document — the verdict is born when the two
+        # lines lie side by side, and the single race cannot promise that:
+        # each field line enters on its own luck. The trigger is a STATE
+        # the name channel computes (the question NAMES two or more
+        # sources — W38's pointer-and-bigram reading), and the assembly is
+        # organs off the shelf: each named source gathers its own seats
+        # (dedicated seats need dedicated queries), its record-shaped
+        # lines ride along (the fact-sheet rider), and the named-source
+        # jury already holds every claim to the source it names. No new
+        # model call; no wording read.
+        laid_out = False
+        named_two = set(getattr(self.evidence, "last_named", ()) or ())
+        if len(named_two) >= 2:
+            census_keep = list(self.evidence.last_census)
+            share = max(2, seats // len(named_two))
+            comp, comp_origins = [], []
+            for src in sorted(named_two, key=evidence._source_name):
+                got = self.evidence.find(
+                    f"{evidence._source_name(src)} {question}",
+                    most=share * 2, floor_share=0.0)
+                taken = 0
+                for line, origin in zip(got, self.evidence.last_sources):
+                    if origin == src and line not in comp and taken < share:
+                        comp.append(line)
+                        comp_origins.append(origin)
+                        taken += 1
+                for _sid, sentence in self._record_rows(src, question):
+                    if sentence not in comp:
+                        comp.append(sentence)
+                        comp_origins.append(src)
+            self.evidence.last_census = census_keep
+            if comp:
+                proof, proof_origins = comp, comp_origins
+                laid_out = True
+        if not laid_out and proof and len(proof) < seats:
             # TWO-HOP (only when the first search did not FILL the block): a
             # second search with the best evidence's words — composition
             # questions want the union of two separate sections. When the first
@@ -2235,6 +2270,49 @@ class Session:
         focus += [s for s in overlap[:2]
                   if s not in focus and words & set(evidence._words(s))]
         return "\n".join(f"[K{i}] {s}" for i, s in enumerate(focus, 1))
+
+    def _record_rows(self, src, question, cap=4):
+        """The fact-sheet rider, on the answering path: the record-shaped
+        lines of ONE source, read by the record's own format — a SHORT line
+        whose first colon is preceded by its field name. (_key_words over
+        arbitrary sentences read junk keys out of glued window segments,
+        and the derived flag proved an unreliable window test — measured:
+        the rider kept riding kazanim prose while "SEATS: 16-20" sat
+        unread, which is also where the composer's "[no material]" rows
+        were born.) The rows the question asks about ride first."""
+        limit_chars, _limit_toks = self.evidence._record_bounds()
+        cap_chars = max(80, limit_chars // 2)
+
+        def _head(text):
+            if ":" not in text or len(text) > cap_chars:
+                return None
+            words = evidence._words(text.partition(":")[0])
+            if not words or len(words) > 3:
+                return None                 # a colon mid-prose is no record
+            return tuple(words)
+
+        # A FIELD IS A HEAD THE CORPUS REPEATS. "DURATION:" opens a line in
+        # sixty documents; a titled bullet ("The source of worry: ...")
+        # opens one — same colon, same shape, and only one of them is a
+        # record. Field-ness is read off the store, not off any word: a
+        # head that appears in two or more SOURCES is a field.
+        head_sources = {}
+        for text, origin in self.evidence.sentences:
+            h = _head(text)
+            if h:
+                head_sources.setdefault(h, set()).add(origin)
+        qw = set(evidence._words(question))
+        sheet = []
+        for sid in sorted(self.evidence.by_source.get(src, ())):
+            text = self.evidence.sentences[sid][0]
+            h = _head(text)
+            if h is None:
+                continue
+            fieldish = len(head_sources.get(h, ())) >= 2
+            asked = sum(1 for k in h
+                        if any(inflect.same_stem(k, w) for w in qw))
+            sheet.append((-int(fieldish), -asked, sid, text))
+        return [(sid, text) for _f, _a, sid, text in sorted(sheet)[:cap]]
 
     def _named_lines(self, claim, proof, question):
         """The full proof lines of every source the CLAIM names — a source

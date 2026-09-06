@@ -910,7 +910,15 @@ class SentenceStore:
         return [k for k in keys if not k.isdigit()]
 
     def add(self, sentence, source="", derived=False):
-        key = fold(sentence)
+        # THE SAME SENTENCE IN TWO DOCUMENTS IS TWO ATTESTATIONS. The
+        # duplicate guard exists so that reading one document twice does
+        # not multiply its evidence — keyed on the text alone it silenced
+        # every sibling that shares a template line (measured: two courses
+        # both wrote "DURATION: one full day." and only the first owned
+        # it, so a comparison between them refused forever). The key says
+        # what the rule means: same text, same SOURCE — a duplicate; same
+        # text, another source — another document going on record.
+        key = (fold(sentence), source)
         if key in self._seen:               # if the same document is read twice,
             return None                     # evidence must not multiply (review #2)
         self._seen.add(key)
@@ -973,7 +981,9 @@ class SentenceStore:
         """Sentences whose content-words intersect the query the MOST.
         Prefix-tolerant (inflection: "doluluğu"~"doluluk"). Score = number of
         intersecting words; on a tie the short sentence wins (denser evidence)."""
-        qwords = set(_words(query, known=self.units))
+        qwords_order = _words(query, known=self.units)   # order kept: the
+        #                       name channel reads the question's BIGRAMS
+        qwords = set(qwords_order)
         if not qwords:
             return []
         scores, named = self._score_over(qwords, self.index, self.key_index)
@@ -1014,23 +1024,56 @@ class SentenceStore:
         #                         sweeping the OTHER document's grounded
         #                         sentences out of a two-topic question)
         named_sources = set()
+        self.last_named = set()
         if scores and len(self.by_source) > 1:
             total_sources = len(self.by_source)
             names = [(src, set(_words(_source_name(src), known=self.units)))
                      for src in self.by_source]
+            # A SOURCE IS NAMED BY A POINTER, NOT BY A FAMILY RESEMBLANCE
+            # — the pointing-word rule's third appearance. Membership used
+            # to be a union over matched words, and a coded corpus showed
+            # what that buys: "TPK-03 and TPK-04" matched every sibling on
+            # the family letters, seven documents marched to the front,
+            # and the two actually named waited outside. A source counts
+            # as CALLED when some question word matches its name alone, or
+            # when at least two of its name words are matched; one shared
+            # family word calls nobody. The per-word log(S/s) boost keeps
+            # pricing the family word at nearly nothing, unchanged.
+            # ...and beyond the pointer, A NAME IS CALLED BY ITS BIGRAM —
+            # the same neighbour-pair reading the digit gate trusts. Two
+            # matched words were tried first and the cross-family trap
+            # walked through them: "Alpha Delegation and Stress Handling"
+            # matched "Alpha" and "Handling" for a THIRD course that stands
+            # in neither phrase. Words scattered across a question call
+            # nobody; words standing together in it, as they stand in the
+            # name, do.
+            unique_called = set()
             for qw in qwords:
                 matched = [src for src, words in names
                            if any(inflect.same_stem(qw, w) for w in words)]
                 if not matched or len(matched) == total_sources:
                     continue
                 weight = math.log(total_sources / len(matched))
+                if len(matched) == 1:
+                    unique_called.add(matched[0])
                 for src in matched:
-                    named_sources.add(src)
                     for sid in self.by_source[src]:
                         if sid in scores:
                             scores[sid] += weight
+            q_bigrams = set(zip(qwords_order, qwords_order[1:]))
+            named_sources = set(unique_called)
+            for src, words in names:
+                name_seq = _words(_source_name(src), known=self.units)
+                for pair in zip(name_seq, name_seq[1:]):
+                    if any(inflect.same_stem(pair[0], qa)
+                           and inflect.same_stem(pair[1], qb)
+                           for qa, qb in q_bigrams):
+                        named_sources.add(src)
+                        break
+            self.last_named = set(named_sources)
         if not scores:
             self.last_census = []
+            self.last_named = set()
             return []
         # THE CENSUS RIDES ALONG. Scoring has already touched every sentence
         # this question reaches; grouping those hits by source costs one pass
