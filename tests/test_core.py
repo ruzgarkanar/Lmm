@@ -4284,6 +4284,70 @@ def w34():
                if w not in ("people",)), ev.expand_index.keys()
 
 
+@test("W35 retrieval knows kinship the gates refuse to license")
+def w35():
+    """ROOT is five letters — an honest arbitrary that a short-rooted
+    language walks under: a four-letter root and its suffixed form share
+    a prefix of four, and same_stem calls them strangers, so the query
+    word never reaches the line that answers it. The scar is documented
+    in the scorer: a looser reverse-prefix rule once lived there and was
+    removed for being one of four quietly different copies — the loss of
+    short units was recorded as a measured cost. This puts the rule back
+    as a NAMED relation with the other two, stated once: kin(a, b) — the
+    shorter word is wholly the longer one's prefix and the ending stays
+    within TAIL. And it is spent ONLY where surfacing a real line is the
+    worst it can do: the retrieval scorer. The gates keep same_stem — a
+    claim's word is still not attested by a stranger — so kinship widens
+    what can be FOUND and nothing about what may be SAID."""
+    from lmm import inflect
+    assert inflect.kin("saat", "saatlik")
+    assert inflect.kin("gunluk", "gun")          # symmetric
+    assert not inflect.kin("car", "carpets")     # ending beyond TAIL
+    assert not inflect.kin("at", "atlas")        # a two-letter stub roots nothing
+    assert not inflect.same_stem("saat", "saatlik")   # the gates stay strict
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The kilnhouse holds a four hour firing. "
+                 "Visitors gather at the gate before the walk. "
+                 "The garden path closes in winter.",
+                 source="#docx:Alpha.docx", deep=False)
+    # 'kilnhouses' (suffixed) must reach the 'kilnhouse' line
+    got = s.evidence.find("how long do the kilnhouses fire", most=2)
+    assert got and "kilnhouse" in got[0], got
+
+
+@test("W36 a same-region twin is the same voice twice")
+def w36():
+    """Measured on the full corpus, eight questions with one shape: a
+    document's two seats (the source cap) went to two overlapping windows
+    of its TITLE region, and the record line that answered — same
+    document, different region — waited outside. The region rule already
+    admits a second view as corroboration, and the hospital trace proved
+    a single-document store sometimes needs exactly that; but in a
+    MULTI-document store the source cap makes the twin expensive: it
+    spends the document's other seat on the same paragraph said twice.
+    So the twin steps aside first — into the overflow, with everything
+    else that stepped aside — and steps back, in rank order, only if the
+    block would otherwise go unfilled. A single-document store keeps the
+    hospital behaviour byte for byte."""
+    from lmm import evidence
+    st = evidence.SentenceStore()
+    st.add("alpha gamma delta epsilon zeta omega", "#doc:A")
+    st.add("alpha gamma delta epsilon zeta theta", "#doc:A")   # region twin
+    st.add("alpha holds sixteen seats maximum", "#doc:A")
+    st.add("alpha appears in the other file too", "#doc:B")
+    got = st.find("alpha", most=3, floor_share=0.0)
+    assert any("sixteen" in g for g in got), got
+    # single-document: the corroborating twin is still admitted
+    st1 = evidence.SentenceStore()
+    st1.add("alpha gamma delta epsilon zeta omega", "#doc:A")
+    st1.add("alpha gamma delta epsilon zeta theta", "#doc:A")
+    st1.add("alpha holds sixteen seats maximum", "#doc:A")
+    st1.add("alpha rests beside the garden gate", "#doc:A")
+    got1 = st1.find("alpha", most=3, floor_share=0.0)
+    assert sum("epsilon" in g for g in got1) == 2, got1
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.

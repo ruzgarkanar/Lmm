@@ -46,6 +46,29 @@ def inflection_of(form, root):
             and len(form) - len(root) <= TAIL)
 
 
+def kin(a, b):
+    """RETRIEVAL-ONLY kinship: the shorter word is wholly the longer one's
+    prefix, the ending stays within TAIL, and the shorter is long enough to
+    root anything (three letters — the same floor the tokenizer draws).
+
+    ROOT is five letters, and a short-rooted language walks under it: a
+    four-letter root and its suffixed form share a prefix of four, and
+    `same_stem` calls them strangers — the query word never reaches the
+    line that answers it. A looser reverse-prefix rule once lived inside
+    the retrieval scorer and was removed for being one of four quietly
+    different copies of the criterion; the loss of short units was recorded
+    then as a measured cost. This is that rule given a NAME and a single
+    home beside the other two — and a scope: the retrieval scorer alone,
+    where surfacing a real line is the worst a false kinship can do. The
+    gates keep `same_stem`: kinship widens what can be FOUND, and nothing
+    about what may be SAID."""
+    if a == b:
+        return True
+    short, long = (a, b) if len(a) <= len(b) else (b, a)
+    return (len(short) >= 3 and long.startswith(short)
+            and len(long) - len(short) <= TAIL)
+
+
 def same_stem(a, b):
     """Are `a` and `b` two endings on one shared root (or the same word)?"""
     if a == b:
