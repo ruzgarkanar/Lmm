@@ -81,6 +81,29 @@ def compose_stream(brief, material_block, warmth=0.2, persona="",
         max_tokens=max_tokens or 900, temperature=warmth)
 
 
+def chat_stream(message, identity_block="", warmth=0.7, history=None,
+                persona="", max_tokens=None):
+    """`chat` as a stream of chunks — same prompt built the same way (the
+    identity addendum and its steadier warmth included), so the streamed
+    voice and the blocking voice are one voice. The caller judges each
+    completed sentence as its full stop arrives."""
+    system = _voiced(prompts.CHAT_SYSTEM, persona)
+    if identity_block.strip():
+        system += (
+            "\n\nFACTS about yourself, as [entity relation value] rows from your "
+            "memory:\n" + identity_block +
+            "\n\nIf the user asks who/what you are or who made/created you, answer "
+            "using these facts, but write a natural sentence IN THE USER'S "
+            "LANGUAGE \u2014 never copy the raw rows or the arrow. If a fact is not "
+            "listed, do not invent it.")
+        warmth = 0.4
+    messages = list(history or [])
+    messages.append({"role": "user", "content": message})
+    yield from runtime.generate_stream(messages, system=system,
+                                       max_tokens=max_tokens or 120,
+                                       temperature=warmth)
+
+
 def chat(message, identity_block="", warmth=0.7, history=None, persona="",
          max_tokens=None):
     """Chat reply (greeting, thanks, small talk). If it carries a fact claim,
