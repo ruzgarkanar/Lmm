@@ -2459,7 +2459,13 @@ class Session:
             for view in (self._focus_view(raw, proof), block):
                 if view and view not in views:
                     views.append(view)
-        return any(generate.supported(raw, view) for view in views)
+        # the two views are independent readings of one claim — they go to
+        # the engine side by side where the backend allows (the occasional
+        # cost: one small extra call when the first view would have
+        # sufficed; the gain: the second view no longer queues behind a
+        # refusal). Verdict unchanged: ANY confirming view confirms.
+        return any(runtime.parallel_map(
+            lambda view: generate.supported(raw, view), views))
 
     def _hedge(self, answer, record, message):
         """RECORDS the provenance mark for a VERIFIED answer resting on a
