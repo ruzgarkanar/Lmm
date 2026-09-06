@@ -4538,6 +4538,72 @@ def w42():
     assert "Yes" not in (said or ""), said
 
 
+@test("W43 the chat voice streams sentence by sentence, gate first")
+def w43():
+    """The perceived half of the latency ledger, second cut. The first
+    cut streamed but paid for it: it stood the wager down, so the voice
+    no longer overlapped the router and the FIRST sentence arrived later
+    than the old whole-reply did. The wager and the stream are one
+    mechanism now: the wager fills a QUEUE of chunks from the turn's
+    first instant, and when the router says CHAT and a caller listens,
+    the main flow drains the queue sentence by sentence — each one
+    through its reading the moment its full stop arrives, a struck
+    sentence never seen. Routed elsewhere, the queue is discarded like
+    any lost wager. The proof of interleaving is deterministic: the
+    engine's second sentence is not even WRITTEN until the first has
+    reached the caller."""
+    import os, threading
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None, persona="Warm.")
+    s.learn_text("The trust walk closes the morning arc.",
+                 source="#docx:Alpha.docx", deep=False)
+    first_seen = threading.Event()
+    log = []
+    def fake_stream(message, identity_block="", warmth=0.7, history=None,
+                    persona="", max_tokens=None):
+        log.append("emit1")
+        yield "Happy to help with the arc. "
+        first_seen.wait(3)              # the pen waits for the reader
+        log.append("emit2")
+        yield "Acme was founded in 1999. What should the walk fix?"
+    real = (extract.extract, extract.reextract)
+    extract.extract = lambda m: {"kind": extract.CHAT, "triples": []}
+    def fake_reextract(sentence):
+        if "founded" in sentence:
+            return [("Acme", "founded", "1999")]
+        return []
+    extract.reextract = fake_reextract
+    had = hasattr(generate, "chat_stream")
+    real_cs = getattr(generate, "chat_stream", None)
+    generate.chat_stream = fake_stream
+    lines = []
+    def cb(t):
+        lines.append(t)
+        first_seen.set()
+        log.append("cb")
+    old = os.environ.get("LMM_BACKEND")
+    try:
+        os.environ["LMM_BACKEND"] = "azure"
+        said = s.respond("hello there", teach=False, on_line=cb)
+    finally:
+        extract.extract, extract.reextract = real
+        if had:
+            generate.chat_stream = real_cs
+        else:
+            del generate.chat_stream
+        if old is None:
+            os.environ.pop("LMM_BACKEND", None)
+        else:
+            os.environ["LMM_BACKEND"] = old
+    assert lines and "Happy to help" in lines[0], lines
+    assert first_seen.is_set(), "the first sentence never reached the caller"
+    assert log.index("cb") < log.index("emit2"), log
+    assert all("1999" not in x for x in lines)
+    assert "1999" not in (said or ""), said
+    assert "What should the walk fix?" in said
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.

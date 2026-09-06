@@ -811,8 +811,37 @@ class Session:
             # One small discarded call on consultation question turns; a
             # teaching turn — the benchmarks — never places the bet.
             spec = None
+            spec_queue = None
             spec_wants = None
-            if self._no_teach and runtime.parallel_ok():
+            # THE WAGER AND THE STREAM ARE ONE MECHANISM. The first cut of
+            # streaming stood the wager down and paid for it: the voice no
+            # longer overlapped the router, and the FIRST sentence arrived
+            # later than the old whole-reply had. So when a caller listens
+            # (on_line), the wager fills a QUEUE of chunks from the turn's
+            # first instant; routed to chat, the main flow drains it
+            # sentence by sentence — routed elsewhere, the queue is
+            # discarded like any lost wager.
+            if (self._no_teach and runtime.parallel_ok()
+                    and self._on_line is not None):
+                import queue as _q
+                from concurrent.futures import ThreadPoolExecutor
+                spec_queue = _q.Queue()
+                def _pour(q=spec_queue, msg=message):
+                    try:
+                        for chunk in generate.chat_stream(
+                                msg, self._chat_id_block(),
+                                history=self.history,
+                                **self._voice(persona=self.persona)):
+                            q.put(chunk)
+                    except Exception:                   # noqa: BLE001
+                        pass
+                    q.put(None)                         # the stream's end
+                pool = ThreadPoolExecutor(max_workers=2)
+                pool.submit(_pour)
+                spec_wants = pool.submit(generate.wants_material, message)
+                pool.shutdown(wait=False)
+            elif (self._no_teach and runtime.parallel_ok()
+                    and self._on_line is None):
                 from concurrent.futures import ThreadPoolExecutor
                 pool = ThreadPoolExecutor(max_workers=2)
                 spec = pool.submit(self._chat_raw, message)
@@ -820,6 +849,11 @@ class Session:
                 # the delivery question rides out beside the router too —
                 # measured with the stream clock, asking it LAST put the
                 # catalogue's first line at second 13 of an 18-second turn
+                spec_wants = pool.submit(generate.wants_material, message)
+                pool.shutdown(wait=False)
+            elif self._no_teach and runtime.parallel_ok():
+                from concurrent.futures import ThreadPoolExecutor
+                pool = ThreadPoolExecutor(max_workers=1)
                 spec_wants = pool.submit(generate.wants_material, message)
                 pool.shutdown(wait=False)
             self._spec_wants = spec_wants
@@ -888,7 +922,7 @@ class Session:
                 # the history and the persona; the sentence lands there and
                 # the conversation simply continues. Nothing written, nothing
                 # refused.
-                return self._chat(message, spec)
+                return self._chat(message, spec, spec_queue)
             # A DELIVERY REQUEST GOES STRAIGHT TO THE COMPOSER. When the
             # wagered verdict is already in hand and says YES, the turn
             # routes to the organ built for deliverables before the
@@ -949,7 +983,7 @@ class Session:
                     # retrieval path still gets its turn (see _causal_answer)
             if op["kind"] in (extract.WRITE, extract.ASK):
                 return self._answer(message, subject)
-            return self._chat(message, spec)
+            return self._chat(message, spec, spec_queue)
         except Exception:                                   # noqa: BLE001
             # A crashed turn says nothing, which is an abstention like any
             # other — and the flag has to say so, or a benchmark would read
@@ -2506,6 +2540,15 @@ class Session:
         return self._answer(question, subject_label)     # now in the graph → answer+hedge
 
     # --- chat ----------------------------------------------------------
+    def _chat_id_block(self):
+        """The identity rows the chat voice may speak from — one builder,
+        read by the blocking voice, the wagered voice and the stream."""
+        id_records = retrieve.gather(self.memory, self._lmm_key)
+        return "\n".join(
+            f"{link.label_of(self.memory, r.subject)} "
+            f"{link.label_of(self.memory, r.predicate)} \u2192 "
+            f"{link.label_of(self.memory, r.value)}" for r in id_records)
+
     def _chat_raw(self, message):
         """The chat voice's ENGINE CALL alone — factored out so the wager
         above and the chat path below speak with byte-identical arguments;
@@ -2518,7 +2561,7 @@ class Session:
         return generate.chat(message, id_block, history=self.history,
                              **self._voice(persona=self.persona))
 
-    def _chat(self, message, spec=None):
+    def _chat(self, message, spec=None, spec_queue=None):
         """Chat answer — the gate still filters any leaking factual claim.
 
         HOLE CLOSED (F2): this used to be `safe or raw` — if verify found all
@@ -2526,6 +2569,63 @@ class Session:
         returned, bypassing the gate entirely. Now on empty it falls to the
         safe side, no raw fabrication is returned.
         """
+        # THE CHAT VOICE STREAMS WHEN SOMEONE LISTENS. Sentences are the
+        # gate's own unit — verify has always judged them one at a time —
+        # so each completed sentence goes through its reading the moment
+        # its full stop arrives: a kept sentence is on screen while the
+        # engine writes the next, a struck sentence is never seen at all.
+        # Without a listener the wagered path stands, byte for byte.
+        on_line = getattr(self, "_on_line", None)
+        if on_line is not None:
+            self._spec_chat = None
+            prior_user = [h["content"] for h in self.history
+                          if h.get("role") == "user"]
+            echo_pool = (prior_user if self.last_kind == extract.ASK
+                         else prior_user + [message])
+            echo_text = " ".join(echo_pool)
+            id_records = retrieve.gather(self.memory, self._lmm_key)
+            id_block = "\n".join(
+                f"{link.label_of(self.memory, r.subject)} "
+                f"{link.label_of(self.memory, r.predicate)} \u2192 "
+                f"{link.label_of(self.memory, r.value)}" for r in id_records)
+            def _chunks():
+                if spec_queue is not None:
+                    while True:
+                        chunk = spec_queue.get()
+                        if chunk is None:
+                            return
+                        yield chunk
+                else:
+                    yield from generate.chat_stream(
+                        message, id_block, history=self.history,
+                        **self._voice(persona=self.persona))
+            kept, buffer = [], ""
+            for chunk in _chunks():
+                buffer += chunk or ""
+                while True:
+                    m2 = re.search(r"[.!?]\s", buffer)
+                    if not m2:
+                        break
+                    sentence, buffer = (buffer[:m2.end()].strip(),
+                                        buffer[m2.end():])
+                    sentence = self._strip_marks(sentence)
+                    if not sentence:
+                        continue
+                    ok = verify.verify(self.memory, sentence,
+                                       self._identity, self.mode,
+                                       anchor="value", echo=echo_text)
+                    if ok:
+                        kept.append(ok)
+                        on_line(ok)
+            tail = self._strip_marks(buffer)
+            if tail:
+                ok = verify.verify(self.memory, tail, self._identity,
+                                   self.mode, anchor="value",
+                                   echo=echo_text)
+                if ok:
+                    kept.append(ok)
+                    on_line(ok)
+            return " ".join(kept).strip() or self._refuse(message)
         # The IDENTITY block (the maker must not be hidden) and the recent
         # turns both ride inside _chat_raw — the wager and this path speak
         # with byte-identical arguments. Fabrication is still filtered below.
