@@ -4604,6 +4604,57 @@ def w43():
     assert "What should the walk fix?" in said
 
 
+@test("W44 the comparison verdict is written into the evidence, not left to the voice")
+def w44():
+    """The referee's one comparison flip, closed at the root: the reading
+    laid two duration records side by side and left "same or different?"
+    to the engine — which built the verdict one run and inverted it the
+    next. But equality of two records is not phrasing, it is arithmetic
+    the system already trusts: the digit sets (the digits_ok tradition).
+    When two NAMED sources answer the same FIELD HEAD, the assembly now
+    writes one comparison row — head, then each source's value, joined
+    by = when the digit sets agree and by \u2260 when they differ (no
+    marker when a value carries no digits: there the voice still
+    judges). Every word on the row is the documents'; the marker is
+    notation; the engine reads a verdict instead of building one."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("ALPHA COURSE OUTCOMES.\n"
+                 "The rope bridge closes the morning arc.\n"
+                 "DURATION: three hours (3 h).\n"
+                 "SEATS: 14-18 people.",
+                 source="#docx:Alpha Course.docx", deep=False)
+    s.learn_text("BETA COURSE OUTCOMES.\n"
+                 "The ravine walk opens with a trust fall.\n"
+                 "DURATION: half a day (3 h).\n"
+                 "SEATS: 16-18 people.",
+                 source="#docx:Beta Course.docx", deep=False)
+    blocks = []
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("alpha course", "duration", "")]}
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+        blocks.append(block)
+        return "I do not know."
+    generate.answer = spy_answer
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s.respond("do Alpha Course and Beta Course run the same length?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    joined = "\n".join(blocks)
+    eq = [l for l in joined.split("\n") if " = " in l and "DURATION" in l]
+    ne = [l for l in joined.split("\n") if " \u2260 " in l and "SEATS" in l]
+    assert eq, "no equality row for the matching durations"
+    assert "Alpha Course" in eq[0] and "Beta Course" in eq[0], eq
+    assert ne, "no difference row for the differing seat counts"
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.

@@ -146,7 +146,9 @@ STYLE (important):
   value from a different record.
   Example: facts "[R1] NO: 1 · PART: lid hinge · CONDITION: NEW ·
   SHELF: B2." and the question asks for the CONDITION of part 1 -> the
-  answer is "NEW" (not the part description, not the shelf)."""
+  answer is "NEW" (not the part description, not the shelf).
+
+COMPARISON ROWS: an evidence line of the form "HEAD — Name: value = Name: value" is the memory's own, attested verdict that the two records AGREE (their numbers match); the same row with ≠ is an attested difference. When the question compares the two, state that verdict plainly — do not re-derive it, do not invert it, do not hedge it."""
 
 
 # SUPPORT CHECK: the second tier when the coverage gate trips on a word —
@@ -176,6 +178,7 @@ TALLY DISCIPLINE: an EVIDENCE line of the form "Name ×12 · Name ×5" is an
 attested tally of the documents that mention the claim's topic. A claim that
 says the topic appears in, or is covered by, the documents that tally names
 is supported by that line.
+COMPARISON ROWS: an evidence line of the form "HEAD — Name: value = Name: value" states an ATTESTED equality of two records (their numbers agree); the same row with ≠ states an attested difference. Read the verdict off the marker — do not re-derive or invert it.
 
 DATELINE DISCIPLINE: an evidence line may open with the name of the document
 it was taken from, then an em dash, then the document's own words
