@@ -1856,6 +1856,47 @@ class Session:
                     if sentence not in comp:
                         comp.append(sentence)
                         comp_origins.append(src)
+            # THE COMPARISON VERDICT IS WRITTEN INTO THE EVIDENCE. Laying
+            # two records side by side and leaving "same or different?"
+            # to the engine gave a verdict that inverted between runs
+            # (the referee's one comparison flip). Equality of records is
+            # arithmetic the system already trusts — the digit sets, the
+            # digits_ok tradition. When two named sources answer the same
+            # FIELD HEAD, one row states it: head, each source's value,
+            # joined by = when the digit sets agree, by \u2260 when they
+            # differ, and by \u00b7 when a value carries no digits (there
+            # the voice still judges). Every word is the documents'; the
+            # marker is notation; the engine reads a verdict instead of
+            # building one.
+            fields = {}
+            for text, origin in zip(comp, comp_origins):
+                if ":" not in text:
+                    continue
+                head, _sep, val = text.partition(":")
+                hw = tuple(evidence._words(head))
+                if hw and len(evidence._words(head)) <= 3:
+                    fields.setdefault(hw, {})[origin] = (
+                        head.strip(), val.strip().rstrip("."))
+            for hw, per_src in fields.items():
+                if len(per_src) < 2:
+                    continue
+                items = sorted(per_src.items(),
+                               key=lambda kv: evidence._source_name(kv[0]))
+                digitsets = [frozenset(re.findall(r"\d+", v))
+                             for _o, (_h, v) in items]
+                if all(digitsets) and len(set(digitsets)) == 1:
+                    sep = " = "
+                elif all(digitsets):
+                    sep = " \u2260 "
+                else:
+                    sep = " \u00b7 "
+                head_text = items[0][1][0]
+                row = f"{head_text} \u2014 " + sep.join(
+                    f"{evidence._source_name(o)}: {v}"
+                    for o, (_h, v) in items)
+                if row not in comp:
+                    comp.append(row)
+                    comp_origins.append("")
             self.evidence.last_census = census_keep
             if comp:
                 proof, proof_origins = comp, comp_origins

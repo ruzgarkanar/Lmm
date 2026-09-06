@@ -65,9 +65,15 @@ def one_run(questions, corpus_dir):
     for q, golds in questions.get("olgu", []):
         verdicts[("olgu", q)] = hit(str(m.ask(q)), golds)
     for q, _none in questions.get("tuzak", []):
-        a = _plain(str(m.ask(q)))
-        verdicts[("tuzak", q)] = any(h in a for h in
-                                     (_plain(x) for x in REFUSAL_HINTS))
+        # a trap is passed by NOT ASSERTING, and the system already owns
+        # the organ that reads assertion: the abstention stamp. Judging
+        # refusals by a phrase net measured the phrasing's mood, not the
+        # substance — the referee's own trap category flipped on wording
+        # while nothing factual changed. The phrase net remains only as a
+        # backstop for answers the stamp cannot see.
+        ans = m.ask(q, explain=True)
+        a = _plain(str(ans))
+        verdicts[("tuzak", q)] = bool(getattr(ans, "abstained", False)) or             any(_plain(x) in a for x in REFUSAL_HINTS)
     for q, golds in questions.get("kiyas", []):
         verdicts[("kiyas", q)] = hit(str(m.ask(q)), golds)
     for dialog in questions.get("takip", []):
