@@ -4480,6 +4480,64 @@ def w39():
     assert len(srcs) == 2, srcs
 
 
+@test("W42 an echo cannot turn a question into its own assertion")
+def w42():
+    """Caught by our own benchmark's trap set: "do participants receive a
+    certificate?" — nothing about certificates exists anywhere in the
+    store, the answer path honestly abstained, and the conversational
+    fallback said "Yes, participants generally receive a certificate."
+    Every word of that claim is covered by the QUESTION, and the echo
+    rule (W24) licensed it: it read the user's words as attestation. But
+    a question ASSERTS nothing — echo exists so a consultant may repeat
+    what the user STATED, and a turn the router classified as ASK stated
+    nothing at all. So on an ASK turn, the echo pool is the PRIOR turns
+    alone: mirroring the question back as an assertion finds no licence,
+    and the sentence that carried it falls at the gate it always had to
+    pass. A context statement (WRITE/CHAT) keeps its same-turn echo."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None, persona="Warm.")
+    s.learn_text("The trust walk closes the morning arc.",
+                 source="#docx:Alpha.docx", deep=False)
+    real = (extract.extract, generate.chat, generate.refusal,
+            generate.offer_research, extract.reextract)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("certificate", "given", "")]}
+    generate.chat = (lambda *a, **k:
+                     "Yes, participants generally receive a certificate.")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    def fake_reextract(sentence):
+        if "certificate" in sentence:
+            return [("participants", "receive", "a certificate")]
+        return []
+    extract.reextract = fake_reextract
+    had = hasattr(generate, "wants_material")
+    real_wm = getattr(generate, "wants_material", None)
+    generate.wants_material = lambda m: False
+    import os
+    old = os.environ.get("LMM_BACKEND")
+    try:
+        os.environ["LMM_BACKEND"] = "azure"
+        s.respond("hello there", teach=False)
+        said = s.respond("do participants receive a certificate?",
+                         teach=False)
+    finally:
+        (extract.extract, generate.chat, generate.refusal,
+         generate.offer_research, extract.reextract) = real
+        if had:
+            generate.wants_material = real_wm
+        else:
+            del generate.wants_material
+        if old is None:
+            os.environ.pop("LMM_BACKEND", None)
+        else:
+            os.environ["LMM_BACKEND"] = old
+    assert "certificate" not in (said or ""), said
+    assert "Yes" not in (said or ""), said
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
