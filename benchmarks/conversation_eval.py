@@ -60,7 +60,17 @@ def one_run(questions, corpus_dir):
     verdicts = {}
 
     def hit(answer, golds):
-        return any(_plain(g) in _plain(answer) for g in golds)
+        # a gold entry may itself be a list: EVERY inner group must land
+        # (any-of within, all-of across) — how a multi-part question
+        # ("goals AND outcomes") demands both of its parts
+        pa = _plain(answer)
+        def one(g):
+            if isinstance(g, list):
+                return any(_plain(x) in pa for x in g)
+            return _plain(g) in pa
+        return all(one(g) for g in golds) if any(
+            isinstance(g, list) for g in golds) else any(
+            one(g) for g in golds)
 
     for q, golds in questions.get("olgu", []):
         verdicts[("olgu", q)] = hit(str(m.ask(q)), golds)
