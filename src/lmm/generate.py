@@ -331,16 +331,16 @@ def wants_material(message):
               "you decide everything, I don't know -> yes\n"
               "stell mir bitte einen Katalog zusammen -> yes\n"
               "prepara una propuesta para nosotros -> yes\n"
-              "bana uygun bir eğitim öner -> yes\n"
+              "propose-moi une formation adapt\u00e9e -> yes\n"
               # the boundary, measured live: an OFFER OF HELP and a BRAKE
               # both wear request grammar and are not orders to produce —
               # "can you help us" opened a catalogue, and "wait, you
               # suggested too fast" opened ANOTHER one.
               "we want to run trainings, can you help us -> no\n"
-              "bize yardımcı olur musun -> no\n"
+              "kannst du uns dabei helfen -> no\n"
               "wait, hold on \u2014 I did not ask for anything yet -> no\n"
               "dur biraz, hemen önerme -> no\n"
-              "un momento, espera un poco -> no\n"
+              "un momento, espera un poco \u2014 a\u00fan no ped\u00ed nada -> no\n"
               "we are in banking, my team is ten people -> no\n"
               "what is the duration of the Alpha module -> no\n"
               "wie lange dauert das Training -> no\n"
