@@ -4,6 +4,55 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] — 2026-09-06
+
+The audit release: a day of field dialogue, a corpus-wide format audit,
+and a head-to-head benchmark against LangChain, LlamaIndex and Mem0 —
+with every finding, ours included, fixed architecturally or filed
+openly. Published numbers re-measured unchanged after every batch
+(NIST 11/13, EN 17/17; 124 invariants, W27-W42).
+
+### Fixed
+
+- **One-row Word tables are fact boxes, and fact boxes are prose.** The
+  docx reader dropped single-row grids whole (no header row to read),
+  and every duration/seats/audience box of a sibling-template corpus
+  lived in one; cells now enter the evidence as "LABEL: value." lines,
+  joining the record channel, and an unpunctuated Word paragraph closes
+  with its full stop so headings stop gluing into mega-lines. Body
+  coverage audited to 100% across the corpus.
+- **The same sentence in two documents is two attestations.** The
+  duplicate guard keyed on text alone, silencing every sibling that
+  shares a template line — cross-document comparisons refused forever.
+- **Provenance notation belongs to the system.** Generated candidates
+  shed anything stamp-shaped; the mark names the line the answer
+  actually rests on; the history carries unstamped text; a turn that
+  says nothing carries no stamp.
+- **An answer's substance cannot be borrowed from the question** — one
+  rule at both doors (read-back and informed refusal), and a claim that
+  names its source is judged by that source's lines alone.
+- **An echo cannot turn a question into its own assertion.** On an ASK
+  turn the chat echo draws on prior turns only; the trap-set
+  fabrication ("yes, there is a certificate") is gone.
+- The prior subject rides retrieval as a challenger, not a preemption —
+  restoring a benchmark answer to its honest, attested path.
+
+### Added
+
+- **The comparison reading**: a question naming two or more sources
+  lays them side by side — per-source seats, record rows riding along,
+  the named-source jury holding each claim to the source it names. A
+  source is named by a pointer or by its bigram; family letters call
+  nobody.
+- `inflect.kin`: retrieval-only kinship for short-rooted languages
+  (four-letter roots and their suffixed forms), spent where surfacing a
+  real line is the worst it can do; the gates keep same_stem.
+- An expansion is judged by the words it ADDS — the keep filter no
+  longer discards a record line's honest bridge on the corpus-common
+  words it shares with every line.
+- In a multi-document store, a same-region twin steps aside so a
+  document's second seat reaches its other regions.
+
 ## [0.3.0] — 2026-09-05
 
 The consultation release. One evening of field dialogue against a live
