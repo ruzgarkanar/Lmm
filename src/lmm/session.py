@@ -2544,8 +2544,22 @@ class Session:
         # words in this conversation are things the reply may repeat back —
         # listening is not asserting. See verify.verify.
         self._spec_chat = None          # the wager is spent
-        echo = " ".join([h["content"] for h in self.history
-                         if h.get("role") == "user"] + [message])
+        # AN ECHO CANNOT TURN A QUESTION INTO ITS OWN ASSERTION. Caught by
+        # our own trap set: "do participants receive a certificate?" —
+        # unanswerable, honestly abstained, and the fallback said "Yes,
+        # participants generally receive a certificate", every word of
+        # the claim covered by the QUESTION and licensed by the echo. But
+        # a question asserts nothing: echo exists so a consultant may
+        # repeat what the user STATED, and a turn the router classified
+        # as ASK stated nothing at all. On an ASK turn, the echo pool is
+        # the prior turns alone; a context statement keeps its same-turn
+        # echo.
+        prior_user = [h["content"] for h in self.history
+                      if h.get("role") == "user"]
+        if self.last_kind == extract.ASK:
+            echo = " ".join(prior_user)
+        else:
+            echo = " ".join(prior_user + [message])
         safe = verify.verify(self.memory, raw, self._identity, self.mode,
                              anchor="value", echo=echo)
         return safe or self._refuse(message)
