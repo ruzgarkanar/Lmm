@@ -4,6 +4,46 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] — 2026-09-07
+
+Two identities, one relation: the release where the comparison reading
+grew up. Measured on a 73-question field set (40 factual, 15
+comparisons, 10 traps, 8 frontier), three runs, medians: comparisons
+8/15 → 13/15, factual 37/40 → 38/40, traps 10/10 throughout. NIST
+11/13 and EN 17/17 unchanged; 130 invariants.
+
+### Fixed
+
+- **In a comparison, two sources saying the same thing say it twice.**
+  Sibling documents share a template, so two items of equal value write
+  the same record line word for word; the assembly deduped by TEXT and
+  dropped the second, leaving one value where the question asked about
+  two — the verdict row could never be written, and the case is
+  precisely the one comparisons are asked about most. Identity is per
+  (line, source), the assembly-layer twin of the store's own rule.
+- **Two inflections of one short root are kin.** A comparison asking
+  about a "süre" could not reach a record headed "SÜRESİ": four letters
+  of shared root, a different ending on each, and neither relation
+  admitted it — so the question never reached the line that answers it,
+  and the record rider's "did the question ask about this field"
+  ranking was blind in every short-rooted language. Kinship now means a
+  shared opening of at least three letters with each remainder within
+  TAIL, and it is spent on the retrieval side only: the gates keep
+  same_stem, so kinship widens what can be FOUND and nothing about what
+  may be SAID.
+
+### Added
+
+- The comparison verdict is written into the evidence: two named
+  sources answering the same field head yield one system-written row —
+  head, each source's value, joined by `=` when their digit sets agree
+  and `≠` when they differ. The engine reads a verdict instead of
+  building one, and every reader is taught the notation.
+- `benchmarks/conversation_eval.py`: the multi-run referee — a fresh
+  store per run, per-category medians and the FLIP set, AND-golds for
+  multi-part questions, and a frontier category. Sorting-layer changes
+  are not judged without it.
+
 ## [0.3.1] — 2026-09-06
 
 The audit release: a day of field dialogue, a corpus-wide format audit,
