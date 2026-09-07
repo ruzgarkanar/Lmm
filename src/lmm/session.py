@@ -1838,6 +1838,112 @@ class Session:
         # model call; no wording read.
         laid_out = False
         named_two = set(getattr(self.evidence, "last_named", ()) or ())
+        # A FIELD QUESTION THAT NAMES NO SOURCE READS THAT FIELD ACROSS
+        # THE CORPUS. Six seats cannot hold sixty documents' values, and
+        # the source cap rightly keeps any one document from taking
+        # them — so "which course runs the longest" met an arbitrary
+        # handful of lines and abstained. The census answered this shape
+        # of question long ago ("who all speaks of this" is a COUNT, not
+        # a retrieval); this is that reading applied to VALUES: when the
+        # question names no source and three or more sources answer the
+        # same record head, the block is one row per source, datelined
+        # and capped. The engine then ranks attested values instead of
+        # guessing, and an honest tie stays visible. Local work only —
+        # no model call, no wording read.
+        if not named_two and len(self.evidence.by_source) > 2:
+            qw = evidence._words(question)
+            heads = {}                      # head words -> {source: row}
+            for src in sorted(self.evidence.by_source):
+                for _sid, text in self._record_rows(src, question, cap=12):
+                    head, _sep, val = text.partition(":")
+                    if not val.strip(" ."):
+                        continue
+                    hw = tuple(evidence._words(head))
+                    if hw:
+                        heads.setdefault(hw, {}).setdefault(
+                            src, (head.strip(), text))
+            # THE FIELD IS THE ONE THE QUESTION COVERS BEST, and A TIE IS
+            # NOT A GUESS. Measured on the corpus: "which training takes
+            # the most people" covers KATILIMCI SAYISI and EĞİTİM SÜRESİ
+            # equally — one word each — and picking either by file order
+            # is how the wrong field got harvested. Every field at the
+            # top coverage comes to the table, at most three, and the
+            # reader takes the one the question means.
+            scored_heads = []
+            for hw, per_src in heads.items():
+                if len(per_src) < 3:
+                    continue
+                matched = sum(1 for h in hw
+                              if any(inflect.same_stem(h, w)
+                                     or inflect.kin(h, w) for w in qw))
+                if matched:
+                    scored_heads.append((matched / len(hw), hw, per_src))
+            if scored_heads:
+                best = max(r[0] for r in scored_heads)
+                chosen = [r for r in scored_heads if r[0] == best][:3]
+                field, field_origins = [], []
+                for _ratio, _hw, per_src in chosen:
+                    ranked, units = [], {}
+                    for src in sorted(per_src):
+                        head_text, text = per_src[src]
+                        if len(field) >= 60:
+                            break
+                        field.append(text)
+                        field_origins.append(src)
+                        # A NUMBER BELONGS TO THE UNIT BESIDE IT: a value
+                        # reading "4 modules x half a day — about 2 days"
+                        # ranked as FOUR days when the largest digit in
+                        # the line was taken for the value; the four
+                        # counts modules. Digits pair with the word they
+                        # stand next to, and a range keeps both ends. A
+                        # qualifier in between ("2 full days") makes its
+                        # own group and loses the ranking to the plain
+                        # one — out of the comparison is the honest place
+                        # for a value whose unit cannot be read.
+                        _h, _sep, val = text.partition(":")
+                        pairs, buf = {}, []
+                        for tok in re.findall(r"\w+", val, re.UNICODE):
+                            if tok.isdigit():
+                                buf.append(int(tok))
+                                continue
+                            if buf:
+                                pairs.setdefault(evidence.fold(tok),
+                                                 []).extend(buf)
+                            buf = []
+                        for unit_name, nums in pairs.items():
+                            units[unit_name] = units.get(unit_name, 0) + 1
+                            ranked.append((max(nums), min(nums), src,
+                                           head_text, val.strip(" ."),
+                                           unit_name))
+                    # THE EXTREMES OF A FIELD ARE WRITTEN INTO THE
+                    # EVIDENCE — W44's rule at corpus scale. A superlative
+                    # is a conclusion no single line states, so the
+                    # read-back rightly refused it and the turn abstained
+                    # with the whole field on the table. One row states
+                    # both ends, each with its source and its value, and
+                    # only within the unit the field mostly speaks. THE
+                    # VERDICT SPEAKS FIRST: a block is read from the top
+                    # and cut at the seats, so a row appended after sixty
+                    # field lines is a row nobody reads.
+                    if ranked:
+                        main = max(units, key=lambda u: (units[u], u != ""))
+                        same = [r for r in ranked if r[5] == main]
+                        if len(same) >= 3:
+                            hi = max(same, key=lambda r: r[0])
+                            lo = min(same, key=lambda r: r[1])
+                            if hi[2] != lo[2]:
+                                field.insert(0,
+                                    f"{hi[3]} \u2014 largest: "
+                                    f"{evidence._source_name(hi[2])}: "
+                                    f"{hi[4]} \u00b7 smallest: "
+                                    f"{evidence._source_name(lo[2])}: "
+                                    f"{lo[4]}")
+                                field_origins.insert(0, "")
+                if len(field) >= 3:
+                    proof, proof_origins = field, field_origins
+                    self.evidence.last_sources = list(field_origins)
+                    laid_out = True
+                    self._laid_out = True
         if len(named_two) >= 2:
             census_keep = list(self.evidence.last_census)
             share = max(2, seats // len(named_two))
@@ -2491,6 +2597,28 @@ class Session:
         whatever line the answer actually rested on: a correct sentence
         about one course, stamped with another, question after question.
         Deterministic: word-coverage argmax, first on ties."""
+        # A CLAIM THAT NAMES A SOURCE IS STAMPED WITH THAT SOURCE. The
+        # system's own rows — a field's extremes, a comparison's verdict —
+        # belong to no single document and carry no origin, so an answer
+        # resting on one of them fell back to whichever seat came first
+        # and stamped a true sentence about one document with another
+        # document's name. A stamp is a promise about where a claim comes
+        # from, so it follows the claim: when the answer names a source
+        # the store holds, that source is the mark. The jury already
+        # reads claims this way (W32); the mark now reads them the same.
+        spoken = set(evidence._words(said))
+        for origin in dict.fromkeys(o for o in origins if o):
+            name_words = evidence._words(evidence._source_name(origin))
+            if name_words and all(
+                    any(inflect.same_stem(w, t) or inflect.kin(w, t)
+                        for t in spoken) for w in name_words):
+                return origin
+        for origin in sorted(self.evidence.by_source):
+            name_words = evidence._words(evidence._source_name(origin))
+            if len(name_words) >= 2 and all(
+                    any(inflect.same_stem(w, t) or inflect.kin(w, t)
+                        for t in spoken) for w in name_words):
+                return origin
         best, best_cov = "", -1.0
         for line, origin in zip(proof, origins):
             if not origin:
