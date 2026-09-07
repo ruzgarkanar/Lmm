@@ -4760,6 +4760,78 @@ def w46():
     assert eq, "no equality row for two identical durations"
 
 
+@test("W47 the comparison row the question asks about speaks first")
+def w47():
+    """Measured on the field set: asked whether two courses run the same
+    LENGTH, the block carried a verdict row for every field the two
+    share — duration, seats, audience, format — in whatever order the
+    fields were met, and the engine answered off the format row ("both
+    are in person") while the question asked about length. The record
+    rider already ranks a source's rows by what the question asks; the
+    comparison rows are the same kind of evidence and had no such order.
+    They get one: rows whose HEAD the question names come first, and the
+    rest keep their order behind them. Nothing is dropped — a reader
+    that wants another field still finds it, one line lower."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    for name, tag in (("Alpha Course", "ravine"), ("Beta Course", "ridge")):
+        s.learn_text(f"{name.upper()} OUTCOMES.\n"
+                     f"The {tag} module opens the arc.\n"
+                     "FORMAT: in person.\n"
+                     "SEATS: 18 people.\n"
+                     "TIME: 1 day.",
+                     source=f"#docx:{name}.docx", deep=False)
+    blocks = []
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("alpha course", "duration", "")]}
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+        blocks.append(block)
+        return "I do not know."
+    generate.answer = spy_answer
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s.respond("do Alpha Course and Beta Course run the same TIMES?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    rows = [l for l in "\n".join(blocks).split("\n")
+            if " = " in l or " \u2260 " in l]
+    assert rows, "no comparison rows at all"
+    assert "TIME" in rows[0], ("the asked field is not the first row: %r"
+                               % rows[:3])
+    assert any("SEATS" in r or "FORMAT" in r for r in rows), \
+        "the other fields were dropped instead of ranked"
+
+
+@test("W48 two inflections of one short root are kin")
+def w48():
+    """The hole `kin` left open, measured where it hurts: a comparison
+    asks "aynı SÜREDE mi" of a record whose head is "SÜRESİ" — two
+    inflections of one four-letter root. `same_stem` wants five letters
+    of shared root and refuses; `kin` wants one form to be the other's
+    prefix, and neither of these is. So the question could not reach the
+    line that answers it, and the rider could not rank the row the
+    question asked about. Kinship widens to what it always meant on the
+    retrieval side: a shared opening of at least three letters, with
+    each form's remainder within TAIL. The gates keep same_stem, so
+    nothing here licenses a claim — it only decides what can be FOUND
+    and what is ranked first."""
+    from lmm import inflect
+    assert inflect.kin("surede", "suresi")      # two inflections, one root
+    assert inflect.kin("time", "times")         # prefix case, unchanged
+    assert inflect.kin("gunluk", "gun")
+    assert not inflect.kin("car", "cat")        # two shared letters is nothing
+    assert not inflect.kin("kaygi", "kayitli")  # remainders beyond TAIL
+    # the gates stay strict: kinship never licenses a claim
+    assert not inflect.same_stem("surede", "suresi")
+    assert not inflect.same_stem("time", "times")
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.

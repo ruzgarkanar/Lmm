@@ -65,8 +65,22 @@ def kin(a, b):
     if a == b:
         return True
     short, long = (a, b) if len(a) <= len(b) else (b, a)
-    return (len(short) >= 3 and long.startswith(short)
-            and len(long) - len(short) <= TAIL)
+    if (len(short) >= 3 and long.startswith(short)
+            and len(long) - len(short) <= TAIL):
+        return True
+    # TWO INFLECTIONS OF ONE SHORT ROOT ARE KIN TOO. The prefix case
+    # above only reaches a bare root and its suffixed form; measured
+    # where it hurts, both sides arrive inflected — a comparison asks
+    # "aynı SÜREDE mi" of a record headed "SÜRESİ", four letters of
+    # shared root and a different ending on each. same_stem wants five
+    # and refuses; neither form is the other's prefix. On the retrieval
+    # side kinship means what it always meant: a shared opening of at
+    # least three letters with each remainder within TAIL. Two shared
+    # letters are nothing ("car"/"cat"), and a long divergence is a
+    # different word.
+    common = os.path.commonprefix((a, b))
+    return (len(common) >= 3 and len(a) - len(common) <= TAIL
+            and len(b) - len(common) <= TAIL)
 
 
 def same_stem(a, b):
