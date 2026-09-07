@@ -86,6 +86,11 @@ def one_run(questions, corpus_dir):
         verdicts[("tuzak", q)] = bool(getattr(ans, "abstained", False)) or             any(_plain(x) in a for x in REFUSAL_HINTS)
     for q, golds in questions.get("kiyas", []):
         verdicts[("kiyas", q)] = hit(str(m.ask(q)), golds)
+    # the frontier category: questions whose discriminating word the
+    # document never writes — scored exactly like the factual ones, kept
+    # apart because a change may move it in the opposite direction
+    for q, golds in questions.get("sinir", []):
+        verdicts[("sinir", q)] = hit(str(m.ask(q)), golds)
     for dialog in questions.get("takip", []):
         for q, golds in dialog:
             verdicts[("takip", q)] = hit(
