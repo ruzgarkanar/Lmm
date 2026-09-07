@@ -4889,6 +4889,240 @@ def w49():
     assert bad is False
 
 
+@test("W50 a field question that names no source reads that field across the corpus")
+def w50():
+    """The class the seats cannot serve: "which course runs the
+    longest?" — a question about a FIELD with no document named. Six
+    seats cannot hold sixty documents' values, and the source cap
+    rightly keeps any one document from taking them, so the block held
+    an arbitrary handful and the turn abstained. The census answered
+    the same shape of question years earlier — "who all speaks of this"
+    is a COUNT, not a retrieval — and this is that reading applied to
+    values instead of mentions: when the question names no source and
+    three or more sources answer the same record head, the block is one
+    row per source, datelined, capped. The engine ranks attested values
+    instead of guessing, and the honest tie (two sources sharing the top
+    value) is visible rather than hidden behind whichever line won a
+    seat."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    names = ["Alpha","Beta","Gamma","Delta","Epsilon","Zeta","Eta","Theta",
+             "Iota","Kappa","Lambda","Mu","Nu","Xi","Omicron","Pi","Rho",
+             "Sigma","Tau","Upsilon","Phi","Chi","Psi","Omega","Ares",
+             "Bora","Cirrus","Dorado","Elara","Fornax"]
+    for i, name in enumerate(names):
+        days = 12 if name == "Sigma" else 1 + (i % 4)
+        lines = [f"{name.upper()} COURSE OUTCOMES."] + [
+            f"The course covers the {w} of the {name.lower()} module over "
+            f"several long days of practice." for w in
+            ("opening", "middle", "closing", "review", "handover")
+        ] + [f"DURATION: {days} days."]
+        s.learn_text("\n".join(lines),
+                     source=f"#docx:{name} Course.docx", deep=False)
+    blocks = []
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("course", "duration", "")]}
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+        blocks.append(block)
+        return "I do not know."
+    generate.answer = spy_answer
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s.respond("which course has the longest DURATION?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    joined = "\n".join(blocks)
+    seen = {n for n in names if f"{n} Course" in joined and "DURATION" in joined}
+    assert len(seen) >= 8, ("the field was not read across the corpus: %d"
+                            % len(seen))
+    assert "12 days" in joined, "the winning value never reached the block"
+
+
+@test("W51 the extremes of a field are written into the evidence")
+def w51():
+    """The half of the corpus-wide reading the gate could not admit. Ask
+    which course takes the most participants and the engine answers with
+    a NAME — a conclusion no single line states, since it is computed
+    across sixty rows — so the read-back rightly refuses it and the turn
+    abstains with the whole field on the table. W44 solved the same
+    shape for two sources by writing the verdict INTO the evidence; the
+    corpus-wide reading gets the same treatment: when the field rows
+    carry digits, one row states both ends — largest and smallest, each
+    with its source and its value — computed from the digits the
+    documents wrote. The engine then reads the answer instead of
+    deriving it, and whichever end the question asks for is attested.
+    Ranges are read at their own ends (16-20 ranks by 20 for largest, by
+    16 for smallest), which is what a range means."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    seats = {"Alpha": "8 people", "Beta": "16-20 people",
+             "Gamma": "12 people", "Delta": "6-9 people",
+             "Epsilon": "14 people", "Zeta": "10 people"}
+    for name, v in seats.items():
+        s.learn_text(f"{name.upper()} COURSE OUTCOMES.\n"
+                     f"The {name.lower()} module opens the arc.\n"
+                     f"SEATS: {v}.",
+                     source=f"#docx:{name} Course.docx", deep=False)
+    blocks = []
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("course", "seats", "")]}
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+        blocks.append(block)
+        return "I do not know."
+    generate.answer = spy_answer
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s.respond("which course takes the most SEATS?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    rows = [l for l in "\n".join(blocks).split("\n") if "largest" in l]
+    assert rows, "no extremes row was written"
+    row = rows[0]
+    assert "Beta" in row and "16-20" in row, row      # largest by 20
+    assert "smallest" in row and "Delta" in row, row  # smallest by 6
+    # A VALUE IS A NUMBER AND ITS UNIT. Measured on the field corpus:
+    # ranking by digits alone made a 90-minute webinar the longest
+    # training in a corpus of multi-day courses. Values compare only
+    # when their units agree; the ends are read within the unit the
+    # field mostly speaks, and rows in another unit are left out of the
+    # ranking rather than mis-ranked.
+    s2 = Session(None)
+    mixed = {"Ada": "4 days", "Bly": "90 minutes", "Cnut": "2 days",
+             "Dane": "45 minutes", "Erle": "3 days", "Fen": "5 days"}
+    for name, v in mixed.items():
+        s2.learn_text(f"{name.upper()} COURSE OUTCOMES.\n"
+                      f"The {name.lower()} module opens the arc.\n"
+                      f"DURATION: {v}.",
+                      source=f"#docx:{name} Course.docx", deep=False)
+    blocks2 = []
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("course", "duration", "")]}
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None: (blocks2.append(block),
+                                         "I do not know.")[1])
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s2.respond("which course has the longest DURATION?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    ends = [l for l in "\n".join(blocks2).split("\n") if "largest" in l]
+    assert ends, "no extremes row for the mixed-unit field"
+    assert "Fen" in ends[0], ("ranked across units: %r" % ends[0])
+    assert "90 minutes" not in ends[0], ("minutes outranked days: %r"
+                                         % ends[0])
+    # THE FIELD IS THE ONE THE QUESTION COVERS BEST. Measured on the
+    # corpus: asked which course takes the MOST PEOPLE, the harvest
+    # gathered the DURATION field — because the question's generic word
+    # ("course") matched that head too, and any match was enough. A
+    # question names its field the way it names a source: by how much of
+    # the head it accounts for. The best-covered head wins; a tie is an
+    # ambiguity and the reading stands aside.
+    s3 = Session(None)
+    for name, days, people in (("Ada", 4, 30), ("Bly", 2, 12),
+                               ("Cnut", 3, 25), ("Dane", 1, 8),
+                               ("Erle", 5, 16), ("Fen", 2, 21)):
+        s3.learn_text(f"{name.upper()} COURSE OUTCOMES.\n"
+                      f"The {name.lower()} module opens the arc.\n"
+                      f"COURSE DURATION: {days} days.\n"
+                      f"SEAT COUNT: {people} people.",
+                      source=f"#docx:{name} Course.docx", deep=False)
+    blocks3 = []
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("course", "seats", "")]}
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None: (blocks3.append(block),
+                                         "I do not know.")[1])
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s3.respond("which course has the highest SEAT COUNT?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    ends3 = [l for l in "\n".join(blocks3).split("\n") if "largest" in l]
+    assert ends3, "no extremes row for the seat-count field"
+    assert "SEAT COUNT" in ends3[0], ("the wrong field was harvested: %r"
+                                      % ends3[0])
+    assert "Ada" in ends3[0] and "30" in ends3[0], ends3[0]
+    # A NUMBER BELONGS TO THE UNIT BESIDE IT. Measured: a value reading
+    # "4 modules x half a day - about 2 days in total" ranked as FOUR
+    # days, because the largest digit in the line was taken for the
+    # value; the four counts modules. Digits are paired with the unit
+    # they stand next to, and a range keeps both of its ends.
+    s4 = Session(None)
+    vals = {"Ada": "4 modules x half a day - about 2 days in total",
+            "Bly": "3 days", "Cnut": "1 day", "Dane": "5 days"}
+    for name, v in vals.items():
+        s4.learn_text(f"{name.upper()} COURSE OUTCOMES.\n"
+                      f"The {name.lower()} module opens the arc.\n"
+                      f"DURATION: {v}.",
+                      source=f"#docx:{name} Course.docx", deep=False)
+    blocks4 = []
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("course", "duration", "")]}
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None: (blocks4.append(block),
+                                         "I do not know.")[1])
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s4.respond("which course has the longest DURATION?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    ends4 = [l for l in "\n".join(blocks4).split("\n") if "largest" in l]
+    assert ends4, "no extremes row for the qualified-value field"
+    assert "Dane" in ends4[0], ("a module count was read as days: %r"
+                                % ends4[0])
+
+
+@test("W52 an answer that names a source is stamped with that source")
+def w52():
+    """The provenance side of the corpus-wide reading. A system-written
+    row — the extremes of a field, the verdict of a comparison — belongs
+    to no single document, so it carries no origin; and when the answer
+    rests on THAT row, the mark fell back to whichever seat happened to
+    be first, stamping a true sentence about one course with another
+    course's name. A stamp is a promise about where a claim comes from,
+    so it follows the claim: when the answer names a source the block
+    holds, that source is the mark. The jury already reads claims this
+    way (a claim that names a source is judged by that source alone);
+    the mark now reads them the same."""
+    from lmm.session import Session
+    s = Session(None)
+    # the shape the corpus produced: the only line naming the winner is
+    # the system's own row, and the seats around it belong to others
+    proof = ["DURATION \u2014 largest: Beta Course: 5 days "
+             "\u00b7 smallest: Alpha Course: 1 day",
+             "Gamma Course \u2014 DURATION: 2 days.",
+             "Alpha Course \u2014 DURATION: 1 day."]
+    origins = ["", "#docx:Gamma Course.docx", "#docx:Alpha Course.docx"]
+    s.evidence.add("Beta Course runs five days.", "#docx:Beta Course.docx")
+    mark = s._load_bearing("The longest is Beta Course at 5 days.",
+                           proof, origins)
+    assert mark == "#docx:Beta Course.docx", mark
+    # a claim naming nothing keeps the old reading: the best-covered line
+    mark2 = s._load_bearing("It runs for two days.", proof, origins)
+    assert mark2 == "#docx:Gamma Course.docx", mark2
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.

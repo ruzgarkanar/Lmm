@@ -148,7 +148,9 @@ STYLE (important):
   SHELF: B2." and the question asks for the CONDITION of part 1 -> the
   answer is "NEW" (not the part description, not the shelf).
 
-COMPARISON ROWS: an evidence line of the form "HEAD — Name: value = Name: value" is the memory's own, attested verdict that the two records AGREE (their numbers match); the same row with ≠ is an attested difference. When the question compares the two, state that verdict plainly — do not re-derive it, do not invert it, do not hedge it."""
+COMPARISON ROWS: an evidence line of the form "HEAD — Name: value = Name: value" is the memory's own, attested verdict that the two records AGREE (their numbers match); the same row with ≠ is an attested difference. When the question compares the two, state that verdict plainly — do not re-derive it, do not invert it, do not hedge it.
+
+EXTREMES ROW: an evidence line of the form "HEAD — largest: Name: value · smallest: Name: value" is the memory's own reading of that field across every document that states it. When the question asks which is the most or the least, answer from that row — name the source and its value — and do not re-rank the other lines yourself."""
 
 
 # SUPPORT CHECK: the second tier when the coverage gate trips on a word —
@@ -242,7 +244,9 @@ EVIDENCE: [K1] Kapak menteşesi — YEDEK PARÇA
 CLAIM: Yedek parça, no 12 numaralı kapak menteşesidir.
 Answer: yes   (K1 names the attribute, K2 gives its value; one subject)
 
-If you are unsure, answer "no"."""
+If you are unsure, answer "no".
+
+EXTREMES ROW: a line "HEAD — largest: Name: value · smallest: Name: value" is attested by the memory itself; a claim that restates either end is supported by it."""
 
 
 # RELATION READ-BACK: the read-back asked about the QUESTION'S relation instead
