@@ -2297,19 +2297,33 @@ class Session:
         graded.sort(key=lambda e: (-e[1], -e[0], e[2]))
         self._refused = set()
         for _score, _target, _rank, raw in graded:
-            if proof and not self._read_back(raw, proof, block,
-                                             question=question):
-                continue
-            # THE RELATION MUST BE THE ASKED ONE. Every gate up to here judges
-            # the answer's own claim, and a claim built out of true material can
-            # answer a question nobody asked — the last route to a confident
-            # wrong answer. See `_relation_held`. Refusal is remembered so the
-            # fallback below cannot speak it after all.
-            if proof and not self._relation_held(question, raw, proof, block):
+            # THE TWO JUDGMENTS OF A CANDIDATE ARE ASKED SIDE BY SIDE.
+            # The read-back asks whether the evidence SAYS this; the
+            # relation check asks whether it answers what was ASKED (see
+            # `_relation_held`: a claim built out of true material can
+            # answer a question nobody asked — the last route to a
+            # confident wrong answer). Neither reads the other's verdict,
+            # so they travel together and the candidate is admitted only
+            # if BOTH hold. Refusal is remembered so the fallback below
+            # cannot speak it after all.
+            if proof and not self._judge(question, raw, proof, block):
                 self._refused.add(fold(raw))
                 continue
             return raw, tried
         return None, tried
+
+    def _judge(self, question, raw, proof, block):
+        """Both judgments of one candidate, asked together where the
+        backend allows: does the evidence SAY this (`_read_back`), and
+        does it answer what was ASKED (`_relation_held`). Independent
+        readings, one verdict — admitted only if both hold. The
+        occasional cost is one relation call for a candidate the
+        read-back would have refused; the gain is an engine round-trip
+        off every answered turn."""
+        jobs = (lambda: self._read_back(raw, proof, block,
+                                        question=question),
+                lambda: self._relation_held(question, raw, proof, block))
+        return all(runtime.parallel_map(lambda f: f(), jobs))
 
     def _relation_held(self, question, raw, proof, block):
         """Does the evidence carry THE RELATION THE QUESTION ASKS FOR.

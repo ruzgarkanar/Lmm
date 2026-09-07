@@ -4832,6 +4832,63 @@ def w48():
     assert not inflect.same_stem("time", "times")
 
 
+@test("W49 the two judgments of a candidate are asked side by side")
+def w49():
+    """The last sequential pair on the answering path: the read-back
+    asks whether the evidence SAYS this, the relation check asks
+    whether it answers what was ASKED, and one waited for the other
+    though neither reads the other's verdict. They are independent
+    judgments of the same candidate, so they go to the engine together
+    where the backend allows — and a candidate is admitted only if BOTH
+    still hold, exactly as before. The pattern is the verifier's own
+    (runtime.parallel_map): the occasional cost is one relation call for
+    a candidate the read-back would have refused; the gain is a whole
+    engine round-trip off every answered turn."""
+    import os, threading, time
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The trust walk closes the morning arc.",
+                 source="#docx:Alpha.docx", deep=False)
+    lock = threading.Lock()
+    state = {"read": 0, "rel": 0, "overlap": False}
+    def busy(kind, result):
+        with lock:
+            state[kind] += 1
+            if state["read"] and state["rel"]:
+                state["overlap"] = True      # the two KINDS in flight at once
+        time.sleep(0.12)
+        with lock:
+            state[kind] -= 1
+        return result
+    real = (generate.supported, generate.answers_asked)
+    generate.supported = lambda raw, view: busy("read", True)
+    generate.answers_asked = lambda q, a, view: busy("rel", True)
+    old = os.environ.get("LMM_BACKEND")
+    try:
+        os.environ["LMM_BACKEND"] = "azure"
+        proof = ["Alpha \u2014 the trust walk closes the morning arc"]
+        ok = s._judge("what closes the arc?", "The trust walk closes it.",
+                      proof, "\n".join(proof))
+    finally:
+        generate.supported, generate.answers_asked = real
+        if old is None:
+            os.environ.pop("LMM_BACKEND", None)
+        else:
+            os.environ["LMM_BACKEND"] = old
+    assert ok is True
+    assert state["overlap"], "the two judgments still queue: %r" % state
+    # ...and a refusal from either one still refuses
+    generate.supported = lambda raw, view: True
+    generate.answers_asked = lambda q, a, view: False
+    try:
+        bad = s._judge("what closes the arc?", "The trust walk closes it.",
+                       proof, "\n".join(proof))
+    finally:
+        generate.supported, generate.answers_asked = real
+    assert bad is False
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
