@@ -2433,8 +2433,14 @@ class Session:
             if h is None:
                 continue
             fieldish = len(head_sources.get(h, ())) >= 2
+            # RANKING READS KINSHIP, GATES READ same_stem. The rider's
+            # "did the question ask about this field" is an ORDER, not a
+            # licence: with the strict rule a four-letter root and its
+            # inflection are strangers ("sürede" vs "SÜRESİ"), and in a
+            # short-rooted language the rider ranked by nothing at all.
             asked = sum(1 for k in h
-                        if any(inflect.same_stem(k, w) for w in qw))
+                        if any(inflect.same_stem(k, w) or inflect.kin(k, w)
+                               for w in qw))
             sheet.append((-int(fieldish), -asked, sid, text))
         return [(sid, text) for _f, _a, sid, text in sorted(sheet)[:cap]]
 
