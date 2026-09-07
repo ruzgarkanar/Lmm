@@ -4711,6 +4711,55 @@ def w45():
                                    % len(alpha_lines))
 
 
+@test("W46 in a comparison, two sources saying the same thing say it twice")
+def w46():
+    """W39's lesson, repeating one layer up — and it is the comparison
+    reading's own worst case. Sibling documents share a template, so two
+    courses of equal length write the SAME record line, word for word
+    ("DURATION: one day."). The layout gathered both and then dropped the
+    second as a duplicate — a plain `line not in comp` — so the block
+    held one duration where the question asked about two, no field pair
+    could be found, and the comparison row that states the verdict was
+    never written. Measured on the field set: seven of fifteen
+    comparisons ask about EQUAL values, which is exactly the case this
+    silences. In an assembly that contrasts sources, sameness is the
+    ANSWER: identity is per (line, source), never per line."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    for name, tag in (("Alpha Course", "ravine"), ("Beta Course", "ridge")):
+        s.learn_text(f"{name.upper()} OUTCOMES.\n"
+                     f"The {tag} module opens the arc.\n"
+                     "DURATION: 1 day.",
+                     source=f"#docx:{name}.docx", deep=False)
+    blocks = []
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("alpha course", "duration", "")]}
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+        blocks.append(block)
+        return "I do not know."
+    generate.answer = spy_answer
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s.respond("do Alpha Course and Beta Course run the same length?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    joined = "\n".join(blocks)
+    alpha = [l for l in joined.split("\n")
+             if "Alpha Course" in l and "DURATION" in l]
+    beta = [l for l in joined.split("\n")
+            if "Beta Course" in l and "DURATION" in l]
+    assert alpha, "the first source's record line is missing"
+    assert beta, "the second source's identical record line was deduped away"
+    eq = [l for l in joined.split("\n") if " = " in l and "DURATION" in l]
+    assert eq, "no equality row for two identical durations"
+
+
 @test("X5 an expansion written in another language never reaches the index")
 def x5():
     """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.

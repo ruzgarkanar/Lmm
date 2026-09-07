@@ -1845,7 +1845,18 @@ class Session:
             for src in sorted(named_two, key=evidence._source_name):
                 lines, origins2 = self._gather_source(src, question, share)
                 for line, origin in zip(lines, origins2):
-                    if line not in comp:
+                    # IN A COMPARISON, TWO SOURCES SAYING THE SAME THING
+                    # SAY IT TWICE — W39's rule, one layer up. Sibling
+                    # documents share a template, so two courses of equal
+                    # length write the same record line word for word;
+                    # deduping by TEXT dropped the second, the block held
+                    # one value where the question asked about two, and
+                    # the verdict row could never be written. Measured:
+                    # seven of fifteen field comparisons ask about EQUAL
+                    # values — exactly the case this silenced. Where
+                    # sources are contrasted, sameness is the answer, and
+                    # identity is per (line, source).
+                    if (line, origin) not in zip(comp, comp_origins):
                         comp.append(line)
                         comp_origins.append(origin)
             # THE COMPARISON VERDICT IS WRITTEN INTO THE EVIDENCE. Laying
