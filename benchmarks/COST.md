@@ -13,6 +13,63 @@ sh benchmarks/cost_all.sh          # 3 sides x 2 languages x 3 repeats
 python3.11 benchmarks/cost_report.py > benchmarks/COST.md
 ```
 
+## 0. What a turn costs today, and the three cuts that were considered
+
+Sections 1–6 are the reproducible fictional corpora at commit `7ec9851`.
+This section is a later re-measurement (2026-09-09) on a 62-document
+customer corpus that cannot be published, so the numbers here are
+directional rather than reproducible — kept because the SHAPE is what
+matters, and because two of the three optimizations it suggested turned
+out to be wrong.
+
+Per question, measured with the same meter, after fixing a lie in the
+meter itself: an LMM function it did not know about fell through to the
+RAG baseline's bucket, so every call added since the report was written
+had been reported as an "answer" call.
+
+| | calls/q | prompt tok/q | wall/q |
+|---|---|---|---|
+| factual, before | 12.0 | 18,800 | 10.3 s |
+| factual, after the speculation cut | 9.0 | 16,300 | 7.7 s |
+| traps, before | 12.0 | 13,700 | 16.4 s |
+| traps, after | 8.0 | 10,400 | 12.7 s |
+
+**Cut 1 — a wager nobody can win (kept).** Every question paid for a
+full chat completion that was thrown away. The speculation is sound in a
+consultation, where the router's verdict and the chat reply are wanted at
+the same instant; `ask()` is not a conversation and inherited it only
+because it passes `teach=False`. Same for the delivery bridge, which
+offers a composed catalogue when a consultation cannot answer: the
+question door has `compose()` for that. Quality across three runs of the
+73-question set was unchanged in all four categories, and the one
+comparison point the medians moved by was checked rather than assumed —
+the bridge composed in NONE of the fifteen comparison questions.
+
+**Cut 2 — fewer candidates (rejected by measurement).** Three candidates
+are generated per question, one per evidence subset, and they are the
+largest single line in the bill. If the widest subset usually won, the
+other two could be generated only on failure. Over fifteen questions the
+winner was subset 1 five times, subset 2 six times, subset 3 twice. The
+ladder earns its keep; cutting it would buy tokens with answers.
+
+**Cut 3 — refusing before generating (rejected by measurement).** A trap
+costs eight calls to say "I do not know". The block is already in hand,
+so a local reading — does any evidence line account for more than half of
+the question — could refuse without generating, at no engine cost. On
+factual questions that reading runs 0.60–0.92 and on traps 0.00–0.50: a
+clean separation, and the same majority boundary this codebase uses
+elsewhere. But the frontier questions — the ones asked in words the
+documents do not use — run 0.40, 0.43, 0.50, and seven of those eight are
+currently answered correctly. The cut would have paid for four calls on
+traps with three frontier answers. Not taken.
+
+**Prompt caching is already doing the arithmetic.** 66% of prompt tokens
+come back marked `cached_tokens` by the server, so the raw token count
+above overstates the bill by roughly a third: the static system prompts
+and the shared block prefix across a question's calls are cached after
+the first. Nothing was done to earn this; it is recorded so that nobody
+optimizes for it twice.
+
 ## 1. Ingestion cost (paid once per document)
 
 **EN corpus** — 1,642 characters
