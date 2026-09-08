@@ -3323,7 +3323,38 @@ def w13():
     assert "SEATS: 12" in mat, mat[-400:]
 
 
+
+def engine_free(fn):
+    """Run a test with the turn's small helpers answered locally.
+
+    THE SUITE'S OWN CLAIM IS THAT IT NEEDS NO MODEL AND NO NETWORK — CI
+    runs it on five Pythons with nothing installed — and three
+    consultation tests had been quietly breaking that since 0.3.2,
+    unnoticed because a developer's shell always has an engine
+    configured. A conversational turn asks three small questions on its
+    way (is this about you, does this ask for material, re-read what was
+    said) and each reaches for the engine. Where a test is about ROUTING,
+    those are scenery, and scenery answers here.
+    """
+    def ran():
+        from lmm import extract, generate
+        saved = (generate.is_identity_question, generate.wants_material,
+                 extract.reextract)
+        generate.is_identity_question = lambda message: False
+        generate.wants_material = lambda message: False
+        extract.reextract = lambda sentence: []
+        try:
+            return fn()
+        finally:
+            (generate.is_identity_question, generate.wants_material,
+             extract.reextract) = saved
+    ran.__name__ = fn.__name__
+    ran.__doc__ = fn.__doc__
+    return ran
+
+
 @test("W14 in a no-teach conversation, a statement is context, not a query")
+@engine_free
 def w14():
     """Measured, live: 'I am in banking, my team is ten people' — the user
     SHARING context — was classified WRITE (correctly), skipped the write
@@ -3656,6 +3687,7 @@ def w20():
 
 
 @test("W21 a consultation turn speculates: the voice warms up while the router reads")
+@engine_free
 def w21():
     """The chain's floor is its depth, not its width: classify, THEN speak
     — two calls in single file, on every turn, forever. But on the
@@ -3858,6 +3890,7 @@ def w24():
 
 
 @test("W25 in a consultation, the conversation is the fallback, not the shrug")
+@engine_free
 def w25():
     """Measured, live, with the wager's receipts in hand: "I am the HR
     manager at a bank, researching training" was read as a QUESTION, the
@@ -5000,6 +5033,7 @@ def w54():
 
 
 @test("W55 over HTTP, every user's memory is their own")
+@engine_free
 def w55():
     """A memory layer becomes a product the moment a second person asks
     it something, and the first thing a second person can break is the
@@ -5031,17 +5065,30 @@ def w55():
         except urllib.error.HTTPError as e:
             return e.code, json.loads(e.read().decode())
 
-    real = (generate.answer, generate.refusal, generate.offer_research)
+    # Engine-free like the rest of the suite: the gates are held open
+    # because the subject is one user's documents staying out of another
+    # user's answer, and learning goes in shallow because the deep read
+    # asks the engine.
+    from lmm.session import Session
+    real_gates = (Session._read_back, Session._relation_held)
+    Session._read_back = lambda self, raw, proof, block, question="": True
+    Session._relation_held = lambda self, q, raw, proof, block: True
+    from lmm import extract
+    real = (generate.answer, generate.refusal, generate.offer_research,
+            extract.extract)
+    # The router is not the subject here either: these are questions.
+    extract.extract = lambda message: {"kind": extract.ASK,
+                                       "triples": [("contract", "worth", "")]}
     generate.answer = (lambda q, block, warmth=0.2, persona="",
                        max_tokens=None, **kw: "[" + block + "]")
     generate.refusal = (lambda message, persona="", warmth=0.3,
                         max_tokens=None: "I do not have that.")
     generate.offer_research = lambda subject, question: ""
     try:
-        call("/learn", {"user": "ada", "text":
+        call("/learn", {"user": "ada", "deep": False, "text":
                         "The Redwood contract is worth 40000 euro.",
                         "source": "#doc:Redwood.txt"})
-        call("/learn", {"user": "bo", "text":
+        call("/learn", {"user": "bo", "deep": False, "text":
                         "The Fernbank contract is worth 90000 euro.",
                         "source": "#doc:Fernbank.txt"})
         code, bo = call("/ask", {"user": "bo",
@@ -5064,12 +5111,15 @@ def w55():
         code, bad = call("/ask", {"user": "", "question": "anything?"})
         assert code == 400, (code, bad)
     finally:
-        (generate.answer, generate.refusal, generate.offer_research) = real
+        (generate.answer, generate.refusal, generate.offer_research,
+         extract.extract) = real
+        (Session._read_back, Session._relation_held) = real_gates
         httpd.shutdown()
 
 
 
 @test("W56 crossing into a chain, the audit crosses with it")
+@engine_free
 def w56():
     """The adapter is where a verified memory quietly becomes a vector
     store. A retriever hands over passages and the caller's own model
@@ -5086,7 +5136,7 @@ def w56():
     from lmm.api import Memory
     m = Memory(None)
     m.learn("The Redwood contract is worth 40000 euro.",
-            source="#doc:Redwood.txt")
+            source="#doc:Redwood.txt", deep=False)
     docs = bridge.passages(m, "what is the Redwood contract worth?")
     assert docs, "the retriever handed over nothing"
     assert all(hasattr(d, "page_content") and hasattr(d, "metadata")
@@ -5103,7 +5153,11 @@ def w56():
     real_gates = (Session._read_back, Session._relation_held)
     Session._read_back = lambda self, raw, proof, block, question="": True
     Session._relation_held = lambda self, q, raw, proof, block: True
-    real = (generate.answer, generate.refusal, generate.offer_research)
+    from lmm import extract
+    real = (generate.answer, generate.refusal, generate.offer_research,
+            extract.extract)
+    extract.extract = lambda message: {"kind": extract.ASK,
+                                       "triples": [("contract", "worth", "")]}
     generate.answer = (lambda q, block, warmth=0.2, persona="",
                        max_tokens=None, **kw: "The Redwood contract is worth "
                        "40000 euro.")
@@ -5124,7 +5178,8 @@ def w56():
         assert "40000" not in silence and "Fernbank" not in silence.replace(
             "Fernbank", "", 1), silence
     finally:
-        (generate.answer, generate.refusal, generate.offer_research) = real
+        (generate.answer, generate.refusal, generate.offer_research,
+         extract.extract) = real
         (Session._read_back, Session._relation_held) = real_gates
 
 
@@ -5406,6 +5461,53 @@ def w61():
         + out)
     assert "Beta" not in out, out
 
+
+
+
+@test("W62 a missing engine says which engine is missing")
+def w62():
+    """The first thing a new reader meets, and until now it was a stack
+    trace about somebody else's library. `pip install
+    living-memory-model` pulls in nothing — that is the design claim — so
+    the very first `learn()` on a fresh machine reaches the default local
+    engine, fails to import torch, and the reader is told
+    "ModuleNotFoundError: No module named 'torch'". Nothing in that
+    sentence says an engine was needed, that there are four to choose
+    from, or that the cheapest is one environment variable away.
+
+    The reader is not missing torch. The reader is missing an ENGINE, and
+    the error says so — with the choices, and with the name to type after
+    `pip install`, which is the DISTRIBUTION name: telling someone to
+    install "lmm[local]" sends them to a different project."""
+    import builtins
+    from lmm import runtime
+    from lmm.tables import DIST
+    real_import = builtins.__import__
+
+    def no_torch(name, *a, **kw):
+        if name == "torch":
+            raise ImportError("No module named 'torch'")
+        return real_import(name, *a, **kw)
+
+    was = os.environ.pop("LMM_BACKEND", None)
+    builtins.__import__ = no_torch
+    try:
+        runtime.generate("hello", max_tokens=4)
+    except ImportError as said:
+        text = str(said)
+        assert "LMM_BACKEND" in text, text
+        assert "openai" in text and "azure" in text, text
+        assert ("%s[local]" % DIST) in text, text
+        assert "lmm[local]" not in text, text
+    except Exception as other:                              # noqa: BLE001
+        raise AssertionError("a missing engine raised %s: %s"
+                             % (type(other).__name__, other))
+    else:
+        raise AssertionError("a missing engine raised nothing at all")
+    finally:
+        builtins.__import__ = real_import
+        if was is not None:
+            os.environ["LMM_BACKEND"] = was
 
 
 @test("W50 a field question that names no source reads that field across the corpus")

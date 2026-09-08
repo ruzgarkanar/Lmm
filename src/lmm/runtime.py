@@ -201,7 +201,39 @@ def generate(messages, max_tokens=256, temperature=0.7, system=None):
         from . import runtime_azure
         return runtime_azure.generate(messages, max_tokens=max_tokens,
                                       temperature=temperature, system=system)
-    import torch
+    # A MISSING ENGINE SAYS WHICH ENGINE IS MISSING. The package installs
+    # with no dependencies — that is the design claim — so a first run on
+    # a fresh machine reaches the default local engine and, until this,
+    # told the reader "No module named 'torch'". Nothing in that sentence
+    # says an engine was needed, that there are four to choose from, or
+    # that the cheapest is one environment variable away. The reader is
+    # not missing torch; the reader is missing an ENGINE. Same manner as
+    # the optional readers ("lmm[pdf]"), applied to the one import that
+    # every first run hits.
+    try:
+        import torch                                        # noqa: F401
+    except ImportError as missing:
+        # THE NAME ON PyPI IS NOT THE NAME IN THE IMPORT, and it is written
+        # once — the optional readers already keep it, and a name written
+        # in two places is eventually two different names. Telling a
+        # reader to `pip install lmm[local]` would send them to somebody
+        # else's project.
+        from .tables import DIST as dist
+        raise ImportError(
+            "LMM has no engine to speak with. Choose one:\n"
+            "  LMM_BACKEND=openai  — any OpenAI-compatible endpoint "
+            "(OpenAI, OpenRouter, Groq, vLLM, Ollama): set OPENAI_API_KEY "
+            "and OPENAI_BASE_URL\n"
+            "  LMM_BACKEND=azure   — Azure OpenAI: set "
+            "AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, "
+            "AZURE_OPENAI_API_VERSION, AZURE_OPENAI_DEPLOYMENT\n"
+            f"  LMM_BACKEND=gguf    — llama.cpp on your own machine: "
+            f"pip install '{dist}[gguf]', set LMM_GGUF to the model file\n"
+            f"  (unset)             — a local transformers model: "
+            f"pip install '{dist}[local]'\n"
+            "The graph half needs none of these: learn(..., deep=False) "
+            "and where() run with no engine at all."
+        ) from missing
     _load()
     if isinstance(messages, str):
         messages = [{"role": "user", "content": messages}]
