@@ -464,6 +464,53 @@ m = Memory("mind.lmm",
   voice surfaces. Unset, every surface keeps its measured default. The
   classifiers and the gate keep their pinned settings regardless.
 
+### Serving it to more than one person
+
+A memory that lives in one process is a library. `lmm.serve` is the same
+three verbs over HTTP, with one memory per user:
+
+```bash
+python -m lmm.serve --root ./stores --port 8000     # localhost by default
+curl -s localhost:8000/learn -d '{"user":"ada","text":"Ada leads R&D."}'
+curl -s localhost:8000/ask   -d '{"user":"ada","question":"who leads R&D?"}'
+# {"answer": "...", "abstained": false, "sources": ["#doc:team.txt"], ...}
+```
+
+It is a transport, not a second brain: no gate, no rephrasing, no fallback
+text is added, so the abstention and the source stamps cross the wire
+intact and an HTTP caller can verify what an in-process caller can. Every
+user's store is chosen by their id and nothing else, no route reads across
+users, and an id that could climb a path is refused before it becomes a
+filename. Each memory holds its own lock — one writer at a time per user,
+different users in parallel. Set `LMM_TOKEN` to require a bearer token.
+
+TypeScript callers get the same object rather than a bare string
+([`sdk/typescript`](sdk/typescript), no dependencies):
+
+```ts
+const m = new LMM({ base: "http://localhost:8000", user: "ada" });
+const a = await m.ask("who leads R&D?");
+if (a.abstained) console.log("memory does not hold this");
+else console.log(a.answer, a.sources);
+```
+
+### Inside a LangChain application
+
+```python
+from lmm.adapters.langchain import retriever, tool
+
+chain_retriever = retriever(m)    # passages, each stamped with its document
+agent_tool = tool(m)              # an AUDITED answer, with its sources
+```
+
+The retriever is ordinary retrieval — the gate is not in play, and what
+the caller's own model then says about those passages carries the caller's
+own guarantees. The tool is the one worth having: the agent receives the
+answer that passed the gate, and receives the refusal *as itself*, because
+an agent handed an empty string writes its own answer over the silence.
+LangChain is not a dependency; without `langchain_core` installed the same
+calls return duck-typed equivalents.
+
 ### A conversation that may not teach
 
 `m.session.respond(msg, teach=False)` is the consultation surface — a

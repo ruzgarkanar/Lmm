@@ -4,6 +4,85 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] — 2026-09-08
+
+The release where the memory leaves the process. A question asked in
+other words now reaches the documents' own vocabulary, a document that
+argues with itself says so, and the same three verbs are available over
+HTTP, in LangChain and in TypeScript — each with the audit intact.
+
+Measured, three runs, medians. On a corpus of English hardware
+specifications this system had never seen, with no adaptation: frontier
+0/3 → 2/3, factual 8/8, comparisons 4/4, traps 4/4. On the 73-question
+Turkish field set: frontier 5/8 → 7/8, factual 38/40, traps 10/10,
+comparisons 12/15. NIST 11/13 and EN 17/17 unchanged; 142 invariants.
+
+### Added
+
+- **The same three verbs over HTTP, one memory per user** (`lmm.serve`).
+  A memory that lives in one process is a library; it becomes a product
+  the moment a second person asks it something. Every user's store is
+  chosen by their id and nothing else, no route reads across users, an
+  id that could climb a path is refused before it becomes a filename,
+  and each memory holds its own lock so different users answer in
+  parallel. It is a transport, not a second brain: the abstention and
+  the source stamps cross the wire intact. Localhost by default;
+  `LMM_TOKEN` adds a bearer check. Zero dependencies.
+- **LangChain adapters** (`lmm.adapters.langchain`). A retriever whose
+  passages carry their document stamps, and an agent tool that returns
+  the answer that was AUDITED — with its sources, and with the refusal
+  as itself, because an agent handed an empty string writes its own
+  answer over the silence. LangChain is not a dependency: without
+  `langchain_core` the same calls return duck-typed equivalents.
+- **A TypeScript client** (`sdk/typescript`). `ask` resolves to the same
+  four fields a Python caller receives; a client returning a bare string
+  would discard the only property that separates this from a chat
+  completion. No dependencies. Its wire test starts the real Python
+  server and checks across the two languages that what one user teaches,
+  another cannot read.
+
+### Fixed
+
+- **A refusal is spoken in the language it was asked in.** Hidden behind
+  a Turkish corpus: six English questions with no answer in the store
+  were refused in Dutch, French and Spanish — never once in English. The
+  question is now handed back as a language sample inside the
+  instruction, the rule is repeated as the last thing read before
+  writing, and the sentence is read back by the same kind of small judge
+  the gates use; on a no it is written once more. No canned phrase in
+  any language: the memory speaks in the engine's voice or it does not
+  speak. Measured 3/9 → 9/9 across four languages.
+- **The store's own vocabulary answers the question's.** Asked which
+  machine is the "priciest", every seat went to prose about value —
+  the documents write LIST PRICE. The engine is shown the field names
+  the corpus repeats and asked which one the question reaches for, so a
+  bridge can only land on vocabulary that provably exists in the store,
+  and it is asked only when the question touches no field at all. The
+  finding then steers the writer's WORDS while the facts block stays
+  byte for byte what it was — putting a synonym into the evidence would
+  assert a synonymy the store cannot attest, inside the one channel that
+  must stay attested.
+- **Naming is a property of what was asked.** Retrieval's query carries
+  the previous turn's subject so a pointer-shaped follow-up stays on
+  topic, and names were read off that query: in a corpus of siblings a
+  question naming nobody came back "naming" eight of twelve documents,
+  the comparison layout fired for eight sources, and it overwrote the
+  corpus-wide reading that had just been laid out correctly. The ride
+  still steers retrieval; it no longer confers namehood.
+- **A line may hold several records.** Ingested line by line, a
+  specification shows the record channel three fields; ingested by the
+  bulk path — how every benchmark and every customer load runs — the
+  three arrive glued into one window and a partition at the first colon
+  saw one. How a document was chunked is not supposed to change what the
+  memory can read.
+- **A source that contradicts itself is read as a contradiction.** One
+  value spoken, one hidden, and the stamp attesting both is what the
+  gate exists to prevent. Scoped by what the field corpus taught: a
+  repeated head is usually a list and sometimes a zoom, so three values
+  under one head is an enumeration, one value carried inside another is
+  the same length seen closer up, and what remains is a head stated
+  twice with two values that exclude each other.
+
 ## [0.3.2] — 2026-09-07
 
 Two identities, one relation: the release where the comparison reading

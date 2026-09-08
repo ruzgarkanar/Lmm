@@ -86,6 +86,17 @@ a dict — microseconds, no network, no key — which is why a spreadsheet loads
 in milliseconds and why the reasoning half of this system costs nothing to
 run.
 
+
+## Over HTTP, and in other runtimes
+
+`python -m lmm.serve --root ./stores` exposes `/ask`, `/learn`,
+`/compose`, `/where` and `/health`, one memory per user, with the
+abstention and the source stamps intact on the wire.
+`lmm.adapters.langchain` offers a stamped retriever and an agent tool
+that returns audited answers; `sdk/typescript` is a dependency-free
+client whose `ask` resolves to the same four fields as the Answer object
+below. See [Serving and embedding](../guides/serving.md).
+
 ## Answer object
 
 `ask(..., explain=True)` returns a string that additionally carries what the

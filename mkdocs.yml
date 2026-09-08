@@ -96,6 +96,7 @@ nav:
       - Getting started: guides/getting-started.md
       - Bring your own engine: guides/engines.md
       - Multi-document stores: guides/multi-document.md
+      - Serving and embedding: guides/serving.md
   - Reference:
       - The API surface: reference/api.md
       - Measurements: reference/measurements.md
