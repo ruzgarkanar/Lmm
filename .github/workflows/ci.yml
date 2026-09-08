@@ -49,9 +49,16 @@ jobs:
           pip install dist/*.whl
       - name: Nothing came with it
         run: |
+          # THE PACKAGE IS NOT ITS OWN DEPENDENCY, and the name it goes by
+          # changed: `lmm` as a distribution was refused by PyPI, so the
+          # thing pip lists is `living-memory-model`. The filter still
+          # struck out the old name, so this check has been failing on
+          # every push since the rename — reporting the package itself as
+          # the dependency it was written to forbid. A red check nobody
+          # can act on is a check nobody reads.
           installed=$(pip list --format=freeze \
             | grep -viE '^(pip|setuptools|wheel|build|packaging|pyproject.hooks)=' \
-            | grep -v '^lmm=' || true)
+            | grep -viE '^(living-memory-model|lmm)=' || true)
           if [ -n "$installed" ]; then
             echo "the core install pulled in dependencies:"; echo "$installed"; exit 1
           fi
@@ -75,7 +82,8 @@ jobs:
           try:
               t.read_pdf('nothing.pdf')
           except ImportError as said:
-              assert 'lmm[pdf]' in str(said), said
+              from lmm.tables import DIST
+              assert f'{DIST}[pdf]' in str(said), said
               print('ok:', str(said).splitlines()[0])
           else:
               raise SystemExit('a PDF was read with no reader installed')
