@@ -573,6 +573,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Serving and embedding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -807,13 +835,89 @@
 <p>All notable changes to this project are documented here. The format follows
 <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>, and this project
 follows <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<h2 id="033-2026-09-08">[0.3.3] — 2026-09-08<a class="headerlink" href="#033-2026-09-08" title="Permanent link">&para;</a></h2>
+<p>The release where the memory leaves the process. A question asked in
+other words now reaches the documents' own vocabulary, a document that
+argues with itself says so, and the same three verbs are available over
+HTTP, in LangChain and in TypeScript — each with the audit intact.</p>
+<p>Measured, three runs, medians. On a corpus of English hardware
+specifications this system had never seen, with no adaptation: frontier
+0/3 → 2/3, factual 8/8, comparisons 4/4, traps 4/4. On the 73-question
+Turkish field set: frontier 5/8 → 7/8, factual 38/40, traps 10/10,
+comparisons 12/15. NIST 11/13 and EN 17/17 unchanged; 142 invariants.</p>
+<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The same three verbs over HTTP, one memory per user</strong> (<code>lmm.serve</code>).
+  A memory that lives in one process is a library; it becomes a product
+  the moment a second person asks it something. Every user's store is
+  chosen by their id and nothing else, no route reads across users, an
+  id that could climb a path is refused before it becomes a filename,
+  and each memory holds its own lock so different users answer in
+  parallel. It is a transport, not a second brain: the abstention and
+  the source stamps cross the wire intact. Localhost by default;
+  <code>LMM_TOKEN</code> adds a bearer check. Zero dependencies.</li>
+<li><strong>LangChain adapters</strong> (<code>lmm.adapters.langchain</code>). A retriever whose
+  passages carry their document stamps, and an agent tool that returns
+  the answer that was AUDITED — with its sources, and with the refusal
+  as itself, because an agent handed an empty string writes its own
+  answer over the silence. LangChain is not a dependency: without
+  <code>langchain_core</code> the same calls return duck-typed equivalents.</li>
+<li><strong>A TypeScript client</strong> (<code>sdk/typescript</code>). <code>ask</code> resolves to the same
+  four fields a Python caller receives; a client returning a bare string
+  would discard the only property that separates this from a chat
+  completion. No dependencies. Its wire test starts the real Python
+  server and checks across the two languages that what one user teaches,
+  another cannot read.</li>
+</ul>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>A refusal is spoken in the language it was asked in.</strong> Hidden behind
+  a Turkish corpus: six English questions with no answer in the store
+  were refused in Dutch, French and Spanish — never once in English. The
+  question is now handed back as a language sample inside the
+  instruction, the rule is repeated as the last thing read before
+  writing, and the sentence is read back by the same kind of small judge
+  the gates use; on a no it is written once more. No canned phrase in
+  any language: the memory speaks in the engine's voice or it does not
+  speak. Measured 3/9 → 9/9 across four languages.</li>
+<li><strong>The store's own vocabulary answers the question's.</strong> Asked which
+  machine is the "priciest", every seat went to prose about value —
+  the documents write LIST PRICE. The engine is shown the field names
+  the corpus repeats and asked which one the question reaches for, so a
+  bridge can only land on vocabulary that provably exists in the store,
+  and it is asked only when the question touches no field at all. The
+  finding then steers the writer's WORDS while the facts block stays
+  byte for byte what it was — putting a synonym into the evidence would
+  assert a synonymy the store cannot attest, inside the one channel that
+  must stay attested.</li>
+<li><strong>Naming is a property of what was asked.</strong> Retrieval's query carries
+  the previous turn's subject so a pointer-shaped follow-up stays on
+  topic, and names were read off that query: in a corpus of siblings a
+  question naming nobody came back "naming" eight of twelve documents,
+  the comparison layout fired for eight sources, and it overwrote the
+  corpus-wide reading that had just been laid out correctly. The ride
+  still steers retrieval; it no longer confers namehood.</li>
+<li><strong>A line may hold several records.</strong> Ingested line by line, a
+  specification shows the record channel three fields; ingested by the
+  bulk path — how every benchmark and every customer load runs — the
+  three arrive glued into one window and a partition at the first colon
+  saw one. How a document was chunked is not supposed to change what the
+  memory can read.</li>
+<li><strong>A source that contradicts itself is read as a contradiction.</strong> One
+  value spoken, one hidden, and the stamp attesting both is what the
+  gate exists to prevent. Scoped by what the field corpus taught: a
+  repeated head is usually a list and sometimes a zoom, so three values
+  under one head is an enumeration, one value carried inside another is
+  the same length seen closer up, and what remains is a head stated
+  twice with two values that exclude each other.</li>
+</ul>
 <h2 id="032-2026-09-07">[0.3.2] — 2026-09-07<a class="headerlink" href="#032-2026-09-07" title="Permanent link">&para;</a></h2>
 <p>Two identities, one relation: the release where the comparison reading
 grew up. Measured on a 73-question field set (40 factual, 15
 comparisons, 10 traps, 8 frontier), three runs, medians: comparisons
 8/15 → 13/15, factual 37/40 → 38/40, traps 10/10 throughout. NIST
 11/13 and EN 17/17 unchanged; 130 invariants.</p>
-<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>In a comparison, two sources saying the same thing say it twice.</strong>
   Sibling documents share a template, so two items of equal value write
@@ -833,7 +937,7 @@ comparisons, 10 traps, 8 frontier), three runs, medians: comparisons
   same_stem, so kinship widens what can be FOUND and nothing about what
   may be SAID.</li>
 </ul>
-<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>The comparison verdict is written into the evidence: two named
   sources answering the same field head yield one system-written row —
@@ -851,7 +955,7 @@ and a head-to-head benchmark against LangChain, LlamaIndex and Mem0 —
 with every finding, ours included, fixed architecturally or filed
 openly. Published numbers re-measured unchanged after every batch
 (NIST 11/13, EN 17/17; 124 invariants, W27-W42).</p>
-<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>One-row Word tables are fact boxes, and fact boxes are prose.</strong> The
   docx reader dropped single-row grids whole (no header row to read),
@@ -876,7 +980,7 @@ openly. Published numbers re-measured unchanged after every batch
 <li>The prior subject rides retrieval as a challenger, not a preemption —
   restoring a benchmark answer to its honest, attested path.</li>
 </ul>
-<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
+<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The comparison reading</strong>: a question naming two or more sources
   lays them side by side — per-source seats, record rows riding along,
@@ -899,7 +1003,7 @@ turn, and every fix below is architectural: no keyword, no language rule, no
 corpus-specific line anywhere. The published numbers were re-measured
 unchanged after every change batch (NIST 11/13, EN 17/17; 110 unit
 invariants, W14–W26).</p>
-<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
+<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The consultation surface.</strong> <code>respond(msg, teach=False)</code>: a statement is
   CONTEXT (routes to the chat voice; its extracted terms accumulate in the
@@ -941,7 +1045,7 @@ invariants, W14–W26).</p>
   format, not a quantity — the digit gate no longer kills the engine's own
   section numbering.</li>
 </ul>
-<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_3">Fixed<a class="headerlink" href="#fixed_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li>A context statement in a no-teach conversation no longer falls through to
   the question treatment (it used to end in a refusal wearing the
@@ -955,7 +1059,7 @@ corpus of 62 sibling documents sharing a template — a class no benchmark had
 covered — worked through question by question, with the published
 single-document numbers re-measured unchanged after every change (NIST 11/13,
 EN corpus 17/17).</p>
-<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
+<h3 id="added_4">Added<a class="headerlink" href="#added_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>Memory.compose(brief)</code> — long-form drafts from the evidence: the engine
   organises, the material speaks, and every line is re-read on the way out
@@ -983,7 +1087,7 @@ EN corpus 17/17).</p>
   not a lesson, however imperative its grammar. Teaching stays on
   <code>Session.respond</code>, deliberately.</li>
 </ul>
-<h3 id="fixed_3">Fixed<a class="headerlink" href="#fixed_3" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_4">Fixed<a class="headerlink" href="#fixed_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li>The abstention stamp is read off the evidence, not asked of a model — a
   full correct answer was being recorded as a refusal when the re-extractor
@@ -1006,7 +1110,7 @@ EN corpus 17/17).</p>
 <h2 id="010-2026-08-18"><a href="https://github.com/ruzgarkanar/lmm/releases/tag/v0.1.0">0.1.0</a> — 2026-08-18<a class="headerlink" href="#010-2026-08-18" title="Permanent link">&para;</a></h2>
 <p>First public release. The layer had been working for some time; this release is
 the work of making it installable, readable and lawful to publish.</p>
-<h3 id="added_4">Added<a class="headerlink" href="#added_4" title="Permanent link">&para;</a></h3>
+<h3 id="added_5">Added<a class="headerlink" href="#added_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>Memory</code> — one front door.</strong> <code>Memory("mind.lmm")</code>, <code>.learn(...)</code>,
   <code>.ask(...)</code>, <code>.save()</code>. <code>learn()</code> takes a file path or the text itself and
