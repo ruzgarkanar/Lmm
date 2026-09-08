@@ -5345,6 +5345,69 @@ def w60():
                                  + blocks[:400])
 
 
+
+@test("W61 a question that names one document is answered from that document")
+def w61():
+    """Found by a question set nobody wrote by hand. Asked what the
+    "Güven Veren Lider" document says under a head it does not carry, the
+    memory answered from a different document entirely and stamped the
+    answer with that other document — honestly, and uselessly. Every word
+    was attested; the reader asked about one programme and was told about
+    another. Naming a document is a scope, not a hint: a claim that rests
+    on some other source is not an answer to what was asked, and the
+    honest reply is that this document does not say.
+
+    Only the claim's LOAD-BEARING source is checked — the one the answer
+    actually rests on, which the stamp already computes. A named
+    document's answer may still be enriched by neighbours; what it may
+    not do is come entirely from them."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("ALPHA PROGRAMME OUTLINE.\nThe alpha module opens the arc.\n"
+                 "DURATION: 2 days.", source="#docx:Alpha Programme",
+                 deep=False)
+    s.learn_text("BETA PROGRAMME OUTLINE.\nThe beta module opens the arc.\n"
+                 "DURATION: 3 days.\nTRAINER: the faculty lead runs it.",
+                 source="#docx:Beta Programme", deep=False)
+    for i in range(4):
+        s.learn_text(f"GAMMA {i} OUTLINE.\nThe gamma module opens the arc.\n"
+                     f"DURATION: {i + 1} days.", source=f"#docx:Gamma {i}",
+                     deep=False)
+    said = {}
+    # The subject here is the SCOPE, not the jury: the jury is held open
+    # so that what this test measures is whether a claim resting on
+    # another document may stand, not whether a remote engine liked the
+    # sentence today.
+    real_gates = (Session._read_back, Session._relation_held)
+    Session._read_back = lambda self, raw, proof, block, question="": True
+    Session._relation_held = lambda self, q, raw, proof, block: True
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("alpha programme", "trainer", "")]}
+    # The engine answers with the one TRAINER line in the store — which
+    # belongs to Beta, not to the Alpha the question named.
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None, **kw:
+                       "TRAINER: the faculty lead runs it.")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not have that.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        said["out"] = s.respond("who is the TRAINER of the Alpha Programme?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+        (Session._read_back, Session._relation_held) = real_gates
+    out = said["out"] or ""
+    assert "faculty lead" not in out, (
+        "the named document's question was answered from another document: "
+        + out)
+    assert "Beta" not in out, out
+
+
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the

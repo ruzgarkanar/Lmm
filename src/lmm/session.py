@@ -2354,6 +2354,22 @@ class Session:
             src = (self._load_bearing(safe, proof, origins)
                    or next((s for s in self.evidence.last_sources if s),
                            "#document"))
+            # NAMING A DOCUMENT IS A SCOPE, NOT A HINT. Found by a
+            # question set nobody wrote by hand: asked what one
+            # programme says under a head it does not carry, the memory
+            # answered from a different programme and stamped the answer
+            # with that other document — honestly, and uselessly. Every
+            # word was attested; the reader asked about one thing and
+            # was told about another, which for a customer-facing memory
+            # is a wrong answer wearing a correct badge. Only the claim's
+            # LOAD-BEARING source is checked, the one the stamp already
+            # computes, so a named document's answer may still be
+            # enriched by its neighbours; what it may not do is come
+            # entirely from them.
+            asked_one = self.evidence.named_in(question)
+            if (len(asked_one) == 1 and src
+                    and src not in asked_one and src != "#document"):
+                return None
             self._mark = src
         return safe
 
