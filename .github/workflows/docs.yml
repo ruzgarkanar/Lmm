@@ -1,0 +1,46 @@
+# THE SITE IS THE README'S LONGER HALF, AND IT WENT STALE. Publishing was a
+# command someone had to remember (`mkdocs gh-deploy`) after a release, so
+# the sources for 0.3.3 sat in the repository while the site still served
+# 0.3.2 — a page describing doors that were already shipped, and nobody
+# could tell from the repository alone. A deployment that depends on memory
+# is a deployment that will be skipped; this one follows main.
+name: docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/site/**
+      - mkdocs.yml
+      - README.md
+      - CHANGELOG.md
+      - .github/workflows/docs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write          # gh-pages is written by the deploy step
+
+concurrency:
+  group: docs
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: build and deploy the site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # gh-deploy writes a branch, so it needs history
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: The site's own tools (the package itself still needs none)
+        run: pip install mkdocs-material
+      - name: Build strictly — a broken link fails here, not in a reader's tab
+        run: mkdocs build --strict
+      - name: Deploy
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdocs gh-deploy --force
