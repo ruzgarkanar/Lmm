@@ -393,7 +393,8 @@ class Session:
             base["max_tokens"] = self.voice_tokens
         return base
 
-    def respond(self, message, fluent=False, teach=True, on_line=None):
+    def respond(self, message, fluent=False, teach=True, on_line=None,
+                conversational=True):
         """Answer one message + update the CONVERSATION CONTEXT. The real logic
         is in _respond; this wrapper keeps the last N turns in `history`
         (conversation continuity). `last_written`: the triples the GATE
@@ -424,6 +425,7 @@ class Session:
         self.last_from_graph = False
         self._mark = ""
         self._last_proof = []
+        self._conversational = True
         # the tally too — it is written by retrieval, and a turn that never
         # retrieves (chat, context statements) must not inherit the previous
         # turn's census, or the informed refusal would answer small talk
@@ -433,6 +435,7 @@ class Session:
         self._spec_chat = None
         self._composed = False
         self._on_line = on_line
+        self._conversational = conversational
         said = self._respond(message, fluent=fluent, teach=teach)
         if said and not self.last_abstained and not self.last_from_graph \
                 and not self._composed:
@@ -485,7 +488,14 @@ class Session:
         # this turn falls back to the paths below unchanged. A teaching
         # turn never asks the question, so the benchmarks cannot pay a
         # call for a bridge they never cross.
+        # ...AND THE DELIVERY BRIDGE IS THE CONVERSATION'S, TOO. A
+        # consultation that cannot answer but has been told enough should
+        # offer the material; a caller who asked `ask()` a question has
+        # `compose()` for that and did not ask for a catalogue. On that
+        # door the bridge would cost a classifier call on every turn and,
+        # when it fired, a full composition nobody requested.
         if (said and self.last_abstained and self._no_teach
+                and self._conversational
                 and not self.last_from_graph
                 and any(h.get("role") == "user" for h in self.history)):
             wants = False
@@ -821,7 +831,18 @@ class Session:
             # first instant; routed to chat, the main flow drains it
             # sentence by sentence — routed elsewhere, the queue is
             # discarded like any lost wager.
-            if (self._no_teach and runtime.parallel_ok()
+            # A WAGER NOBODY CAN WIN IS NOT A WAGER, IT IS A BILL. The
+            # speculation is sound where it was born: in a consultation the
+            # router's verdict and the chat reply are wanted at the same
+            # instant, so the voice warms while the classifier reads, and a
+            # turn that routes to chat finds its answer already running.
+            # `ask()` is not a conversation — its whole contract is that a
+            # question came in — and it inherited the wager only because it
+            # passes teach=False, which is what this looked at. Measured
+            # with the cost meter on the field corpus: one full chat
+            # completion, thrown away, on every factual question.
+            if (self._no_teach and self._conversational
+                    and runtime.parallel_ok()
                     and self._on_line is not None):
                 import queue as _q
                 from concurrent.futures import ThreadPoolExecutor
@@ -840,8 +861,8 @@ class Session:
                 pool.submit(_pour)
                 spec_wants = pool.submit(generate.wants_material, message)
                 pool.shutdown(wait=False)
-            elif (self._no_teach and runtime.parallel_ok()
-                    and self._on_line is None):
+            elif (self._no_teach and self._conversational
+                    and runtime.parallel_ok() and self._on_line is None):
                 from concurrent.futures import ThreadPoolExecutor
                 pool = ThreadPoolExecutor(max_workers=2)
                 spec = pool.submit(self._chat_raw, message)
@@ -851,7 +872,8 @@ class Session:
                 # catalogue's first line at second 13 of an 18-second turn
                 spec_wants = pool.submit(generate.wants_material, message)
                 pool.shutdown(wait=False)
-            elif self._no_teach and runtime.parallel_ok():
+            elif (self._no_teach and self._conversational
+                    and runtime.parallel_ok()):
                 from concurrent.futures import ThreadPoolExecutor
                 pool = ThreadPoolExecutor(max_workers=1)
                 spec_wants = pool.submit(generate.wants_material, message)

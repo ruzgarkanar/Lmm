@@ -48,6 +48,14 @@ _BUCKET = {
     "is_identity_question": "relation-check",
     "is_affirmative": "relation-check",
     "category_from": "relation-check",
+    # The turn's newer helpers. An unmapped LMM function used to fall
+    # through to the RAG baseline's bucket, so every call this file did
+    # not know about was quietly reported as an "answer" call — the
+    # measurement flattering exactly the thing it exists to expose.
+    "wants_material": "relation-check",
+    "field_for": "relation-check",          # which field does this ask about
+    "same_language": "read-back",           # the memory auditing its own tongue
+    "_spoken_to": "answer",                 # refusals and offers to research
 }
 
 
@@ -126,7 +134,14 @@ def _caller_bucket():
                 hit = name
         frame = frame.f_back
     if hit is None:
-        return ("rag", "answer")        # no LMM frame → the RAG baseline's call
+        # NO LMM FRAME AT ALL is the RAG baseline's call. An LMM frame with
+        # no bucket is OURS and unaccounted for — it gets its own name and
+        # an "other" bucket, because a cost report that silently files
+        # unknown calls under a known heading is worse than one that says
+        # it does not know.
+        if names:
+            return (names[0], "other")
+        return ("rag", "answer")
     bucket = _BUCKET[hit]
     if hit == "reextract" and "extract" not in names:
         bucket = "read-back"            # the gate re-reading a spoken sentence

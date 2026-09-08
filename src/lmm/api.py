@@ -526,7 +526,12 @@ class Memory:
                 return self._told(said) if explain else said
         # teach=False: a question API cannot write memory — an imperative
         # brief ("draft a programme...") is a request here, never a lesson
-        said = session.respond(question, fluent=fluent, teach=False) or ""
+        # THE QUESTION DOOR DOES NOT GAMBLE ON A CHAT. `ask` is asked a
+        # question by contract, so the conversational speculation — which
+        # buys latency in a consultation and is discarded here — is not
+        # placed. Measured: one full chat completion per question.
+        said = session.respond(question, fluent=fluent, teach=False,
+                               conversational=False) or ""
         # WHICH TURNS MAY BE KEPT, and it is the narrow set. A turn that WROTE
         # is not a repeat of itself — asking it again re-enters the gate. A
         # turn that left a research offer outstanding means "shall I?", and

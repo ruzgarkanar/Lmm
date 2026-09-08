@@ -5510,6 +5510,84 @@ def w62():
             os.environ["LMM_BACKEND"] = was
 
 
+
+@test("W63 the question API does not gamble on a chat")
+def w63():
+    """Measured with the cost meter, on the field corpus: every factual
+    question paid for a full chat completion that was then thrown away.
+
+    The wager is sound where it was born. In a consultation the router's
+    verdict and the chat reply are wanted at the same instant, so the
+    voice starts warming while the classifier reads, and a turn that
+    routes to chat has its answer already running. But `ask()` is not a
+    conversation — its entire contract is that a question came in — and
+    it inherited the wager only because it passes teach=False, which is
+    what the speculation looked at.
+
+    A wager nobody can win is not a wager, it is a bill: one call and
+    its tokens on every question, on the path benchmarks and API callers
+    use most. The conversational surface keeps it; the question door
+    does not place it."""
+    from lmm import extract, generate
+    from lmm.api import Memory
+    from lmm.session import Session
+    m = Memory(None)
+    m.learn("The Redwood contract is worth 40000 euro.",
+            source="#doc:Redwood.txt", deep=False)
+    chats = {"n": 0}
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.chat, generate.wants_material,
+            generate.is_identity_question, Session._chat_raw,
+            Session._read_back, Session._relation_held)
+    extract.extract = lambda message: {"kind": extract.ASK,
+                                       "triples": [("contract", "worth", "")]}
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None, **kw:
+                       "The Redwood contract is worth 40000 euro.")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not have that.")
+    generate.wants_material = lambda message: False
+    generate.is_identity_question = lambda message: False
+    generate.chat = (lambda message, identity_block="", warmth=0.7,
+                     history=None, persona="", max_tokens=None:
+                     chats.__setitem__("n", chats["n"] + 1) or "Hello!")
+    Session._chat_raw = (lambda self, message:
+                         chats.__setitem__("n", chats["n"] + 1) or "Hello!")
+    Session._read_back = lambda self, raw, proof, block, question="": True
+    Session._relation_held = lambda self, q, raw, proof, block: True
+    try:
+        said = m.ask("what is the Redwood contract worth?")
+        assert "40000" in str(said), said
+        assert chats["n"] == 0, (
+            "the question API paid for %d chat call(s) it threw away"
+            % chats["n"])
+        # The same reasoning, one door along: the delivery bridge — which
+        # offers a composed catalogue when a consultation cannot answer —
+        # belongs to the conversation. A caller who asked `ask()` a
+        # question has `compose()` for that, and on this door the bridge
+        # costs a classifier call on every turn and, when it fires, a
+        # composition nobody requested.
+        wanted = {"n": 0}
+        generate.wants_material = (lambda message:
+                                   wanted.__setitem__("n", wanted["n"] + 1)
+                                   or True)
+        generate.answer = (lambda q, block, warmth=0.2, persona="",
+                           max_tokens=None, **kw: "I do not know.")
+        m.ask("what is the Fernbank contract worth?")
+        m.ask("and the Kingfisher one?")
+        assert wanted["n"] == 0, (
+            "the question door asked the delivery classifier %d time(s)"
+            % wanted["n"])
+        # ...and the conversational surface keeps its wager, where the
+        # reply it pre-warms is the reply that gets spoken.
+        m.session.respond("hello there", teach=False)
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.chat, generate.wants_material,
+         generate.is_identity_question, Session._chat_raw,
+         Session._read_back, Session._relation_held) = real
+
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the
