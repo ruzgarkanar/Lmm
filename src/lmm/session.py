@@ -1959,10 +1959,22 @@ class Session:
                     ranked, units = [], {}
                     for src in sorted(per_src):
                         head_text, text = per_src[src]
-                        if len(field) >= 60:
-                            break
-                        field.append(text)
-                        field_origins.append(src)
+                        # WHAT IS SHOWN MAY BE CAPPED; WHAT IS CLAIMED MAY
+                        # NOT. A block has seats, so the rows stop at
+                        # sixty — and the extremes used to be computed
+                        # from the rows that fitted. Measured on a corpus
+                        # of a thousand: the memory answered the highest
+                        # price among the first sixty documents in
+                        # alphabetical order, stamped it, and was wrong by
+                        # two hundred dollars. Every word was attested;
+                        # only the superlative was false, and the
+                        # superlative is the part nobody can check by
+                        # reading one line. The ranking below now reads
+                        # EVERY source that carries the head, whether or
+                        # not its row is shown.
+                        if len(field) < 60:
+                            field.append(text)
+                            field_origins.append(src)
                         # A NUMBER BELONGS TO THE UNIT BESIDE IT: a value
                         # reading "4 modules x half a day — about 2 days"
                         # ranked as FOUR days when the largest digit in
@@ -2733,12 +2745,14 @@ class Session:
         # sixty documents; a titled bullet ("The source of worry: ...")
         # opens one — same colon, same shape, and only one of them is a
         # record. Field-ness is read off the store, not off any word: a
-        # head that appears in two or more SOURCES is a field.
+        # head that appears in two or more SOURCES is a field. The index
+        # is shared and built once per store (`_head_index`): this reader
+        # runs once per source, and rebuilding it here is how one question
+        # over a thousand documents came to take five minutes.
         head_sources = {}
-        for text, origin in self.evidence.sentences:
-            for head, _v in _rows_of(text):
-                head_sources.setdefault(tuple(evidence._words(head)),
-                                        set()).add(origin)
+        for head, origins in self._head_index().items():
+            head_sources.setdefault(tuple(evidence._words(head)),
+                                    set()).update(origins)
         qw = set(evidence._words(question))
         sheet, seen = [], set()
         for sid in sorted(self.evidence.by_source.get(src, ())):
@@ -2760,15 +2774,35 @@ class Session:
                               "%s: %s." % (head, value)))
         return [(sid, text) for _f, _a, sid, text in sorted(sheet)[:cap]]
 
-    def _fields(self):
-        """The record heads this corpus repeats — its own vocabulary."""
+    def _head_index(self):
+        """head -> the sources that write it, read once per store.
+
+        A FIELD IS A HEAD THE CORPUS REPEATS, so knowing what the fields
+        are means reading every sentence — and both readers that need it
+        were doing that on every call. The record rider is called once per
+        source, so on a corpus of a thousand documents the answer walked
+        twenty-five thousand sentences a thousand times and one question
+        took five minutes. The store only changes when something is
+        learned, so the index is built when the sentence count moves and
+        kept otherwise. Nothing about what is read changes; only how
+        often.
+        """
         limit_chars, _t = self.evidence._record_bounds()
         cap_chars = max(80, limit_chars // 2)
+        stamp = (len(self.evidence.sentences), cap_chars)
+        got = getattr(self, "_head_cache", None)
+        if got is not None and got[0] == stamp:
+            return got[1]
         heads = {}
         for text, origin in self.evidence.sentences:
             for head, _value in evidence.record_pairs(text, cap_chars):
                 heads.setdefault(head, set()).add(origin)
-        return {h for h, srcs in heads.items() if len(srcs) >= 2}
+        self._head_cache = (stamp, heads)
+        return heads
+
+    def _fields(self):
+        """The record heads this corpus repeats — its own vocabulary."""
+        return {h for h, srcs in self._head_index().items() if len(srcs) >= 2}
 
     def _field_bridge(self, question):
         """The field this question means, when its own words reach none.

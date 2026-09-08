@@ -5588,6 +5588,61 @@ def w63():
          Session._read_back, Session._relation_held) = real
 
 
+
+@test("W64 the extremes of a field are the corpus's, not the block's")
+def w64():
+    """Found by the first measurement above sixty documents, and it is
+    the worst kind of bug this system can have: a confident wrong answer
+    with a source stamp on it.
+
+    The field census lays one row per source and stops at sixty, because
+    a block has seats. The extremes row was then computed FROM THOSE
+    ROWS — so on a corpus of a thousand it reported the largest value
+    among the first sixty documents in alphabetical order and said it
+    was the largest of all. Measured: asked for the highest price across
+    a thousand machines, the memory answered 8,898 with a stamp, while
+    the corpus said 9,098 somewhere further down the alphabet. Nothing
+    caught it, because every word of the answer was attested; only the
+    superlative was false, and the superlative is the part nobody can
+    check by reading one line.
+
+    What is shown may be capped. What is CLAIMED may not: the extremes
+    are read over every source that carries the head, and the row is
+    written from that reading."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    # Eighty siblings, and the largest value sits at the end of the
+    # alphabet where a cap of sixty cannot see it.
+    for i in range(80):
+        name = "%s Machine %02d" % ("Zed" if i == 79 else "Alpha", i)
+        price = 9098 if i == 79 else 700 + i * 10
+        s.learn_text("%s — TECHNICAL SUMMARY.\nLIST PRICE: %d USD.\n"
+                     "The unit ships with a charger." % (name.upper(), price),
+                     source="#docx:%s" % name, deep=False)
+    blocks = []
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research, generate.field_for)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("machine", "price", "")]}
+    generate.field_for = lambda q, heads: ""
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None, **kw:
+                       blocks.append(block) or "I do not know.")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s.respond("which machine has the highest LIST PRICE?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research, generate.field_for) = real
+    rows = [l for l in "\n".join(blocks).split("\n") if "largest" in l]
+    assert rows, "no extremes row was written"
+    assert "9098" in rows[0] and "Zed" in rows[0], (
+        "the extremes were read off the capped block: %s" % rows[0])
+
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the
