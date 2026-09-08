@@ -401,24 +401,72 @@ def is_affirmative(message):
     return "YES" in out.upper()
 
 
+def same_language(question, reply):
+    """Is the reply written in the same language as the question? Output yes/no.
+    The judge the speech acts use on themselves (W53)."""
+    # Few-shot on BOTH sides of the boundary and across scripts, so "same
+    # language" is learned as a relation and not as a list of languages.
+    system = ("Decide whether the SECOND sentence is written in the SAME "
+              "language as the FIRST. Output ONLY yes/no.\n"
+              "What is the price? | I do not have that information. -> yes\n"
+              "What is the price? | Ik heb die informatie niet. -> no\n"
+              "Fiyat nedir? | Bu konuda bilgim yok. -> yes\n"
+              "Fiyat nedir? | I have no information about that. -> no\n"
+              "Quel est le prix ? | Je n'ai pas cette information. -> yes\n"
+              "Quel est le prix ? | No tengo esa información. -> no\n"
+              "Wie hoch ist der Preis? | Das weiß ich nicht. -> yes\n"
+              "Wie hoch ist der Preis? | Non lo so. -> no")
+    out = runtime.generate("%s | %s" % (question.strip(), reply.strip()),
+                           system=system, max_tokens=3, temperature=0.0)
+    return "yes" in out.strip().lower()
+
+
+def _spoken_to(message, system, persona="", warmth=0.3, max_tokens=50):
+    """Say something in the user's own language — and CHECK that we did.
+
+    A REFUSAL IS SPOKEN IN THE LANGUAGE IT WAS ASKED IN, and this had been
+    hiding behind a Turkish corpus: six English questions with no answer in
+    the store were refused in Dutch, French and Spanish, never once in
+    English. Two structural moves, no phrase in any language written by us.
+    First the question is handed back as a LANGUAGE SAMPLE inside the
+    instruction — the anchoring the composer already uses for its material —
+    and the rule is repeated as the LAST thing read before writing, because
+    the end of a prompt is where an instruction survives. That carried five
+    of six. The sixth is the reason for the second move: a memory that
+    audits every claim it speaks can audit the tongue it speaks them in, so
+    the sentence is read back by the same kind of small judge the gates use,
+    and on a no it is written once more. A second no is kept — silence is
+    worse than a sentence in the wrong language, and nothing here writes a
+    canned phrase. The memory speaks in the engine's voice, or not at all.
+    """
+    anchored = (system + "\n\nLANGUAGE SAMPLE — the user wrote this, and your "
+                "reply must be in the SAME language as this sentence:\n"
+                + message.strip() +
+                "\n\nWrite one short sentence, in the language of the sample above.")
+    said = runtime.generate(message, system=_voiced(anchored, persona),
+                            max_tokens=max_tokens, temperature=warmth)
+    if said and not same_language(message, said):
+        said = runtime.generate(message, system=_voiced(anchored, persona),
+                                max_tokens=max_tokens, temperature=warmth)
+    return said
+
+
 def offer_research(subject, message):
     """In the user's language: 'I don't know this, shall I look it up?' (ask-first)."""
-    system = (_MATCH_LANGUAGE +
-              f"You do NOT have information about '{subject}' in your memory. "
-              "Briefly say you don't know it yet and ASK whether you should look "
-              "it up. One short sentence, phrased as an offer/question. Invent "
-              "no facts.")
-    return runtime.generate(message, system=system, max_tokens=40, temperature=0.3)
+    return _spoken_to(message, _MATCH_LANGUAGE +
+                      f"You do NOT have information about '{subject}' in your "
+                      "memory. Briefly say you don't know it yet and ASK whether "
+                      "you should look it up. One short sentence, phrased as an "
+                      "offer/question. Invent no facts.", max_tokens=40)
 
 
 def refusal(message, persona="", warmth=0.3, max_tokens=None):
     """In the user's language: 'I don't have this information'. No fabrication, short."""
-    system = (_MATCH_LANGUAGE +
-              "The user asked about something that is NOT in your memory. Reply "
-              "briefly and honestly, saying you don't have that information yet. "
-              "Do NOT invent any fact. One short sentence.")
-    return runtime.generate(message, system=_voiced(system, persona),
-                            max_tokens=max_tokens or 50, temperature=warmth)
+    return _spoken_to(message, _MATCH_LANGUAGE +
+                      "The user asked about something that is NOT in your memory. "
+                      "Reply briefly and honestly, saying you don't have that "
+                      "information yet. Do NOT invent any fact. One short sentence.",
+                      persona=persona, warmth=warmth, max_tokens=max_tokens or 50)
 
 
 def confirm(learned, conflicts, message):
