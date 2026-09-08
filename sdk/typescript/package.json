@@ -1,0 +1,16 @@
+{
+  "name": "@lmm/client",
+  "version": "0.3.3",
+  "description": "TypeScript client for LMM — answers that carry their own audit",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "src", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test test/"
+  },
+  "repository": { "type": "git", "url": "https://github.com/ruzgarkanar/living-memory-model" },
+  "keywords": ["lmm", "memory", "rag", "provenance", "llm"]
+}

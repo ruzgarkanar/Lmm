@@ -4959,6 +4959,66 @@ def w55():
         httpd.shutdown()
 
 
+
+@test("W56 crossing into a chain, the audit crosses with it")
+def w56():
+    """The adapter is where a verified memory quietly becomes a vector
+    store. A retriever hands over passages and the caller's own model
+    says whatever it likes about them — that is honest, and the stamps
+    ride along so the application can show its work. The tool is the
+    door that matters: an agent must receive the ANSWER THAT WAS
+    AUDITED, with its sources, and — this is the part that breaks in
+    every naive adapter — with the abstention as itself. Hand an agent
+    an empty string where memory holds nothing and the agent writes its
+    own answer over the silence, which is precisely what this project
+    exists to refuse."""
+    from lmm import generate
+    from lmm.adapters import langchain as bridge
+    from lmm.api import Memory
+    m = Memory(None)
+    m.learn("The Redwood contract is worth 40000 euro.",
+            source="#doc:Redwood.txt")
+    docs = bridge.passages(m, "what is the Redwood contract worth?")
+    assert docs, "the retriever handed over nothing"
+    assert all(hasattr(d, "page_content") and hasattr(d, "metadata")
+               for d in docs), docs
+    assert any("Redwood.txt" in (d.metadata.get("source") or "")
+               for d in docs), [d.metadata for d in docs]
+    # THE SUBJECT HERE IS THE ADAPTER, so the engine is not in the room.
+    # Measured the hard way: with only the composer faked, the gates still
+    # called the live engine to audit the claim, and one run in thirteen
+    # failed because a network call under load refused a sentence this
+    # test was not written to judge. A test whose verdict depends on a
+    # remote engine is measuring the engine.
+    from lmm.session import Session
+    real_gates = (Session._read_back, Session._relation_held)
+    Session._read_back = lambda self, raw, proof, block, question="": True
+    Session._relation_held = lambda self, q, raw, proof, block: True
+    real = (generate.answer, generate.refusal, generate.offer_research)
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None: "The Redwood contract is worth "
+                       "40000 euro.")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not have that in memory.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        agent_tool = bridge.tool(m)
+        said = agent_tool.invoke({"question":
+                                  "what is the Redwood contract worth?"})
+        assert "40000" in said, said
+        assert "Redwood.txt" in said, ("the stamps did not cross with the "
+                                       "answer: %r" % said)
+        empty = bridge.tool(Memory(None))
+        silence = empty.invoke({"question": "what is the Fernbank worth?"})
+        assert silence.strip(), ("the abstention crossed as an empty string, "
+                                 "which an agent will write over")
+        assert "40000" not in silence and "Fernbank" not in silence.replace(
+            "Fernbank", "", 1), silence
+    finally:
+        (generate.answer, generate.refusal, generate.offer_research) = real
+        (Session._read_back, Session._relation_held) = real_gates
+
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the
