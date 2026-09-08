@@ -1789,6 +1789,26 @@ class Session:
         # read, no cap is ours: the seat weighting (log S/s zeroes a word
         # every source speaks) already decides which of the ridden words
         # matter.
+        # THE STORE'S OWN VOCABULARY ANSWERS THE QUESTION'S. Measured on
+        # a corpus this system had never seen: asked which machine is the
+        # "priciest", every seat went to prose about value, because the
+        # documents write LIST PRICE and nothing in the question shares a
+        # stem with it; the same for "RAM" against a field headed MEMORY.
+        # Retrieval is lexical by design — that is what makes it auditable
+        # — so the gap is not in the gates but in the words the search is
+        # given. The engine is NOT asked what a word means in general: it
+        # is shown the field names the corpus itself repeats and asked
+        # which one the question reaches for, so the bridge can only ever
+        # land on vocabulary that provably exists here. And it is asked
+        # only when NOTHING in the question already touches a field —
+        # a matched question pays nothing. A wrong pick costs a retrieval,
+        # never a claim: what may be said is still read off the evidence.
+        bridge = self._field_bridge(question)
+        self._bridge_field = bridge
+        if bridge:
+            question_query = f"{question} {bridge}"
+        else:
+            question_query = question
         consult = ""
         if self._no_teach and self._brief:
             consult = " ".join(self._brief)
@@ -1804,11 +1824,11 @@ class Session:
             # engine-free) and the ridden proof stands only if it covers
             # the question at least as well as the turn's own. Ties keep
             # the ride; the follow-up keeps its fix.
-            own_query = f"{question} {consult}".strip()
+            own_query = f"{question_query} {consult}".strip()
             own = self.evidence.find(own_query, most=seats)
             cov_own = (evidence.coverage(question, "\n".join(own))
                        if own else 0.0)
-            ridden_query = f"{anchor_label} {question} {consult}".strip()
+            ridden_query = f"{anchor_label} {question_query} {consult}".strip()
             ridden = self.evidence.find(ridden_query, most=seats)
             cov_ridden = (evidence.coverage(question, "\n".join(ridden))
                           if ridden else 0.0)
@@ -1820,7 +1840,7 @@ class Session:
                 proof = ridden
         else:
             proof = self.evidence.find(
-                f"{anchor_label or ''} {question} {consult}".strip(),
+                f"{anchor_label or ''} {question_query} {consult}".strip(),
                 most=seats)
         # which document each seat came from, aligned with `proof` — read off
         # the store's `last_sources`, which `find` leaves beside its result
@@ -1837,7 +1857,18 @@ class Session:
         # jury already holds every claim to the source it names. No new
         # model call; no wording read.
         laid_out = False
-        named_two = set(getattr(self.evidence, "last_named", ()) or ())
+        # NAMING IS A PROPERTY OF WHAT WAS ASKED — and this is where it
+        # cost the most. `find` reads names off the query it is given, and
+        # that query carries the previous turn's subject (to keep
+        # retrieval on topic) and the bridged field head. In a corpus of
+        # siblings the effect is grotesque: a question naming nobody came
+        # back "naming" eight of twelve documents, the comparison layout
+        # then fired for eight sources — a comparison of eight is a census
+        # — and it overwrote the corpus-wide reading that had just been
+        # laid out correctly. Measured: three of three frontier questions
+        # abstained or answered with a false superlative, with the right
+        # rows built and thrown away one line later.
+        named_two = self.evidence.named_in(question_query)
         # A FIELD QUESTION THAT NAMES NO SOURCE READS THAT FIELD ACROSS
         # THE CORPUS. Six seats cannot hold sixty documents' values, and
         # the source cap rightly keeps any one document from taking
@@ -1850,11 +1881,31 @@ class Session:
         # and capped. The engine then ranks attested values instead of
         # guessing, and an honest tie stays visible. Local work only —
         # no model call, no wording read.
+        # NAMING IS A PROPERTY OF WHAT WAS ASKED. `find` reads names off
+        # the query it is given, and in a conversation that query carries
+        # the previous turn's subject so retrieval stays on topic when the
+        # words are a pointer. The ride must not confer namehood: measured
+        # on thirteen sibling specifications, "which workstation is the
+        # priciest" answers on its own and abstains when asked after a
+        # question about another machine — the ridden name made a
+        # corpus-wide question look like a question about one document,
+        # the reading never ran, and every price sat in the block unread.
+        # Three of three frontier questions were lost to this. The census
+        # asks the question itself; the layouts below still read the ride.
         if not named_two and len(self.evidence.by_source) > 2:
-            qw = evidence._words(question)
+            # THE BRIDGE HAS TO REACH THE READING, not only the search.
+            # Measured on the hardware corpus: "which workstation is the
+            # priciest" bridged correctly to LIST PRICE and still scored
+            # nothing, because the census picks its field by how well the
+            # QUESTION covers each head — and the question says "priciest",
+            # never "price". The seats were right and the field was never
+            # chosen. The bridged head is the question's own vocabulary
+            # restated in the corpus's words, so it belongs wherever the
+            # question's words are read for what field is meant.
+            qw = evidence._words(question_query)
             heads = {}                      # head words -> {source: row}
             for src in sorted(self.evidence.by_source):
-                for _sid, text in self._record_rows(src, question, cap=12):
+                for _sid, text in self._record_rows(src, question_query, cap=12):
                     head, _sep, val = text.partition(":")
                     if not val.strip(" ."):
                         continue
@@ -2052,6 +2103,108 @@ class Session:
                 if extra not in proof and len(proof) < seats:
                     proof.append(extra)
                     proof_origins.append(origin)
+        # A SOURCE THAT CONTRADICTS ITSELF IS READ AS A CONTRADICTION, not
+        # resolved in silence. A document that states the same field twice
+        # with different values is ordinary in a live corpus — a summary
+        # updated, a schedule not — and without this the block carries both
+        # lines, the engine speaks whichever it read, and the answer is
+        # stamped with a source that also says the opposite: one value
+        # spoken, one hidden, the stamp attesting both. That is precisely
+        # what the gate exists to prevent, and no gate downstream can catch
+        # it, because each line on its own is true.
+        #
+        # The reading is the one already earned twice: equality of records
+        # is arithmetic (the digit sets of W44), so two rows of one source
+        # under the same field head with different digits get a row that
+        # says so, in the same notation the comparison verdict writes, and
+        # the engine reads a contradiction instead of resolving one.
+        #
+        # SCOPE IS THE SAME SOURCE, deliberately. Two sources carrying
+        # different values for a head are a census, not a conflict — sixty
+        # course outlines each state their own duration — so a conflict
+        # needs identity of subject, and only inside one document is that
+        # identity given. Claiming one where it cannot be established
+        # would be a fabricated relation.
+        # AND NOT WHERE A VERDICT IS ALREADY BEING WRITTEN. Measured on the
+        # field set: with this reading also firing on the comparison and
+        # census layouts, comparisons fell 14/15 to 11/15 across three runs
+        # while nothing was gained — those blocks state their own verdict
+        # row first, and a second system row inserted above it took the
+        # seat the reader reads. A question that names two sources is
+        # asking for a comparison, not for a source's quarrel with itself.
+        eligible = (not laid_out) or len(named_two) == 1
+        clash = {}
+        for text, origin in (zip(proof, proof_origins +
+                             [""] * (len(proof) - len(proof_origins)))
+                             if eligible else ()):
+            if not origin or ":" not in text:
+                continue
+            head, _sep, val = text.partition(":")
+            hw = tuple(evidence._words(head))
+            if not hw or len(hw) > 3:
+                continue
+            # A VALUE ENDS WHERE ITS SENTENCE ENDS. Windows arrive glued
+            # ("DURATION: 2 days. The programme closes ... DURATION: 3
+            # days"), and reading to the end of the window put the whole
+            # tail — the second record included — inside the first value,
+            # so the row contradicted itself with its own other half. The
+            # cut is the full stop, and a decimal point is not one.
+            val = re.split(r"(?<!\d)\.(?!\d)", val)[0]
+            digits = frozenset(re.findall(r"\d+", val))
+            if digits:
+                clash.setdefault((origin, hw), []).append(
+                    (digits, head.strip(), val.strip().rstrip(".")))
+        for (origin, _hw), rows in sorted(
+                clash.items(), key=lambda kv: evidence._source_name(kv[0][0])):
+            if len({d for d, _h, _v in rows}) < 2:
+                continue
+            seen_val, values = set(), []
+            for _d, _h, val in rows:
+                if val not in seen_val:
+                    seen_val.add(val)
+                    values.append(val)
+            # A REPEATED HEAD IS USUALLY A LIST, AND SOMETIMES A ZOOM.
+            # Measured on the field corpus, where the first cut of this
+            # reading fired three times and was wrong twice. A document
+            # writing "4 modules x 2 full days" and, further down, "2 full
+            # days" is not disagreeing with itself; the second is the first
+            # seen closer, and one value carrying the other's digits and
+            # words is a refinement. A head that carries three or more
+            # different values in ONE document is an enumeration — a
+            # prerequisites block lists three prerequisites — and a
+            # document does not contradict itself three ways. Both are
+            # structure, not vocabulary, and what remains is a head stated
+            # twice with two values that exclude each other. Calling a list
+            # a contradiction is claiming a relation we cannot establish,
+            # which is the one thing this system does not do.
+            # ENUMERATION IS A PROPERTY OF THE DOCUMENT, NOT OF THE
+            # SEATS. Counted over the block, a list of three shows up as
+            # two whenever the third row missed a seat — and then the
+            # list reads as a quarrel between the two that got in. The
+            # count is taken over the source's own lines.
+            whole = set()
+            for sid in self.evidence.by_source.get(origin, ()):
+                line = self.evidence.sentences[sid][0]
+                if ":" not in line:
+                    continue
+                h, _s2, v2 = line.partition(":")
+                if tuple(evidence._words(h)) != _hw:
+                    continue
+                v2 = re.split(r"(?<!\d)\.(?!\d)", v2)[0].strip().rstrip(".")
+                if v2:
+                    whole.add(v2)
+            if len(whole | set(values)) > 2:
+                continue
+            folded = [evidence.fold(v) for v in values]
+            if any(a != b and b in a for a in folded for b in folded):
+                continue
+            row = (f"{rows[0][1]} \u2014 {evidence._source_name(origin)}: "
+                   + " \u2260 ".join(values))
+            if row not in proof:
+                proof.insert(0, row)
+                proof_origins.insert(0, "")
+                self.evidence.last_sources = list(proof_origins)
+
         # IN A MULTI-DOCUMENT STORE, EVERY EVIDENCE LINE OPENS WITH ITS
         # DOCUMENT'S NAME — a dateline, the way a wire story opens with its
         # city. Measured (62 sibling training outlines): asked WHICH programme
@@ -2178,8 +2331,9 @@ class Session:
             allowed = verify.allowed_of(self.memory, records)
             safe = verify.verify(self.memory,
                                  spare[0] if spare
-                                 else generate.answer(question, block,
-                                                      persona=self.persona),
+                                 else generate.answer(
+                                     question, block, persona=self.persona,
+                                     field=getattr(self, "_bridge_field", "")),
                                  allowed, self.mode, anchor="edge")
             if not safe:
                 return self._refuse(question)
@@ -2316,6 +2470,7 @@ class Session:
         # (which evidence) instead of sampling noise.
         def _say(one):
             return generate.answer(question, one, warmth=0.0,
+                                   field=getattr(self, "_bridge_field", ""),
                                    persona=self.persona)
         if workers > 1:
             from concurrent.futures import ThreadPoolExecutor  # noqa: PLC0415
@@ -2527,13 +2682,14 @@ class Session:
         limit_chars, _limit_toks = self.evidence._record_bounds()
         cap_chars = max(80, limit_chars // 2)
 
-        def _head(text):
-            if ":" not in text or len(text) > cap_chars:
-                return None
-            words = evidence._words(text.partition(":")[0])
-            if not words or len(words) > 3:
-                return None                 # a colon mid-prose is no record
-            return tuple(words)
+        # A LINE MAY HOLD SEVERAL RECORDS. Bulk ingestion glues a
+        # specification's fields into one window, and reading only the
+        # first colon made the corpus know one field where it wrote
+        # three — the same document, read differently because of how it
+        # was cut. Every record in the line is offered, each as its own
+        # row, which is also what the census and the extremes row need.
+        def _rows_of(text):
+            return evidence.record_pairs(text, cap_chars)
 
         # A FIELD IS A HEAD THE CORPUS REPEATS. "DURATION:" opens a line in
         # sixty documents; a titled bullet ("The source of worry: ...")
@@ -2542,27 +2698,70 @@ class Session:
         # head that appears in two or more SOURCES is a field.
         head_sources = {}
         for text, origin in self.evidence.sentences:
-            h = _head(text)
-            if h:
-                head_sources.setdefault(h, set()).add(origin)
+            for head, _v in _rows_of(text):
+                head_sources.setdefault(tuple(evidence._words(head)),
+                                        set()).add(origin)
         qw = set(evidence._words(question))
-        sheet = []
+        sheet, seen = [], set()
         for sid in sorted(self.evidence.by_source.get(src, ())):
-            text = self.evidence.sentences[sid][0]
-            h = _head(text)
-            if h is None:
-                continue
-            fieldish = len(head_sources.get(h, ())) >= 2
-            # RANKING READS KINSHIP, GATES READ same_stem. The rider's
-            # "did the question ask about this field" is an ORDER, not a
-            # licence: with the strict rule a four-letter root and its
-            # inflection are strangers ("sürede" vs "SÜRESİ"), and in a
-            # short-rooted language the rider ranked by nothing at all.
-            asked = sum(1 for k in h
-                        if any(inflect.same_stem(k, w) or inflect.kin(k, w)
-                               for w in qw))
-            sheet.append((-int(fieldish), -asked, sid, text))
+            for head, value in _rows_of(self.evidence.sentences[sid][0]):
+                h = tuple(evidence._words(head))
+                if not h or (h, value) in seen:
+                    continue
+                seen.add((h, value))
+                fieldish = len(head_sources.get(h, ())) >= 2
+                # RANKING READS KINSHIP, GATES READ same_stem. The rider's
+                # "did the question ask about this field" is an ORDER, not
+                # a licence: with the strict rule a four-letter root and
+                # its inflection are strangers ("sürede" vs "SÜRESİ"), and
+                # in a short-rooted language the rider ranked by nothing.
+                asked = sum(1 for k in h
+                            if any(inflect.same_stem(k, w) or inflect.kin(k, w)
+                                   for w in qw))
+                sheet.append((-int(fieldish), -asked, sid,
+                              "%s: %s." % (head, value)))
         return [(sid, text) for _f, _a, sid, text in sorted(sheet)[:cap]]
+
+    def _fields(self):
+        """The record heads this corpus repeats — its own vocabulary."""
+        limit_chars, _t = self.evidence._record_bounds()
+        cap_chars = max(80, limit_chars // 2)
+        heads = {}
+        for text, origin in self.evidence.sentences:
+            for head, _value in evidence.record_pairs(text, cap_chars):
+                heads.setdefault(head, set()).add(origin)
+        return {h for h, srcs in heads.items() if len(srcs) >= 2}
+
+    def _field_bridge(self, question):
+        """The field this question means, when its own words reach none.
+
+        Asked of the engine only when the question touches no head at
+        all — the matched case, which is nearly every case, pays nothing
+        — and answerable only from heads this store actually holds.
+        """
+        heads = self._fields()
+        if not heads:
+            return ""
+        qw = set(evidence._words(question))
+        for head in heads:
+            if any(inflect.same_stem(w, k) or inflect.kin(w, k)
+                   for k in evidence._words(head) for w in qw):
+                return ""                  # the question already reaches
+        cache = self.__dict__.setdefault("_bridged", {})
+        key = evidence.fold(question)
+        if key not in cache:
+            listing = sorted(heads)[:60]
+            try:
+                pick = generate.field_for(question, listing)
+            except Exception:                            # noqa: BLE001
+                pick = ""
+            # THE PICK MUST BE ONE OF OURS. An engine asked to copy a name
+            # sometimes writes a neighbouring one, and a head that is not
+            # in the store is a word we would be putting into the search
+            # on the engine's authority alone.
+            folded = {evidence.fold(h): h for h in listing}
+            cache[key] = folded.get(evidence.fold(pick), "")
+        return cache[key]
 
     def _named_lines(self, claim, proof, question):
         """The full proof lines of every source the CLAIM names — a source

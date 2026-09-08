@@ -127,6 +127,41 @@ def _boundaries(text):
     return "".join(out)
 
 
+def record_pairs(text, cap_chars=200):
+    """Every record a line holds: (head, value) for each HEAD: value it
+    carries, not only the first.
+
+    HOW A DOCUMENT WAS CHUNKED IS NOT SUPPOSED TO CHANGE WHAT THE MEMORY
+    CAN READ, and it did. Ingested line by line, a specification's fields
+    arrive separately and the record channel sees DISPLAY, LIST PRICE and
+    WARRANTY; ingested by the ordinary bulk path — which is how every
+    benchmark and every customer load runs — the three arrive glued into
+    one window, a partition at the first colon sees DISPLAY alone, and the
+    corpus knows one field where it wrote three. Measured: the same
+    superlative question answered from a per-line store and abstained
+    from a windowed one with every value present in both.
+
+    The reading is the record's own shape, unchanged from everywhere else
+    in this codebase: a SHORT segment whose colon is preceded by at most
+    three words. A titled sentence in prose ("The source of the
+    difficulty is this: ...") fails that test here exactly as it fails it
+    in the rider, and a dateline before the head is provenance, not part
+    of the name.
+    """
+    out = []
+    for segment in re.split(r"(?<=[.!?])\s+", text or ""):
+        segment = segment.strip()
+        if ":" not in segment or len(segment) > cap_chars:
+            continue
+        head, _sep, value = segment.partition(":")
+        head = head.rsplit("\u2014", 1)[-1].strip()
+        words = _words(head)
+        value = value.strip().rstrip(".").strip()
+        if words and len(words) <= 3 and value:
+            out.append((head, value))
+    return out
+
+
 def _source_name(source):
     """The human name inside a source stamp — '#docx:Delegation Basics.docx'
     -> 'Delegation Basics'. Format only: the tag prefix before the first ':'
@@ -977,6 +1012,51 @@ class SentenceStore:
                 tally[source] = tally.get(source, 0) + 1
         return sorted(tally.items(), key=lambda kv: (-kv[1], kv[0]))
 
+    def _called_by_bigram(self, qwords_order, names):
+        """The sources whose name stands, as a neighbouring pair, in these
+        words — the bigram half of the naming rule."""
+        q_bigrams = set(zip(qwords_order, qwords_order[1:]))
+        called = set()
+        for src, _words_of in names:
+            name_seq = _words(_source_name(src), known=self.units)
+            for pair in zip(name_seq, name_seq[1:]):
+                if any(inflect.same_stem(pair[0], qa)
+                       and inflect.same_stem(pair[1], qb)
+                       for qa, qb in q_bigrams):
+                    called.add(src)
+                    break
+        return called
+
+    def named_in(self, text):
+        """Which sources does THIS TEXT name — the same pointer-and-bigram
+        reading `find` performs, asked of one sentence on its own.
+
+        `find` reads names off the query it is given, and a query can
+        carry more than the question: in a conversation the previous
+        turn's subject rides along to keep retrieval on topic. That ride
+        must not confer NAMEHOOD. Measured on a corpus of thirteen
+        sibling specifications: asked in isolation, "which workstation is
+        the priciest" reads the field across the corpus and answers;
+        asked after a question about the Osprey, the ridden name made the
+        turn look like a question ABOUT the Osprey, the corpus-wide
+        reading never ran, and the turn abstained with every price on the
+        table. Naming is a property of what was asked.
+        """
+        if len(self.by_source) < 2:
+            return set()
+        order = _words(text, known=self.units)
+        words = set(order)
+        total = len(self.by_source)
+        names = [(src, set(_words(_source_name(src), known=self.units)))
+                 for src in self.by_source]
+        called = set()
+        for qw in words:
+            matched = [src for src, ws in names
+                       if any(inflect.same_stem(qw, w) for w in ws)]
+            if matched and len(matched) == 1 != total:
+                called.add(matched[0])
+        return called | self._called_by_bigram(order, names)
+
     def find(self, query, most=4, floor_share=0.5):
         """Sentences whose content-words intersect the query the MOST.
         Prefix-tolerant (inflection: "doluluğu"~"doluluk"). Score = number of
@@ -1060,16 +1140,8 @@ class SentenceStore:
                     for sid in self.by_source[src]:
                         if sid in scores:
                             scores[sid] += weight
-            q_bigrams = set(zip(qwords_order, qwords_order[1:]))
-            named_sources = set(unique_called)
-            for src, words in names:
-                name_seq = _words(_source_name(src), known=self.units)
-                for pair in zip(name_seq, name_seq[1:]):
-                    if any(inflect.same_stem(pair[0], qa)
-                           and inflect.same_stem(pair[1], qb)
-                           for qa, qb in q_bigrams):
-                        named_sources.add(src)
-                        break
+            named_sources = set(unique_called) | self._called_by_bigram(
+                qwords_order, names)
             self.last_named = set(named_sources)
         if not scores:
             self.last_census = []
