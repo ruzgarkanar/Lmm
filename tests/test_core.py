@@ -4890,6 +4890,75 @@ def w49():
 
 
 
+@test("W55 over HTTP, every user's memory is their own")
+def w55():
+    """A memory layer becomes a product the moment a second person asks
+    it something, and the first thing a second person can break is the
+    first person's privacy. The store is chosen by the caller's user id
+    and by nothing else, and no route reads across users — "the
+    application will pass the right path" is how a tenant's documents
+    end up in another tenant's answer.
+
+    A user id arrives from the network and becomes a filename, so it is
+    a name or it is refused: an id that can climb ("../secrets") is the
+    oldest way to read a file nobody meant to share."""
+    import json
+    import tempfile
+    import threading
+    import urllib.request
+    from lmm import generate, serve
+    root = tempfile.mkdtemp()
+    httpd = serve.serve(root=root, port=0, token="")
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = "http://127.0.0.1:%d" % httpd.server_address[1]
+
+    def call(route, payload):
+        req = urllib.request.Request(
+            base + route, data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req) as r:
+                return r.status, json.loads(r.read().decode())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read().decode())
+
+    real = (generate.answer, generate.refusal, generate.offer_research)
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None: "[" + block + "]")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not have that.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        call("/learn", {"user": "ada", "text":
+                        "The Redwood contract is worth 40000 euro.",
+                        "source": "#doc:Redwood.txt"})
+        call("/learn", {"user": "bo", "text":
+                        "The Fernbank contract is worth 90000 euro.",
+                        "source": "#doc:Fernbank.txt"})
+        code, bo = call("/ask", {"user": "bo",
+                                 "question": "what is the Redwood contract worth?"})
+        assert code == 200, bo
+        assert "40000" not in bo["answer"], (
+            "one user's document reached another user's answer: %r" % bo)
+        assert "Redwood" not in " ".join(bo["sources"]), bo
+        code, ada = call("/ask", {"user": "ada",
+                                  "question": "what is the Redwood contract worth?"})
+        assert "40000" in ada["answer"], ada
+        # The answer travels whole: abstention and stamps are part of it,
+        # or an HTTP caller cannot verify what an in-process caller can.
+        assert set(("answer", "abstained", "sources", "subject")) <= set(ada), ada
+        assert ada["sources"], "the stamps did not cross the wire"
+        # An id that can climb is not a name.
+        code, bad = call("/ask", {"user": "../../etc/passwd",
+                                  "question": "anything?"})
+        assert code == 400 and "user" in bad["error"], (code, bad)
+        code, bad = call("/ask", {"user": "", "question": "anything?"})
+        assert code == 400, (code, bad)
+    finally:
+        (generate.answer, generate.refusal, generate.offer_research) = real
+        httpd.shutdown()
+
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the
