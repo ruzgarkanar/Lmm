@@ -45,11 +45,29 @@ def _voiced(system, persona):
         else system
 
 
-def answer(question, facts_block, warmth=0.2, persona="", max_tokens=None):
+def answer(question, facts_block, warmth=0.2, persona="", max_tokens=None,
+           field=""):
     """Answer the question fluently, using only the given facts. If there is no
-    fact, the model is steered to say 'I don't know' (system prompt)."""
+    fact, the model is steered to say 'I don't know' (system prompt).
+
+    `field` is the head the corpus writes for what the question asked about
+    in other words — the bridge's finding. It steers VOCABULARY, never
+    content: nothing is added to the facts, and the gates read the facts as
+    before. Measured on a hardware corpus: asked which machine carries the
+    most RAM, the block held "MEMORY — largest: Falcon Workstation: 64 GB"
+    and the writer answered "carries the most RAM", which the jury rightly
+    refused because RAM appears nowhere in the evidence. The answer was on
+    the table and the user got nothing. Naming the field as the documents
+    name it is the difference between an attested sentence and a silence.
+    """
+    system = prompts.ANSWER_SYSTEM
+    if field:
+        system += ("\n\nTHE FACTS CALL THIS FIELD \"%s\". The question uses "
+                   "another word for it. Answer with the facts' word and the "
+                   "facts' value — your word is not attested and the answer "
+                   "will be refused." % field)
     return runtime.generate(answer_prompt(question, facts_block),
-                            system=_voiced(prompts.ANSWER_SYSTEM, persona),
+                            system=_voiced(system, persona),
                             max_tokens=max_tokens or 200, temperature=warmth)
 
 
@@ -336,6 +354,26 @@ def is_identity_question(message):
               "merhaba -> no\nnaber -> no")
     out = runtime.generate(message, system=system, max_tokens=3, temperature=0.0)
     return "yes" in out.strip().lower()
+
+
+def field_for(message, heads):
+    """Which of the documents' OWN field names does this question ask
+    about? One of them, written exactly, or NONE.
+
+    Not a synonym dictionary — a mapping onto vocabulary that provably
+    exists in the store. The engine is never asked what a word means in
+    general; it is shown the heads the corpus repeats and asked which one
+    the question is reaching for. A wrong pick costs a retrieval, never a
+    claim: the gates read the evidence, not this."""
+    listing = "\n".join(heads)
+    system = ("Below are the FIELD NAMES used in a collection of documents. "
+              "Decide which single field the question is asking about. Reply "
+              "with that field name copied EXACTLY as written, or with NONE "
+              "if no field fits. Output nothing else.\n\nFIELDS:\n"
+              + listing)
+    out = runtime.generate(message, system=system, max_tokens=16,
+                           temperature=0.0)
+    return (out or "").strip().strip('".')
 
 
 def wants_material(message):

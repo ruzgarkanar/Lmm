@@ -635,7 +635,7 @@ def g5():
     said, order = {}, []
     answers, supported = {}, [True]
 
-    def fake_answer(question, facts, warmth=0.2, persona=""):
+    def fake_answer(question, facts, warmth=0.2, persona="", **kw):
         order.append(facts)
         return answers.get(facts, "Gösterge 21.5 inç")
 
@@ -728,7 +728,7 @@ def g7():
     block = "\n".join(f"[K{i}] {t}" for i, t in enumerate(proof, 1))
     wide = {}
 
-    def answer(question, facts, warmth=0.2, persona=""):
+    def answer(question, facts, warmth=0.2, persona="", **kw):
         # the widest block answers specifically, the narrow ones generically
         return ("Morlan bir kuştur." if len(facts) == max(wide, default=0)
                 else "Morlan bir canlıdır.")
@@ -747,7 +747,7 @@ def g7():
         pair_block = "\n".join(f"[K{i}] {t}" for i, t in enumerate(pair, 1))
         replies = iter(["Torvanit bir metaldir.", "Evet, torvanit bir maddedir.",
                         "Evet, torvanit bir maddedir."])
-        generate.answer = lambda q, f, warmth=0.2, persona="": next(replies)
+        generate.answer = lambda q, f, warmth=0.2, persona="", **kw: next(replies)
         chosen, _tried = s._select("torvanit bir madde midir", [], pair, "",
                                    pair_block)
         assert chosen == "Evet, torvanit bir maddedir.", chosen
@@ -817,13 +817,13 @@ def h2():
         # must still drop it, but as a fall-through and not as a refusal.
         # verify is stubbed to its VERDICT (dropped) — this test is about what
         # the route does with that verdict, and it must need no model.
-        generate.answer = lambda q, f, warmth=0.2, persona="": "Norgul zerbalit uretir."
+        generate.answer = lambda q, f, warmth=0.2, persona="", **kw: "Norgul zerbalit uretir."
         generate.refusal = lambda q, persona="": "REFUSED"
         lmm_verify.verify = lambda *a, **k: ""
         assert s._causal_answer("norgul cogalirsa ne olur", "effects",
                                 "norgul") is None
         # a grounded sentence is still spoken by this route
-        generate.answer = lambda q, f, warmth=0.2, persona="": "norgul morlan"
+        generate.answer = lambda q, f, warmth=0.2, persona="", **kw: "norgul morlan"
         assert s._causal_answer("norgul cogalirsa ne olur", "effects",
                                 "norgul") == "norgul morlan"
     finally:
@@ -1019,7 +1019,7 @@ def h6():
         return "hazırlayan" in question.lower()
 
     try:
-        generate.answer = lambda question, facts, warmth=0.2, persona="": wrong
+        generate.answer = lambda question, facts, warmth=0.2, persona="", **kw: wrong
         generate.supported = lambda answer, view: True     # as measured
         generate.answers_asked = judge
         generate.refusal = lambda question, persona="": "REFUSED"
@@ -3104,7 +3104,7 @@ def w8():
     real_ex, real_ans = extract.extract, generate.answer
     extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
     calls = {"n": 0}
-    def fake_answer(question, block_, warmth=0.2, persona=""):
+    def fake_answer(question, block_, warmth=0.2, persona="", **kw):
         calls["n"] += 1
         if calls["n"] == 1:
             return "I do not know."         # the path refuses first
@@ -3117,7 +3117,7 @@ def w8():
         assert not s.last_abstained
         # a padded offer is refused: the engine invents a programme name
         calls["n"] = 0
-        def padded(question, block_, warmth=0.2, persona=""):
+        def padded(question, block_, warmth=0.2, persona="", **kw):
             calls["n"] += 1
             if calls["n"] == 1:
                 return "I do not know."
@@ -3181,7 +3181,7 @@ def w10():
     real_ex, real_ans = extract.extract, generate.answer
     extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
     seen = {"blocks": []}
-    def fake_answer(question, block_, warmth=0.2, persona=""):
+    def fake_answer(question, block_, warmth=0.2, persona="", **kw):
         seen["blocks"].append(block_)
         if len(seen["blocks"]) == 1:
             return "I do not know."
@@ -3219,7 +3219,7 @@ def w11():
     real_ans, real_sup = generate.answer, generate.supported
     real_ex = extract.extract
     extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
-    def spy_answer(question, block_, warmth=0.2, persona=""):
+    def spy_answer(question, block_, warmth=0.2, persona="", **kw):
         seen["answer"].append(persona)
         # the engine OBEYS the persona and fabricates — the gate must not care
         return "The trust walk costs 500 lira per person."
@@ -4230,7 +4230,7 @@ def w33():
             generate.offer_research)
     extract.extract = lambda m: {"kind": extract.ASK,
                                  "triples": [("this document", "date", "")]}
-    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None, **kw):
         blocks.append(block)
         return "I do not know."
     generate.answer = spy_answer
@@ -4390,7 +4390,7 @@ def w37():
             generate.offer_research)
     extract.extract = lambda m: {"kind": extract.ASK,
                                  "triples": [("alpha course", "duration", "")]}
-    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None, **kw):
         blocks.append(block)
         return "I do not know."
     generate.answer = spy_answer
@@ -4635,7 +4635,7 @@ def w44():
             generate.offer_research)
     extract.extract = lambda m: {"kind": extract.ASK,
                                  "triples": [("alpha course", "duration", "")]}
-    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None, **kw):
         blocks.append(block)
         return "I do not know."
     generate.answer = spy_answer
@@ -4692,7 +4692,7 @@ def w45():
             generate.offer_research)
     extract.extract = lambda m: {"kind": extract.ASK,
                                  "triples": [("alpha course", "trainer", "")]}
-    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None, **kw):
         blocks.append(block)
         return "I do not know."
     generate.answer = spy_answer
@@ -4737,7 +4737,7 @@ def w46():
             generate.offer_research)
     extract.extract = lambda m: {"kind": extract.ASK,
                                  "triples": [("alpha course", "duration", "")]}
-    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None, **kw):
         blocks.append(block)
         return "I do not know."
     generate.answer = spy_answer
@@ -4787,7 +4787,7 @@ def w47():
             generate.offer_research)
     extract.extract = lambda m: {"kind": extract.ASK,
                                  "triples": [("alpha course", "duration", "")]}
-    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None, **kw):
         blocks.append(block)
         return "I do not know."
     generate.answer = spy_answer
@@ -4890,6 +4890,115 @@ def w49():
 
 
 
+@test("W54 a source that contradicts itself is read as a contradiction")
+def w54():
+    """A MEMORY THAT PROMISES VERIFIABILITY MAY NOT PICK A SIDE IN SILENCE.
+    A document that states the same field twice with different values is
+    ordinary in a live corpus — a summary updated, a schedule not — and
+    today both lines enter the block, the engine reads the one it happens
+    to read, and the answer is stamped with the source that also says the
+    opposite. One value spoken, one value hidden, and the stamp attests
+    both. That is the failure mode the whole gate exists to prevent.
+
+    The reading is the one already earned twice: equality of records is
+    arithmetic (W44's digit sets), so when ONE source carries two rows
+    with the same field head and different digits, a row states it, in
+    the same \u2260 notation the comparison verdict uses. The engine reads
+    a contradiction rather than resolving one.
+
+    Scope is deliberately narrow: the SAME source. Two sources carrying
+    different values for a head are a census, not a conflict — sixty
+    course outlines each state their own duration, and calling that a
+    contradiction would fire on every field question in the corpus. A
+    conflict needs identity of subject, and inside one document that
+    identity is given. Claiming one where we cannot establish it would be
+    a fabricated relation, which is the thing we do not do."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    # Fifteen honest siblings around the one that argues with itself, so
+    # a fixture that could pass by accident does not.
+    for i, v in enumerate(("2 days", "3 days", "4 days", "1 day", "5 days",
+                           "2 days", "3 days", "4 days", "1 day", "5 days",
+                           "2 days", "3 days", "4 days", "1 day", "5 days")):
+        s.learn_text(f"COURSE {i} OUTLINE.\nThe module opens the arc.\n"
+                     f"DURATION: {v}.", source=f"#docx:Course {i}.docx",
+                     deep=False)
+    s.learn_text("SAFETY COURSE OUTLINE.\n"
+                 "The safety module opens the arc.\n"
+                 "DURATION: 2 days.\n"
+                 "The programme closes with a workshop.\n"
+                 "DURATION: 3 days.",
+                 source="#docx:Safety Course.docx", deep=False)
+    blocks = []
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("safety course", "duration", "")]}
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None, **kw):
+        blocks.append(block)
+        return "I do not know."
+    generate.answer = spy_answer
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s.respond("what is the DURATION of the Safety Course?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    text = "\n".join(blocks)
+    rows = sorted({l for l in text.split("\n") if "\u2260" in l})
+    assert rows, ("no contradiction row was written:\n" + text[:900])
+    row = rows[0]
+    assert "2 days" in row and "3 days" in row, row
+    assert "Safety Course" in row, row
+    # AND THE SIBLINGS ARE NOT A CONTRADICTION. Each of the fifteen states
+    # its own duration; a reading that called that a conflict would fire
+    # on every field question the corpus can be asked.
+    assert len(rows) == 1, ("a cross-source census was read as a "
+                            "contradiction:\n" + "\n".join(rows))
+
+    # A REPEATED HEAD IS USUALLY A LIST, AND SOMETIMES A ZOOM. Measured on
+    # the field corpus: the first cut fired three times and was wrong
+    # twice. A prerequisites block writing three ZORUNLU lines is
+    # enumerating, not disagreeing; a document writing "4 modules x 2 full
+    # days" and later "2 full days" is showing the same length closer up.
+    # Both are structure — a third value, and one value carried inside
+    # another — and neither is a claim we may make.
+    s2 = Session(None)
+    s2.learn_text("ATLAS COURSE OUTLINE.\nThe atlas module opens the arc.\n"
+                  "DURATION: 4 modules x 2 full days.\n"
+                  "The programme closes with a workshop.\n"
+                  "DURATION: 2 full days.\n"
+                  "REQUIRED: 7 visit reports completed beforehand.\n"
+                  "REQUIRED: 3 action lists brought along.\n"
+                  "REQUIRED: 1 roadmap marked up.",
+                  source="#docx:Atlas Course.docx", deep=False)
+    for i in range(4):
+        s2.learn_text(f"COURSE {i} OUTLINE.\nThe module opens the arc.\n"
+                      f"DURATION: {i + 1} days.\nREQUIRED: {i} reports.",
+                      source=f"#docx:Course {i}.docx", deep=False)
+    blocks2 = []
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("atlas course", "duration", "")]}
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None, **kw: blocks2.append(block) or "I do not know.")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s2.respond("what is the DURATION of the Atlas Course?")
+        s2.respond("what is REQUIRED for the Atlas Course?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    quarrels = [l for l in "\n".join(blocks2).split("\n") if "\u2260" in l]
+    assert not quarrels, ("a list or a refinement was read as a "
+                          "contradiction:\n" + "\n".join(quarrels))
+
+
+
 @test("W55 over HTTP, every user's memory is their own")
 def w55():
     """A memory layer becomes a product the moment a second person asks
@@ -4924,7 +5033,7 @@ def w55():
 
     real = (generate.answer, generate.refusal, generate.offer_research)
     generate.answer = (lambda q, block, warmth=0.2, persona="",
-                       max_tokens=None: "[" + block + "]")
+                       max_tokens=None, **kw: "[" + block + "]")
     generate.refusal = (lambda message, persona="", warmth=0.3,
                         max_tokens=None: "I do not have that.")
     generate.offer_research = lambda subject, question: ""
@@ -4996,7 +5105,7 @@ def w56():
     Session._relation_held = lambda self, q, raw, proof, block: True
     real = (generate.answer, generate.refusal, generate.offer_research)
     generate.answer = (lambda q, block, warmth=0.2, persona="",
-                       max_tokens=None: "The Redwood contract is worth "
+                       max_tokens=None, **kw: "The Redwood contract is worth "
                        "40000 euro.")
     generate.refusal = (lambda message, persona="", warmth=0.3,
                         max_tokens=None: "I do not have that in memory.")
@@ -5017,6 +5126,223 @@ def w56():
     finally:
         (generate.answer, generate.refusal, generate.offer_research) = real
         (Session._read_back, Session._relation_held) = real_gates
+
+
+
+@test("W57 the store's own vocabulary answers the question's")
+def w57():
+    """Measured on a corpus this system had never seen: asked which
+    machine is the "priciest", every seat went to prose about value,
+    because the documents write LIST PRICE and no word of the question
+    shares a stem with it. Retrieval is lexical by design — that is what
+    makes it auditable — so the gap is in the words the search is given,
+    not in the gates.
+
+    Three properties, and the fix is worth nothing without all three.
+    The engine is never asked what a word means in general: it is shown
+    the field names the corpus repeats and asked which one the question
+    reaches for, so a bridge can only land on vocabulary that provably
+    exists here. It is asked only when the question touches NO field, so
+    the ordinary question pays nothing. And a pick that is not one of
+    the store's heads is discarded — an engine asked to copy a name
+    sometimes writes a neighbouring one, and that word would enter the
+    search on the engine's authority alone."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    for name, price in (("Marlin", "4200"), ("Petrel", "5100"),
+                        ("Falcon", "3300"), ("Osprey", "6400")):
+        s.learn_text(f"{name} WORKSTATION.\nThe {name.lower()} ships in a "
+                     f"steel case.\nLIST PRICE: {price} euro.\n"
+                     f"MEMORY: 64 GB.", source=f"#doc:{name}.txt", deep=False)
+    heads = s._fields()
+    assert "LIST PRICE" in heads and "MEMORY" in heads, heads
+    asked = []
+    real = generate.field_for
+    generate.field_for = lambda q, hs: (asked.append((q, list(hs)))
+                                        or "LIST PRICE")
+    try:
+        # A question whose words reach a field asks the engine nothing.
+        assert s._field_bridge("what is the MEMORY of the Marlin?") == ""
+        assert not asked, asked
+        got = s._field_bridge("which workstation is the priciest?")
+        assert got == "LIST PRICE", got
+        assert asked and "LIST PRICE" in asked[0][1], asked
+        # The same question twice costs one call, not two.
+        s._field_bridge("which workstation is the priciest?")
+        assert len(asked) == 1, asked
+        # A head that is not ours never reaches the search.
+        generate.field_for = lambda q, hs: "STREET PRICE"
+        assert s._field_bridge("which one costs the least?") == ""
+    finally:
+        generate.field_for = real
+
+
+
+@test("W58 a ridden subject does not name a source")
+def w58():
+    """The bug that ate a whole category. In a conversation the previous
+    turn's subject rides along in the query, to keep retrieval on topic
+    when the turn's own words are a pointer. But `find` reads NAMES off
+    the query it is given, so the ridden subject also made the turn look
+    like a question ABOUT that document — and a corpus-wide field
+    question, which by definition names nobody, was read as a question
+    about whatever came up last.
+
+    Measured on thirteen sibling specifications: asked on its own,
+    "which workstation is the priciest" reads the field across the corpus
+    and answers with the right machine and the right number; asked after
+    a question about another machine, the same question abstains with
+    every price on the table. Three of three frontier questions were
+    lost this way, and nothing in the block was wrong — the reading
+    never ran.
+
+    Naming is a property of WHAT WAS ASKED. The ride still steers
+    retrieval; it no longer confers namehood."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    prices = {"Osprey": "3499", "Falcon": "2999", "Marlin": "2499",
+              "Kite": "1499", "Tern": "799", "Petrel": "999"}
+    for name, price in prices.items():
+        s.learn_text(f"{name} WORKSTATION.\nThe {name.lower()} ships in a "
+                     f"steel case.\nLIST PRICE: {price} USD.",
+                     source=f"#docx:{name} Workstation", deep=False)
+    assert s.evidence.named_in("what is the LIST PRICE of the Osprey "
+                               "Workstation?") == {"#docx:Osprey Workstation"}
+    assert s.evidence.named_in("which workstation has the highest LIST "
+                               "PRICE?") == set(), "a corpus question named one"
+    blocks = []
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    # The first turn is about a document by name; the second is the
+    # pointer-shaped follow-up whose subject resolves to nothing, which is
+    # exactly when the previous subject rides along.
+    subjects = iter([("Osprey Workstation", "price", ""), ("it", "price", "")])
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [next(subjects)]}
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None, **kw: blocks.append(block) or "I do not know.")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s.respond("what is the LIST PRICE of the Osprey Workstation?")
+        blocks.clear()
+        s.respond("which workstation has the highest LIST PRICE?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    text = "\n".join(blocks)
+    rows = [l for l in text.split("\n") if "largest" in l]
+    assert rows, ("the corpus-wide reading did not run after a question "
+                  "about one document:\n" + text[:700])
+    assert "Osprey" in rows[0] and "3499" in rows[0], rows[0]
+
+
+
+@test("W59 a window holding several records offers all of them")
+def w59():
+    """How a document was CHUNKED is not supposed to change what the
+    memory can read, and it did. Ingested one way, a specification's
+    lines arrive separately and the record channel sees DISPLAY, LIST
+    PRICE and WARRANTY; ingested another — the ordinary bulk path, which
+    is how every benchmark and every customer load runs — the same three
+    arrive glued into one window, the channel partitions at the FIRST
+    colon, and the corpus knows one field where it wrote three. Measured:
+    the same superlative question answered correctly from a per-line
+    store and abstained from a windowed one, with every value present in
+    both. That is the retrieval layer reporting the shape of the file
+    reader.
+
+    A record is a head, a colon and a value, and a line may hold several.
+    Reading them all is what makes the field census, the extremes row and
+    the contradiction reading independent of how the text was cut."""
+    from lmm import evidence
+    from lmm.session import Session
+    pairs = evidence.record_pairs(
+        "GANNET WORKSTATION — TECHNICAL SUMMARY. PRODUCT FAMILY: mobile "
+        "engineering workstation. DISPLAY: 13 inches. LIST PRICE: 1199 "
+        "USD. WARRANTY: 3 years on parts and labour.")
+    heads = [h for h, _v in pairs]
+    assert "LIST PRICE" in heads and "WARRANTY" in heads, pairs
+    assert dict(pairs)["LIST PRICE"] == "1199 USD", pairs
+    assert dict(pairs)["DISPLAY"] == "13 inches", pairs
+    # A colon inside ordinary prose is not a record head.
+    assert not evidence.record_pairs(
+        "The source of the difficulty is this: the team had never met."), \
+        "a titled sentence was read as a record"
+
+    # ...and the reading survives the window in a real store: the field
+    # census must find the price in every document even when each
+    # document arrived as one glued paragraph.
+    s = Session(None)
+    for name, price, screen in (("Osprey", "3499", "17"), ("Falcon", "2999", "15"),
+                                ("Marlin", "2499", "14"), ("Tern", "799", "12")):
+        s.learn_text(f"{name} WORKSTATION — TECHNICAL SUMMARY. "
+                     f"DISPLAY: {screen} inches. LIST PRICE: {price} USD. "
+                     f"WARRANTY: 3 years on parts and labour.",
+                     source=f"#docx:{name} Workstation", deep=False)
+    assert "LIST PRICE" in s._fields(), sorted(s._fields())
+    rows = dict((h, v) for _sid, text in s._record_rows(
+        "#docx:Tern Workstation", "what is the LIST PRICE?")
+        for h, v in evidence.record_pairs(text))
+    assert rows.get("LIST PRICE") == "799 USD", rows
+
+
+
+@test("W60 the bridged field steers the words, never the facts")
+def w60():
+    """The last mile of the bridge, and the place where it would have
+    been easy to cheat. Retrieval now finds the right rows for a question
+    written in another vocabulary — "the most RAM" against documents
+    headed MEMORY — and the block held "MEMORY — largest: Falcon
+    Workstation: 64 GB" while the writer answered "carries the most RAM",
+    which the jury refused because RAM appears nowhere in the evidence.
+    The answer was on the table and the user got nothing.
+
+    The cheat would be to put the synonym into the evidence, where the
+    gates read it: that is asserting a synonymy the store cannot attest,
+    inside the one channel that must stay attested. So the bridge's
+    finding travels as an INSTRUCTION to the writer — name the field as
+    the documents name it — and the facts block is byte for byte what it
+    was. Vocabulary is steered; content is not."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    for name, ram in (("Osprey", "32"), ("Falcon", "64"), ("Marlin", "16"),
+                      ("Tern", "8")):
+        s.learn_text(f"{name} WORKSTATION — TECHNICAL SUMMARY. "
+                     f"MEMORY: {ram} GB. WARRANTY: 3 years.",
+                     source=f"#docx:{name} Workstation", deep=False)
+    seen = {}
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research, generate.field_for)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("machine", "ram", "")]}
+    generate.field_for = lambda q, heads: "MEMORY"
+    def spy_answer(question, block, warmth=0.2, persona="", max_tokens=None,
+                   field="", **kw):
+        seen.setdefault("fields", []).append(field)
+        seen.setdefault("blocks", []).append(block)
+        return "I do not know."
+    generate.answer = spy_answer
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s.respond("which machine carries the most RAM?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research, generate.field_for) = real
+    assert seen.get("fields"), "the writer was never called"
+    assert any(f == "MEMORY" for f in seen["fields"]), (
+        "the bridged field never reached the writer: %r" % seen["fields"])
+    blocks = "\n".join(seen["blocks"])
+    assert "MEMORY" in blocks, blocks[:400]
+    assert "RAM" not in blocks, ("the question's word was written into the "
+                                 "evidence, where the gates read it:\n"
+                                 + blocks[:400])
 
 
 @test("W50 a field question that names no source reads that field across the corpus")
@@ -5055,7 +5381,7 @@ def w50():
             generate.offer_research)
     extract.extract = lambda m: {"kind": extract.ASK,
                                  "triples": [("course", "duration", "")]}
-    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None, **kw):
         blocks.append(block)
         return "I do not know."
     generate.answer = spy_answer
@@ -5105,7 +5431,7 @@ def w51():
             generate.offer_research)
     extract.extract = lambda m: {"kind": extract.ASK,
                                  "triples": [("course", "seats", "")]}
-    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None):
+    def spy_answer(q, block, warmth=0.2, persona="", max_tokens=None, **kw):
         blocks.append(block)
         return "I do not know."
     generate.answer = spy_answer
@@ -5140,7 +5466,7 @@ def w51():
     extract.extract = lambda m: {"kind": extract.ASK,
                                  "triples": [("course", "duration", "")]}
     generate.answer = (lambda q, block, warmth=0.2, persona="",
-                       max_tokens=None: (blocks2.append(block),
+                       max_tokens=None, **kw: (blocks2.append(block),
                                          "I do not know.")[1])
     generate.refusal = (lambda message, persona="", warmth=0.3,
                         max_tokens=None: "I do not know.")
@@ -5175,7 +5501,7 @@ def w51():
     extract.extract = lambda m: {"kind": extract.ASK,
                                  "triples": [("course", "seats", "")]}
     generate.answer = (lambda q, block, warmth=0.2, persona="",
-                       max_tokens=None: (blocks3.append(block),
+                       max_tokens=None, **kw: (blocks3.append(block),
                                          "I do not know.")[1])
     generate.refusal = (lambda message, persona="", warmth=0.3,
                         max_tokens=None: "I do not know.")
@@ -5207,7 +5533,7 @@ def w51():
     extract.extract = lambda m: {"kind": extract.ASK,
                                  "triples": [("course", "duration", "")]}
     generate.answer = (lambda q, block, warmth=0.2, persona="",
-                       max_tokens=None: (blocks4.append(block),
+                       max_tokens=None, **kw: (blocks4.append(block),
                                          "I do not know.")[1])
     generate.refusal = (lambda message, persona="", warmth=0.3,
                         max_tokens=None: "I do not know.")
