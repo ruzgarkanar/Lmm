@@ -4889,6 +4889,7 @@ def w49():
     assert bad is False
 
 
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the
@@ -5121,6 +5122,74 @@ def w52():
     # a claim naming nothing keeps the old reading: the best-covered line
     mark2 = s._load_bearing("It runs for two days.", proof, origins)
     assert mark2 == "#docx:Gamma Course.docx", mark2
+
+
+@test("W53 a refusal is spoken in the language it was asked in")
+def w53():
+    """Measured, and it had been hiding behind a Turkish corpus: six
+    English questions with no answer in the store were refused in Dutch,
+    French and Spanish — never once in English. The instruction to match
+    the user's language sat at the top of the system prompt, where a
+    small engine reads it as background and then writes whatever a
+    refusal usually looks like in its training. Two structural moves,
+    no phrase in any language written by us: the question is handed
+    back as a LANGUAGE SAMPLE inside the instruction (the same anchoring
+    the composer uses for its material), and the instruction is repeated
+    as the LAST thing the engine reads before it writes, because the
+    end of the prompt is where an instruction survives. What is not
+    done: a canned sentence per language — the memory speaks in the
+    engine's voice, or it does not speak."""
+    from lmm import generate, runtime
+    seen = {}
+    real = runtime.generate
+    def spy(messages, max_tokens=256, temperature=0.7, system=None):
+        seen["system"] = system or ""
+        seen["messages"] = messages
+        return "..."
+    runtime.generate = spy
+    try:
+        generate.refusal("What is the battery life of the Marlin?")
+    finally:
+        runtime.generate = real
+    sys_prompt = seen["system"]
+    assert "Marlin" in sys_prompt, \
+        "the question is not handed back as a language sample"
+    tail = sys_prompt[-260:]
+    assert "language" in tail.lower(), \
+        "the language rule is not the last thing the engine reads"
+    # ...AND THE SPEECH IS VERIFIED LIKE EVERYTHING ELSE. Anchoring got
+    # five of six; one question kept coming back in another language,
+    # and a memory that audits every claim it speaks can audit the
+    # tongue it speaks them in. The refusal is read once by the same
+    # kind of small judge the gates use — is this the language of the
+    # question? — and on a no it is written once more. A second no is
+    # kept: silence is worse than a sentence in the wrong language, and
+    # nothing here writes a canned phrase.
+    calls = {"n": 0}
+    outs = iter(["Ik heb die informatie nog niet.",
+                 "I do not have that information yet."])
+    def spy2(messages, max_tokens=256, temperature=0.7, system=None):
+        calls["n"] += 1
+        return next(outs)
+    real_same = getattr(generate, "same_language", None)
+    judged = {"n": 0}
+    def fake_same(question, reply):
+        judged["n"] += 1
+        return "informatie" not in reply
+    generate.same_language = fake_same
+    runtime.generate = spy2
+    try:
+        out = generate.refusal("What is the battery life of the Marlin?")
+    finally:
+        runtime.generate = real
+        if real_same is None:
+            del generate.same_language
+        else:
+            generate.same_language = real_same
+    assert judged["n"] >= 1, "the refusal was never read for its language"
+    assert out.startswith("I do not have"), out
+    assert calls["n"] == 2, ("the refusal was rewritten more than once: %r"
+                             % calls)
 
 
 @test("X5 an expansion written in another language never reaches the index")
