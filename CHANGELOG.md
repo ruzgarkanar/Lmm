@@ -4,6 +4,82 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] — 2026-09-09
+
+The release where the readings were measured above sixty documents for
+the first time, and where the comparison category — the one this project
+kept calling its weakest — went to 15/15 with zero flips.
+
+Measured, three runs, medians. 62-document field set (73 q): factual
+37→39/40, comparisons 10→15/15, frontier 7/8, traps 10/10. Twelve
+hardware specifications the system had never seen (19 q): 8/8, 4/4, 3/3,
+4/4 — a complete card on a corpus with no adaptation. 1,000 generated
+specifications (50 q): factual 25/25, traps 23/25. NIST 11/13 and EN
+17/17 unchanged; 148 invariants.
+
+### Fixed
+
+- **The extremes of a field are the corpus's, not the block's.** The
+  first measurement above sixty documents found the worst kind of bug
+  this system can have: a confident wrong answer with a source stamp on
+  it. The census lays one row per source and stops at sixty, and the
+  extremes row was computed from the rows that fitted — so on a corpus
+  of a thousand the memory reported the highest price among the first
+  sixty documents in alphabetical order. Every word was attested; only
+  the superlative was false, and the superlative is the part nobody can
+  check by reading one line. What is shown may be capped; what is
+  claimed may not.
+- **One question over a thousand documents took 315 seconds.** The
+  record rider rebuilt the head index — a read of every sentence — once
+  per source. Built when the store changes and kept otherwise: same
+  reading, 315 s → 11 s, and a 50-question run 620 s → 348 s.
+- **The verdict speaks before the lines it is drawn from.** The
+  comparison's verdict row was appended after every line the two
+  documents contributed, so the engine answered off two raw lines
+  ("1 full day" versus "1 day"), concluded they differ, and the jury
+  refused it — the turn abstaining with the answer two lines below where
+  the reader stopped. The census learned this months ago; the comparison
+  layout now has it too.
+- **A sibling is not the document you named.** Sibling programmes share
+  their opening phrase and differ only in a tail, so a question about ONE
+  of them was read as naming six, and the comparison layout fired for a
+  question that compares nothing. Among the sources a question calls, the
+  one whose name it accounts for most completely is the one it names; a
+  tie keeps everyone, because two names matched in full is what a
+  comparison is.
+- **A missing engine says which engine is missing.** `pip install
+  living-memory-model` pulls in nothing, so a first `learn()` on a fresh
+  machine reached the default local engine and reported
+  `ModuleNotFoundError: No module named 'torch'` — a sentence that names
+  neither the choice to be made nor the four ways to make it. The name in
+  the message is the distribution name, kept in one place, because
+  telling someone to install `lmm[local]` sends them to a different
+  project.
+- **CI had been red since the 0.3.2 rename, and nothing in the repository
+  showed it.** The dependency-free check struck out the package's old
+  name from pip's list and so reported the package itself as a
+  dependency; three consultation tests reached the engine through the
+  small helpers a turn asks on its way, and failed on a machine with
+  nothing installed. The suite's own claim — no model, no network — is
+  now verified the only way it can be, in a virtualenv with neither.
+
+### Changed
+
+- **The question door does not gamble on a chat.** Every question was
+  paying for a full chat completion that was thrown away: the
+  speculation buys latency in a consultation, where the router's verdict
+  and the chat reply are wanted at once, and `ask()` inherited it only
+  because it passes `teach=False`. Same for the delivery bridge, which
+  offers a composed catalogue when a consultation cannot answer — the
+  question door has `compose()` for that. Factual questions 12.0 → 9.0
+  calls and 18,800 → 16,300 prompt tokens; traps 12.0 → 8.0 calls.
+  `Session.respond` takes `conversational=` for callers that want the
+  consultation behaviour explicitly.
+- **The documentation site follows `main`.** Publishing was a command
+  someone had to remember, and the site had been serving 0.3.2 while the
+  sources for 0.3.3 sat in the repository. It builds with `--strict`, so
+  a broken link fails in CI rather than in a reader's tab.
+
 ## [0.3.3] — 2026-09-08
 
 The release where the memory leaves the process. A question asked in
