@@ -356,6 +356,50 @@ def is_identity_question(message):
     return "yes" in out.strip().lower()
 
 
+def phrasings(message, sample=()):
+    """How might the thing this question asks about be WRITTEN in a
+    document? Words and short phrases, nothing else.
+
+    THE SECOND ASK. Retrieval here is lexical, which is what makes it
+    auditable — a passage arrives because a word arrived, and both can be
+    shown. The cost is paraphrase: a novel says a character "oturur" in a
+    house and the reader asks where she "yaşıyor", and the memory
+    abstains with the sentence in its hands. The frameworks that do not
+    have this problem embed their text in a vector space where meaning is
+    geometry; they also cannot say why a passage was chosen.
+
+    So the engine is asked for the WORDS, not for the answer, and only
+    after the first attempt found nothing. What comes back is filtered
+    against the store's own index before it can widen a search, so a word
+    nobody wrote cannot enter — the same rule the field bridge keeps.
+    """
+    listing = ("\n\nSome words this collection uses:\n" + ", ".join(sample)
+               if sample else "")
+    # ROOTS, NOT INFLECTIONS. The store matches a query word to its
+    # relatives by a short shared opening, so a fully inflected proposal
+    # reaches nothing: measured, the engine offered "oturuyor" for a book
+    # that writes "oturur", and four letters of ending put them out of
+    # each other's reach. The shortest form of a word reaches all of its
+    # forms; asking for that costs nothing and is the same instruction in
+    # every language.
+    system = ("The user asked a question. Answer with WORDS ONLY: the words "
+              "a written document would likely use for what is being asked "
+              "about — synonyms and the plainer noun or verb. Give the "
+              "SHORTEST, most basic form of each word (a stem, not an "
+              "inflected form). Do NOT answer the question. Do NOT invent "
+              "facts. At most six items, comma-separated, in the SAME "
+              "LANGUAGE as the question."
+              "\n\nwhere does she live -> live, resid, home, lodging, room"
+              "\nnerede yaşıyor -> otur, yaşa, ikamet, ev, konut"
+              "\nnasıl bir hastadır -> hasta, hastalık, verem, rahatsız"
+              "\nhow much does it cost -> price, cost, fee, amount"
+              "\nkaç kişilik -> kişi, katılımcı, kontenjan, sayı" + listing)
+    out = runtime.generate(message, system=system, max_tokens=40,
+                           temperature=0.0)
+    words = [w.strip(" .;:\"'") for w in re.split(r"[,\n]", out or "")]
+    return [w for w in words if w and len(w) > 1][:6]
+
+
 def field_for(message, heads):
     """Which of the documents' OWN field names does this question ask
     about? One of them, written exactly, or NONE.
