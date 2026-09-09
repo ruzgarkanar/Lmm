@@ -132,7 +132,7 @@ def chat(message, identity_block="", warmth=0.7, history=None, persona="",
     we just talked about). So "what are you doing" and follow-up questions are
     answered with context.
 
-    `identity_block`: identity facts (from the graph, e.g. lmm→creator→rüzgar).
+    `identity_block`: identity facts (from the graph, e.g. lmm→creator→<operator>).
     It is INJECTED so questions like "who made you" rest on the GRAPH, not on a
     persona — language-independent (an English persona stayed weak in Turkish;
     an injected fact works in every language). Since the fact comes from the
@@ -389,11 +389,17 @@ def phrasings(message, sample=()):
               "inflected form). Do NOT answer the question. Do NOT invent "
               "facts. At most six items, comma-separated, in the SAME "
               "LANGUAGE as the question."
+              # BALANCED ACROSS LANGUAGES, like every other few-shot in
+              # this file: the examples teach the SHAPE of the answer
+              # (stems, not inflections; words, not facts), and a set
+              # leaning on one language teaches that language's habits
+              # with it.
               "\n\nwhere does she live -> live, resid, home, lodging, room"
+              "\nwie viel kostet das -> Preis, Kost, Gebühr, Betrag"
+              "\n¿de qué está hecho? -> material, hecho, composición"
               "\nnerede yaşıyor -> otur, yaşa, ikamet, ev, konut"
-              "\nnasıl bir hastadır -> hasta, hastalık, verem, rahatsız"
-              "\nhow much does it cost -> price, cost, fee, amount"
-              "\nkaç kişilik -> kişi, katılımcı, kontenjan, sayı" + listing)
+              "\ncombien de personnes -> personne, participant, nombre"
+              + listing)
     out = runtime.generate(message, system=system, max_tokens=40,
                            temperature=0.0)
     words = [w.strip(" .;:\"'") for w in re.split(r"[,\n]", out or "")]
@@ -480,7 +486,7 @@ def identity_answer(question, name, id_block):
               "ANYONE — not a company, not a person, not a model. Say who "
               "you are and stop there.")
     # IDENTITY IS A FACT, NOT A PLACE FOR SAMPLING. At 0.2 the same
-    # question answered "I am Nar Hoca" once and something the gate had to
+    # question answered "I am Vale Coach" once and something the gate had to
     # drop the next time — and a dropped identity falls through to the
     # chat voice, which says something pleasant and nameless. The rows are
     # fixed; the sentence should be too.

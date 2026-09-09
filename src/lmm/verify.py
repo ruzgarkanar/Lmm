@@ -104,9 +104,9 @@ def verify(memory, answer, allowed, mode="STRICT", anchor="edge", echo=""):
       "value" (chat-IDENTITY path) — the object must be in allowed; since a
               self-referential pronoun subject (ben/beni/I) cannot be resolved
               it is NOT an anchor, BUT if the subject resolves to a real node it
-              must either be allowed or an edge must be found — "Rüzgar wrote
-              Python" (python≠allowed, no {python,rüzgar} edge) thus drops;
-              "Rüzgar made me" (me→None) passes.
+              must either be allowed or an edge must be found — "An author wrote
+              Python" (python≠allowed, no {python,author} edge) thus drops;
+              "The author made me" (me→None) passes.
       `echo` (chat only) — the user's own words in this conversation.
               ECHOING THE USER IS CONVERSATION, NOT ASSERTION: measured
               live, a consultant reply repeating the user's bank and role
