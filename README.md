@@ -96,13 +96,26 @@ path is developed against — three runs each, medians, same engine:
 
 | Corpus | factual | comparisons | frontier* | traps (fabrication) |
 |---|---|---|---|---|
-| 62 sibling training outlines, 73 q (customer's, not redistributable) | 39/40 | 15/15 | 7/8 | **10/10** |
-| 12 hardware specifications, 19 q — a corpus the system had never seen, no adaptation | 8/8 | 4/4 | 3/3 | **4/4** |
-| 1,000 generated specifications, 50 q (questions derived from the corpus, not written by hand) | 25/25 | — | — | **23/25** |
+| 62 sibling training outlines, 73 q (customer's, not redistributable) | **40/40** | **15/15** | 7/8 | **10/10** |
+| 12 hardware specifications, 19 q — a corpus the system had never seen, no adaptation | **8/8** | **4/4** | **3/3** | **4/4** |
+| 1,000 generated specifications, 50 q (questions derived from the corpus, not written by hand) | **25/25** | — | — | **25/25** |
 | NIST SP 800-63B (public PDF), 13 q · fictional EN corpus, 17 q | 11/13 · 17/17 | — | — | — |
+
+Every category above is a median of three runs with **zero flips** — no
+question changed its verdict between runs — except the single frontier
+miss.
 
 \* *frontier*: questions whose discriminating word the documents never
 write ("the priciest" against a column headed LIST PRICE).
+
+**Speed.** A question that names a document and one of the corpus's own
+field heads is answered from the record itself — no model call, no
+composition, the document's line and its stamp: **0.01 s** where the same
+question used to take 10.4 s and twelve calls. It fires on 33 of the 40
+factual questions above and on none of the comparisons, frontier
+questions or traps, which is the shape it should have. Questions that
+need the engine still cost what verification costs: 8 s for a comparison,
+7 for an honest refusal.
 
 **Scale, measured on the 1,000-document store (25k sentences):** ingestion
 2.2 s, 82 MB resident, retrieval 121 ms median with the named document's
