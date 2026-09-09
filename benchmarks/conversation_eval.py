@@ -63,14 +63,31 @@ def one_run(questions, corpus_dir):
         # a gold entry may itself be a list: EVERY inner group must land
         # (any-of within, all-of across) — how a multi-part question
         # ("goals AND outcomes") demands both of its parts
+        #
+        # ...and a gold entry may be {"all": [...]}, which lands when ALL
+        # of its parts do, as one alternative among the flat ones. That
+        # shape exists because the referee was marking correct answers
+        # wrong: asked whether two courses run the same length, the
+        # memory answered "both are 2 full days" — which answers the
+        # question completely — and scored zero for not containing the
+        # word "same". Two of fifteen comparisons were being lost to
+        # vocabulary, not to substance. Stating BOTH VALUES is answering
+        # a comparison; the words for it are the engine's business.
         pa = _plain(answer)
         def one(g):
+            if isinstance(g, dict):
+                return all(_plain(str(x)) in pa for x in g.get("all", ()))
             if isinstance(g, list):
                 return any(_plain(x) in pa for x in g)
             return _plain(g) in pa
-        return all(one(g) for g in golds) if any(
-            isinstance(g, list) for g in golds) else any(
-            one(g) for g in golds)
+        groups = [g for g in golds if isinstance(g, list)]
+        others = [g for g in golds if not isinstance(g, list)]
+        if groups:
+            # the AND-groups are the requirement; a plain string or an
+            # {"all": [...]} alternative satisfies the gold on its own
+            return (any(one(g) for g in others)
+                    or all(one(g) for g in groups))
+        return any(one(g) for g in others)
 
     for q, golds in questions.get("olgu", []):
         verdicts[("olgu", q)] = hit(str(m.ask(q)), golds)
