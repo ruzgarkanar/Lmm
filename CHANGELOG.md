@@ -4,6 +4,53 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] — 2026-09-09
+
+The release where the commonest question stopped costing anything, and
+the field set went to a full card.
+
+Measured, three runs, medians, zero flips in every category. 62-document
+field set (73 q): factual **40/40**, comparisons **15/15**, frontier 7/8,
+traps 10/10 — and a factual question that names a document now takes
+**0.01 s** instead of 10.4 s. Twelve hardware specifications the system
+has never seen, with no adaptation: **8/8 · 4/4 · 3/3 · 4/4**. A thousand
+generated specifications (50 q): **25/25 · 25/25**. NIST 11/13, EN 17/17;
+151 invariants.
+
+### Added
+
+- **A field of a named document is read, not generated.** The commonest
+  question a document store is asked needs no engine: the row exists,
+  the source is named, the head is named. On the question door it is
+  read before the router as well, because `ask()` is asked a question by
+  contract. Tried once before and reverted for firing on one question in
+  twelve — the cause was the naming underneath it, and a bullet being
+  read as part of a head, both fixed here.
+
+### Fixed
+
+- **A value belongs to the field it was written under.** A
+  specification carrying MEMORY: 128 GB and no STORAGE line was asked
+  for its storage and answered "128 GB", stamped with that document —
+  and every gate agreed, because the source was right, the number was in
+  the evidence, and the sentence answered the shape of the question.
+  Only the FIELD was wrong. A local veto now requires a claim's digits
+  to appear on a line that carries the asked head. On the thousand-
+  document set, traps 23/25 → 25/25.
+- **A bullet is not part of a head.** Documents open list items with
+  "·", so the record reader saw "· DURATION" as a second field beside
+  DURATION — the same rows twice in the corpus's own vocabulary, and no
+  head ever unique.
+- **A source stamp survives the space in a document's name.**
+  `Answer.sources` was read by splitting the answer on whitespace and
+  keeping words that start with '#', so "#docx:Course 02" arrived as
+  "#docx:Course" — a stamp two siblings share, which is not provenance.
+- **A head is easier to recognise beside one of its values.** Shown a
+  bare list of field names, the engine could not see that a question
+  about a SCREEN means DISPLAY; shown "DISPLAY (e.g. 13 inches)" it
+  could. The values are the documents' own, and a question no field fits
+  still returns NONE.
+
 ## [0.3.4] — 2026-09-09
 
 The release where the readings were measured above sixty documents for
