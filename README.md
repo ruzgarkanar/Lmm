@@ -89,6 +89,29 @@ single run is not a measurement.
 The bigger the document, the wider the gap: retrieval collapse is RAG's
 structural ceiling, composition is LMM's structural strength.
 
+### Four corpora, one code path
+
+The table above is one document at a time. These are the sets the answer
+path is developed against — three runs each, medians, same engine:
+
+| Corpus | factual | comparisons | frontier* | traps (fabrication) |
+|---|---|---|---|---|
+| 62 sibling training outlines, 73 q (customer's, not redistributable) | 39/40 | 15/15 | 7/8 | **10/10** |
+| 12 hardware specifications, 19 q — a corpus the system had never seen, no adaptation | 8/8 | 4/4 | 3/3 | **4/4** |
+| 1,000 generated specifications, 50 q (questions derived from the corpus, not written by hand) | 25/25 | — | — | **23/25** |
+| NIST SP 800-63B (public PDF), 13 q · fictional EN corpus, 17 q | 11/13 · 17/17 | — | — | — |
+
+\* *frontier*: questions whose discriminating word the documents never
+write ("the priciest" against a column headed LIST PRICE).
+
+**Scale, measured on the 1,000-document store (25k sentences):** ingestion
+2.2 s, 82 MB resident, retrieval 121 ms median with the named document's
+line recalled 50/50. **Conversation depth:** the same twelve questions
+scored 11/12 asked to a fresh session and 11/12 asked after twenty-four
+turns of other documents, pointers and topic switches — the same single
+failure in both.
+
+
 Only the invented corpus is in this repository. The other three documents belong
 to their owners — a manufacturer's product manual, an institution's internal
 strategy document, an inspection report naming real people — and are not ours to
