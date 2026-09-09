@@ -1204,8 +1204,8 @@ class SentenceStore:
                 qwords_order, names)
             # A FAMILY RESEMBLANCE IS A PARTIAL MATCH — the same rule the
             # layouts read (W66), applied where the seats are handed out.
-            # Measured: "PYI-00 Program Özeti eğitiminin süresi nedir?"
-            # boosted PYI-00, PYT-00 and TPY-00 alike, because siblings
+            # Measured: "how long is the PRG-00 programme summary?"
+            # boosted PRG-00, PRT-00 and TRP-00 alike, because siblings
             # share every word but the code; the record row of the
             # document actually asked about then had to outscore three
             # documents' worth of boosted prose, and did not.

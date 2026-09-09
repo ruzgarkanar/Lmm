@@ -176,7 +176,7 @@ class Session:
         self.evidence = evidence.SentenceStore.load(path)
 
     def _seed_identity(self):
-        """IDENTITY as a fact in the graph: (lmm → creator → rüzgar). This way
+        """IDENTITY as a fact in the graph: (lmm → creator → the operator's name). This way
         identity too is 'known knowledge' — it passes through the gate and is
         spoken language-independently. The persona (prompts.CHAT_SYSTEM) gives
         Qwen its name; this seed keeps it in the graph.
@@ -191,7 +191,7 @@ class Session:
         word to be translated."""
         # IDENTITY IS THE OPERATOR'S DECLARATION, not the framework's.
         # Caught in a live session: asked "who is this?", a chatbot built
-        # on this library answered "I am lmm, my creator is rüzgar" — the
+        # on this library answered "I am lmm, my creator is <the author's name>" — the
         # author's name, seeded into every memory anyone builds, spoken to
         # that person's end users. Nobody asked for it and nobody could
         # know it was there. An untold memory says only what it can
@@ -1122,7 +1122,7 @@ class Session:
         resolved, and the fact was NEVER fetched. Here, GUARANTEE fetching the
         fact from _lmm_key; give the name + the facts to identity_answer;
         verify anchor='value' (the subject is a self-referential pronoun →
-        None; the edge path would drop identity, the object 'rüzgar' anchors
+        None; the edge path would drop identity, the object (the creator's name) anchors
         in allowed)."""
         # One builder for what the memory may say about itself — the same
         # rows the chat voice reads, so a told name is spoken on both
@@ -1148,7 +1148,7 @@ class Session:
         # asserted from the graph. Without them the turn was read as an
         # abstention — the sentence says who we are but rests on no
         # evidence line — and the conversational fallback (W25) then
-        # replaced "I am Nar Hoca" with a pleasant, nameless chat reply.
+        # replaced "I am Vale Coach" with a pleasant, nameless chat reply.
         # Three fixes upstream of this one were chasing that symptom.
         self.last_abstained = False
         self.last_from_graph = True
@@ -3416,7 +3416,7 @@ class Session:
         """The name the operator spelled, not the folded key.
 
         Labels are folded on their way into the graph, so a memory told it
-        is "Nar Hoca" introduced itself as "nar hoca". A name is not a word
+        is "Vale Coach" introduced itself as "vale coach". A name is not a word
         to be normalised — it is what the operator wrote.
         """
         told = self._told_identity
@@ -3535,7 +3535,7 @@ class Session:
         raw = self._strip_marks(raw)
         # In chat, allowed = ONLY the identity facts. anchor="value": the
         # subject is a self-referential pronoun (ben/beni) that can't be
-        # resolved; it suffices that the OBJECT (rüzgar) is allowed; external
+        # resolved; it suffices that the OBJECT (the creator's name) is allowed; external
         # fabrication (Google) still falls. And the ECHO: the user's own
         # words in this conversation are things the reply may repeat back —
         # listening is not asserting. See verify.verify.

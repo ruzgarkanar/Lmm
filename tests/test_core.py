@@ -5976,9 +5976,9 @@ def w70():
 def w72():
     """Caught in a live session, and it is a product bug of the worst
     kind — the quiet kind. Asked "who is this?", a chatbot built on this
-    library answered "I am lmm, my creator is rüzgar": the framework
-    author's name, seeded into the identity graph of every memory anyone
-    builds, spoken to that person's end users. Nobody asked for it,
+    library introduced the framework's AUTHOR by name — a fact seeded
+    into the identity graph of every memory anyone builds, spoken to that
+    person's end users. Nobody asked for it,
     nobody could have known it was there, and it is exactly the
     hard-coded-name-in-the-architecture this codebase forbids
     everywhere else.
@@ -5989,20 +5989,25 @@ def w72():
     name in the graph like any other fact, and answers from it."""
     from lmm.session import Session
     from lmm import link
+    # THE GUARD IS STRUCTURAL, so this test names nobody either: an
+    # untold memory holds no creator fact at all. Naming the author here
+    # to check that the author is not named would put the name back in
+    # the repository, which is the thing being fixed.
     plain = Session(None)
-    labels = {link.label_of(plain.memory, k) or "" for k in plain.memory.records}
-    joined = " ".join(labels).lower()
-    assert "rüzgar" not in joined and "ruzgar" not in joined, (
-        "the framework author's name is in an untold memory: %s" % sorted(labels))
-    told = Session(None, identity={"name": "Nar Hoca", "maker": "Narköy"})
+    creators = [r for r in plain.memory.records.values()
+                if (link.label_of(plain.memory, r.predicate) or "") == "creator"]
+    assert not creators, (
+        "an untold memory claims a creator: %s"
+        % [link.label_of(plain.memory, r.value) for r in creators])
+    told = Session(None, identity={"name": "Vale Coach", "maker": "Valemark"})
     block = told._chat_id_block().lower()
-    assert "nar hoca" in block, block
-    assert "narköy" in block, block
+    assert "vale coach" in block, block
+    assert "valemark" in block, block
     # ...and the operator may give a name without inventing a maker
     named = Session(None, identity="Kitap Arkadaşı")
     said = named._chat_id_block().lower()
     assert "kitap arkadaşı" in said, said
-    assert "creator" not in said and "narköy" not in said, said
+    assert "creator" not in said and "valemark" not in said, said
 
     # AN IDENTITY ANSWER THAT DOES NOT NAME THE MEMORY HAS NOT ANSWERED.
     # Measured live: asked "who are you?" three times, the engine wrote

@@ -16,7 +16,7 @@ the target sentence. Two sources, two strategies:
      the generate.refusal output — the model produces "I don't know" in its
      own words too.
 
-  3) IDENTITY: the identity fact (lmm→creator→rüzgar) comes from the graph;
+  3) IDENTITY: the identity fact (lmm→creator→<operator>) comes from the graph;
      the target is again self-distillation.
 
 Output: JSONL, each line {"messages":[{system},{user},{assistant}]} — chat SFT
@@ -175,7 +175,7 @@ def _identity_rows(samples=2):
     m.self_key = m.identify("#self")
     gate = Gate(m)
     lmm = link.resolve(m, "lmm", {}, create=True)
-    ruz = link.resolve(m, "rüzgar", {}, create=True)
+    ruz = link.resolve(m, "the operator", {}, create=True)
     mk = link.resolve(m, "creator", {}, create=True)
     gate.admit(lmm, mk, ruz, "#operator", OPERATOR)
     recs = retrieve.gather(m, lmm)
@@ -188,10 +188,10 @@ def _identity_rows(samples=2):
             if not _no_cjk(target):
                 continue
             low = target.lower()
-            # CORRECTNESS filter: the answer must mention the creator (rüzgar)
+            # CORRECTNESS filter: the answer must mention the creator
             # or the identity (lmm) — otherwise it is "I don't know"/wrong,
             # keep it out of training.
-            if "rüzgar" not in low and "lmm" not in low:
+            if "operator" not in low and "lmm" not in low:
                 continue
             yield {"messages": [
                 {"role": "system", "content": prompts.CHAT_SYSTEM},
