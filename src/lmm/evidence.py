@@ -1037,6 +1037,34 @@ class SentenceStore:
                     break
         return called
 
+    def find_again(self, text, most=6, **kw):
+        """The second ask: search once more in the STORE'S OWN WORDS.
+
+        Called when the first search found nothing usable. The engine is
+        shown the question and asked how the same thing might be WRITTEN
+        (`generate.phrasings`) — words, not an answer — and every proposal
+        is then checked against this store's index. A word nobody wrote
+        here cannot enter the search: the same rule the field bridge
+        keeps, for the same reason. What is widened is what can be FOUND;
+        what may be SAID is still read off the evidence by the gates that
+        already read it.
+        """
+        from lmm import generate                          # noqa: PLC0415
+        first = self.find(text, most=most, **kw)
+        try:
+            proposed = generate.phrasings(text)
+        except Exception:                                  # noqa: BLE001
+            return first
+        known = []
+        for word in proposed:
+            for w in _words(word, known=self.units):
+                if w in self.index and w not in known:
+                    known.append(w)
+        if not known:
+            return first
+        wider = self.find("%s %s" % (text, " ".join(known)), most=most, **kw)
+        return wider or first
+
     def named_in(self, text):
         """Which sources does THIS TEXT name — the same pointer-and-bigram
         reading `find` performs, asked of one sentence on its own.
@@ -1174,6 +1202,24 @@ class SentenceStore:
                             scores[sid] += weight
             named_sources = set(unique_called) | self._called_by_bigram(
                 qwords_order, names)
+            # A FAMILY RESEMBLANCE IS A PARTIAL MATCH — the same rule the
+            # layouts read (W66), applied where the seats are handed out.
+            # Measured: "PYI-00 Program Özeti eğitiminin süresi nedir?"
+            # boosted PYI-00, PYT-00 and TPY-00 alike, because siblings
+            # share every word but the code; the record row of the
+            # document actually asked about then had to outscore three
+            # documents' worth of boosted prose, and did not.
+            if len(named_sources) > 1:
+                def _covered(src):
+                    ws = _words(_source_name(src), known=self.units)
+                    if not ws:
+                        return 0.0
+                    got = sum(1 for w in ws
+                              if any(inflect.same_stem(w, q) for q in qwords))
+                    return got / len(ws)
+                best_cover = max(_covered(s) for s in named_sources)
+                named_sources = {s for s in named_sources
+                                 if _covered(s) >= best_cover - 1e-9}
             self.last_named = set(named_sources)
         if not scores:
             self.last_census = []
@@ -1339,6 +1385,48 @@ class SentenceStore:
                 for w in cand:
                     seen |= weigh.get(w, set())
             weight = math.log(1 + total / len(seen))
+            # THE WEIGHT OF A MATCH IS THE INFORMATION OF WHAT ACTUALLY
+            # MATCHED. One weight for the whole family is right when the
+            # family is the concept — but in prose the family is
+            # everywhere and the asked FORM is rare. Measured on a
+            # 1,300-page novel: asked "Sonya kimin evinde bir odada
+            # oturur?", the passage that answers it word for word ranked
+            # TWELFTH, below passages matching two words, because "otur",
+            # "ev" and "oda" as families are worth almost nothing in a
+            # novel while the interrogative "kimin" is rare and stayed
+            # heavy. The question's own words were being priced as
+            # concepts and the function word as information.
+            #
+            # So: a sentence carrying the word AS ASKED is weighed by
+            # that word's own rarity when it is rarer than the family's;
+            # a sentence carrying only a relative keeps the family
+            # weight. This can only lift sentences that literally contain
+            # what was typed — it is not the "rare inflection out-informs
+            # the stem" trap, which is about rare forms in the INDEX, not
+            # about the asker's own form.
+            # ...AND ONLY WHERE THERE IS NO SOURCE CHANNEL. In a store of
+            # many documents the naming channel already anchors a question
+            # (log(S/s) prices a word by how well it separates sources),
+            # and this reading is not needed: measured on 62 sibling
+            # outlines it cost one factual answer, deterministically,
+            # because a prose line carrying the asked form outranked the
+            # record row that answers. With ONE source that channel is
+            # silent — log(1/1) is zero for every word — and the
+            # sentence-level weight is all the anchoring there is. That is
+            # exactly the corpus where the flattening bites.
+            asked_weight = {}
+            for qw in group if len(self.by_source) <= 1 else ():
+                own = index.get(qw)
+                if not own:
+                    continue
+                seen_own = set(own)
+                if weigh is not None:
+                    seen_own |= weigh.get(qw, set())
+                own_weight = math.log(1 + total / len(seen_own))
+                if own_weight > weight:
+                    for sid in own:
+                        if own_weight > asked_weight.get(sid, 0):
+                            asked_weight[sid] = own_weight
             keyed = set()
             for w, ids in cand.items():
                 keyed |= ids & keys.get(w, set())
@@ -1348,8 +1436,8 @@ class SentenceStore:
                 # as a kv KEY names the record's slot, in prose it is mere
                 # co-occurrence (kv-key weighting; format cue, no language
                 # rule). The doubling is `CHANNEL` — see the ladder.
-                scores[sid] = scores.get(sid, 0) + weight * (
-                    CHANNEL if sid in keyed else 1)
+                scores[sid] = scores.get(sid, 0) + asked_weight.get(
+                    sid, weight) * (CHANNEL if sid in keyed else 1)
         return scores, named
 
     def _seats(self, qwords, scores, named, most, base=None,

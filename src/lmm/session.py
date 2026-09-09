@@ -444,6 +444,7 @@ class Session:
         self.last_from_graph = False
         self._mark = ""
         self._last_proof = []
+        self._widened = False
         self._conversational = True
         # the tally too — it is written by retrieval, and a turn that never
         # retrieves (chat, context statements) must not inherit the previous
@@ -453,6 +454,7 @@ class Session:
         self._spec_wants = None
         self._spec_chat = None
         self._composed = False
+        self._widened = False
         self._on_line = on_line
         self._conversational = conversational
         said = self._respond(message, fluent=fluent, teach=teach)
@@ -483,6 +485,29 @@ class Session:
             # whatever language it was written. One short model call per
             # answering turn, and only on turns that did not already refuse.
             self.last_abstained = not self._asserted_a_fact(said)
+        # A SECOND CHANCE AT FINDING, NEVER AT CLAIMING — and it is asked
+        # HERE, where the abstention is finally known. A turn can end up
+        # saying nothing through several doors (the refusal, an empty
+        # answer, a candidate set that all died at the gate), and hooking
+        # any one of them caught only that one. Lexical retrieval is what
+        # makes this memory auditable; the price is paraphrase, and the
+        # price is paid only by turns that would otherwise say nothing.
+        # The engine proposes the words a document would use, THIS STORE
+        # approves them (a word nobody wrote cannot enter a search), and
+        # the widening goes to the query alone — every gate below still
+        # reads the question as it was asked.
+        if (self.last_abstained and not self._widened and not teach
+                and self.evidence.sentences and self.last_kind == extract.ASK):
+            self._widened = True
+            words = self._store_words(message)
+            if words:
+                again = self._answer(message, self.last_subject or "",
+                                     widen=words)
+                if again:
+                    spoken = self._strip_marks(again)
+                    if spoken and self._asserted_a_fact(again):
+                        said = again
+                        self.last_abstained = False
         # THE INFORMED REFUSAL. A turn that declines while the census is
         # rich is refusing with its hands full: the memory could not answer
         # WHAT WAS ASKED, but it holds an attested tally of documents that
@@ -914,6 +939,12 @@ class Session:
                     line, src = direct
                     self.last_kind = extract.ASK
                     if not line:        # the document does not speak of it
+                        # ...AND THERE IS NOTHING TO ASK AGAIN. The store
+                        # already answered structurally: this document
+                        # never uses these words, and the scope rule
+                        # forbids answering from another. A second search
+                        # could only find somebody else's line.
+                        self._widened = True
                         return self._refuse(message)
                     self._mark = src
                     self.last_abstained = False
@@ -1039,6 +1070,7 @@ class Session:
                 if direct is not None:
                     line, src = direct
                     if not line:        # the document does not speak of it
+                        self._widened = True
                         return self._refuse(message)
                     self._mark = src
                     self.last_abstained = False
@@ -1800,7 +1832,7 @@ class Session:
                 self.gate.inferred(who, predicate, what, because)
 
     # --- answering -----------------------------------------------------
-    def _answer(self, question, subject_label):
+    def _answer(self, question, subject_label, widen=()):
         """Answer the question by fetching from the graph + Qwen; the gate
         drops any claim stepping outside the INJECTED facts."""
         subject = (link.resolve(self.memory, subject_label, self.vectors)
@@ -1924,10 +1956,15 @@ class Session:
         # never a claim: what may be said is still read off the evidence.
         bridge = self._field_bridge(question)
         self._bridge_field = bridge
-        if bridge:
-            question_query = f"{question} {bridge}"
-        else:
-            question_query = question
+        question_query = f"{question} {bridge}".strip() if bridge else question
+        # THE SECOND ASK'S WORDS RIDE IN THE QUERY, NOWHERE ELSE. They are
+        # the store's own words for what was asked (see `find_again`), and
+        # they widen what can be FOUND. Every gate below still reads the
+        # QUESTION as it was asked — a claim is judged against what the
+        # user wanted to know, never against the words we added to go
+        # looking for it.
+        if widen:
+            question_query = "%s %s" % (question_query, " ".join(widen))
         consult = ""
         if self._no_teach and self._brief:
             consult = " ".join(self._brief)
@@ -2934,6 +2971,29 @@ class Session:
                 if h == head and value:
                     return value[:40]
         return ""
+
+    def _store_words(self, question):
+        """The store's own words for what this question asks about.
+
+        The engine proposes (`generate.phrasings`); the STORE approves —
+        a word that nobody wrote here cannot enter a search, the same
+        rule the field bridge keeps. Returns [] when the engine is
+        unreachable or has nothing this corpus recognises.
+        """
+        store = getattr(self, "evidence", None)
+        if store is None:
+            return []
+        try:
+            proposed = generate.phrasings(question)
+        except Exception:                                    # noqa: BLE001
+            return []
+        asked = set(evidence._words(question))
+        out = []
+        for phrase in proposed:
+            for w in evidence._words(phrase, known=store.units):
+                if w in store.index and w not in asked and w not in out:
+                    out.append(w)
+        return out[:6]
 
     def _field_bridge(self, question):
         """The field this question means, when its own words reach none.

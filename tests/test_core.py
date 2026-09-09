@@ -6029,6 +6029,72 @@ def w72():
                              "retried more than once: %d" % len(tries))
 
 
+
+@test("W73 a question the store cannot match is asked again in the store's words")
+def w73():
+    """Retrieval here is lexical, and that is what makes it auditable: a
+    passage arrives because a word arrived, and both can be shown. The
+    cost is paraphrase. Measured on a 1,300-page novel: the book says
+    "Sonya, terzi Kapernaumov'un evinde bir odada OTURUR" and a reader
+    asks where she LIVES — no shared word, no answer, and the memory
+    abstains with the sentence in its hands.
+
+    The frameworks that do not have this problem embed their chunks in a
+    vector space, where meaning is geometry; they also cannot say WHY a
+    passage was chosen, and they fabricate. We keep the ledger and pay
+    the paraphrase — but only until the first attempt fails.
+
+    THE SECOND ASK. When a turn found nothing, the engine is shown the
+    question and asked how the same thing might be WRITTEN. Two rules
+    make it safe. The proposals are filtered against the store's own
+    index, so a word nobody wrote cannot enter the search — the same
+    rule the field bridge keeps. And the widening is retrieval only: what
+    may be SAID is still read off the evidence by the same gates. A
+    second chance at finding, never a second chance at claiming."""
+    from lmm import evidence, generate
+    from lmm.evidence import SentenceStore
+    ev = SentenceStore()
+    ev.add("Sonya, terzi Kapernaumov'un evinde bir odada oturur.",
+           source="#kitap")
+    # ...and enough noise carrying the question's OWN words that the first
+    # search fills its seats without ever reaching the line: this is the
+    # miss as it happens in a novel, where "nerede" and "yaşıyor" are
+    # everywhere and the answer is written once, in other words.
+    for i in range(40):
+        # the asked-about name is COMMON in a novel — Sonya appears four
+        # thousand times in the real one — so it anchors nothing, and the
+        # question's remaining words are the noise's own words.
+        ev.add("Sonya nerede olduğunu düşündü ve yaşıyor mu diye sordu %d."
+               % i, source="#kitap")
+        ev.add("Sonya bir gün yaşıyor gibi görünüyordu %d." % i,
+               source="#kitap")
+    soru = "Sonya nerede yaşıyor?"
+    assert not any("Kapernaumov" in line for line in ev.find(soru, most=5)), \
+        "the fixture does not reproduce the miss"
+    asked = {}
+    real = generate.phrasings
+    def _proposed(question, sample=()):
+        asked["q"] = question
+        return ["oturur", "ikamet", "konut"]
+    generate.phrasings = _proposed
+    try:
+        got = ev.find_again(soru, most=5)
+    finally:
+        generate.phrasings = real
+    assert asked.get("q") == soru, asked
+    assert any("Kapernaumov" in line for line in got), (
+        "the second ask did not reach the line:\n"
+        + "\n".join(l[:60] for l in got))
+    # ...and a word the store never wrote cannot enter the search
+    generate.phrasings = lambda question, sample=(): ["zeplin", "kuantum"]
+    try:
+        assert ev.find_again("Sonya nerede yaşıyor?", most=5) == \
+            ev.find("Sonya nerede yaşıyor?", most=5), \
+            "words nobody wrote changed the search"
+    finally:
+        generate.phrasings = real
+
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the
