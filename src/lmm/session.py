@@ -2575,6 +2575,12 @@ class Session:
                 # "Morlan bir canlıdır", a vote handed the answer to the
                 # generic one — twice as many voices, all reading less of the
                 # document. Both claims are true; only one of them answers.
+            # A VALUE BELONGS TO THE FIELD IT WAS WRITTEN UNDER — a
+            # local veto beside the digit one, for the same reason: it
+            # decides admissibility and cannot be argued with by a
+            # fluent sentence.
+            if proof and not self._field_ok(question, raw, proof):
+                continue
             if evidence.digits_ok(raw, block):
                 digit = 1.0
             elif proof and evidence.digits_present(raw, block):
@@ -2915,6 +2921,76 @@ class Session:
             if cov > best_cov:
                 best, best_cov = origin, cov
         return best
+
+    def _field_ok(self, question, claim, proof):
+        """A VALUE BELONGS TO THE FIELD IT WAS WRITTEN UNDER.
+
+        Found by the thousand-document set, and it is a fabrication every
+        other gate lets through. A specification carries MEMORY: 128 GB
+        and no STORAGE line at all; asked for its storage, the memory
+        answered "the storage is 128 GB" and stamped it with that
+        document. The scope rule holds (the source is the one named), the
+        read-back holds (the number is in the evidence), the relation
+        check holds (the sentence answers the shape of the question) —
+        and the only thing wrong is which FIELD the number belongs to,
+        which nothing was reading. In a specification, memory and storage
+        are different things, and giving one for the other is not a near
+        miss.
+
+        Local, deterministic, and a VETO rather than a proof: when the
+        question asks about a head the CORPUS repeats, digits in the
+        claim must appear on a line that also carries that head. The
+        record row, the extremes row and the comparison verdict row all
+        carry it; a sibling field's line does not. Questions that name no
+        known head, and claims that carry no digits, are not this
+        reading's business.
+        """
+        if getattr(self, "evidence", None) is None:
+            return True                 # no store to read heads off
+        heads = self._fields()
+        if not heads:
+            return True
+        qw = set(evidence._words(question))
+        bridged = getattr(self, "_bridge_field", "")
+
+        # WHICH HEAD IS ASKED, in a language that glues its endings on.
+        # Requiring every word of a head to be matched is right; reading
+        # "matched" through kinship alone was not. "eğitiminin" carries
+        # four letters of suffix, one past what kinship admits, so
+        # EĞİTİM SÜRESİ counted as unasked and two good answers were
+        # vetoed — with zero flips, the sure sign of a rule rather than
+        # of noise. Loosening kinship would loosen every gate that reads
+        # it. Picking the best-COVERED head instead (the census's rule)
+        # was measured too, and was worse: it can seat a neighbouring
+        # head and leave the asked one out, and six comparisons went with
+        # it.
+        #
+        # A head word is matched here when a question word CONTAINS it
+        # from the start — which is what a suffix does to a stem — or the
+        # other way round. Widening this can only add heads to the list,
+        # and the reading below passes when the digits sit under ANY of
+        # them, so the safe direction is the permissive one.
+        def _matched(w, q):
+            return (inflect.same_stem(w, q) or inflect.kin(w, q)
+                    or q.startswith(w) or w.startswith(q))
+
+        asked = ([bridged] if bridged in heads
+                 else [h for h in heads
+                       if all(any(_matched(w, q) for q in qw)
+                              for w in evidence._words(h))])
+        if not asked:
+            return True
+        digits = set(re.findall(r"\d+", claim))
+        if not digits:
+            return True
+        for line in proof:
+            lw = set(evidence._words(line))
+            if not any(all(any(inflect.same_stem(w, x) for x in lw)
+                           for w in evidence._words(h)) for h in asked):
+                continue
+            if digits & set(re.findall(r"\d+", line)):
+                return True
+        return False
 
     def _substance_ok(self, claim, proof, question):
         """AN ANSWER'S SUBSTANCE CANNOT BE BORROWED FROM THE QUESTION — the
