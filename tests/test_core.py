@@ -6095,6 +6095,52 @@ def w73():
         generate.phrasings = real
 
 
+
+@test("W74 a row is named by any value that names only it")
+def w74():
+    """A spreadsheet is the shape this system answers fastest — a row is
+    a record, and the graph-first path speaks it with no model call at
+    all. Measured on a public 891-row table, that path answered NONE of
+    the questions a person would actually ask.
+
+    The reason is what a row is CALLED. A CSV's first column becomes the
+    row's subject, so the graph held `1 -[Name]-> Taylor, Mr. Elmer
+    Zebley` and `1 -[Age]-> 42`, and every question named the passenger
+    rather than the number. Nobody asks for "the Age of row 1".
+
+    A row can be named by any of its values that names ONLY it. That is
+    the same non-guessing rule the rest of this codebase keeps: a value
+    carried by two rows names neither, and the path stands aside. No word
+    list, no notion of what a "name column" is — only uniqueness, which
+    the graph can check."""
+    from lmm import lookup
+    from lmm.api import Memory
+    m = Memory(None)
+    m.session.learn_rows([
+        {"Id": "1", "Name": "Taylor, Mr. Elmer Zebley", "Age": "42",
+         "Class": "first"},
+        {"Id": "2", "Name": "Smith, Miss. Marion", "Age": "31",
+         "Class": "second"},
+        {"Id": "3", "Name": "Wiklund, Mr. Jakob", "Age": "18",
+         "Class": "third"},
+    ], source="#csv:people.csv")
+    got = lookup.find(m.session.memory,
+                      "What is the Age of Taylor, Mr. Elmer Zebley?")
+    assert got is not None, "the row could not be reached by its name"
+    from lmm import link
+    assert link.label_of(m.session.memory, got.value) == "42", (
+        link.label_of(m.session.memory, got.value))
+    # ...and a value two rows share names neither of them
+    m2 = Memory(None)
+    m2.session.learn_rows([
+        {"Id": "1", "Name": "Taylor", "Class": "first"},
+        {"Id": "2", "Name": "Smith", "Class": "first"},
+    ], source="#csv:people.csv")
+    assert lookup.find(m2.session.memory,
+                       "What is the Id of first?") is None, \
+        "a value shared by two rows was allowed to name one of them"
+
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the
@@ -6370,28 +6416,33 @@ def w53():
     # question? — and on a no it is written once more. A second no is
     # kept: silence is worse than a sentence in the wrong language, and
     # nothing here writes a canned phrase.
+    # ...AND THE SPEECH IS CHECKED, BY NAMING RATHER THAN COMPARING. The
+    # first cut asked a judge "is the reply in the same language as the
+    # question?" and, measured against the live engine, it answered NO for
+    # an English question answered in English — a verdict carrying no
+    # information, so every refusal was rewritten once and then kept
+    # whatever came back, Dutch included. Naming ONE sentence's language
+    # is a smaller question the engine answers reliably; the comparison
+    # is then arithmetic. On a mismatch the sentence is written once
+    # more, with the language NAMED in front of it. A canned phrase is
+    # still written in no language.
     calls = {"n": 0}
     outs = iter(["Ik heb die informatie nog niet.",
                  "I do not have that information yet."])
     def spy2(messages, max_tokens=256, temperature=0.7, system=None):
         calls["n"] += 1
         return next(outs)
-    real_same = getattr(generate, "same_language", None)
-    judged = {"n": 0}
-    def fake_same(question, reply):
-        judged["n"] += 1
-        return "informatie" not in reply
-    generate.same_language = fake_same
+    named = []
+    real_named = generate.language_of
+    generate.language_of = lambda text: (
+        named.append(text) or ("Dutch" if "informatie" in text else "English"))
     runtime.generate = spy2
     try:
         out = generate.refusal("What is the battery life of the Marlin?")
     finally:
         runtime.generate = real
-        if real_same is None:
-            del generate.same_language
-        else:
-            generate.same_language = real_same
-    assert judged["n"] >= 1, "the refusal was never read for its language"
+        generate.language_of = real_named
+    assert named, "the language was never named"
     assert out.startswith("I do not have"), out
     assert calls["n"] == 2, ("the refusal was rewritten more than once: %r"
                              % calls)
