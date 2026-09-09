@@ -5746,6 +5746,68 @@ def w66():
                    "#docx:Value Transfer in Sales - Branch Desk"}, sorted(two)
 
 
+
+@test("W67 a value belongs to the field it was written under")
+def w67():
+    """Found by the thousand-document set, and it is a fabrication the
+    existing gates cannot see. A specification carries MEMORY: 128 GB and
+    no STORAGE line at all. Asked for its STORAGE, the memory answered
+    "the storage is 128 GB" and stamped it with that document — and every
+    gate agreed, because the source is right (the scope rule holds), the
+    number is in the evidence (the read-back holds), and the sentence
+    does answer the shape of the question (the relation check holds). The
+    only thing wrong is which FIELD the number belongs to, and no gate
+    was reading that.
+
+    In a spec sheet, memory and storage are different things and giving
+    one for the other is not a near miss. The reading is local and
+    deterministic: when the question asks about a field the CORPUS
+    knows, a claim carrying digits must find those digits under THAT
+    head in the evidence. The head is the documents' own; the digits are
+    the documents' own; nothing here is a threshold or a word list."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    for i in range(6):
+        s.learn_text("MACHINE %02d — TECHNICAL SUMMARY.\n"
+                     "MEMORY: %d GB.\nDISPLAY: 15 inches.\n"
+                     "The unit ships with a charger." % (i, 16 * (i + 1)),
+                     source="#docx:Machine %02d" % i, deep=False)
+    # ...and other documents that DO carry STORAGE, so the head is a
+    # field the corpus repeats rather than a word nobody wrote. (A head
+    # in one document only is not a field — the same rule the census
+    # uses — which is why the fixture needs more than one.)
+    for i in range(90, 94):
+        s.learn_text("MACHINE %02d — TECHNICAL SUMMARY.\nMEMORY: 8 GB.\n"
+                     "STORAGE: %d GB.\nDISPLAY: 15 inches." % (i, 128 * (i - 89)),
+                     source="#docx:Machine %02d" % i, deep=False)
+    said = {}
+    real_gates = (Session._read_back, Session._relation_held)
+    Session._read_back = lambda self, raw, proof, block, question="": True
+    Session._relation_held = lambda self, q, raw, proof, block: True
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research, generate.field_for)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("machine 03", "storage", "")]}
+    generate.field_for = lambda q, heads: ""
+    # the engine reaches for the only number in the document
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None, **kw:
+                       "The STORAGE of Machine 03 is 64 GB.")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not have that.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        said["out"] = s.respond("what is the STORAGE of Machine 03?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research, generate.field_for) = real
+        (Session._read_back, Session._relation_held) = real_gates
+    out = said["out"] or ""
+    assert "64" not in out, (
+        "another field's value was spoken as the asked field's: " + out)
+
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the
