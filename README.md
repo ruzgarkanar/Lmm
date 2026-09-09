@@ -108,6 +108,27 @@ miss.
 \* *frontier*: questions whose discriminating word the documents never
 write ("the priciest" against a column headed LIST PRICE).
 
+### Against three memory frameworks, same corpus, same engine
+
+LangChain (RAG), LlamaIndex and Mem0 answering the same questions over
+the same 62 documents, each with Azure `gpt-4o-mini` behind it, two
+repeats:
+
+| | factual | comparisons | frontier | traps | wrong facts asserted | p50 latency | ingestion |
+|---|---|---|---|---|---|---|---|
+| LangChain | 21/40 | 14/15 | 4/8 | 9/10 | 1 | **1.9 s** | 75.6 s |
+| LlamaIndex | 29/40 | 13/15 | 6/8 | 9/10 | 1 | 3.4 s | 12.9 s |
+| Mem0 | 25/40 | 15/15 | 5/8 | 8/10 | 2 | 2.2 s | 161 s |
+| **LMM** | **40/40** | **15/15** | **7/8** | **10/10** | **0** | 5.9 s | **2.1 s** |
+
+The shape of that table is the design: LMM is ahead on every accuracy
+column and alone at zero fabrications, loads a corpus in seconds rather
+than minutes, and pays for its verification in per-question latency —
+three model calls to answer, three more to audit the answer, where a RAG
+pipeline makes one and asserts whatever comes back. The questions it can
+answer from a record cost nothing at all (0.01 s), which is what pulled
+the median down from 11.2 s.
+
 **Speed.** A question that names a document and one of the corpus's own
 field heads is answered from the record itself — no model call, no
 composition, the document's line and its stamp: **0.01 s** where the same
