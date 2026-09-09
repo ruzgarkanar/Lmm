@@ -5214,15 +5214,22 @@ def w57():
     assert "LIST PRICE" in heads and "MEMORY" in heads, heads
     asked = []
     real = generate.field_for
+    # the listing shows each head beside one of its own values, so a
+    # reader that has only seen the name can recognise it; the pick is
+    # matched back to the head
     generate.field_for = lambda q, hs: (asked.append((q, list(hs)))
-                                        or "LIST PRICE")
+                                        or [h for h in hs
+                                            if h.startswith("LIST PRICE")][0])
     try:
         # A question whose words reach a field asks the engine nothing.
         assert s._field_bridge("what is the MEMORY of the Marlin?") == ""
         assert not asked, asked
         got = s._field_bridge("which workstation is the priciest?")
         assert got == "LIST PRICE", got
-        assert asked and "LIST PRICE" in asked[0][1], asked
+        assert asked and any(h.startswith("LIST PRICE") for h in asked[0][1]), asked
+        assert any("4200" in h or "euro" in h for h in asked[0][1]), (
+            "the heads were shown without an example of what they hold: %s"
+            % asked[0][1])
         # The same question twice costs one call, not two.
         s._field_bridge("which workstation is the priciest?")
         assert len(asked) == 1, asked
@@ -5806,6 +5813,96 @@ def w67():
     out = said["out"] or ""
     assert "64" not in out, (
         "another field's value was spoken as the asked field's: " + out)
+
+
+
+@test("W68 a field of a named document is read, not generated")
+def w68():
+    """The commonest question a document store is asked — what does THIS
+    document say under THAT head — is one the memory can answer without
+    an engine at all. The row exists, the source is named, the head is
+    named; there is nothing to compose and nothing to verify that
+    reading the row does not already settle.
+
+    This was tried once before and reverted: it fired on one question in
+    twelve and cost a comparison. The reason is now known, and it was
+    not this rule — it was the naming underneath it. A question about
+    one document was being read as naming six (W66), so "the question
+    names exactly one source" was almost never true, and when it was,
+    the source was as likely to be a sibling. With naming fixed the
+    condition means what it says.
+
+    The conditions are all structural: exactly one source named, exactly
+    one row under the asked head in that source, and the head asked by
+    the question rather than by us. The answer is the document's own
+    line, stamped with the document — the same thing the record channel
+    puts in the block, spoken directly."""
+    from lmm import generate, extract
+    from lmm.api import Memory
+    m = Memory(None)
+    for i in range(4):
+        m.learn("COURSE %02d OUTLINE.\nThe module opens the arc.\n"
+                "DURATION: %d days.\nSEATS: %d people." % (i, i + 1, 10 + i),
+                source="#docx:Course %02d" % i, deep=False)
+    calls = {"n": 0}
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    extract.extract = lambda msg: {"kind": extract.ASK,
+                                   "triples": [("course 02", "duration", "")]}
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None, **kw:
+                       calls.__setitem__("n", calls["n"] + 1) or "made up")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not have that.")
+    generate.offer_research = lambda subject, question: ""
+    routed = {"n": 0}
+    real_extract = extract.extract
+    extract.extract = (lambda msg: routed.__setitem__("n", routed["n"] + 1)
+                       or {"kind": extract.ASK,
+                           "triples": [("course 02", "duration", "")]})
+    try:
+        said = m.ask("what is the DURATION of Course 02?", explain=True)
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    assert "3 days" in str(said), said
+    assert calls["n"] == 0, ("the row was in hand and the engine was asked "
+                             "anyway (%d call(s))" % calls["n"])
+    # ...and on the question door not even the router is paid: `ask` is
+    # asked a question by contract, and reading the row needs no subject
+    # from anyone. This is the whole of the turn — a hundred milliseconds
+    # of local work where the same question used to cost ten seconds.
+    assert routed["n"] == 0, ("the question door paid for %d routing call(s) "
+                              "on a row it could read" % routed["n"])
+    assert not said.abstained, said
+    assert any("Course 02" in s for s in said.sources), said.sources
+
+
+
+@test("W69 a source stamp survives the space in a document's name")
+def w69():
+    """Provenance is the product, and the public API was cutting it in
+    half. The mark is written as "(~ #docx:Course 02)" and `sources` was
+    read by splitting the answer on whitespace and keeping the words
+    that start with '#' — so every document whose name contains a space,
+    which is most documents anyone has, arrived as "#docx:Course". Two
+    sibling courses then carry the SAME stamp, and an application that
+    shows provenance shows the wrong document, or an ambiguous one.
+
+    The mark has a shape: it is the parenthesis the turn appends. Read
+    it as one, and what comes back is what the store attested."""
+    from lmm.api import Answer, Memory
+    from lmm.session import UNCERTAIN
+    m = Memory(None)
+    m.session.last_abstained = False
+    got = m._told("The course runs 3 days. (%s #docx:Course 02)" % UNCERTAIN)
+    assert list(got.sources) == ["#docx:Course 02"], got.sources
+    # a bare stamp with no space still reads, and prose punctuation does
+    # not become part of it
+    got2 = m._told("It is stated. (%s #manual)" % UNCERTAIN)
+    assert list(got2.sources) == ["#manual"], got2.sources
+    # ...and an answer with no mark claims no source
+    assert list(m._told("The course runs 3 days.").sources) == []
 
 
 @test("W50 a field question that names no source reads that field across the corpus")

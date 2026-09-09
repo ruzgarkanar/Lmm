@@ -84,6 +84,31 @@ class Answer(str):
                 f"{str(self)!r}>")
 
 
+def _stamps_in(said):
+    """The provenance stamps a spoken answer carries, whole.
+
+    The turn appends its mark as "(~ #stamp)" — see `session.UNCERTAIN` —
+    and a stamp is a document name, which may hold spaces, punctuation
+    and anything else a filename holds. Read to the closing bracket, not
+    to the next space.
+    """
+    from lmm.session import UNCERTAIN
+    out = []
+    for chunk in re.findall(r"\((?:%s)\s*([^()]*)\)" % re.escape(UNCERTAIN),
+                            said or ""):
+        for stamp in chunk.split(" \u00b7 "):          # several, when several
+            stamp = stamp.strip().rstrip(".,;:")
+            if stamp.startswith("#") and len(stamp) > 1:
+                out.append(stamp)
+    if out:
+        return out
+    # A STAMP CAN ALSO ARRIVE BARE, without the mark's parentheses — a
+    # composed line carries its source that way, and so does the graph
+    # path. There the old reading is the right one: a word is a stamp.
+    return [w for w in (x.strip("()[].,;:") for x in (said or "").split())
+            if w.startswith("#") and len(w) > 1]
+
+
 class Learned:
     """What `learn` returns: what went in, what did NOT, and by which door.
 
@@ -588,11 +613,15 @@ class Memory:
             said,
             abstained=session.last_abstained,
             from_graph=session.last_from_graph,
-            # The provenance mark is written as '(~ #stamp)', so a stamp can
-            # arrive wearing the mark's punctuation; strip the bracketing, not
-            # the stamp.
-            sources=[s for s in (w.strip("()[].,;:") for w in said.split())
-                     if s.startswith("#") and len(s) > 1],
+            # THE MARK HAS A SHAPE, so it is read as one. Splitting the
+            # answer on whitespace and keeping the words that start with
+            # '#' cut every stamp at its first space — and a document
+            # named "Course 02" arrived as "#docx:Course", which two
+            # siblings then share. Provenance that cannot tell two
+            # documents apart is not provenance. The mark is the
+            # parenthesis the turn appends: "(~ #stamp)", stamp running
+            # to the closing bracket.
+            sources=_stamps_in(said),
             subject=session.last_subject,
             kind=session.last_kind,
             wrote=tuple(session.last_written),
