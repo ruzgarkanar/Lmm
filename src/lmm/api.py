@@ -292,11 +292,12 @@ class Memory:
 
     def __init__(self, path=None, who="#operator", mode="STRICT", cache=True,
                  persona="",
-                 warmth=None, reply_tokens=None, style=""):
+                 warmth=None, reply_tokens=None, style="", identity=None):
         # `persona` colours the voice of every spoken turn — greeting style,
         # tone, when to ask a clarifying question — and can never loosen the
         # gates, which read the output rather than any prompt.
         self.session = Session(path, who=who, mode=mode, persona=persona,
+                               identity=identity,
                                warmth=warmth, reply_tokens=reply_tokens,
                                style=style)
         # THE SAME QUESTION, ASKED AGAIN, OVER A MEMORY THAT HAS NOT MOVED. The

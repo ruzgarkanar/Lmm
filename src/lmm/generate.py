@@ -425,9 +425,23 @@ def identity_answer(question, name, id_block):
               "your name for who/what you are, and these facts for who made you. "
               "Write a real, natural sentence — NEVER copy the raw fact rows or "
               "the → arrow. Use ONLY this; if something isn't covered, say you "
-              "don't know. Never invent, never switch language.")
+              "don't know. Never invent, never switch language.\n\n"
+              # A MAKER NOBODY LISTED IS A FABRICATION, and it costs the
+              # whole sentence: told only its name, the engine wrote "I am
+              # X, built by OpenAI", the gate rightly dropped the claim,
+              # and the name went down with it — the operator's own
+              # declaration lost to an invented one. If the rows name no
+              # maker, the answer is the name alone.
+              "If the facts above do not name who made you, DO NOT NAME "
+              "ANYONE — not a company, not a person, not a model. Say who "
+              "you are and stop there.")
+    # IDENTITY IS A FACT, NOT A PLACE FOR SAMPLING. At 0.2 the same
+    # question answered "I am Nar Hoca" once and something the gate had to
+    # drop the next time — and a dropped identity falls through to the
+    # chat voice, which says something pleasant and nameless. The rows are
+    # fixed; the sentence should be too.
     return runtime.generate(question, system=system, max_tokens=60,
-                            temperature=0.2)
+                            temperature=0.0)
 
 
 def is_affirmative(message):
