@@ -2062,7 +2062,7 @@ class Session:
             # the voice still judges). Every word is the documents'; the
             # marker is notation; the engine reads a verdict instead of
             # building one.
-            fields = {}
+            fields, verdicts = {}, []
             for text, origin in zip(comp, comp_origins):
                 if ":" not in text:
                     continue
@@ -2088,9 +2088,26 @@ class Session:
                 row = f"{head_text} \u2014 " + sep.join(
                     f"{evidence._source_name(o)}: {v}"
                     for o, (_h, v) in items)
-                if row not in comp:
-                    comp.append(row)
-                    comp_origins.append("")
+                if row not in comp and row not in verdicts:
+                    verdicts.append(row)
+            # THE VERDICT SPEAKS BEFORE THE LINES IT IS DRAWN FROM. The
+            # census learned this and the comparison never got the
+            # lesson: a block is read from the top, so the extremes row
+            # was moved to the front after being appended where nobody
+            # read it — and the comparison's verdict rows were still
+            # arriving after every line the two documents contributed.
+            # Measured on the field set, and it was the whole of a
+            # remaining failure: twelve lines of prose, then a row
+            # reading "DURATION — A: 1 full day = B: 1 day". The engine
+            # answered off the two raw lines, concluded they DIFFER
+            # because the words differ, the jury refused that (rightly),
+            # and the turn abstained with the answer two lines below
+            # where the reader stopped. Arithmetic the system already
+            # trusts, written where nobody reads it, is arithmetic the
+            # system did not do. Their own order — the asked-about field
+            # first (W47) — is kept.
+            comp[0:0] = verdicts
+            comp_origins[0:0] = [""] * len(verdicts)
             self.evidence.last_census = census_keep
             if comp:
                 proof, proof_origins = comp, comp_origins
