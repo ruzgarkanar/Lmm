@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] — 2026-09-09
+
+### Changed
+
+- **A document that never uses the words is not asked about them.** The
+  mirror of the record answer, on the refusal path: a question naming
+  one document and one of the corpus's own field heads, where that
+  document never uses the head's words anywhere — record or prose — has
+  no answer in the only source it may be answered from, so the three
+  candidates and the three judgements that would refuse them are not
+  paid for. Measured before it was written: the condition holds for zero
+  of 123 factual questions across three corpora, and for 24 of 25 traps
+  at a thousand documents. The fifty-question run over that store takes
+  109 s, from 205 s and from 620 s at the start of the day; quality is
+  unchanged everywhere (field set 40/40 · 15/15 · 7/8 · 10/10, scale
+  25/25 · 25/25, NIST 11/13, EN 17/17), and the mechanically-derived set
+  rises to 56/58 factual.
+
 ## [0.3.5] — 2026-09-09
 
 The release where the commonest question stopped costing anything, and
