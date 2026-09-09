@@ -5971,6 +5971,64 @@ def w70():
     assert "512" in str(other), other
 
 
+
+@test("W72 the memory does not introduce someone the operator never named")
+def w72():
+    """Caught in a live session, and it is a product bug of the worst
+    kind — the quiet kind. Asked "who is this?", a chatbot built on this
+    library answered "I am lmm, my creator is rüzgar": the framework
+    author's name, seeded into the identity graph of every memory anyone
+    builds, spoken to that person's end users. Nobody asked for it,
+    nobody could have known it was there, and it is exactly the
+    hard-coded-name-in-the-architecture this codebase forbids
+    everywhere else.
+
+    Identity is the OPERATOR'S DECLARATION. A memory that is not told
+    who it is says only what it can attest — that it is a memory —
+    and it never invents a maker. A memory that IS told carries that
+    name in the graph like any other fact, and answers from it."""
+    from lmm.session import Session
+    from lmm import link
+    plain = Session(None)
+    labels = {link.label_of(plain.memory, k) or "" for k in plain.memory.records}
+    joined = " ".join(labels).lower()
+    assert "rüzgar" not in joined and "ruzgar" not in joined, (
+        "the framework author's name is in an untold memory: %s" % sorted(labels))
+    told = Session(None, identity={"name": "Nar Hoca", "maker": "Narköy"})
+    block = told._chat_id_block().lower()
+    assert "nar hoca" in block, block
+    assert "narköy" in block, block
+    # ...and the operator may give a name without inventing a maker
+    named = Session(None, identity="Kitap Arkadaşı")
+    said = named._chat_id_block().lower()
+    assert "kitap arkadaşı" in said, said
+    assert "creator" not in said and "narköy" not in said, said
+
+    # AN IDENTITY ANSWER THAT DOES NOT NAME THE MEMORY HAS NOT ANSWERED.
+    # Measured live: asked "who are you?" three times, the engine wrote
+    # the name once and a nameless pleasantry twice ("I am here to help"),
+    # and the pleasantry passed every gate because it claims nothing. It
+    # also tells the user nothing, and it is not what the operator
+    # declared. The route asks again, once; if the second sentence is
+    # also nameless the memory says its name plainly rather than
+    # something pleasant.
+    from lmm import generate
+    tries = []
+    real_answer = generate.identity_answer
+    generate.identity_answer = (lambda q, name, block:
+                                tries.append(1) or
+                                ("Size yardımcı olmak için buradayım!"
+                                 if len(tries) < 2 else
+                                 "Ben Kitap Arkadaşı'yım."))
+    try:
+        out = named._identity_reply("sen kimsin?")
+    finally:
+        generate.identity_answer = real_answer
+    assert "Kitap Arkadaşı" in out, out
+    assert len(tries) == 2, ("the nameless answer was spoken as-is or "
+                             "retried more than once: %d" % len(tries))
+
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the

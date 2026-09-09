@@ -91,7 +91,8 @@ class Session:
     _composed = False
 
     def __init__(self, path=None, who="#operator", mode="STRICT",
-                 persona="", warmth=None, reply_tokens=None, style=""):
+                 persona="", warmth=None, reply_tokens=None, style="",
+                 identity=None):
         # THE OPERATOR'S VOICE — tone, greeting style, when to ask a
         # clarifying question. It rides in front of the PHRASING prompts only
         # (generate._voiced): the gates read the output, never the prompt, so
@@ -160,6 +161,7 @@ class Session:
         self.turns = 0
         if self.memory.self_key is None:
             self.memory.self_key = self.memory.identify("#self")
+        self._told_identity = identity
         self._identity = self._seed_identity()
         # CAUSALITY predicate — a causal fact (cause→effect) is stored as a
         # NORMAL Record under this reserved predicate; it inherits the entire
@@ -187,13 +189,30 @@ class Session:
         fact is stored in (that is exactly what the mixed-language corpora
         measure). The owner's NAME stays as it is spelled: a name is not a
         word to be translated."""
-        lmm = link.resolve(self.memory, "lmm", self.vectors, create=True)
-        owner = link.resolve(self.memory, "rüzgar", self.vectors, create=True)
-        maker = link.resolve(self.memory, "creator", self.vectors, create=True)
-        if self.gate.behind(lmm, maker, owner) is None:
-            self.gate.admit(lmm, maker, owner, "#operator", OPERATOR)
+        # IDENTITY IS THE OPERATOR'S DECLARATION, not the framework's.
+        # Caught in a live session: asked "who is this?", a chatbot built
+        # on this library answered "I am lmm, my creator is rüzgar" — the
+        # author's name, seeded into every memory anyone builds, spoken to
+        # that person's end users. Nobody asked for it and nobody could
+        # know it was there. An untold memory says only what it can
+        # attest: that it is a memory. A told one carries the operator's
+        # name, and a maker only if the operator named one.
+        told = self._told_identity
+        if isinstance(told, str):
+            told = {"name": told}
+        told = dict(told or {})
+        lmm = link.resolve(self.memory, told.get("name") or "lmm",
+                           self.vectors, create=True)
+        owner = None
+        if told.get("maker"):
+            owner = link.resolve(self.memory, told["maker"], self.vectors,
+                                 create=True)
+            maker = link.resolve(self.memory, "creator", self.vectors,
+                                 create=True)
+            if self.gate.behind(lmm, maker, owner) is None:
+                self.gate.admit(lmm, maker, owner, "#operator", OPERATOR)
         self._lmm_key = lmm    # identity subject — _chat gather uses this
-        return {lmm, owner, maker, self.memory.self_key}
+        return {k for k in (lmm, owner, self.memory.self_key) if k is not None}
 
     def _are_rivals(self, old_key, new_key):
         """Are two values semantic RIVALS (same slot, mutually exclusive)? Qwen
@@ -1073,15 +1092,42 @@ class Session:
         verify anchor='value' (the subject is a self-referential pronoun →
         None; the edge path would drop identity, the object 'rüzgar' anchors
         in allowed)."""
-        id_records = retrieve.gather(self.memory, self._lmm_key)
-        id_block = "\n".join(
-            f"{link.label_of(self.memory, r.subject)} "
-            f"{link.label_of(self.memory, r.predicate)} → "
-            f"{link.label_of(self.memory, r.value)}" for r in id_records)
-        name = link.label_of(self.memory, self._lmm_key)
+        # One builder for what the memory may say about itself — the same
+        # rows the chat voice reads, so a told name is spoken on both
+        # paths and an untold memory promises nothing on either.
+        id_block = self._chat_id_block()
+        name = self._spoken_name()
         raw = generate.identity_answer(message, name, id_block)
         safe = verify.verify(self.memory, raw, self._identity, self.mode,
                              anchor="value")
+        # AN IDENTITY ANSWER THAT DOES NOT NAME THE MEMORY HAS NOT
+        # ANSWERED. Measured live: asked who it was three times, the
+        # engine wrote the name once and a nameless pleasantry twice —
+        # and the pleasantry passes every gate, because it claims
+        # nothing. It also tells the user nothing, and it is not what the
+        # operator declared. Ask once more; if the second sentence is
+        # nameless too, say the name plainly rather than something
+        # pleasant. (The same shape as the language judge: audit our own
+        # speech, retry once, never invent a phrase in a language we
+        # cannot check.)
+        # AN IDENTITY ANSWER IS A GRAPH ANSWER. It is derived from records
+        # the memory holds about itself, exactly like the record-direct
+        # answer, so it carries that path's stamps: it asserted, and it
+        # asserted from the graph. Without them the turn was read as an
+        # abstention — the sentence says who we are but rests on no
+        # evidence line — and the conversational fallback (W25) then
+        # replaced "I am Nar Hoca" with a pleasant, nameless chat reply.
+        # Three fixes upstream of this one were chasing that symptom.
+        self.last_abstained = False
+        self.last_from_graph = True
+        if name and safe and name.lower() not in safe.lower():
+            again = generate.identity_answer(message, name, id_block)
+            checked = verify.verify(self.memory, again, self._identity,
+                                    self.mode, anchor="value")
+            if checked and name.lower() in checked.lower():
+                return checked
+            return name if not checked else (
+                checked if name.lower() in checked.lower() else name)
         return safe or self._refuse(message)
 
     # --- writing -------------------------------------------------------
@@ -3282,14 +3328,38 @@ class Session:
         return self._answer(question, subject_label)     # now in the graph → answer+hedge
 
     # --- chat ----------------------------------------------------------
+    def _spoken_name(self):
+        """The name the operator spelled, not the folded key.
+
+        Labels are folded on their way into the graph, so a memory told it
+        is "Nar Hoca" introduced itself as "nar hoca". A name is not a word
+        to be normalised — it is what the operator wrote.
+        """
+        told = self._told_identity
+        if isinstance(told, str):
+            return told.strip()
+        if isinstance(told, dict) and told.get("name"):
+            return str(told["name"]).strip()
+        return link.label_of(self.memory, self._lmm_key) or ""
+
     def _chat_id_block(self):
         """The identity rows the chat voice may speak from — one builder,
         read by the blocking voice, the wagered voice and the stream."""
+        # THE NAME IS A ROW TOO. An operator may declare who the memory is
+        # without declaring a maker — and then there are no records at all
+        # on the identity subject, so the voice had nothing to say about
+        # itself and reached for whatever the engine imagined. What it may
+        # say is what the operator declared: this name, and any fact the
+        # graph holds about it.
+        rows = []
+        name = self._spoken_name()
+        if name:
+            rows.append(f"name \u2192 {name}")
         id_records = retrieve.gather(self.memory, self._lmm_key)
-        return "\n".join(
-            f"{link.label_of(self.memory, r.subject)} "
-            f"{link.label_of(self.memory, r.predicate)} \u2192 "
-            f"{link.label_of(self.memory, r.value)}" for r in id_records)
+        rows += [f"{link.label_of(self.memory, r.subject)} "
+                 f"{link.label_of(self.memory, r.predicate)} \u2192 "
+                 f"{link.label_of(self.memory, r.value)}" for r in id_records]
+        return "\n".join(rows)
 
     def _chat_raw(self, message):
         """The chat voice's ENGINE CALL alone — factored out so the wager
