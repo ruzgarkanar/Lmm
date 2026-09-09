@@ -879,6 +879,25 @@ class Session:
                 spec_wants = pool.submit(generate.wants_material, message)
                 pool.shutdown(wait=False)
             self._spec_wants = spec_wants
+            # THE QUESTION DOOR NEED NOT ASK WHAT KIND OF TURN THIS IS.
+            # `ask()` is asked a question by contract, and reading a row
+            # needs no subject from the router: the names are the
+            # question's own and the head is the corpus's. So on that
+            # door the row is read FIRST, and a question that names one
+            # document and one field costs no model call at all —
+            # measured, 10.4 s and 12.2 calls became a tenth of a second
+            # and none. The conversational surface keeps its router,
+            # because there a sentence naming a document may be a
+            # statement, and deciding that is the router's job.
+            if self._no_teach and not self._conversational:
+                direct = self._record_answer(message)
+                if direct is not None:
+                    line, src = direct
+                    self._mark = src
+                    self.last_kind = extract.ASK
+                    self.last_abstained = False
+                    self.last_from_graph = True
+                    return line
             op = extract.extract(message)
             self.last_kind = op.get("kind") or ""
             if self._no_teach and op.get("triples"):
@@ -975,6 +994,34 @@ class Session:
             self.last_subject = subject or ""
             subject_key = (link.resolve(self.memory, subject, self.vectors)
                            if subject else None)
+            # A FIELD OF A NAMED DOCUMENT IS READ, NOT GENERATED, and it
+            # is read HERE — before the identity gamble and before any
+            # retrieval — because a question that names one document and
+            # one of the corpus's own field heads is not a question about
+            # who we are, and there is nothing to compose out of a row
+            # that already answers it.
+            #
+            # This was tried once and reverted, firing on one question in
+            # twelve. The reason was not the rule but the naming
+            # underneath it: a question about one document was read as
+            # naming six (W66), so "names exactly one source" was almost
+            # never true. With that fixed it fires on 33 of 40 factual
+            # questions in the field corpus, and on none of its
+            # comparisons, frontier questions or traps — which is the
+            # shape it should have.
+            #
+            # Measured: 10.4 s and 12.2 calls per factual question became
+            # 3.3 s and 2.8 — the answer itself now costs nothing at all,
+            # and what remains is the router.
+            if op["kind"] == extract.ASK:
+                direct = self._record_answer(message)
+                if direct is not None:
+                    line, src = direct
+                    self._mark = src
+                    self.last_abstained = False
+                    self.last_from_graph = True
+                    return line
+
             # IDENTITY ROUTE (architectural bridge): if the subject CANNOT BE
             # RESOLVED (CHAT, or "who made you" where extract can't resolve
             # "sen"), classify deterministically: is this an IDENTITY question?
@@ -2827,6 +2874,17 @@ class Session:
         """The record heads this corpus repeats — its own vocabulary."""
         return {h for h, srcs in self._head_index().items() if len(srcs) >= 2}
 
+    def _sample_value(self, head):
+        """One value the corpus wrote under this head — the documents'
+        own example, for a reader that has only seen the name."""
+        limit_chars, _t = self.evidence._record_bounds()
+        cap = max(80, limit_chars // 2)
+        for text, _origin in self.evidence.sentences:
+            for h, value in evidence.record_pairs(text, cap):
+                if h == head and value:
+                    return value[:40]
+        return ""
+
     def _field_bridge(self, question):
         """The field this question means, when its own words reach none.
 
@@ -2846,10 +2904,25 @@ class Session:
         key = evidence.fold(question)
         if key not in cache:
             listing = sorted(heads)[:60]
+            # A HEAD IS EASIER TO RECOGNISE BESIDE ONE OF ITS VALUES, and
+            # the values are the documents'. Measured on a corpus of
+            # hardware specifications: asked which model has the smallest
+            # SCREEN, the engine shown a bare list of names answered NONE
+            # and the question went unanswered; shown "DISPLAY (e.g. 13
+            # inches)" it answered DISPLAY. The other picks did not move,
+            # and a question no field fits still returns NONE — an
+            # example is a clue about the field, not a licence to invent
+            # one.
+            shown = {}
+            for head in listing:
+                sample = self._sample_value(head)
+                shown["%s (e.g. %s)" % (head, sample) if sample
+                      else head] = head
             try:
-                pick = generate.field_for(question, listing)
+                pick = generate.field_for(question, sorted(shown))
             except Exception:                            # noqa: BLE001
                 pick = ""
+            pick = shown.get(pick, pick)
             # THE PICK MUST BE ONE OF OURS. An engine asked to copy a name
             # sometimes writes a neighbouring one, and a head that is not
             # in the store is a word we would be putting into the search
@@ -2921,6 +2994,48 @@ class Session:
             if cov > best_cov:
                 best, best_cov = origin, cov
         return best
+
+    def _record_answer(self, question):
+        """The row a question asks for, when it asks for exactly one.
+
+        Returns (line, source) or None. Reads only the store: the sources
+        the QUESTION names, the heads the CORPUS repeats, and the rows
+        that source wrote under them. No model call, no wording, no
+        threshold — the same organs the census and the field gate use.
+        """
+        store = getattr(self, "evidence", None)
+        if store is None or len(store.by_source) < 2:
+            return None
+        named = store.named_in(question)
+        if len(named) != 1:
+            return None                 # not a question about one document
+        heads = self._fields()
+        if not heads:
+            return None
+        qw = set(evidence._words(question))
+
+        def _matched(w, q):
+            return (inflect.same_stem(w, q) or inflect.kin(w, q)
+                    or q.startswith(w) or w.startswith(q))
+
+        asked = [h for h in heads
+                 if all(any(_matched(w, q) for q in qw)
+                        for w in evidence._words(h))]
+        if len(asked) != 1:
+            return None                 # a tie is not a guess
+        head = asked[0]
+        src = next(iter(named))
+        limit_chars, _t = store._record_bounds()
+        cap = max(80, limit_chars // 2)
+        rows = []
+        for sid in sorted(store.by_source.get(src, ())):
+            for h, value in evidence.record_pairs(
+                    store.sentences[sid][0], cap):
+                if h == head and value not in rows:
+                    rows.append(value)
+        if len(rows) != 1:
+            return None                 # nothing, or the source disagrees
+        return "%s: %s." % (head, rows[0]), src
 
     def _field_ok(self, question, claim, proof):
         """A VALUE BELONGS TO THE FIELD IT WAS WRITTEN UNDER.

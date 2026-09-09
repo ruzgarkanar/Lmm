@@ -155,6 +155,16 @@ def record_pairs(text, cap_chars=200):
             continue
         head, _sep, value = segment.partition(":")
         head = head.rsplit("\u2014", 1)[-1].strip()
+        # A BULLET IS NOT PART OF THE HEAD. Documents open list items with
+        # "\u00b7", "-", "*" or a number, and reading those into the name
+        # made "\u00b7 DURATION" a second field beside DURATION — same
+        # rows, twice, in the corpus's own vocabulary. Measured: it broke
+        # the direct record answer for every question in a corpus (the
+        # asked head was never unique), and it seated junk heads in the
+        # index the census and the field gate read.
+        head = head.lstrip("\u00b7\u2022*-\u2013 \t").strip()
+        while head[:1].isdigit() and "." in head[:4]:
+            head = head.partition(".")[2].strip()
         words = _words(head)
         value = value.strip().rstrip(".").strip()
         if words and len(words) <= 3 and value:
