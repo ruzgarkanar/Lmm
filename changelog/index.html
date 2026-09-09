@@ -835,6 +835,79 @@
 <p>All notable changes to this project are documented here. The format follows
 <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>, and this project
 follows <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<h2 id="034-2026-09-09">[0.3.4] — 2026-09-09<a class="headerlink" href="#034-2026-09-09" title="Permanent link">&para;</a></h2>
+<p>The release where the readings were measured above sixty documents for
+the first time, and where the comparison category — the one this project
+kept calling its weakest — went to 15/15 with zero flips.</p>
+<p>Measured, three runs, medians. 62-document field set (73 q): factual
+37→39/40, comparisons 10→15/15, frontier 7/8, traps 10/10. Twelve
+hardware specifications the system had never seen (19 q): 8/8, 4/4, 3/3,
+4/4 — a complete card on a corpus with no adaptation. 1,000 generated
+specifications (50 q): factual 25/25, traps 23/25. NIST 11/13 and EN
+17/17 unchanged; 148 invariants.</p>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The extremes of a field are the corpus's, not the block's.</strong> The
+  first measurement above sixty documents found the worst kind of bug
+  this system can have: a confident wrong answer with a source stamp on
+  it. The census lays one row per source and stops at sixty, and the
+  extremes row was computed from the rows that fitted — so on a corpus
+  of a thousand the memory reported the highest price among the first
+  sixty documents in alphabetical order. Every word was attested; only
+  the superlative was false, and the superlative is the part nobody can
+  check by reading one line. What is shown may be capped; what is
+  claimed may not.</li>
+<li><strong>One question over a thousand documents took 315 seconds.</strong> The
+  record rider rebuilt the head index — a read of every sentence — once
+  per source. Built when the store changes and kept otherwise: same
+  reading, 315 s → 11 s, and a 50-question run 620 s → 348 s.</li>
+<li><strong>The verdict speaks before the lines it is drawn from.</strong> The
+  comparison's verdict row was appended after every line the two
+  documents contributed, so the engine answered off two raw lines
+  ("1 full day" versus "1 day"), concluded they differ, and the jury
+  refused it — the turn abstaining with the answer two lines below where
+  the reader stopped. The census learned this months ago; the comparison
+  layout now has it too.</li>
+<li><strong>A sibling is not the document you named.</strong> Sibling programmes share
+  their opening phrase and differ only in a tail, so a question about ONE
+  of them was read as naming six, and the comparison layout fired for a
+  question that compares nothing. Among the sources a question calls, the
+  one whose name it accounts for most completely is the one it names; a
+  tie keeps everyone, because two names matched in full is what a
+  comparison is.</li>
+<li><strong>A missing engine says which engine is missing.</strong> <code>pip install
+  living-memory-model</code> pulls in nothing, so a first <code>learn()</code> on a fresh
+  machine reached the default local engine and reported
+  <code>ModuleNotFoundError: No module named 'torch'</code> — a sentence that names
+  neither the choice to be made nor the four ways to make it. The name in
+  the message is the distribution name, kept in one place, because
+  telling someone to install <code>lmm[local]</code> sends them to a different
+  project.</li>
+<li><strong>CI had been red since the 0.3.2 rename, and nothing in the repository
+  showed it.</strong> The dependency-free check struck out the package's old
+  name from pip's list and so reported the package itself as a
+  dependency; three consultation tests reached the engine through the
+  small helpers a turn asks on its way, and failed on a machine with
+  nothing installed. The suite's own claim — no model, no network — is
+  now verified the only way it can be, in a virtualenv with neither.</li>
+</ul>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The question door does not gamble on a chat.</strong> Every question was
+  paying for a full chat completion that was thrown away: the
+  speculation buys latency in a consultation, where the router's verdict
+  and the chat reply are wanted at once, and <code>ask()</code> inherited it only
+  because it passes <code>teach=False</code>. Same for the delivery bridge, which
+  offers a composed catalogue when a consultation cannot answer — the
+  question door has <code>compose()</code> for that. Factual questions 12.0 → 9.0
+  calls and 18,800 → 16,300 prompt tokens; traps 12.0 → 8.0 calls.
+  <code>Session.respond</code> takes <code>conversational=</code> for callers that want the
+  consultation behaviour explicitly.</li>
+<li><strong>The documentation site follows <code>main</code>.</strong> Publishing was a command
+  someone had to remember, and the site had been serving 0.3.2 while the
+  sources for 0.3.3 sat in the repository. It builds with <code>--strict</code>, so
+  a broken link fails in CI rather than in a reader's tab.</li>
+</ul>
 <h2 id="033-2026-09-08">[0.3.3] — 2026-09-08<a class="headerlink" href="#033-2026-09-08" title="Permanent link">&para;</a></h2>
 <p>The release where the memory leaves the process. A question asked in
 other words now reaches the documents' own vocabulary, a document that
@@ -869,7 +942,7 @@ comparisons 12/15. NIST 11/13 and EN 17/17 unchanged; 142 invariants.</p>
   server and checks across the two languages that what one user teaches,
   another cannot read.</li>
 </ul>
-<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A refusal is spoken in the language it was asked in.</strong> Hidden behind
   a Turkish corpus: six English questions with no answer in the store
@@ -917,7 +990,7 @@ grew up. Measured on a 73-question field set (40 factual, 15
 comparisons, 10 traps, 8 frontier), three runs, medians: comparisons
 8/15 → 13/15, factual 37/40 → 38/40, traps 10/10 throughout. NIST
 11/13 and EN 17/17 unchanged; 130 invariants.</p>
-<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>In a comparison, two sources saying the same thing say it twice.</strong>
   Sibling documents share a template, so two items of equal value write
@@ -955,7 +1028,7 @@ and a head-to-head benchmark against LangChain, LlamaIndex and Mem0 —
 with every finding, ours included, fixed architecturally or filed
 openly. Published numbers re-measured unchanged after every batch
 (NIST 11/13, EN 17/17; 124 invariants, W27-W42).</p>
-<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_3">Fixed<a class="headerlink" href="#fixed_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>One-row Word tables are fact boxes, and fact boxes are prose.</strong> The
   docx reader dropped single-row grids whole (no header row to read),
@@ -1029,7 +1102,7 @@ invariants, W14–W26).</p>
 <li><code>compose(..., topics=)</code> gathers per topic — dedicated seats, dedicated
   queries.</li>
 </ul>
-<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Latency, halved and then some</strong> (measured, same dialogue): a greeting
   turn 15.9 s → ~6 s, a catalogue's first line on screen 13.4 s → ~5 s.
@@ -1045,7 +1118,7 @@ invariants, W14–W26).</p>
   format, not a quantity — the digit gate no longer kills the engine's own
   section numbering.</li>
 </ul>
-<h3 id="fixed_3">Fixed<a class="headerlink" href="#fixed_3" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_4">Fixed<a class="headerlink" href="#fixed_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li>A context statement in a no-teach conversation no longer falls through to
   the question treatment (it used to end in a refusal wearing the
@@ -1087,7 +1160,7 @@ EN corpus 17/17).</p>
   not a lesson, however imperative its grammar. Teaching stays on
   <code>Session.respond</code>, deliberately.</li>
 </ul>
-<h3 id="fixed_4">Fixed<a class="headerlink" href="#fixed_4" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_5">Fixed<a class="headerlink" href="#fixed_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li>The abstention stamp is read off the evidence, not asked of a model — a
   full correct answer was being recorded as a refusal when the re-extractor
@@ -1130,7 +1203,7 @@ the work of making it installable, readable and lawful to publish.</p>
   the core installs with no dependencies.</li>
 <li>Six tests for the new surface (59 total), none of which needs a model.</li>
 </ul>
-<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
+<h3 id="changed_2">Changed<a class="headerlink" href="#changed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The core install has no dependencies.</strong> <code>pandas</code> was imported at
   <code>tables.py</code>'s top level, which meant the pure-python layer could not be
