@@ -497,24 +497,35 @@ def is_affirmative(message):
     return "YES" in out.upper()
 
 
+def language_of(text):
+    """The language a sentence is written in, named in English, one word.
+
+    THE JUDGE THAT COMPARED TWO SENTENCES DID NOT WORK. It was asked
+    "is the second in the same language as the first?" with examples on
+    both sides, and measured against the live engine it answered "no" for
+    an English question answered in English — the verdict carried no
+    information at all, so every refusal was rewritten once and then kept
+    whatever came back. Naming ONE sentence's language is a smaller
+    question and the engine answers it reliably; two names can then be
+    compared here, where the comparison is arithmetic rather than
+    judgement.
+    """
+    system = ("Name the language this sentence is written in. Answer with "
+              "the English name of the language, ONE word, nothing else.\n"
+              "What is the price? -> English\n"
+              "Fiyat nedir? -> Turkish\n"
+              "Ik heb die informatie niet. -> Dutch\n"
+              "Quel est le prix ? -> French\n"
+              "Wie hoch ist der Preis? -> German")
+    out = runtime.generate(text, system=system, max_tokens=4, temperature=0.0)
+    return re.sub(r"[^A-Za-z]", "", (out or "").strip().split()[:1][0]
+                  if (out or "").strip() else "")
+
+
 def same_language(question, reply):
-    """Is the reply written in the same language as the question? Output yes/no.
-    The judge the speech acts use on themselves (W53)."""
-    # Few-shot on BOTH sides of the boundary and across scripts, so "same
-    # language" is learned as a relation and not as a list of languages.
-    system = ("Decide whether the SECOND sentence is written in the SAME "
-              "language as the FIRST. Output ONLY yes/no.\n"
-              "What is the price? | I do not have that information. -> yes\n"
-              "What is the price? | Ik heb die informatie niet. -> no\n"
-              "Fiyat nedir? | Bu konuda bilgim yok. -> yes\n"
-              "Fiyat nedir? | I have no information about that. -> no\n"
-              "Quel est le prix ? | Je n'ai pas cette information. -> yes\n"
-              "Quel est le prix ? | No tengo esa información. -> no\n"
-              "Wie hoch ist der Preis? | Das weiß ich nicht. -> yes\n"
-              "Wie hoch ist der Preis? | Non lo so. -> no")
-    out = runtime.generate("%s | %s" % (question.strip(), reply.strip()),
-                           system=system, max_tokens=3, temperature=0.0)
-    return "yes" in out.strip().lower()
+    """Are these two written in the same language? Two names, compared."""
+    return bool(language_of(question)) and (
+        language_of(question).lower() == language_of(reply).lower())
 
 
 def _spoken_to(message, system, persona="", warmth=0.3, max_tokens=50):
@@ -535,15 +546,39 @@ def _spoken_to(message, system, persona="", warmth=0.3, max_tokens=50):
     worse than a sentence in the wrong language, and nothing here writes a
     canned phrase. The memory speaks in the engine's voice, or not at all.
     """
+    # THE LANGUAGE IS NAMED, NOT ONLY SHOWN. The sample anchor alone left
+    # a stubborn residue — measured, "Which documents state a MEMORY?" was
+    # refused in Dutch about half the time — and the comparing judge that
+    # was supposed to catch it did not work at all. So the engine names
+    # the language of the question (a small question it answers well),
+    # writes in that named language, and the reply's own language is named
+    # too: if the two names differ the sentence is written once more, with
+    # the name in front of it. Still no canned phrase in any language.
+    tongue = ""
+    try:
+        tongue = language_of(message)
+    except Exception:                                        # noqa: BLE001
+        tongue = ""
     anchored = (system + "\n\nLANGUAGE SAMPLE — the user wrote this, and your "
                 "reply must be in the SAME language as this sentence:\n"
                 + message.strip() +
-                "\n\nWrite one short sentence, in the language of the sample above.")
+                ("\n\nWrite one short sentence, in %s." % tongue if tongue
+                 else "\n\nWrite one short sentence, in the language of the "
+                      "sample above."))
     said = runtime.generate(message, system=_voiced(anchored, persona),
                             max_tokens=max_tokens, temperature=warmth)
-    if said and not same_language(message, said):
-        said = runtime.generate(message, system=_voiced(anchored, persona),
-                                max_tokens=max_tokens, temperature=warmth)
+    if said and tongue:
+        try:
+            spoken = language_of(said)
+        except Exception:                                    # noqa: BLE001
+            spoken = tongue
+        if spoken and spoken.lower() != tongue.lower():
+            said = runtime.generate(
+                message,
+                system=_voiced(anchored + "\n\nYour reply MUST be written in "
+                               "%s and in no other language." % tongue,
+                               persona),
+                max_tokens=max_tokens, temperature=warmth)
     return said
 
 

@@ -1693,6 +1693,17 @@ class Session:
             self._derive(sk, pk, vk)
         return 1
 
+    def _speak_as(self, written, key):
+        """Register the punctuation-free spelling of a name as an alias.
+
+        The graph keeps what the document wrote; a question arrives as
+        words. Where the two differ only in punctuation they are the same
+        name, and only the written one was reachable.
+        """
+        spoken = " ".join(evidence._words(written or ""))
+        if spoken and fold(spoken) != fold(written or ""):
+            self.memory.identify(fold(spoken), same_as=key)
+
     def learn_rows(self, rows, source="#table"):
         """Table rows → graph, extractor-LESS (the permanent form of the Excel
         lesson): row=entity, column=predicate, cell=value. NO model call →
@@ -1744,6 +1755,18 @@ class Session:
             plain = bare(anchor)
             if plain and plain != anchor:
                 self.memory.identify(fold(plain), same_as=sk)
+            # ...AND A NAME IS REACHABLE WITHOUT ITS PUNCTUATION. A
+            # spreadsheet writes people as "Taylor, Mr. Elmer Zebley" and
+            # a question arrives as words — the comma and the stops are
+            # not in it. Measured on a public 891-row table: the row was
+            # in the graph, its records were there, and the graph-first
+            # path (the one that answers with no model call at all)
+            # matched NONE of the questions a reader would ask, because
+            # the only spelling it could be reached by was the one with
+            # the punctuation in it. The written form stays exactly as
+            # the document wrote it; the spoken form is added beside it,
+            # in the same direction as the layout rule above.
+            self._speak_as(anchor, sk)
             rich = max((kv for kv in cells[1:]), default=None,
                        key=lambda kv: len(kv[1]))
             # AN ALIAS HAS TO BE A NAME, and a name is a PHRASE — more than one
@@ -1788,6 +1811,7 @@ class Session:
                     and len(anchor.split()) == 1
                     and seen.get(fold(rich[1]), 0) == 1):
                 self.memory.identify(fold(rich[1]), same_as=sk)
+                self._speak_as(rich[1], sk)
             for col, val in cells[1:]:
                 wrote += self.learn_cell(anchor, col, val, source)
         self._bulk = prev_bulk
