@@ -5643,6 +5643,109 @@ def w64():
         "the extremes were read off the capped block: %s" % rows[0])
 
 
+
+@test("W65 the comparison verdict speaks before the lines it is drawn from")
+def w65():
+    """The census learned this the hard way and the comparison layout
+    never got the lesson. A block is read from the top; the extremes row
+    was appended after sixty field lines and nobody read it, so it was
+    moved to the front. The comparison's verdict row — the one that says
+    whether the two values agree — was still being appended after every
+    line the two documents contributed.
+
+    Measured on the field set, and it is the whole of a remaining
+    failure: asked whether two courses run the same length, the block
+    carried twelve lines of prose, then a row reading "DURATION —
+    A: 1 full day = B: 1 day". The engine answered off the two raw lines
+    and concluded they DIFFER, because "1 full day" and "1 day" are
+    different words; the jury refused that, correctly, and the turn
+    abstained with the answer sitting two lines below where the reader
+    stopped. Arithmetic the system already trusts, written where nobody
+    reads it, is arithmetic the system did not do.
+
+    The verdicts go first — the asked-about field ahead of the rest, as
+    W47 ordered them — and the evidence they were drawn from follows."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    for name, tag, length in (("Alpha Course", "ravine", "1 full day"),
+                              ("Beta Course", "ridge", "1 day")):
+        s.learn_text(f"{name.upper()} OUTCOMES.\n"
+                     f"The {tag} module opens the arc.\n"
+                     f"The programme closes with a workshop and a review.\n"
+                     f"Participants bring a case of their own to the room.\n"
+                     f"FORMAT: in person.\n"
+                     f"SEATS: 18 people.\n"
+                     f"DURATION: {length}.",
+                     source=f"#docx:{name}.docx", deep=False)
+    blocks = []
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("alpha course", "duration", "")]}
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None, **kw:
+                       blocks.append(block) or "I do not know.")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s.respond("do the Alpha Course and the Beta Course run the same "
+                  "DURATION?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    lines = [l for l in blocks[0].split("\n") if l.strip()]
+    verdicts = [i for i, l in enumerate(lines)
+                if "\u2260" in l or " = " in l]
+    assert verdicts, ("no verdict row was written:\n"
+                      + "\n".join(lines[:6]))
+    assert verdicts[0] == 0, (
+        "the verdict is line %d of %d, below the lines it is drawn from:\n%s"
+        % (verdicts[0] + 1, len(lines), "\n".join(lines[:4])))
+    assert "DURATION" in lines[0], lines[0]
+
+
+
+@test("W66 the source whose name is matched most completely is the one named")
+def w66():
+    """A family resemblance is a PARTIAL match, and the naming rule could
+    not see the difference. Measured on a corpus of sibling programmes:
+    asked about "Customer-Focused Value Transfer in Sales - Call Centre",
+    the question was read as naming SIX documents, because every sibling
+    shares the opening phrase and differs only in its tail. One document
+    was asked about; six were named; the comparison layout fired for a
+    question that compares nothing.
+
+    W38 already said a source is called by a pointer rather than by a
+    family resemblance, and this is the same sentence carried one step
+    further: among the sources a question calls, the one whose name it
+    accounts for MOST COMPLETELY is the one it names. A tie keeps
+    everyone — two documents named in full are exactly what a comparison
+    is — so nothing is guessed; only the half-matched siblings step
+    back."""
+    from lmm.session import Session
+    s = Session(None)
+    names = ("Value Transfer in Sales - Call Centre",
+             "Value Transfer in Sales - Branch Desk",
+             "Value Transfer in Sales - Field Team",
+             "Effective Value Transfer Culture Project")
+    for name in names:
+        s.learn_text("%s OUTLINE.\nThe module opens the arc.\n"
+                     "DURATION: 2 days." % name.upper(),
+                     source="#docx:%s" % name, deep=False)
+    one = s.evidence.named_in(
+        "how long is the Value Transfer in Sales - Call Centre programme?")
+    assert one == {"#docx:Value Transfer in Sales - Call Centre"}, (
+        "a question about one document named %d: %s" % (len(one), sorted(one)))
+    # ...and a comparison still names both, because both are matched whole
+    two = s.evidence.named_in(
+        "do Value Transfer in Sales - Call Centre and Value Transfer in "
+        "Sales - Branch Desk run the same DURATION?")
+    assert two == {"#docx:Value Transfer in Sales - Call Centre",
+                   "#docx:Value Transfer in Sales - Branch Desk"}, sorted(two)
+
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the

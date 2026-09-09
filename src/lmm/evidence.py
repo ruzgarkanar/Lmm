@@ -1055,7 +1055,29 @@ class SentenceStore:
                        if any(inflect.same_stem(qw, w) for w in ws)]
             if matched and len(matched) == 1 != total:
                 called.add(matched[0])
-        return called | self._called_by_bigram(order, names)
+        called |= self._called_by_bigram(order, names)
+        # A FAMILY RESEMBLANCE IS A PARTIAL MATCH. W38 said a source is
+        # called by a pointer and not by a family resemblance; among the
+        # sources a question does call, the same sentence decides which
+        # it NAMES. Measured on a corpus of sibling programmes: a
+        # question about one of them was read as naming six, because
+        # every sibling shares the opening phrase and differs only in
+        # its tail — and the comparison layout then fired for a question
+        # that compares nothing. The one whose name the question
+        # accounts for most completely is the one named. A TIE KEEPS
+        # EVERYONE, because two names matched in full is what a
+        # comparison is; only the half-matched siblings step back.
+        if len(called) > 1:
+            def _covered(src):
+                ws = _words(_source_name(src), known=self.units)
+                if not ws:
+                    return 0.0
+                got = sum(1 for w in ws
+                          if any(inflect.same_stem(w, q) for q in words))
+                return got / len(ws)
+            best = max(_covered(src) for src in called)
+            called = {src for src in called if _covered(src) >= best - 1e-9}
+        return called
 
     def find(self, query, most=4, floor_share=0.5):
         """Sentences whose content-words intersect the query the MOST.
