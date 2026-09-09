@@ -835,6 +835,23 @@
 <p>All notable changes to this project are documented here. The format follows
 <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>, and this project
 follows <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<h2 id="036-2026-09-09">[0.3.6] — 2026-09-09<a class="headerlink" href="#036-2026-09-09" title="Permanent link">&para;</a></h2>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>A document that never uses the words is not asked about them.</strong> The
+  mirror of the record answer, on the refusal path: a question naming
+  one document and one of the corpus's own field heads, where that
+  document never uses the head's words anywhere — record or prose — has
+  no answer in the only source it may be answered from, so the three
+  candidates and the three judgements that would refuse them are not
+  paid for. Measured before it was written: the condition holds for zero
+  of 123 factual questions across three corpora, and for 24 of 25 traps
+  at a thousand documents. The fifty-question run over that store takes
+  109 s, from 205 s and from 620 s at the start of the day; quality is
+  unchanged everywhere (field set 40/40 · 15/15 · 7/8 · 10/10, scale
+  25/25 · 25/25, NIST 11/13, EN 17/17), and the mechanically-derived set
+  rises to 56/58 factual.</li>
+</ul>
 <h2 id="035-2026-09-09">[0.3.5] — 2026-09-09<a class="headerlink" href="#035-2026-09-09" title="Permanent link">&para;</a></h2>
 <p>The release where the commonest question stopped costing anything, and
 the field set went to a full card.</p>
@@ -935,7 +952,7 @@ specifications (50 q): factual 25/25, traps 23/25. NIST 11/13 and EN
   nothing installed. The suite's own claim — no model, no network — is
   now verified the only way it can be, in a virtualenv with neither.</li>
 </ul>
-<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The question door does not gamble on a chat.</strong> Every question was
   paying for a full chat completion that was thrown away: the
@@ -1146,7 +1163,7 @@ invariants, W14–W26).</p>
 <li><code>compose(..., topics=)</code> gathers per topic — dedicated seats, dedicated
   queries.</li>
 </ul>
-<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
+<h3 id="changed_2">Changed<a class="headerlink" href="#changed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Latency, halved and then some</strong> (measured, same dialogue): a greeting
   turn 15.9 s → ~6 s, a catalogue's first line on screen 13.4 s → ~5 s.
@@ -1247,7 +1264,7 @@ the work of making it installable, readable and lawful to publish.</p>
   the core installs with no dependencies.</li>
 <li>Six tests for the new surface (59 total), none of which needs a model.</li>
 </ul>
-<h3 id="changed_2">Changed<a class="headerlink" href="#changed_2" title="Permanent link">&para;</a></h3>
+<h3 id="changed_3">Changed<a class="headerlink" href="#changed_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The core install has no dependencies.</strong> <code>pandas</code> was imported at
   <code>tables.py</code>'s top level, which meant the pure-python layer could not be
