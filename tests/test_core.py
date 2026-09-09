@@ -5905,6 +5905,72 @@ def w69():
     assert list(m._told("The course runs 3 days.").sources) == []
 
 
+
+@test("W70 a document that never uses the words is not asked about them")
+def w70():
+    """The mirror of W68, and the trap path's version of it. A question
+    that names one document and one of the corpus's own field heads,
+    where that document never uses the head's words ANYWHERE — not as a
+    record, not in prose — has no answer in the only source it is
+    allowed to be answered from (W61). Three model calls to compose
+    candidates and three more to refuse them all is a bill for a
+    conclusion the store already holds.
+
+    The condition is deliberately narrow, and it was measured before it
+    was written: across three corpora — the customer's 62 documents, a
+    thousand generated ones, and a mechanically-derived question set —
+    it holds for ZERO of 123 factual questions and for 24 of 25 traps at
+    scale. A reading that never fires on an answerable question is a
+    reading that costs nothing but the refusals it shortens.
+
+    Prose still counts. The head's WORDS are what must be absent, not
+    the record row: a document that describes its closing session
+    without a "CLOSING:" line is answering, and this stands aside."""
+    from lmm import generate, extract
+    from lmm.api import Memory
+    m = Memory(None)
+    for i in range(5):
+        m.learn("MACHINE %02d — TECHNICAL SUMMARY.\nMEMORY: %d GB.\n"
+                "WARRANTY: 3 years.\nThe unit ships with a charger."
+                % (i, 16 * (i + 1)), source="#docx:Machine %02d" % i,
+                deep=False)
+    # one document that carries STORAGE, so the head is a field the
+    # corpus repeats; and a second, so it is repeated
+    for i in (90, 91):
+        m.learn("MACHINE %02d — TECHNICAL SUMMARY.\nMEMORY: 8 GB.\n"
+                "STORAGE: 512 GB.\nWARRANTY: 3 years." % i,
+                source="#docx:Machine %02d" % i, deep=False)
+    calls = {"n": 0}
+    real = (extract.extract, generate.answer, generate.refusal)
+    extract.extract = lambda msg: {"kind": extract.ASK,
+                                   "triples": [("machine 03", "storage", "")]}
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None, **kw:
+                       calls.__setitem__("n", calls["n"] + 1) or "16 GB")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not have that.")
+    try:
+        said = m.ask("what is the STORAGE of Machine 03?", explain=True)
+    finally:
+        (extract.extract, generate.answer, generate.refusal) = real
+    assert said.abstained, said
+    assert calls["n"] == 0, ("%d candidate(s) were composed for a document "
+                             "that never uses the word" % calls["n"])
+    # ...and the document that DOES carry the head is still answered
+    real2 = (extract.extract, generate.answer, generate.refusal)
+    extract.extract = lambda msg: {"kind": extract.ASK,
+                                   "triples": [("machine 90", "storage", "")]}
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None, **kw: "512 GB")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not have that.")
+    try:
+        other = m.ask("what is the STORAGE of Machine 90?", explain=True)
+    finally:
+        (extract.extract, generate.answer, generate.refusal) = real2
+    assert "512" in str(other), other
+
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the

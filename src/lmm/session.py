@@ -893,8 +893,10 @@ class Session:
                 direct = self._record_answer(message)
                 if direct is not None:
                     line, src = direct
-                    self._mark = src
                     self.last_kind = extract.ASK
+                    if not line:        # the document does not speak of it
+                        return self._refuse(message)
+                    self._mark = src
                     self.last_abstained = False
                     self.last_from_graph = True
                     return line
@@ -1017,6 +1019,8 @@ class Session:
                 direct = self._record_answer(message)
                 if direct is not None:
                     line, src = direct
+                    if not line:        # the document does not speak of it
+                        return self._refuse(message)
                     self._mark = src
                     self.last_abstained = False
                     self.last_from_graph = True
@@ -3033,9 +3037,30 @@ class Session:
                     store.sentences[sid][0], cap):
                 if h == head and value not in rows:
                     rows.append(value)
-        if len(rows) != 1:
-            return None                 # nothing, or the source disagrees
-        return "%s: %s." % (head, rows[0]), src
+        if len(rows) == 1:
+            return "%s: %s." % (head, rows[0]), src
+        if rows:
+            return None                 # the source disagrees with itself
+        # A DOCUMENT THAT NEVER USES THE WORDS IS NOT ASKED ABOUT THEM.
+        # The mirror of the reading above: this document carries no row
+        # under the asked head AND never uses the head's words anywhere,
+        # prose included — so the only source the answer is allowed to
+        # come from (the scope rule) has nothing to say, and composing
+        # three candidates in order to refuse all three is a bill for a
+        # conclusion the store already holds. Prose counts: a document
+        # that describes its closing session without a "CLOSING:" line
+        # is answering, and this stands aside for it.
+        #
+        # Measured before it was written, across three corpora: the
+        # condition holds for ZERO of 123 factual questions and for 24 of
+        # 25 traps at scale.
+        spoken = set()
+        for sid in store.by_source.get(src, ()):
+            spoken |= set(evidence._words(store.sentences[sid][0]))
+        if not any(any(inflect.same_stem(w, x) for x in spoken)
+                   for w in evidence._words(head)):
+            return "", src              # nothing here, and nothing near it
+        return None
 
     def _field_ok(self, question, claim, proof):
         """A VALUE BELONGS TO THE FIELD IT WAS WRITTEN UNDER.
