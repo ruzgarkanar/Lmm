@@ -582,9 +582,11 @@ class Session:
             lines = [f"{evidence._source_name(src)} — {text}"
                      for text, src in zip(gathered, origins2)
                      if src in named_in_tally]
-            rescue_block = "\n".join(
-                f"[K{i}] {line}"
-                for i, line in enumerate(lines + [census_line], 1))
+            # These lines already open with the name of the source that
+            # wrote them, so an invented key on top of that is apparatus
+            # with nothing to say — and apparatus in a block that can be
+            # spoken is apparatus that gets spoken.
+            rescue_block = "\n".join(lines + [census_line])
             offered = (generate.answer(message, rescue_block, warmth=0.0,
                                        persona=self.persona) or "").strip()
             # WHAT THE OFFER MUST NOT DO IS INVENT A MEMBER OR A NUMBER.
@@ -2362,6 +2364,10 @@ class Session:
         # row first, and a second system row inserted above it took the
         # seat the reader reads. A question that names two sources is
         # asking for a comparison, not for a source's quarrel with itself.
+        # WHICH SOURCE WROTE WHICH LINE, kept once for the whole turn. The
+        # answer block labels its lines with this (see `_labelled`), so the
+        # label is a name a reader may legitimately speak.
+        self._origin_of = dict(zip(proof, proof_origins))
         eligible = (not laid_out) or len(named_two) == 1
         clash = {}
         for text, origin in (zip(proof, proof_origins +
@@ -2539,8 +2545,7 @@ class Session:
             records = [r for r in records
                        if not str(r.source).startswith("#doc")]
         fact_block = retrieve.facts_block(self.memory, records) if records else ""
-        proof_block = "\n".join(f"[K{i}] {s}"
-                                for i, s in enumerate(proof, 1)) if proof else ""
+        proof_block = self._labelled(proof) if proof else ""
         block = ((proof_block + "\n" + fact_block) if proof_block and fact_block
                  else (proof_block or fact_block))
         # GENERATE AND SELECT AT THE GATE (see `_select`). One generation
@@ -2637,7 +2642,7 @@ class Session:
                 subsets.append(sub)
         blocks = []
         for sub in subsets:
-            pb = "\n".join(f"[K{i}] {s}" for i, s in enumerate(sub, 1))
+            pb = self._labelled(sub)
             one = (pb + "\n" + fact_block) if fact_block else pb
             if one not in blocks:
                 blocks.append(one)
@@ -2901,7 +2906,45 @@ class Session:
         focus = list(first)
         focus += [s for s in overlap[:2]
                   if s not in focus and words & set(evidence._words(s))]
-        return "\n".join(f"[K{i}] {s}" for i, s in enumerate(focus, 1))
+        return self._labelled(focus)
+
+    def _labelled(self, lines):
+        """Evidence lines, each under the name of the source that wrote it.
+
+        THE LABEL USED TO BE OUR OWN INVENTION — "[K1]", "[K2]", a token
+        no document contains and nothing in this codebase reads back. The
+        judging prompts use it in their examples and may keep it: their
+        output is a verdict, never a sentence. The ANSWER block is
+        different, because whatever it contains can be spoken, and
+        measured it was: asked which documents state a field, the memory
+        answered "K1, K2, K3, K4" — the apparatus, recited to the reader,
+        every claim technically attested and the answer useless.
+
+        Catching that would be a patch; a guard that has to RECOGNISE the
+        symptom is one refusal away from the next spelling of it. The
+        label is ours to choose, so it is chosen to be a thing worth
+        saying: the source's own name. Now an answer that echoes a label
+        has cited a document.
+
+        A line whose origin the turn does not know keeps its position and
+        no label; inventing one would put the same problem back.
+        """
+        known = getattr(self, "_origin_of", None) or {}
+        out, last = [], None
+        for line in lines:
+            origin = known.get(line, "")
+            name = evidence._source_name(origin) if origin else ""
+            # A LABEL MARKS A CHANGE OF HAND, not every line. Naming the
+            # same document above each of its own lines cost 0.5 calls
+            # and half a second a question on the census set, measured,
+            # and told the reader nothing the line above had not: a
+            # document's name can run to sixty characters and a block is
+            # mostly one document's lines. Consecutive lines from one
+            # source are written under one name.
+            out.append("[%s] %s" % (name, line)
+                       if name and name != last else line)
+            last = name or last
+        return "\n".join(out)
 
     def _gather_source(self, src, question, share):
         """One named source's contribution to a laid-out block: its best

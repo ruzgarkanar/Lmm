@@ -86,8 +86,10 @@ def _gold_of(value):
 class Probe:
     """A memory, a generated question set, and a scorecard."""
 
-    def __init__(self, target, ask=12, seed=7, identity="Assistant"):
+    def __init__(self, target, ask=12, seed=7, identity="Assistant",
+                 foreign=""):
         self.target = target
+        self.foreign = foreign
         self.ask = ask
         self.rng = random.Random(seed)
         self.identity = identity
@@ -117,6 +119,78 @@ class Probe:
             units=len(store.sentences), words=len(store.index),
             sources=len(store.by_source), warnings=warned[:2])
         return self
+
+    def _foreign_subjects(self, most=4):
+        """Real names from another corpus, absent from this one.
+
+        Read from `self.foreign` — a document or folder that has nothing
+        to do with the target. Names are taken the way this library takes
+        them anywhere: a source's own name, and the entities the document
+        repeats (`mentions.Graph`). A name qualifies when at least one of
+        its words is absent from THIS store, so it cannot resolve to
+        anything here; it is preferred when its other words ARE present,
+        because a subject drowning in familiar vocabulary is what makes
+        the failure happen.
+        """
+        if not self.foreign:
+            return []
+        files = ([self.foreign] if os.path.isfile(self.foreign)
+                 else sorted(f for f in glob.glob(
+                     os.path.join(self.foreign, "*"))
+                     if f.lower().endswith(READABLE)))[:6]
+        if not files:
+            return []
+        other = Memory(None)
+        for path in files:
+            other.learn(path)
+        # WHAT COUNTS AS A SUBJECT THERE, in the order a reader would
+        # name one: the document itself, then the things it keeps records
+        # about (a unit carrying three or more head/value pairs is a
+        # record, and its first value names it — the same rule the record
+        # group uses), then the entities it repeats. The first harvest
+        # skipped the middle rank and came back with grammar the graph had
+        # kept ("not specify the"), because a corpus of scanned prose
+        # holds far more grammar than names.
+        far = other.session.evidence
+        names = [(0, self._name(src)) for src in far.by_source]
+        limit, _t = far._record_bounds()
+        cap = max(80, limit // 2)
+        for text, _origin in far.sentences:
+            pairs = [(h, v) for h, v in evidence.record_pairs(text, cap)
+                     if self._record_like(h, v)]
+            if len(pairs) >= 3:
+                names.append((1, pairs[0][1]))
+        try:
+            names += [(2, " ".join(g)) for g in far.graph().phrases]
+        except Exception:                                    # noqa: BLE001
+            pass
+        mine = self.memory.session.evidence.index
+        scored = []
+        for rank, name in dict.fromkeys(names):
+            words = evidence._words(name)
+            if not (2 <= len(words) <= 6):
+                continue
+            # A SUBJECT IS MADE OF WORDS. Scanned documents leave runs of
+            # page numbers and broken glyphs behind, and those collocate
+            # beautifully — the first harvest returned "7 0 0 025 pef".
+            # Asking about one measures the harvester, not the memory.
+            if any(len(w) < 2 or not re.match(r"^[^\W\d_]+$", w, re.UNICODE)
+                   for w in words):
+                continue
+            absent = [w for w in words if w not in mine]
+            if not absent:
+                continue                 # this store could resolve it
+            familiar = len(words) - len(absent)
+            scored.append((rank, -familiar, name))
+        # THE RANK COMES FIRST, and the second harvest is why. Sorting by
+        # familiar words alone put grammar at the top — the words a
+        # reader's store is most likely to share with any other store are
+        # exactly the ones that carry no subject ("the fourth set runs").
+        # A document's own name is a subject by construction, a record's
+        # first value is one by the same rule the record group uses, and
+        # a repeated phrase is one only if nothing better is available.
+        scored.sort()
+        return [name for _rank, _familiar, name in scored[:most]]
 
     # ------------------------------------------------------------ question
     @staticmethod
@@ -265,8 +339,15 @@ class Probe:
         asked["census"], asked["extremes"] = [], []
         for head in numeric[:2]:
             per = fields[head]
+            # ANY DOCUMENT THAT STATES THE HEAD IS A CORRECT ANSWER.
+            # The gold used to be the first two sources in dictionary
+            # order, so a memory that named two OTHER documents carrying
+            # the same head scored zero — measured on a collection of 62
+            # where dozens state it. That scores the generator's ordering,
+            # not the memory. The question asks who speaks of this; every
+            # source that does is an answer.
             asked["census"].append(("Which documents state a %s?" % head,
-                                    [self._name(s) for s in list(per)[:2]]))
+                                    [self._name(s) for s in per]))
             best = max(per.items(),
                        key=lambda kv: max([int(d) for d in
                                            re.findall(r"\d+", kv[1])] or [0]))
@@ -338,6 +419,33 @@ class Probe:
                      [max(rest, key=len)]))
                 if len(asked["prose"]) >= max(3, self.ask // 2):
                     break
+
+        # foreign: a subject this collection does not hold, asked with
+        # this collection's own vocabulary.
+        #
+        # THE FAILURE THIS MEASURES, and it is the one the other groups
+        # cannot see. Every group above asks about something the store
+        # HOLDS, so a turn that latches onto roughly-matching material
+        # still scores. Measured on a live product: asked for material
+        # aimed at a class of reader the collection never mentions, the
+        # memory answered from the one document whose TITLE shared a
+        # single common word — every claim attested, the stamp correct,
+        # and the answer about something else entirely. The gate cannot
+        # catch it, by construction: it audits whether a claim is
+        # supported, never whether the support answers the question.
+        #
+        # THE SUBJECTS ARE NOT INVENTED. A made-up name measures nothing
+        # — it shares no words with anything and any lexical search
+        # returns silence. These come from ANOTHER REAL CORPUS, and the
+        # question keeps this collection's own head, so every word except
+        # the subject is attested here. That is the hard case, and it is
+        # generic: any two document sets produce it, in any language.
+        asked["foreign"] = []
+        for subject in self._foreign_subjects(most=max(3, self.ask // 3)):
+            head = pool[self.rng.randrange(len(pool))][0] if pool else ""
+            question = ("What is the %s of %s?" % (head, subject) if head
+                        else "What does the document say about %s?" % subject)
+            asked["foreign"].append((question, None))
 
         # nonsense: nothing any document could hold
         asked["nonsense"] = [
@@ -452,8 +560,11 @@ def main(argv=None):
     parser.add_argument("--ask", type=int, default=12,
                         help="how many record questions to generate")
     parser.add_argument("--identity", default="Assistant")
+    parser.add_argument("--foreign", default="",
+                        help="another corpus, to borrow absent subjects from")
     args = parser.parse_args(argv)
-    (Probe(args.target, ask=args.ask, identity=args.identity)
+    (Probe(args.target, ask=args.ask, identity=args.identity,
+           foreign=args.foreign)
      .ingest().build().run().language_check().report())
 
 

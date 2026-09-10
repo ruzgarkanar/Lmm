@@ -6042,6 +6042,37 @@ def w72():
 
 
 
+@test("W78 a block that can be spoken carries no apparatus of ours")
+def w78():
+    """Found by the document probe, not by a hand-written case, which is
+    the point of having one. Asked which documents state a field, the
+    memory answered "K1, K2, K3, K4" — reciting the labels this code puts
+    in front of evidence lines. Every claim was attested (the labels ARE
+    in the block), the stamp was right, and the sentence told the reader
+    nothing: our scaffolding, read out loud.
+
+    A guard that RECOGNISES the symptom would be a patch — one refusal
+    away from the next spelling of it. The label is ours to choose, so it
+    is chosen to be a thing worth saying: the name of the source that
+    wrote the line. An answer that echoes a label now cites a document.
+
+    The judging prompts keep their own "[K1]" examples on purpose. Their
+    output is a verdict, never a sentence, so nothing they carry can
+    reach a reader."""
+    from lmm.session import Session
+    s = Session(None)
+    lines = ["Course A runs for two days.", "Course B runs for one day."]
+    s._origin_of = {lines[0]: "#docx:Course A.docx",
+                    lines[1]: "#docx:Course B.docx"}
+    block = s._labelled(lines)
+    assert "[K1]" not in block and "[K2]" not in block, block
+    assert "[Course A]" in block and "[Course B]" in block, block
+    # a line whose source the turn does not know is not given an invented
+    # one: it keeps its place and stands unlabelled
+    plain = s._labelled(["An unattributed line."])
+    assert plain == "An unattributed line.", plain
+
+
 @test("W73 a question the store cannot match is asked again in the store's words")
 def w73():
     """Retrieval here is lexical, and that is what makes it auditable: a
