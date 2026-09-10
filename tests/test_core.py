@@ -6287,6 +6287,60 @@ def w76():
         [s.evidence.sentences[sid][0][:60] for sid in both]
 
 
+
+@test("W77 the corpus is its own thesaurus, and can show its working")
+def w77():
+    """The second half of the paraphrase problem, answered from the
+    document rather than from a vendor.
+
+    A document says a tenant RESIDES somewhere and a reader asks where
+    she LIVES. Lexical retrieval cannot bridge that, and the engine can
+    (the second ask does), but it costs a call and its proposals have to
+    be checked against the store anyway. The document already knows: two
+    words that appear in the same COMPANY are used for the same thing —
+    "resides" and "lives" both turn up beside "tenant", "address",
+    "since", "flat". That is distributional similarity, it is arithmetic
+    over counts this store already holds, and unlike an embedding it can
+    be shown: THESE are the shared contexts, and this is their weight.
+
+    The words it offers are the store's own by construction, so the rule
+    the field bridge and the second ask both keep — a word nobody wrote
+    cannot enter a search — is satisfied without a check.
+
+    What it is not: a synonym list, a language rule, or a model. What it
+    cannot do: relate two words the document never uses in comparable
+    company, which is why the engine's second ask stays as the fallback."""
+    from lmm import affinity
+    from lmm.evidence import SentenceStore
+    store = SentenceStore()
+    for i in range(14):
+        store.add("The tenant resides at the flat since spring %d." % i,
+                  source="#doc")
+        store.add("The tenant lives at the flat since autumn %d." % i,
+                  source="#doc")
+        store.add("A visitor resides nearby and the tenant knows him %d." % i,
+                  source="#doc")
+        store.add("A visitor lives nearby and the tenant greets him %d." % i,
+                  source="#doc")
+        store.add("The ledger records the rent and the date %d." % i,
+                  source="#doc")
+    profiles = affinity.Profiles.build(store)
+
+    near = profiles.near("lives", most=4)
+    words = [word for word, _score, _shared in near]
+    assert "resides" in words, near
+    # ...and the working is visible: the shared company, not a number
+    # nobody can inspect
+    shared = dict((w, sh) for w, _s, sh in near)["resides"]
+    assert shared and all(isinstance(c, str) for c in shared), shared
+    assert "tenant" in shared or "flat" in shared or "nearby" in shared, shared
+
+    # a word with no comparable company gets nothing, rather than the
+    # nearest thing in a geometry
+    assert not profiles.near("ledger", most=3) or all(
+        score < 1.0 for _w, score, _sh in profiles.near("ledger", most=3))
+
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the

@@ -3028,6 +3028,18 @@ class Session:
         store = getattr(self, "evidence", None)
         if store is None:
             return []
+        # THE CORPUS IS ASKED BEFORE THE ENGINE IS. Two words used for the
+        # same thing keep the same company, and this store can measure
+        # that from counts it already holds — no call, no vendor, and a
+        # reason it can show ("these are the four contexts both keep").
+        # The engine's proposals remain the fallback for what the
+        # document never says in comparable company.
+        try:
+            local = store.affinity().nearest_words(question, most=4)
+        except Exception:                                    # noqa: BLE001
+            local = []
+        if local:
+            return local
         try:
             proposed = generate.phrasings(question)
         except Exception:                                    # noqa: BLE001
