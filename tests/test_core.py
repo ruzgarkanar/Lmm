@@ -6042,6 +6042,65 @@ def w72():
 
 
 
+@test("W79 a field learns the words a reader asks for it with, once")
+def w79():
+    """The measured 12 seconds this closes: a corpus writes EĞİTİM
+    SÜRESİ and a reader asks "kaç saat?" — no shared word, so the
+    record-direct path (milliseconds, no engine) stands aside and the
+    full chain runs: candidates, gates, read-back, twelve seconds and
+    half a dozen calls to read a value that was sitting in a row.
+
+    THE BRIDGE IS PAID ONCE AND OWNED BY THE STORE. At the operator's
+    request the engine is asked, per head, what words a reader might use
+    to ask for that field; the answers go into a word->head index that is
+    saved beside the store, like the expansion: never speakable, never
+    evidence, retrieval only. Deleting the .bridge file restores the
+    memory exactly as it was. Two filters keep it honest — a word the
+    head itself carries adds nothing, and a word that names ANOTHER head
+    verbatim may not bridge here (it already means something else in this
+    corpus).
+
+    At question time there is NO model call: a question word found in the
+    bridge nominates its head, the one-head-only rule and every gate
+    downstream stay exactly as they were."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    for src, hours in (("#doc:alpha", "6 hours"), ("#doc:beta", "3 hours")):
+        s.evidence.add("DURNVAL: %s." % hours, src)
+        s.evidence.add("SEATCOUNT: 12.", src)
+        s.evidence.add("A quiet paragraph about %s." % src, src)
+    # TODAY'S BEHAVIOUR, asserted as the precondition: reader words share
+    # nothing with the head, so the record-direct path stands aside.
+    assert s._record_answer("how long does alpha take, in clock time?") is None
+    # the engine is consulted ONCE PER HEAD, at learning time only
+    asked = []
+    real = generate.asked_words
+    generate.asked_words = (lambda head, value="": asked.append(head) or
+                            (["clock", "time", "long", "DURNVAL"]
+                             if "DURNVAL" in head else ["seats", "seatcount"]))
+    try:
+        kept = s.learn_bridges()
+    finally:
+        generate.asked_words = real
+    assert sorted(asked) == ["DURNVAL", "SEATCOUNT"], asked
+    assert kept >= 2, kept
+    # a head's own word was filtered — bridging a word to itself is noise
+    assert "durnval" not in s.evidence.head_bridge or         "DURNVAL" not in s.evidence.head_bridge.get("durnval", ()),         s.evidence.head_bridge.get("durnval")
+    # ...and now the same question is a record answer: no engine, the row
+    said = s._record_answer("how long does alpha take, in clock time?")
+    assert said is not None, "the bridge did not reach the record path"
+    line, src = said
+    assert "6 hours" in line and src == "#doc:alpha", (line, src)
+    # the bridge survives the trip to disk, like the expansion does
+    import tempfile, os as _os
+    with tempfile.TemporaryDirectory() as tmp:
+        path = _os.path.join(tmp, "w79.lmm")
+        s.evidence.save(path)
+        again = type(s.evidence).load(path)
+        assert again.head_bridge.get("clock"), "bridge lost on load"
+
+
 @test("W78 a block that can be spoken carries no apparatus of ours")
 def w78():
     """Found by the document probe, not by a hand-written case, which is
