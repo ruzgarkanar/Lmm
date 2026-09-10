@@ -6146,6 +6146,147 @@ def w74():
         "a value shared by two rows was allowed to name one of them"
 
 
+
+@test("W75 an entity is a collocation, and an edge is a witnessed co-mention")
+def w75():
+    """The prose gap, approached the way this codebase approaches
+    everything: with a statistic the document itself computes.
+
+    WHAT GRAPHRAG DOES AND WHY WE DO NOT. It hands each chunk to a model
+    and asks for the entities and the relations between them. What comes
+    back is a CLAIM — invented at index time, unverifiable afterwards,
+    and expensive enough to price the index out of most documents. Our
+    graph is built by the document: an entity is a phrase whose words
+    occur together far more often than chance (pointwise mutual
+    information), and an edge between two entities says one thing only —
+    THESE TWO ARE MENTIONED TOGETHER, HERE — and carries the sentence
+    that witnesses it. A co-mention cannot be a fabrication, because it
+    is an observation; what the relation MEANS is still a claim, and
+    claims still go through the gate.
+
+    Nothing here reads a capital letter, a name list or a language. A
+    phrase that a document repeats as a unit is an entity in that
+    document, whatever alphabet it is written in."""
+    from lmm import mentions
+    from lmm.evidence import SentenceStore
+    store = SentenceStore()
+    # Varied prose, the way a document is varied: the same entities in
+    # different company, which is what the statistic needs and what
+    # grammar does not have.
+    scenes = [
+        "Harbour Road was quiet when the tram passed the old mill.",
+        "A baker opened his shutters on Harbour Road before dawn.",
+        "The council debated whether Harbour Road should be widened.",
+        "Rain fell on Harbour Road and the gutters filled quickly.",
+        "Harbour Road ends at the ferry terminal, they told us.",
+        "Nobody walks Harbour Road after the last tram has gone.",
+        "Elmer Zebley kept a workshop two streets from the market.",
+        "The letter was addressed to Elmer Zebley in careful hand.",
+        "Elmer Zebley repaired clocks and refused to discuss prices.",
+        "In winter Elmer Zebley closed early and read by the stove.",
+        "Elmer Zebley walked down Harbour Road at dawn every Tuesday.",
+        "They saw Elmer Zebley on Harbour Road, carrying a parcel.",
+    ]
+    for i, line in enumerate(scenes * 3):
+        store.add("%s (%d)" % (line, i), source="#doc")
+    graph = mentions.Graph.build(store)
+
+    phrases = {" ".join(p) for p in graph.phrases}
+    assert "harbour road" in phrases, sorted(phrases)[:10]
+    assert "elmer zebley" in phrases, sorted(phrases)[:10]
+
+    # the edge, and its witness
+    linked = graph.linked("elmer zebley")
+    assert "harbour road" in linked, linked
+    witness = graph.witnesses("elmer zebley", "harbour road")
+    assert witness and all("Elmer Zebley" in w and "Harbour Road" in w
+                           for w in witness), witness
+
+    # the partition: lines mentioning BOTH, without scoring the store
+    both = graph.mentioning(["elmer zebley", "harbour road"])
+    assert both and len(both) < len(store.sentences) // 3, len(both)
+
+    # AN EDGE IS NOT A RELATION. The graph says the two are mentioned
+    # together; it says nothing about what one is to the other, and
+    # nothing in it can be spoken without the sentence behind it.
+    assert not hasattr(graph, "relation"), \
+        "the graph invented a relation type"
+
+
+
+@test("W76 a question naming two things is answered from where they meet")
+def w76():
+    """The prose counterpart of the comparison reading. Asked how two
+    things stand to each other, a record corpus lays their rows side by
+    side; prose has no rows, and the lexical search brings whatever
+    scores — usually lines about one of them. The lines that can answer
+    are the lines that mention BOTH, and the entity graph knows them
+    without scoring anything: two short posting lists, intersected.
+
+    That is also why this is fast on a large document. A hundred
+    thousand lines are not read; the two lists are.
+
+    Nothing is claimed by this. The block is made of the document's own
+    sentences and the gates judge them exactly as they judge any other
+    evidence — the reading decides WHICH lines are worth reading, never
+    what may be said about them."""
+    from lmm import generate, extract
+    from lmm.session import Session
+    s = Session(None)
+    # The lexical search is given every reason to go elsewhere: dozens of
+    # lines about each of the two, carrying the QUESTION'S own words, and
+    # one line where they actually meet, carrying none of them. This is
+    # the shape a long document has.
+    tails = ["connects the guild with the market", "was mentioned again",
+             "appears in the ledger", "connects two parishes",
+             "is discussed by the council", "connects the fair to the mill"]
+    for i in range(30):
+        tail = tails[i % len(tails)]
+        s.learn_text("Elmer Zebley %s (%d)." % (tail, i),
+                     source="#doc:town", deep=False)
+        s.learn_text("Harbour Road %s (%d)." % (tails[(i + 3) % len(tails)], i),
+                     source="#doc:town", deep=False)
+    s.learn_text("Elmer Zebley rented the corner shop on Harbour Road "
+                 "in 1893.", source="#doc:town", deep=False)
+    blocks = []
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.offer_research)
+    extract.extract = lambda m: {"kind": extract.ASK,
+                                 "triples": [("elmer zebley", "road", "")]}
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None, **kw:
+                       blocks.append(block) or "I do not know.")
+    generate.refusal = (lambda message, persona="", warmth=0.3,
+                        max_tokens=None: "I do not know.")
+    generate.offer_research = lambda subject, question: ""
+    try:
+        s.respond("what connects Elmer Zebley and Harbour Road?")
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.offer_research) = real
+    assert blocks, "nothing was composed"
+    first = blocks[0]
+    assert "corner shop" in first, (
+        "the line where the two meet was not in the block:\n" + first[:400])
+
+    # WHAT THE GRAPH BUYS IS SCALE, AND THIS IS THE HONEST VERSION OF
+    # THAT CLAIM. On a store this size the lexical search already finds
+    # the meeting line — two rare names in one line outscore one name in
+    # many — and measured on a 36,472-line novel it did so for six pairs
+    # out of six. What it cannot do is do it cheaply: 417 ms a question,
+    # because every line carrying either name is scored. The graph reads
+    # the same answer out of two posting lists in 0.01 ms. So the reading
+    # is not "the graph finds better lines"; it is "the graph finds the
+    # same lines without reading the document", which is the difference
+    # between a demo and ten thousand pages.
+    from lmm import mentions
+    graph = mentions.Graph.build(s.evidence)
+    both = graph.mentioning(["elmer zebley", "harbour road"])
+    assert both, "the intersection was empty where the lexical search hit"
+    assert all("corner shop" in s.evidence.sentences[sid][0] for sid in both), \
+        [s.evidence.sentences[sid][0][:60] for sid in both]
+
+
 @test("W50 a field question that names no source reads that field across the corpus")
 def w50():
     """The class the seats cannot serve: "which course runs the

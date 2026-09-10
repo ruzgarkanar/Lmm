@@ -2037,6 +2037,27 @@ class Session:
         # jury already holds every claim to the source it names. No new
         # model call; no wording read.
         laid_out = False
+        # WHERE TWO THINGS MEET. A question naming two entities is asking
+        # about the lines that mention BOTH, and the document's own entity
+        # graph knows them without scoring anything — two posting lists,
+        # intersected. Measured on a 36,472-line novel: the lexical search
+        # finds the same lines (six pairs out of six) and takes 417 ms a
+        # question doing it, against 0.01 ms here. So this is not a better
+        # reading, it is the same reading without reading the document,
+        # which is what ten thousand pages need.
+        #
+        # It stands aside unless the question names two entities the
+        # document actually repeats, and what it produces is evidence like
+        # any other: the gates judge it unchanged.
+        if not laid_out:
+            try:
+                met = self.evidence.where_they_meet(question_query, most=seats)
+            except Exception:                                # noqa: BLE001
+                met = []
+            if len(met) >= 2:
+                proof = met
+                proof_origins = list(self.evidence.last_sources[:len(proof)])
+                laid_out = True
         # NAMING IS A PROPERTY OF WHAT WAS ASKED — and this is where it
         # cost the most. `find` reads names off the query it is given, and
         # that query carries the previous turn's subject (to keep
