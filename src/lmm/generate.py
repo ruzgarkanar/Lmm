@@ -474,6 +474,46 @@ def items_of(question, block):
     return [x.strip() for x in out.replace("\n", ",").split(",") if x.strip()]
 
 
+def things_of(question):
+    """The two things a comparison/order question weighs — phrases, not
+    an answer. The ordering organ's one call (`Session._order_answer`):
+    the engine reads the question and names what is being compared; the
+    STORE then anchors each phrase to a dated line or refuses, so a
+    misreading costs a retrieval, never a claim."""
+    system = ("The question compares or orders TWO things. Output those "
+              "two things, one per line, copied as closely as possible "
+              "from the question's own words. Output nothing else. If "
+              "the question does not compare two things, output NONE.")
+    out = runtime.generate(question, system=system, max_tokens=48,
+                           temperature=0.0)
+    out = (out or "").strip()
+    if not out or out.upper().startswith("NONE"):
+        return []
+    things = [x.strip(" -•\t") for x in out.splitlines() if x.strip()]
+    return things[:2]
+
+
+def wants_order(message):
+    """Does this message ask WHICH CAME FIRST / the order of events?
+    Language-independent, few-shot both sides; called only on abstained
+    turns, after the count question — one tiny call where the turn
+    would otherwise end in a shrug."""
+    system = ("Classify if the message asks about the ORDER of events in "
+              "time — which happened first, earlier, later, before or "
+              "after another. Output ONLY yes/no.\n"
+              "which did I attend first, the workshop or the webinar -> yes\n"
+              "hangisine \u00f6nce kat\u0131ld\u0131m, atölyeye mi seminere mi -> yes\n"
+              "was kam zuerst, das Seminar oder der Kurs -> yes\n"
+              "did the launch happen before the audit -> yes\n"
+              "how many workshops did I attend -> no\n"
+              "what is the duration of the workshop -> no\n"
+              "when is the next session -> no\n"
+              "thanks, that helps -> no")
+    out = runtime.generate(message, system=system, max_tokens=3,
+                           temperature=0.0)
+    return "yes" in (out or "").strip().lower()
+
+
 def wants_count(message):
     """Does this message ask HOW MANY of something — a count over what
     the memory holds? Language-independent, few-shot on both sides,

@@ -564,6 +564,10 @@ class Session:
                     counted = self._count_answer(message)
                     if counted:
                         said = counted
+                elif generate.wants_order(message):
+                    ordered = self._order_answer(message)
+                    if ordered:
+                        said = ordered
             except Exception:                           # noqa: BLE001
                 pass
         census_line = getattr(self, "_census_line", "")
@@ -1206,6 +1210,65 @@ class Session:
         self.last_from_graph = True     # derived like a record: no prose
         self._mark = next((s for s in sources if s), "") or ""
         return "%d: %s." % (len(kept), ", ".join(kept))
+
+    def _order_answer(self, question):
+        """Which came first is read off the dates, not remembered.
+
+        LongMemEval's temporal questions, measured: asked which of two
+        events came first, the memory abstained twice — no single line
+        states the order, and ordering was nobody's organ. The store
+        already knows: chat lines carry dated sources, and "which
+        first" is arithmetic over those dates.
+
+        The engine names the two things (`generate.things_of` — a
+        reading, not a claim); the STORE anchors each to the earliest
+        dated line carrying all of the phrase's words, by stem. An
+        unanchored phrase ends the reading; so does a tie. Spoken: the
+        ordered pair with its dates — derived, witnessed, no prose.
+        Returns the sentence or None."""
+        try:
+            things = generate.things_of(question)
+        except Exception:                               # noqa: BLE001
+            return None
+        if len(things) != 2:
+            return None
+
+        def _date_of(src):
+            digits = re.findall(r"\d+", src or "")
+            return tuple(int(d) for d in digits) if digits else None
+
+        anchors = []
+        for thing in things:
+            words = evidence._words(thing)
+            if not words:
+                return None
+            best = None
+            for text, src in self.evidence.sentences:
+                held = set(evidence._words(text))
+                if not all(any(inflect.same_stem(w, h) for h in held)
+                           for w in words):
+                    continue
+                when = _date_of(src)
+                if when is None:
+                    continue
+                if best is None or when < best[0]:
+                    best = (when, src)
+            if best is None:
+                return None             # the store cannot anchor it
+            anchors.append((best[0], best[1], thing))
+        if anchors[0][0] == anchors[1][0]:
+            return None                 # a tie is not a guess
+        anchors.sort()
+        first, second = anchors
+        self.last_abstained = False
+        self.last_from_graph = True
+        self._mark = first[1]
+
+        def _shown(src):
+            match = re.search(r"[\d/:. -]+\d", src)
+            return match.group(0).strip() if match else src
+        return "1. %s (%s) · 2. %s (%s)." % (
+            first[2], _shown(first[1]), second[2], _shown(second[1]))
 
     def _delivery(self, message):
         """The delivery reading of a need-shaped turn: compose from the
