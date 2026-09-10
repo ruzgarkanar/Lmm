@@ -66,12 +66,28 @@ jobs:
       - name: It imports and works from outside the source tree
         run: |
           cd "$(mktemp -d)"
+          # WHAT THE ENGINE-FREE HALF ACTUALLY CLAIMS. This step used to
+          # assert that a prose sentence learned with deep=False left a
+          # FACT in the graph, and it passed for a reason nobody would
+          # have wanted: the memory arrived holding a seeded identity
+          # record naming the library's author, so the count was never
+          # zero and the assertion never read the sentence. Removing that
+          # name turned the check red and showed what it had been
+          # measuring. Prose without a model yields EVIDENCE — the
+          # sentence, kept verbatim and retrievable; a TABLE yields facts,
+          # with no model call at all. Both are claims this project makes
+          # in its README, so both get asserted here.
+          printf 'name,height\nTower,91\nBridge,44\n' > rows.csv
           python -c "
           import lmm
           from lmm import Memory
           m = Memory()
-          m.learn('The tower is 91 metres tall.', deep=False)
-          assert len(m) >= 1
+          got = m.learn('The tower is 91 metres tall.', deep=False)
+          assert got.evidence >= 1, got
+          assert m.where('tower'), 'the sentence is not retrievable'
+          rows = Memory()
+          assert rows.learn('rows.csv', deep=False).facts >= 2
+          assert len(rows) >= 2
           import lmm.core.memory, lmm.core.gate, lmm.tables
           print('ok', lmm.__version__)
           "
