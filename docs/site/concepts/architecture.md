@@ -26,6 +26,27 @@ are written with an `#inference` stamp **below the speaking threshold**.
 at several window scales. Retrieval is deterministic word/graph lookup —
 explainable, and the same answer every run.
 
+**The entity graph.** The document's own, built with no model call. An
+entity is a phrase whose words occur together beyond chance (pointwise
+mutual information over the phrase's weakest split), which keeps varied
+company, and whose parts do not choose freely. An edge says one thing —
+*these two are mentioned together, here* — and carries the witnessing
+sentence, weighted by Dunning's log-likelihood ratio so an entity that
+appears everywhere does not become everyone's neighbour. An edge cannot be
+fabricated: it is an observation. It is also the partition — a question
+naming two entities reads the intersection of two posting lists rather
+than scoring the store. On a 36,472-line novel: 417 ms to 0.01 ms.
+
+**The thesaurus the corpus wrote.** A text says a tenant *resides* at an
+address and a reader asks where she *lives*. Two words used for the same
+thing keep the same company: positive pointwise mutual information for
+which company is surprising, cosine between profiles for how much two
+words share, an inverted context index so the search is not the vocabulary
+squared. A neighbour comes back **with the shared company that earned it**,
+which is what an embedding cannot do at any price — and every word it can
+offer was written in this corpus. It widens what can be FOUND; it never
+widens what may be SAID.
+
 **The trust ladder.**
 
 | level | source | trust | |
