@@ -63,13 +63,17 @@ def within_budget(call, retryable=(Exception,), what="the engine"):
     Everything else is raised immediately and unchanged.
     """
     limit = budget()
-    if not limit:
-        return call(None)
-    deadline = time.monotonic() + limit
+    # ZERO REMOVES THE LIMIT, NOT THE PATIENCE (W92). This line used to
+    # read `if not limit: return call(None)` — one call, no retry — and
+    # a benchmark night proved what that means under load: every
+    # rate-limit wait, the one thing this loop exists to absorb, was
+    # raised raw, and forty-nine of fifty answers came back 429. An
+    # unlimited budget is the same loop with no deadline.
+    deadline = (time.monotonic() + limit) if limit else None
     pause, last = 1.0, None
     while True:
-        left = deadline - time.monotonic()
-        if left <= 0:
+        left = (deadline - time.monotonic()) if deadline else None
+        if left is not None and left <= 0:
             raise EngineTimeout(
                 f"{what} did not answer within {limit:g}s "
                 f"(LMM_TIMEOUT sets this; 0 removes the limit)"
@@ -78,11 +82,11 @@ def within_budget(call, retryable=(Exception,), what="the engine"):
             return call(left)
         except retryable as waiting:
             last = waiting
-            left = deadline - time.monotonic()
-            if left <= 0:
+            left = (deadline - time.monotonic()) if deadline else None
+            if left is not None and left <= 0:
                 continue                # round the loop once to raise, not sleep
-            time.sleep(min(pause, left))
-            pause *= 2
+            time.sleep(pause if left is None else min(pause, left))
+            pause = min(pause * 2, 30.0)
 
 
 def path():

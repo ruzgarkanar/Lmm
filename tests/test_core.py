@@ -6252,6 +6252,42 @@ def w85():
     assert none is None, none
 
 
+@test("W92 removing the time limit removes the limit, not the patience")
+def w92():
+    """A whole benchmark night lost to one reading: LMM_TIMEOUT=0 is
+    documented as removing the limit, and the code read it as removing
+    the RETRY — `if not limit: return call(None)` — so every rate-limit
+    wait, the one thing the budget loop exists to absorb, was raised
+    raw the moment it arrived, and forty-nine of fifty answers came
+    back 429. Zero now means an unlimited budget: the same loop, the
+    same doubling pause, no deadline. What is removed is the clock,
+    never the patience."""
+    import os
+    from lmm import runtime
+    saved = os.environ.get("LMM_TIMEOUT")
+    calls = {"n": 0}
+    class Wait(Exception):
+        pass
+    def flaky(_remaining):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise Wait("queue")
+        return "served"
+    real_sleep = runtime.time.sleep
+    runtime.time.sleep = lambda s: None
+    try:
+        os.environ["LMM_TIMEOUT"] = "0"
+        got = runtime.within_budget(flaky, retryable=(Wait,), what="test")
+    finally:
+        runtime.time.sleep = real_sleep
+        if saved is None:
+            os.environ.pop("LMM_TIMEOUT", None)
+        else:
+            os.environ["LMM_TIMEOUT"] = saved
+    assert got == "served", got
+    assert calls["n"] == 3, calls
+
+
 @test("W87 the small questions can take a cheaper road, off by default")
 def w87():
     """The cascade the cost literature ships first, sized to what we

@@ -1230,8 +1230,14 @@ class Session:
                 best = None
                 for text, src in self.evidence.sentences:
                     held = set(evidence._words(text))
-                    if not all(any(inflect.same_stem(w, h) for h in held)
-                               for w in words):
+                    # MORE THAN HALF of the phrase's words anchor it —
+                    # the codebase's one boundary. "The X event" was
+                    # failing on lines that write X without the word
+                    # "event", and a full-match rule made the frame
+                    # words load-bearing.
+                    hit = sum(1 for w in words
+                              if any(inflect.same_stem(w, h) for h in held))
+                    if hit * 2 <= len(words):
                         continue
                     digits = [int(d) for d in re.findall(r"\d+", src or "")]
                     if len(digits) < 3:
@@ -1419,9 +1425,10 @@ class Session:
             best = None
             for text, src in self.evidence.sentences:
                 held = set(evidence._words(text))
-                if not all(any(inflect.same_stem(w, h) for h in held)
-                           for w in words):
-                    continue
+                hit = sum(1 for w in words
+                          if any(inflect.same_stem(w, h) for h in held))
+                if hit * 2 <= len(words):
+                    continue            # more than half, the one boundary
                 when = _date_of(src)
                 if when is None:
                     continue
