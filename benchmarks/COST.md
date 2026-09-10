@@ -51,6 +51,11 @@ largest single line in the bill. If the widest subset usually won, the
 other two could be generated only on failure. Over fifteen questions the
 winner was subset 1 five times, subset 2 six times, subset 3 twice. The
 ladder earns its keep; cutting it would buy tokens with answers.
+Refuted a second time on 10 September, this time for free: the same idea
+came back as a lazy flag (generate the wide candidate, escalate only on
+failure) and invariants G5 and G7 — each locking a measured corpus loss —
+failed with the flag on, before any engine was asked. The ledger stands:
+the narrow candidates must COMPETE, not wait in reserve.
 
 **Cut 3 — refusing before generating (rejected by measurement).** A trap
 costs eight calls to say "I do not know". The block is already in hand,
