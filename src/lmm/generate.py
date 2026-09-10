@@ -474,6 +474,49 @@ def items_of(question, block):
     return [x.strip() for x in out.replace("\n", ",").split(",") if x.strip()]
 
 
+def turn_shape(message):
+    """What KIND of turn this message asks for — one reading, at the
+    door. Replaces three separate yes/no classifiers (material, count,
+    order) asked one after another in the rescue seats: the shape is
+    read ONCE, before any chain runs, so a count-shaped question can go
+    to the counting organ the way a record-shaped one goes to the
+    record path — never gambled on the factual chain first (W88).
+
+    Returns "material", "count", "order" or "none". Few-shot in four
+    languages on both sides of each boundary — calibration, not rules;
+    no word of any language is matched in code. Small-road eligible."""
+    system = ("Classify the message into EXACTLY one word:\n"
+              "material - asks to PRODUCE or RECOMMEND content now "
+              "(a plan, programme, draft, catalogue, proposal; states a "
+              "need and asks what fits it)\n"
+              "count - asks HOW MANY of something\n"
+              "order - asks which of two things came FIRST or LATER in "
+              "time\n"
+              "none - anything else (facts, durations, greetings, "
+              "context, thanks, brakes)\n"
+              "give me your best three-hour plan -> material\n"
+              "yeni terfi edenler i\u00e7in ne verelim -> material\n"
+              "was empfiehlst du f\u00fcr unser Team -> material\n"
+              "how many projects am I leading -> count\n"
+              "ka\u00e7 tane liderlik e\u011fitiminiz var -> count\n"
+              "\u00bfcu\u00e1ntos restaurantes he probado -> count\n"
+              "which did I attend first, the workshop or the webinar -> order\n"
+              "hangisine \u00f6nce kat\u0131ld\u0131m -> order\n"
+              "what is the duration of the Alpha module -> none\n"
+              "Empatik Liderlik ka\u00e7 g\u00fcn -> none\n"
+              "wie lange dauert das Training -> none\n"
+              "dur biraz, hemen \u00f6nerme -> none\n"
+              "we are in banking, my team is ten people -> none\n"
+              "thanks, that helps -> none")
+    out = runtime.generate(message, system=system, max_tokens=4,
+                           temperature=0.0, small=True)
+    word = (out or "").strip().lower()
+    for shape in ("material", "count", "order"):
+        if shape in word:
+            return shape
+    return "none"
+
+
 def things_of(question):
     """The two things a comparison/order question weighs — phrases, not
     an answer. The ordering organ's one call (`Session._order_answer`):
