@@ -697,12 +697,19 @@ def _spoken_to(message, system, persona="", warmth=0.3, max_tokens=50):
         except Exception:                                    # noqa: BLE001
             spoken = tongue
         if spoken and spoken.lower() != tongue.lower():
+            # THE RETRY IS THE LAST WORD, SO IT DOES NOT GAMBLE. Kept at
+            # the first attempt's warmth, the rewrite was another sample
+            # of the same dice — observed live, one refusal came out as
+            # letters that were no language at all, and the second roll
+            # was what the user read. The retry is the turn's final
+            # sentence; it is written at temperature zero, the way every
+            # candidate the gates read is.
             said = runtime.generate(
                 message,
                 system=_voiced(anchored + "\n\nYour reply MUST be written in "
                                "%s and in no other language." % tongue,
                                persona),
-                max_tokens=max_tokens, temperature=warmth)
+                max_tokens=max_tokens, temperature=0.0)
     return said
 
 
