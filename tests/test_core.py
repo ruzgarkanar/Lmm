@@ -6042,6 +6042,60 @@ def w72():
 
 
 
+@test("W83 of two dated lines that clash on a value, the later speaks")
+def w83():
+    """Measured on LongMemEval's knowledge-update questions, first live
+    run: a runner's personal best was 27:12 in May and 25:50 two weeks
+    on; both lines sat in the block, both attested, and the answer spoke
+    the stale one. deep=True fixes it — the graph's contradiction
+    machinery already prefers the newer fact — at four minutes of
+    extraction per history, which is exactly the bill the evidence layer
+    exists to avoid. So the evidence layer learns the same manners.
+
+    THE RULE IS READ OFF THE DATES, NOT A DIAL. Two seated lines clash
+    when their sources belong to the same dated family (same non-digit
+    name words, both carrying a parsable date), their non-numeric words
+    overlap by more than half — the codebase's one boundary — and their
+    digits differ. The later-dated line keeps its seat; the older one
+    never sits, because a block carrying both numbers hands the digit
+    veto two right answers. Undated sources are untouched: a corpus of
+    manuals keeps exactly its old seating. The cost, stated: a question
+    asking for the SUPERSEDED value loses its line too — recorded, and
+    revisited the day a question set shows it."""
+    from lmm.evidence import SentenceStore
+    store = SentenceStore()
+    # the lines are CHATTY on purpose — the live failure's shape. The
+    # sources carry day names, so "same family" cannot mean "same
+    # non-digit words": the family is the name BEFORE the first digit.
+    # And the lines share only a handful of words, so the clash cannot
+    # be whole-line overlap: it is the NAME THE NUMBER SITS UNDER —
+    # both numbers follow "best time of", one line says 27:12 and the
+    # other 25:50, and that is what disagreeing about one value looks
+    # like in running prose.
+    store.add("User: happy to say I recently set a personal best in the "
+              "charity run with a time of 27:12, after months of work.",
+              "chat 2023/05/25 (Thu) 20:21")
+    store.add("User: training again and hoping to beat my personal best "
+              "time of 25:50 from the spring charity run.",
+              "chat 2023/05/27 (Sat) 10:20")
+    store.add("User: the charity run was in the park.",
+              "chat 2023/05/25 (Thu) 20:21")
+    lines = store.find("what is my personal best time in the charity run",
+                       most=4)
+    assert lines, "nothing seated"
+    joined = " ".join(lines)
+    assert "25" in joined, lines
+    assert "27" not in joined, (
+        "the superseded value still holds a seat: %r" % lines)
+    # undated sources: the old behaviour, byte for byte
+    plain = SentenceStore()
+    plain.add("The tower is 91 metres tall.", "#doc:guide")
+    plain.add("The tower is 88 metres tall.", "#doc:survey")
+    both = plain.find("how tall is the tower", most=4)
+    assert any("91" in ln for ln in both) and any("88" in ln for ln in both), \
+        "undated sources must keep every seat: %r" % both
+
+
 @test("W82 the answer cache sees every index an answer can read")
 def w82():
     """The staleness the bridge introduced without anyone noticing: a

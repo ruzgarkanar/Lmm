@@ -1710,8 +1710,91 @@ class SentenceStore:
         if named_sources:
             keep.sort(key=lambda sid: self.sentences[sid][1]
                       not in named_sources)
+        keep = self._supersede(keep)
         self.last_sources = [self.sentences[sid][1] for sid in keep]
         return [self.sentences[sid][0] for sid in keep]
+
+    def _supersede(self, keep):
+        """OF TWO DATED LINES THAT CLASH ON A VALUE, THE LATER SPEAKS.
+
+        Measured on LongMemEval's knowledge-update questions: a personal
+        best stated in May and restated two weeks later sat in the block
+        side by side, both attested, and the answer spoke the stale one.
+        The graph already has these manners (a newer fact lowers its
+        rival's trust); the evidence layer — the cheap door everything
+        conversational comes through — had none.
+
+        The rule is read off the store, no dial anywhere: two seated
+        lines clash when their sources are the same dated FAMILY (same
+        non-digit name words, each carrying digits that parse as a
+        date), their non-numeric content words overlap by MORE THAN HALF
+        of the smaller line's — the codebase's one boundary — and the
+        numbers they carry differ. The older line loses its seat before
+        the block is built, because a block holding both numbers hands
+        the digit veto two right answers and the choice to chance.
+        Undated sources never enter this reading: a corpus of manuals
+        seats exactly what it seated before, byte for byte.
+
+        The cost, stated rather than hidden: a question asking for the
+        SUPERSEDED value loses that line too. Recorded in W83; the day a
+        question set shows that class, this reading learns tenses.
+        """
+        def _dated(src):
+            # THE FAMILY IS THE NAME BEFORE THE FIRST DIGIT. "Same
+            # non-digit words" was the first cut, and real chat stamps
+            # killed it: "chat 2023/05/25 (Thu)" and "chat 2023/05/27
+            # (Sat)" share every naming word and differ in the weekday —
+            # which is part of the DATE, written in letters. A language
+            # list of weekdays is the hard-coding this codebase forbids;
+            # the structure that needs no language is that a dated stamp
+            # is a name followed by its date, decorations included.
+            match = re.search(r"\d", src or "")
+            if not match:
+                return None
+            digits = tuple(int(d) for d in re.findall(r"\d+", src))
+            family = " ".join(_words(src[:match.start()]))
+            return (family, digits) if family else None
+
+        def _named_numbers(text):
+            # WHAT A LINE SAYS ABOUT A VALUE IS THE NAME THE NUMBER SITS
+            # UNDER. Whole-line overlap was the first cut, and chatty
+            # lines killed it: two statements of one personal best share
+            # five words and disagree in thirty, because running prose
+            # wraps its facts in weather. What both lines DO share is
+            # the two plain words in front of the number — "best time
+            # of 27:12" / "best time of 25:50" — and that is what
+            # naming the same quantity looks like, in any language that
+            # puts names near values.
+            words = _words(text)
+            out = {}
+            for position, w in enumerate(words):
+                if not any(c.isdigit() for c in w):
+                    continue
+                name = tuple(x for x in words[max(0, position - 2):position]
+                             if not any(c.isdigit() for c in x))
+                if name:
+                    out.setdefault(name, set()).add(w)
+            return out
+
+        drop = set()
+        for i, a in enumerate(keep):
+            for b in keep[i + 1:]:
+                if a in drop or b in drop:
+                    continue
+                da = _dated(self.sentences[a][1])
+                db = _dated(self.sentences[b][1])
+                if (not da or not db or da[0] != db[0]
+                        or da[1] == db[1]):
+                    continue
+                na = _named_numbers(self.sentences[a][0])
+                nb = _named_numbers(self.sentences[b][0])
+                clash = any(
+                    name in nb and na[name] != nb[name]
+                    for name in na)
+                if not clash:
+                    continue
+                drop.add(a if da[1] < db[1] else b)
+        return [sid for sid in keep if sid not in drop]
 
     def _measurement_seat(self, qwords, ranked, keep, named):
         """ONE EXTRA seat, for a question that asks for a MEASUREMENT.
