@@ -1202,6 +1202,54 @@ class Session:
         # engine lists over the whole of it, and what the words cannot
         # reach is recorded as this organ's honest limit (a hypernym
         # names members no line spells out).
+        # HOW MANY DAYS APART IS SUBTRACTION, NOT COUNTING (W90).
+        # Fifty-three of a benchmark's temporal failures shared one
+        # shape: "how many days passed between X and Y?" — count-shaped
+        # to the reader, and no list to anybody. When the engine can
+        # name two things and the store can anchor BOTH to dated lines,
+        # the answer is arithmetic: the day span, in both fences,
+        # dates shown. One thing, or none, or no dates — every other
+        # counting reading below is untouched.
+        try:
+            pair = generate.things_of(question)
+        except Exception:                               # noqa: BLE001
+            pair = []
+        if len(pair) == 2:
+            import datetime as _dt
+            anchors = []
+            for thing in pair:
+                words = evidence._words(thing)
+                best = None
+                for text, src in self.evidence.sentences:
+                    held = set(evidence._words(text))
+                    if not all(any(inflect.same_stem(w, h) for h in held)
+                               for w in words):
+                        continue
+                    digits = [int(d) for d in re.findall(r"\d+", src or "")]
+                    if len(digits) < 3:
+                        continue
+                    try:
+                        when = _dt.date(digits[0], digits[1], digits[2])
+                    except ValueError:
+                        continue
+                    if best is None or when < best[0]:
+                        best = (when, src)
+                if best is None:
+                    anchors = []
+                    break
+                anchors.append(best)
+            if len(anchors) == 2 and anchors[0][0] != anchors[1][0]:
+                first, second = sorted(anchors)
+                span = (second[0] - first[0]).days
+                self._step("span")
+                self.last_abstained = False
+                self.last_from_graph = True
+                self._mark = second[1]
+                return ("%d days (%d including the last day) — %s → %s."
+                        % (span, span + 1,
+                           first[0].strftime("%Y/%m/%d"),
+                           second[0].strftime("%Y/%m/%d")))
+
         # WHEN THE THINGS COUNTED ARE DOCUMENTS, THE STORE COUNTS THEM
         # ITSELF. Caught live: asked how many leadership trainings the
         # inventory holds, the engine listed one summary sheet's module
