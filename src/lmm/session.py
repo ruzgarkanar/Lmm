@@ -1126,21 +1126,27 @@ class Session:
             # (wants_material) is read BEFORE the chain: yes on a
             # consultation means the composer speaks — same gates, same
             # stamps — and only its silence lets the chain have the turn.
-            if self._no_teach:
-                shape = self._turn_shape(message)
-                if shape == "count":
-                    counted = self._count_answer(message)
-                    if counted:
-                        return counted
-                elif shape == "order":
-                    ordered = self._order_answer(message)
-                    if ordered:
-                        return ordered
-                elif shape == "material" and self._conversational:
-                    delivered = self._delivery(message)
-                    if delivered:
-                        return delivered
             if op["kind"] in (extract.WRITE, extract.ASK):
+                # THE SHAPE IS READ ONLY WHERE IT CAN ROUTE (W43): a
+                # pure chat turn streams its first sentence while the
+                # engine still thinks, and one classifier call in front
+                # of it was measured pushing the first word behind the
+                # whole wagered reply. Question-shaped turns pay the one
+                # small call; chat-shaped turns never do.
+                if self._no_teach:
+                    shape = self._turn_shape(message)
+                    if shape == "count":
+                        counted = self._count_answer(message)
+                        if counted:
+                            return counted
+                    elif shape == "order":
+                        ordered = self._order_answer(message)
+                        if ordered:
+                            return ordered
+                    elif shape == "material" and self._conversational:
+                        delivered = self._delivery(message)
+                        if delivered:
+                            return delivered
                 self._step("chain")
                 return self._answer(message, subject)
             self._step("chat")
