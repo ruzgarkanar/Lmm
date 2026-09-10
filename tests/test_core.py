@@ -3102,6 +3102,8 @@ def w8():
     s.learn_text("Trust pairs open the afternoon walk.",
                  source="#docx:Beta.docx", deep=False)
     real_ex, real_ans = extract.extract, generate.answer
+    real_shape = generate.turn_shape
+    generate.turn_shape = lambda message: "none"
     extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
     calls = {"n": 0}
     def fake_answer(question, block_, warmth=0.2, persona="", **kw):
@@ -3129,6 +3131,7 @@ def w8():
         assert s.last_abstained
     finally:
         extract.extract, generate.answer = real_ex, real_ans
+        generate.turn_shape = real_shape
 
 
 @test("W9 the named document speaks first")
@@ -3179,6 +3182,8 @@ def w10():
     s.learn_text("Trust walk pairs shape the afternoon arc.",
                  source="#docx:Beta.docx", deep=False)
     real_ex, real_ans = extract.extract, generate.answer
+    real_shape = generate.turn_shape
+    generate.turn_shape = lambda message: "none"
     extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
     seen = {"blocks": []}
     def fake_answer(question, block_, warmth=0.2, persona="", **kw):
@@ -3197,6 +3202,7 @@ def w10():
         assert "×" in rescue, rescue[:200]          # the tally still rides
     finally:
         extract.extract, generate.answer = real_ex, real_ans
+        generate.turn_shape = real_shape
 
 
 @test("W11 a persona colours the voice and cannot reach the gate")
@@ -3339,15 +3345,16 @@ def engine_free(fn):
     def ran():
         from lmm import extract, generate
         saved = (generate.is_identity_question, generate.wants_material,
-                 extract.reextract)
+                 generate.turn_shape, extract.reextract)
         generate.is_identity_question = lambda message: False
         generate.wants_material = lambda message: False
+        generate.turn_shape = lambda message: "none"
         extract.reextract = lambda sentence: []
         try:
             return fn()
         finally:
-            (generate.is_identity_question, generate.wants_material,
-             extract.reextract) = saved
+            (generate.is_identity_question, generate.wants_material, \
+             generate.turn_shape, extract.reextract) = saved
     ran.__name__ = fn.__name__
     ran.__doc__ = fn.__doc__
     return ran
@@ -6042,6 +6049,76 @@ def w72():
 
 
 
+@test("W88 a counting question never gambles the chain")
+def w88():
+    """Caught live the day after the counting organ shipped: asked how
+    many leadership trainings the inventory holds, the factual chain
+    read two documents' worth of block and confidently said TWO — of a
+    dozen. The organ that counts by verified list never ran, because it
+    only rescued ABSTENTIONS, and a confident wrong count is not one.
+
+    THE TURN'S SHAPE IS READ ONCE, AT THE DOOR. One engine reading
+    (`generate.turn_shape` — material / count / order / none, few-shot
+    in four languages, small-road eligible) replaces the three separate
+    classifiers and moves from the rescue seat to the FRONT: a count-
+    shaped question goes to the counting organ before the chain can
+    speak, exactly as a record-shaped question goes to the record path.
+    The organ's own honesty is unchanged — engine lists, store
+    verifies, silence when nothing survives — and a "none" shape
+    changes nothing at all."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    for name in ("Harbour Atlas", "Quiet Lantern", "Copper Vale"):
+        s.evidence.add("PROGRAMME: %s leadership track." % name,
+                       "#doc:%s" % name.split()[0].lower())
+    called = {"chain": 0}
+    real_shape = generate.turn_shape
+    real_items = generate.items_of
+    real_answer = s._answer
+    generate.turn_shape = lambda message: "count"
+    generate.items_of = (lambda question, block:
+                         ["Harbour Atlas", "Quiet Lantern", "Copper Vale"])
+    def chain_spy(message, subject="", **kw):
+        called["chain"] += 1
+        return "TWO, confidently."
+    s._answer = chain_spy
+    try:
+        said = s.respond("how many leadership programmes are there?",
+                         teach=False)
+    finally:
+        generate.turn_shape = real_shape
+        generate.items_of = real_items
+        s._answer = real_answer
+    assert called["chain"] == 0, (
+        "the chain was gambled on a count-shaped turn: %r" % said)
+    assert "3" in said and "copper vale" in said.lower(), said
+    # WHEN THE THINGS COUNTED ARE DOCUMENTS, THE STORE COUNTS THEM
+    # ITSELF. Caught live: asked how many leadership trainings the
+    # inventory holds, the engine listed one summary sheet's module
+    # codes — every code verified, none of them a training. In a
+    # many-document store where each training IS a document, the count
+    # is the census: the sources whose own NAMES carry the asked word,
+    # counted and named, with no engine call at all.
+    t = Session(None)
+    for name in ("Alpine Leadership", "Harbour Leadership",
+                 "Quiet Sales", "Copper Onboarding"):
+        t.evidence.add("SUMMARY: a %s course outline." % name.lower(),
+                       "#docx:%s.docx" % name)
+    generate.turn_shape = lambda message: "count"
+    generate.items_of = lambda question, block: ["WRONG THING"]
+    try:
+        said2 = t.respond("how many leadership trainings do you have?",
+                          teach=False)
+    finally:
+        generate.turn_shape = real_shape
+        generate.items_of = real_items
+    assert "2" in said2, said2
+    low2 = said2.lower()
+    assert "alpine leadership" in low2 and "harbour leadership" in low2, said2
+    assert "wrong thing" not in low2, said2
+
+
 @test("W85 which came first is read off the dates, not remembered")
 def w85():
     """LongMemEval's temporal questions, measured: asked which of two
@@ -6146,15 +6223,15 @@ def w86():
     assert not said.abstained and "91" in said, said
     # a delivery turn consults the router and the composer, in order
     s = m.session
-    real_wm, real_compose = generate.wants_material, s.compose
-    generate.wants_material = lambda message: True
+    real_wm, real_compose = generate.turn_shape, s.compose
+    generate.turn_shape = lambda message: "material"
     s.compose = lambda brief, seats=24, topics=None, on_line=None: (
         "CATALOGUE.", ["spans.csv"])
     s.history.append({"role": "user", "content": "hello"})
     try:
         s.respond("put together a plan for us", teach=False)
     finally:
-        generate.wants_material, s.compose = real_wm, real_compose
+        generate.turn_shape, s.compose = real_wm, real_compose
     assert "delivery" in s.last_route, s.last_route
 
 
@@ -6365,8 +6442,8 @@ def w80():
     s.evidence.add("COURSE: Alpha. AUDIENCE: new managers.", "#doc:alpha")
     s.history.append({"role": "user", "content": "hello"})
     called = {"compose": 0, "answer": 0}
-    real_wm = generate.wants_material
-    generate.wants_material = lambda message: True
+    real_wm = generate.turn_shape
+    generate.turn_shape = lambda message: "material"
     real_compose, real_answer = s.compose, s._answer
     def compose_spy(brief, seats=24, topics=None, on_line=None):
         called["compose"] += 1
@@ -6379,7 +6456,7 @@ def w80():
         said = s.respond("what should we give our newly promoted managers?",
                          teach=False)
     finally:
-        generate.wants_material = real_wm
+        generate.turn_shape = real_wm
         s.compose, s._answer = real_compose, real_answer
     assert called["compose"] == 1, called
     assert called["answer"] == 0, (

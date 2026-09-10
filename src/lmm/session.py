@@ -458,6 +458,7 @@ class Session:
         # a turn consults appends its name; `Answer.route` carries the
         # list out. Bookkeeping only: no call, no behaviour.
         self.last_route = []
+        self._shape_cache = None        # turn_shape, read once per turn
         self._spec_wants = None
         self._spec_chat = None
         self._composed = False
@@ -549,14 +550,7 @@ class Session:
                 and self._conversational
                 and not self.last_from_graph
                 and any(h.get("role") == "user" for h in self.history)):
-            wants = False
-            try:
-                spec_wants = getattr(self, "_spec_wants", None)
-                wants = (bool(spec_wants.result()) if spec_wants is not None
-                         else generate.wants_material(message))
-            except Exception:                           # noqa: BLE001
-                pass
-            if wants:
+            if self._turn_shape(message) == "material":
                 delivered = self._delivery(message)
                 if delivered:
                     said = delivered
@@ -566,17 +560,15 @@ class Session:
         # verified list (`_count_answer`), never a number the engine
         # chose. An answered turn costs nothing extra.
         if said and self.last_abstained and message and message.strip():
-            try:
-                if generate.wants_count(message):
-                    counted = self._count_answer(message)
-                    if counted:
-                        said = counted
-                elif generate.wants_order(message):
-                    ordered = self._order_answer(message)
-                    if ordered:
-                        said = ordered
-            except Exception:                           # noqa: BLE001
-                pass
+            shape = self._turn_shape(message)
+            if shape == "count":
+                counted = self._count_answer(message)
+                if counted:
+                    said = counted
+            elif shape == "order":
+                ordered = self._order_answer(message)
+                if ordered:
+                    said = ordered
         census_line = getattr(self, "_census_line", "")
         if (said and self.last_abstained and census_line
                 and not self.last_from_graph):
@@ -1134,16 +1126,17 @@ class Session:
             # (wants_material) is read BEFORE the chain: yes on a
             # consultation means the composer speaks — same gates, same
             # stamps — and only its silence lets the chain have the turn.
-            if self._no_teach and self._conversational:
-                wants = False
-                try:
-                    spec_wants = getattr(self, "_spec_wants", None)
-                    wants = (bool(spec_wants.result())
-                             if spec_wants is not None
-                             else generate.wants_material(message))
-                except Exception:                       # noqa: BLE001
-                    pass
-                if wants:
+            if self._no_teach:
+                shape = self._turn_shape(message)
+                if shape == "count":
+                    counted = self._count_answer(message)
+                    if counted:
+                        return counted
+                elif shape == "order":
+                    ordered = self._order_answer(message)
+                    if ordered:
+                        return ordered
+                elif shape == "material" and self._conversational:
                     delivered = self._delivery(message)
                     if delivered:
                         return delivered
@@ -1158,6 +1151,19 @@ class Session:
             # the fallback sentence as an answer.
             self.last_abstained = True
             return FALLBACK_DONT_KNOW
+
+    def _turn_shape(self, message):
+        """The turn's shape — material/count/order/none — read once and
+        kept for the turn (`generate.turn_shape`, W88). Every seat that
+        used to ask its own yes/no question reads this instead, so the
+        engine is consulted once where it was consulted up to three
+        times, and BEFORE the chain instead of after its failure."""
+        if self._shape_cache is None:
+            try:
+                self._shape_cache = generate.turn_shape(message)
+            except Exception:                           # noqa: BLE001
+                self._shape_cache = "none"
+        return self._shape_cache
 
     def _step(self, organ):
         """One line of the turn's route — see `last_route` in respond."""
@@ -1190,6 +1196,30 @@ class Session:
         # engine lists over the whole of it, and what the words cannot
         # reach is recorded as this organ's honest limit (a hypernym
         # names members no line spells out).
+        # WHEN THE THINGS COUNTED ARE DOCUMENTS, THE STORE COUNTS THEM
+        # ITSELF. Caught live: asked how many leadership trainings the
+        # inventory holds, the engine listed one summary sheet's module
+        # codes — every code verified against the block, none of them a
+        # training. In a many-document store where each thing IS a
+        # document, the census is the count: the sources whose own
+        # NAMES carry an asked word, counted and named, no engine call.
+        # Two or more must match (one name is a lookup, not a census),
+        # and a store of one source never enters this reading.
+        if len(self.evidence.by_source) > 1:
+            qw = evidence._words(question)
+            matched = []
+            for src in self.evidence.by_source:
+                name_words = evidence._words(evidence._source_name(src))
+                if any(inflect.same_stem(q, w)
+                       for q in qw for w in name_words):
+                    matched.append(evidence._source_name(src))
+            if len(matched) >= 2:
+                self._step("count")
+                self.last_abstained = False
+                self.last_from_graph = True
+                self._mark = ""
+                return "%d: %s." % (len(matched),
+                                    ", ".join(sorted(matched)))
         lines = self.evidence.find(question, most=24, floor_share=0.0)
         if not lines:
             return None
