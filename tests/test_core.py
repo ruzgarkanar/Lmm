@@ -957,7 +957,7 @@ def h5():
     seen = []
     real = runtime.generate
 
-    def fake(user, system=None, max_tokens=None, temperature=None):
+    def fake(user, system=None, max_tokens=None, temperature=None, **kw):
         seen.append((system, user))
         return "no"
 
@@ -6087,6 +6087,40 @@ def w85():
     finally:
         generate.things_of = real
     assert none is None, none
+
+
+@test("W87 the small questions can take a cheaper road, off by default")
+def w87():
+    """The cascade the cost literature ships first, sized to what we
+    measured: the turn's yes/no classifiers and one-word namings agreed
+    with the hosted engine 19/20 on fresh multilingual examples when a
+    small local model answered them. `LMM_SMALL_BACKEND` names that
+    road; every classifier call is marked `small=True` and dispatches
+    BY NAME — never by editing LMM_BACKEND, because half this codebase
+    runs its calls side by side and a thread that edits the environment
+    edits every thread's engine. Unset, or set to the same backend, the
+    road does not exist: one measured classifier is not a licence to
+    reroute them all by default."""
+    import os
+    from lmm import runtime
+    saved = {k: os.environ.get(k) for k in ("LMM_SMALL_BACKEND",
+                                            "LMM_BACKEND")}
+    try:
+        os.environ.pop("LMM_SMALL_BACKEND", None)
+        assert runtime.small_backend() is None
+        os.environ["LMM_SMALL_BACKEND"] = "gguf"
+        os.environ["LMM_BACKEND"] = "azure"
+        assert runtime.small_backend() == "gguf"
+        os.environ["LMM_BACKEND"] = "gguf"      # same road twice = no road
+        assert runtime.small_backend() is None
+        os.environ["LMM_SMALL_BACKEND"] = "local"
+        assert runtime.small_backend() == "local"
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 @test("W86 a turn can say which organs it passed through")
