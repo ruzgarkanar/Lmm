@@ -261,6 +261,87 @@ class Graph:
             got &= other
         return got
 
+    # ------------------------------------------------------- the walk
+    # The literature's standard damping since PageRank; not a knob tuned
+    # here. Everything else the walk reads comes off the graph's own
+    # weights.
+    DAMPING = 0.85
+
+    def spread(self, seeds, rounds=20):
+        """Personalized PageRank from these entities — the walk.
+
+        What one posting-list intersection cannot answer: how two
+        entities relate when NO line carries both. Colour is poured on
+        the seed entities and flows along co-mention edges, each edge
+        carrying the weight the document earned it (G²); where it
+        settles is what the question is connected to THROUGH the graph,
+        two hops included. HippoRAG runs this walk over an LLM-extracted
+        graph, LinearRAG's family over statistical ones; this graph
+        differs in what it can show — every edge carries the sentence
+        that witnessed it — and in what the result may do: nominate
+        lines for the gates, never speak.
+
+        Pure arithmetic: no model call, no vendor, deterministic.
+        Returns {entity: score}, seeds included.
+        """
+        seeds = [_fold(e) for e in seeds]
+        seeds = [e for e in seeds if e in self.lines]
+        if not seeds:
+            return {}
+        neighbours = {}
+        for (a, b), weight in self.weight.items():
+            if weight <= 0:
+                continue
+            neighbours.setdefault(a, {})[b] = weight
+            neighbours.setdefault(b, {})[a] = weight
+        rest = {e: 1.0 / len(seeds) for e in seeds}
+        score = dict(rest)
+        for _ in range(rounds):
+            fresh = {e: (1 - self.DAMPING) * rest.get(e, 0.0)
+                     for e in score}
+            for entity, colour in score.items():
+                near = neighbours.get(entity)
+                if not near:
+                    # a dangling entity returns its colour to the seeds
+                    for seed, share in rest.items():
+                        fresh[seed] = fresh.get(seed, 0.0) \
+                            + self.DAMPING * colour * share
+                    continue
+                total = sum(near.values())
+                for other, weight in near.items():
+                    fresh[other] = fresh.get(other, 0.0) \
+                        + self.DAMPING * colour * weight / total
+            score = fresh
+        return score
+
+    def connect(self, first, second, most=4):
+        """The entities that BRIDGE these two, best first.
+
+        Two walks, one from each end; an entity that holds colour from
+        BOTH is on a path between them, and the product of its two
+        scores ranks how strongly. Each bridge returned as
+        (entity, score) — and `witnesses(first, bridge)` /
+        `witnesses(bridge, second)` hand back the sentences that make
+        the path real, hop by hop. A bridge with no witnessed edge to
+        either end cannot appear, by construction.
+        """
+        a, b = _fold(first), _fold(second)
+        from_a = self.spread([a])
+        from_b = self.spread([b])
+        out = []
+        for entity, score_a in from_a.items():
+            if entity in (a, b):
+                continue
+            score_b = from_b.get(entity, 0.0)
+            if score_a > 0 and score_b > 0 \
+                    and (tuple(sorted((a, entity))) in self.edges
+                         or tuple(sorted((entity, a))) in self.edges) \
+                    and (tuple(sorted((b, entity))) in self.edges
+                         or tuple(sorted((entity, b))) in self.edges):
+                out.append((entity, score_a * score_b))
+        out.sort(key=lambda row: -row[1])
+        return out[:most]
+
     def named_in(self, text):
         """The entities this text names, longest first."""
         words = _tokens(text)
