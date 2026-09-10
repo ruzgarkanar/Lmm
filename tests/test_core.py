@@ -6042,6 +6042,58 @@ def w72():
 
 
 
+@test("W81 two entities that never meet are connected through a witness")
+def w81():
+    """The question one posting-list intersection cannot answer: what
+    connects A and B when NO line carries both? The graph knows — A is
+    co-mentioned with M, M with B — and the mathematics that reads that
+    off a weighted graph is Personalized PageRank, the same walk
+    HippoRAG runs over an LLM-extracted graph and LinearRAG's family
+    runs over statistical ones. Ours differs where this codebase always
+    differs: the graph was built by the document, EVERY hop carries the
+    sentence that witnessed it, and what is finally said still goes
+    through the gates. No model call anywhere in this path.
+
+    The damping factor is 0.85 — the literature's own constant since
+    PageRank, not a knob tuned here; everything else is read off the
+    graph's weights."""
+    from lmm.evidence import SentenceStore
+    store = SentenceStore()
+    # A and M meet; M and B meet; A and B never share a line. The names
+    # repeat across DISTINCT sentences, because the store keeps one copy
+    # of a repeated line and an entity is a collocation the document
+    # repeats in varied company.
+    for line in ("Karvel Dorn sailed with Mira Voss to the cape.",
+                 "Karvel Dorn trusted Mira Voss with the charts.",
+                 "At dawn Karvel Dorn woke Mira Voss quietly.",
+                 "Mira Voss later commanded Tarn Ulek at the fort.",
+                 "Mira Voss paid Tarn Ulek in silver coin.",
+                 "Against advice Mira Voss followed Tarn Ulek north.",
+                 "Karvel Dorn kept the old charts.",
+                 "Tarn Ulek burned the eastern bridge.",
+                 "The harbour was quiet that winter."):
+        store.add(line, "#doc:log")
+    graph = store.graph()
+    assert graph.mentioning(["karvel dorn", "tarn ulek"]) == set(), \
+        "the premise is wrong: they meet directly"
+    # TODAY: the meeting reading returns nothing for this question...
+    lines = store.where_they_meet("what connects Karvel Dorn and Tarn Ulek?")
+    # ...and AFTER the walk it returns the two witnessing lines, the
+    # middle entity's own sentences, each a real line of the document.
+    assert lines, "the two-hop connection was not found"
+    joined = " ".join(lines).lower()
+    assert "mira voss" in joined, lines
+    assert any("karvel" in ln.lower() for ln in lines), lines
+    assert any("tarn" in ln.lower() for ln in lines), lines
+    # the walk itself is inspectable: the bridge entity, with its score
+    bridges = graph.connect("karvel dorn", "tarn ulek")
+    assert bridges and bridges[0][0] == "mira voss", bridges
+    # and the witnesses of each hop are the document's own sentences
+    hop1 = graph.witnesses("karvel dorn", "mira voss")
+    hop2 = graph.witnesses("mira voss", "tarn ulek")
+    assert hop1 and hop2, (hop1, hop2)
+
+
 @test("W80 a need-shaped turn is a delivery, not a gamble")
 def w80():
     """The reproduced failure this closes, caught live twice in one day.

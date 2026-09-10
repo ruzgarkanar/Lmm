@@ -1099,6 +1099,28 @@ class SentenceStore:
         if len(named) < 2:
             return []
         meeting = graph.mentioning(named[:3])
+        if not meeting and len(named) >= 2:
+            # NO LINE CARRIES BOTH — the question an intersection cannot
+            # answer and the walk can (`Graph.spread`): two entities that
+            # never share a line may still be joined through a BRIDGE the
+            # document co-mentions with each. The lines returned are the
+            # witnesses of each hop — real sentences, one per edge — so
+            # what reaches the block is exactly as attested as any other
+            # line, and the gates read it the same way. Still no model
+            # call, still milliseconds.
+            for bridge, _score in graph.connect(named[0], named[1], most=2):
+                hops = (graph.witnesses(named[0], bridge, most=2)
+                        + graph.witnesses(bridge, named[1], most=2))
+                seen, lines = set(), []
+                for line in hops:
+                    if line not in seen:
+                        seen.add(line)
+                        lines.append(line)
+                if lines:
+                    by_text = {text: src for text, src in self.sentences}
+                    self.last_sources = [by_text.get(ln, "") for ln in lines]
+                    return lines[:most]
+            return []
         if not meeting:
             return []
         ranked = sorted(meeting,
