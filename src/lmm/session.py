@@ -451,6 +451,13 @@ class Session:
         # turn's census, or the informed refusal would answer small talk
         # with a document count.
         self._census_line = ""
+        # THE ROUTE — the orchestration made visible (W86). The session
+        # already orchestrates: a turn moves through the record door,
+        # the delivery seat, the chain, the rescues — but the route
+        # lived in control flow and vanished with the stack. Every organ
+        # a turn consults appends its name; `Answer.route` carries the
+        # list out. Bookkeeping only: no call, no behaviour.
+        self.last_route = []
         self._spec_wants = None
         self._spec_chat = None
         self._composed = False
@@ -780,6 +787,7 @@ class Session:
         the scorer reads the fact instead of guessing at the words. No gate
         moves: this method only records what the code was already doing.
         """
+        self._step("refuse")
         self.last_abstained = True
         return (generate.refusal(message,
                                  **self._voice(persona=self.persona))
@@ -946,6 +954,7 @@ class Session:
             if self._no_teach and not self._conversational:
                 direct = self._record_answer(message)
                 if direct is not None:
+                    self._step("record")
                     line, src = direct
                     self.last_kind = extract.ASK
                     if not line:        # the document does not speak of it
@@ -1139,7 +1148,9 @@ class Session:
                     if delivered:
                         return delivered
             if op["kind"] in (extract.WRITE, extract.ASK):
+                self._step("chain")
                 return self._answer(message, subject)
+            self._step("chat")
             return self._chat(message, spec, spec_queue)
         except Exception:                                   # noqa: BLE001
             # A crashed turn says nothing, which is an abstention like any
@@ -1147,6 +1158,13 @@ class Session:
             # the fallback sentence as an answer.
             self.last_abstained = True
             return FALLBACK_DONT_KNOW
+
+    def _step(self, organ):
+        """One line of the turn's route — see `last_route` in respond."""
+        try:
+            self.last_route.append(organ)
+        except AttributeError:
+            self.last_route = [organ]
 
     def _count_answer(self, question):
         """A count is the length of a verified list, never a number.
@@ -1206,6 +1224,7 @@ class Session:
             kept.append(item.strip())
         if not kept:
             return None
+        self._step("count")
         self.last_abstained = False
         self.last_from_graph = True     # derived like a record: no prose
         self._mark = next((s for s in sources if s), "") or ""
@@ -1258,6 +1277,7 @@ class Session:
             anchors.append((best[0], best[1], thing))
         if anchors[0][0] == anchors[1][0]:
             return None                 # a tie is not a guess
+        self._step("order")
         anchors.sort()
         first, second = anchors
         self.last_abstained = False
@@ -1287,6 +1307,7 @@ class Session:
         except Exception:                               # noqa: BLE001
             return ""
         if text and sources:
+            self._step("delivery")
             self.last_abstained = False
             self._composed = True
             return text
@@ -1304,6 +1325,7 @@ class Session:
         # One builder for what the memory may say about itself — the same
         # rows the chat voice reads, so a told name is spoken on both
         # paths and an untold memory promises nothing on either.
+        self._step("identity")
         id_block = self._chat_id_block()
         name = self._spoken_name()
         raw = generate.identity_answer(message, name, id_block)
