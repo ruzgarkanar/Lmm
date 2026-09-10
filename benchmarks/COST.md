@@ -75,6 +75,26 @@ and the shared block prefix across a question's calls are cached after
 the first. Nothing was done to earn this; it is recorded so that nobody
 optimizes for it twice.
 
+**Cut 4 — the provider's prefix cache (instrumented, already earned).**
+The prompts were laid out cache-first before anyone checked — static
+system text first, the evidence block before the question — but nothing
+read the `cached_tokens` field back, so whether the automatic discount
+was being earned was a guess. The meter now carries the column.
+Measured on a live 62-document store: a cold single question caches 8%
+of its prompt tokens, a warmed session 17%, and the hits move between
+buckets run to run (the provider's cache is per-route). The two judge
+prompts sit under the 1024-token minimum and can never cache; inflating
+them to cross it would be paying tokens to save tokens. Ceiling of this
+cut: ~5-10% of the bill. The real lever remains the bridge (below):
+a record question skips the whole 14,000-token chain outright.
+
+**Cut 5 — the field bridge (taken, measured).** One engine call per
+field head, once, at the operator's request (`Memory.bridge()`); the
+words a reader asks a field with join a store-owned index, and at
+question time the record answers with NO model call. Measured on the
+same store: a duration question fell from 12 s and ~6 calls to 2.7 ms
+and zero. The cost of the bridge itself on that corpus: 17 calls, once.
+
 ## 1. Ingestion cost (paid once per document)
 
 **EN corpus** — 1,642 characters
