@@ -4,6 +4,93 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-09-10
+
+The release where retrieval stopped being one channel. Two new readings,
+both built from the document itself with no model call and no vendor, and
+both able to show why a line arrived — which is the property this project
+would have had to give up to buy the same abilities from an embedding.
+
+### Added
+
+- **The document's own entity graph** (`lmm.mentions`). GraphRAG hands
+  each chunk to a model and asks for the entities and relations; what
+  comes back is a claim, invented at index time and unverifiable
+  afterwards. This graph is built by the document: an entity is a phrase
+  whose words occur together beyond chance (pointwise mutual
+  information over the phrase's weakest split), which also keeps varied
+  company (no neighbour taking more than half its appearances) and whose
+  parts do not choose freely (seeing one, the other is nearly
+  determined). On a public novel the three readings take 2,318
+  candidates to 487, headed by the book's actual names.
+
+  An edge says one thing — THESE TWO ARE MENTIONED TOGETHER, HERE — and
+  carries the sentence that witnesses it, weighted by Dunning's
+  log-likelihood ratio so an entity that appears everywhere does not
+  become everyone's neighbour. An edge cannot be fabricated: it is an
+  observation. What a relation MEANS is still a claim, and claims go to
+  the gates with the sentence in hand.
+
+  What it buys is scale, and the honest version of that claim is the
+  point: on a 36,472-line novel the lexical search already found a line
+  carrying both entities, six pairs out of six, and took 417 ms a
+  question doing it. The same lines come out of two posting lists in
+  0.01 ms.
+
+- **The corpus as its own thesaurus** (`lmm.affinity`). A text says a
+  tenant RESIDES at an address and a reader asks where she LIVES; lexical
+  retrieval cannot bridge that. Two words used for the same thing keep
+  the same company, which is arithmetic over counts the store already
+  holds: positive pointwise mutual information for what company is
+  surprising, cosine between profiles for how much two words share, and
+  an inverted context index so a query compares against the words
+  sharing two of its contexts rather than against the vocabulary
+  squared. A neighbour comes back WITH the shared company that earned
+  it.
+
+  A substitute keeps the same company without being in it: words
+  appearing together in more than half the lines of either are
+  companions, not alternatives — measured, the first cut answered
+  "lives" with "nearby" and "visitor".
+
+- **One harness for any document** (`benchmarks/document_probe.py`).
+  Point it at a file or a folder; it builds the memory the way a user
+  would, generates its own questions from the document's structure, and
+  reports what each organ did — records, census, extremes, comparison,
+  absent fields, nonsense, a rephrased question, the language of a
+  refusal, whether claims carry stamps, and the calls, tokens and
+  seconds each question cost. It asks the kind of question the document
+  can answer: a head that opens a hundredth of the units is a field, one
+  that opens three lines of a novel is a colon.
+
+### Fixed
+
+- **A row is reachable by the name a question uses.** A spreadsheet
+  writes people as "Taylor, Mr. Elmer Zebley" and a question arrives as
+  words; the graph kept only the written spelling, so on an 891-row
+  public table the graph-first path — the one that answers with no model
+  call at all — matched none of the questions a reader would ask. Row
+  questions 0/8 to 7/8, and the cost per question 9.3 calls and 7,523
+  prompt tokens to 2.4 and 1,761.
+- **The language judge did not work.** Asked whether a reply was in the
+  same language as the question, the engine answered NO for an English
+  question answered in English — a verdict carrying no information, so
+  every refusal was rewritten once and then kept whatever came back.
+  Naming one sentence's language is a smaller question the engine
+  answers reliably; two names compare by arithmetic. Twelve refusals
+  across six languages, twelve right.
+- **No person is named in a shipped prompt.** The chat prompt introduced
+  the library's author by name, so every product built on this told its
+  users who wrote the framework. Identity is the operator's declaration
+  (`Memory(identity=...)`); a memory that was told nothing says what it
+  can attest, which is that it is a memory.
+
+Regression across the release: the 73-question field set 40/40 factual ·
+15/15 comparisons · 7-8/8 frontier · 10/10 traps; twelve hardware
+specifications the system has never seen 8/8 · 4/4 · 3/3 · 4/4; a
+thousand generated documents 25/25 · 25/25; NIST 11/13; EN 17/17; 158
+invariants.
+
 ## [0.3.6] — 2026-09-09
 
 ### Changed

@@ -53,6 +53,29 @@ at all**, because a table already states its own structure; that is why a sheet
 loads in milliseconds. And the engine is drawn smaller than the memory because
 it is smaller: it phrases, it does not know.
 
+
+### Three channels, all local, all explainable
+
+Retrieval reads the same store three ways, and every one of them can say
+why a line arrived:
+
+| channel | what it reads | the statistic |
+|---|---|---|
+| **lexical** | the words a line carries | information content: `log(1+N/df)`, and `log(S/s)` for a word's power to separate documents |
+| **structural** | records, fields, and the entities a document repeats | a field is a head the corpus repeats; an entity is a phrase whose words occur together beyond chance (PMI), keep varied company, and do not choose freely |
+| **distributional** | which words keep the same company | positive pointwise mutual information, cosine between profiles — the shared contexts come back with the answer |
+
+None of them calls a model, none of them needs a vendor, and none of them
+widens what may be SAID: they widen what can be FOUND, and the gate reads
+the evidence exactly as before.
+
+The entity channel is also the partition. Measured on a 36,472-line
+novel: asked what connects two entities, the lexical search finds a line
+carrying both — six pairs out of six — and takes **417 ms** doing it,
+because every line carrying either name is scored. The same lines come
+out of two posting lists in **0.01 ms**. Not a better reading; the same
+reading without reading the document.
+
 ---
 
 ## Why not embedding RAG
@@ -62,6 +85,8 @@ it is smaller: it phrases, it does not know.
 | Ingestion | chunks + embeddings | facts into a **graph** + sentences into an **evidence index** |
 | Retrieval | similarity gamble | deterministic word/graph lookup, explainable |
 | Multi-hop | fails when chunks don't co-retrieve | **derives** new facts symbolically (µs, no model call) |
+| Paraphrase | the embedding's strength | the corpus's **own thesaurus** — words that keep the same company, with the shared company shown |
+| Entity graph | built by an LLM (GraphRAG), a claim | built by the document: an entity is a **collocation**, an edge is a **witnessed co-mention** carrying its sentence |
 | Fabrication | a plea in the prompt | **structural gate**: unsupported claims cannot leave |
 | Provenance | none | every fact carries its source; uncertain answers are flagged |
 | Tables | flattened into text | **rows go straight into the graph** — zero model calls |
