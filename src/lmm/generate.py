@@ -490,6 +490,8 @@ def turn_shape(message):
               "(a plan, programme, draft, catalogue, proposal; states a "
               "need and asks what fits it)\n"
               "count - asks HOW MANY of something\n"
+              "sum - asks HOW MUCH IN TOTAL of an amount (money, hours, "
+              "distance) accumulated over time\n"
               "order - asks which of two things came FIRST or LATER in "
               "time\n"
               "none - anything else (facts, durations, greetings, "
@@ -500,6 +502,9 @@ def turn_shape(message):
               "how many projects am I leading -> count\n"
               "ka\u00e7 tane liderlik e\u011fitiminiz var -> count\n"
               "\u00bfcu\u00e1ntos restaurantes he probado -> count\n"
+              "how much money have I spent on bike gear in total -> sum\n"
+              "toplam ka\u00e7 saat yol gittim -> sum\n"
+              "wie viel habe ich insgesamt ausgegeben -> sum\n"
               "which did I attend first, the workshop or the webinar -> order\n"
               "hangisine \u00f6nce kat\u0131ld\u0131m -> order\n"
               "what is the duration of the Alpha module -> none\n"
@@ -511,7 +516,7 @@ def turn_shape(message):
     out = runtime.generate(message, system=system, max_tokens=4,
                            temperature=0.0, small=True)
     word = (out or "").strip().lower()
-    for shape in ("material", "count", "order"):
+    for shape in ("material", "count", "order", "sum"):
         if shape in word:
             return shape
     return "none"
@@ -555,6 +560,34 @@ def wants_order(message):
     out = runtime.generate(message, system=system, max_tokens=3,
                            temperature=0.0, small=True)
     return "yes" in (out or "").strip().lower()
+
+
+def amounts_of(question, block):
+    """Item and amount pairs the evidence states for this question — a
+    LIST of pairs, never a total. The summing organ's one engine call
+    (`Session._sum_answer`), under the counting organ's law: the engine
+    reads and names, the store verifies each amount beside its item,
+    and the TOTAL is arithmetic over what survives — asked for a sum a
+    model estimates, asked for the addends it hands over claims that
+    can be checked one by one."""
+    system = ("The EVIDENCE lines mention zero or more amounts of the "
+              "kind the question asks about. List each as "
+              "ITEM :: NUMBER, one per line, the number copied exactly "
+              "as the evidence writes it, no currency signs, no totals. "
+              "Name nothing the evidence does not contain. If none, "
+              "output NONE.")
+    out = runtime.generate("EVIDENCE:\n%s\n\nQUESTION: %s" % (block, question),
+                           system=system, max_tokens=200, temperature=0.0)
+    out = (out or "").strip()
+    if not out or out.upper().startswith("NONE"):
+        return []
+    pairs = []
+    for line in out.splitlines():
+        if "::" in line:
+            item, _sep, amount = line.partition("::")
+            if item.strip() and amount.strip():
+                pairs.append((item.strip(), amount.strip()))
+    return pairs
 
 
 def wants_count(message):
