@@ -88,6 +88,7 @@ class Meter:
         return {
             "calls": len(rows),
             "prompt_tokens": sum(r["prompt_tokens"] for r in rows),
+            "cached_tokens": sum(r.get("cached_tokens", 0) for r in rows),
             "completion_tokens": sum(r["completion_tokens"] for r in rows),
             "api_seconds": round(sum(r["seconds"] for r in rows), 3),
         }
@@ -96,9 +97,11 @@ class Meter:
         out = {}
         for r in self.slice(phase):
             b = out.setdefault(r["bucket"], {"calls": 0, "prompt_tokens": 0,
+                                             "cached_tokens": 0,
                                              "completion_tokens": 0})
             b["calls"] += 1
             b["prompt_tokens"] += r["prompt_tokens"]
+            b["cached_tokens"] += r.get("cached_tokens", 0)
             b["completion_tokens"] += r["completion_tokens"]
         return out
 
@@ -189,9 +192,18 @@ def _patch_chat():
         out = original(self, *a, **kw)
         dt = time.time() - t0
         usage = _usage_of(out)
+        # CACHED PROMPT TOKENS ARE HALF-PRICE AND WERE INVISIBLE. The
+        # system prompts here are static by design (static text first,
+        # the evidence block before the question), which is exactly the
+        # shape the provider's automatic prefix cache rewards — but
+        # nothing read the `cached_tokens` field back, so whether the
+        # discount was actually being earned was a guess. Now it is a
+        # column.
+        details = getattr(usage, "prompt_tokens_details", None)
         METER.chat(
             fn=who, bucket=bucket, seconds=dt,
             prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
+            cached_tokens=getattr(details, "cached_tokens", 0) or 0,
             completion_tokens=getattr(usage, "completion_tokens", 0) or 0)
         return out
 
