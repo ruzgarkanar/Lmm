@@ -528,10 +528,24 @@ def things_of(question):
     the engine reads the question and names what is being compared; the
     STORE then anchors each phrase to a dated line or refuses, so a
     misreading costs a retrieval, never a claim."""
-    system = ("The question compares or orders TWO things. Output those "
-              "two things, one per line, copied as closely as possible "
-              "from the question's own words. Output nothing else. If "
-              "the question does not compare two things, output NONE.")
+    # Measured miss: "how many days passed between A and B" was read
+    # as not-a-comparison and answered NONE, so the span opener never
+    # engaged. The reading is about REFERRING to two things — compared,
+    # ordered, or spanned between — not about comparison grammar.
+    system = ("The question refers to TWO distinct things or events — "
+              "compared, ordered in time, or with a span between them. "
+              "Output those two, one per line, copied as closely as "
+              "possible from the question's own words. Nothing else. "
+              "If the question does not involve two distinct things, "
+              "output NONE.\n"
+              "which came first, the audit or the launch ->\n"
+              "the audit\nthe launch\n"
+              "how many days passed between the marathon and the gala ->\n"
+              "the marathon\nthe gala\n"
+              "iki etkinlik aras\u0131nda ka\u00e7 g\u00fcn ge\u00e7ti, "
+              "konser ile sergi ->\nkonser\nsergi\n"
+              "how many books did I read -> NONE\n"
+              "what is the duration of the module -> NONE")
     out = runtime.generate(question, system=system, max_tokens=48,
                            temperature=0.0, small=True)
     out = (out or "").strip()
