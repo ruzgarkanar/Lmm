@@ -3045,6 +3045,45 @@ class Session:
         self._head_cache = (stamp, heads)
         return heads
 
+    def learn_bridges(self):
+        """Ask, once per field, what words a reader asks for it with.
+
+        The measured 12 seconds this closes: a corpus writes EĞİTİM
+        SÜRESİ, a reader asks "kaç saat?", no shared word — so the
+        record-direct path (milliseconds, no engine) stood aside and the
+        full chain ran to read a value that was sitting in a row. One
+        call per field, at the operator's request, and the words join the
+        store's own .bridge index (`evidence.learn_bridge` filters them);
+        every later question is answered with NO model call. A head
+        already bridged is not paid for again. Returns words kept."""
+        store = self.evidence
+        fields = self._fields()
+        done = set()
+        for heads in store.head_bridge.values():
+            done |= heads
+        mapping = {}
+        for head in sorted(fields - done):
+            value = ""
+            limit_chars, _t = store._record_bounds()
+            cap = max(80, limit_chars // 2)
+            for text, _origin in store.sentences:
+                for h, v in evidence.record_pairs(text, cap):
+                    if h == head and v:
+                        value = v
+                        break
+                if value:
+                    break
+            try:
+                words = generate.asked_words(head, value)
+            except Exception:                               # noqa: BLE001
+                continue                # no engine → no bridge, no harm
+            if words:
+                mapping[head] = words
+        kept = store.learn_bridge(mapping) if mapping else 0
+        if kept and self.path:
+            store.save(self.path)
+        return kept
+
     def _fields(self):
         """The record heads this corpus repeats — its own vocabulary."""
         return {h for h, srcs in self._head_index().items() if len(srcs) >= 2}
@@ -3225,12 +3264,30 @@ class Session:
         qw = set(evidence._words(question))
 
         def _matched(w, q):
-            return (inflect.same_stem(w, q) or inflect.kin(w, q)
+            # NO KINSHIP ON A PATH THAT SPEAKS WITHOUT A GATE. Short-stem
+            # kinship widens RETRIEVAL, where a wrong match costs one
+            # fetched line the gates still judge. This path's answer is
+            # the row verbatim — nothing downstream re-reads it — and
+            # kinship here called two sibling field names relatives, so a
+            # question about a course's duration was answered with the
+            # trainer row, wearing the right stamp. Caught live, the
+            # first day the bridge made this path reachable in practice.
+            # (`_field_ok`'s twin keeps kin: that one is a VETO, and a
+            # veto that fires wider is protection, not a claim.)
+            return (inflect.same_stem(w, q)
                     or q.startswith(w) or w.startswith(q))
 
         asked = [h for h in heads
                  if all(any(_matched(w, q) for q in qw)
                         for w in evidence._words(h))]
+        if not asked:
+            # THE BRIDGE NOMINATES ONLY WHERE THE CORPUS'S OWN WORDS ARE
+            # SILENT. A reader's word learned once per head
+            # (`learn_bridges`) may put a head forward; it may never
+            # outvote a lexical match, and everything downstream — one
+            # head only, one source only, the row speaking verbatim — is
+            # unchanged. No model call happens here.
+            asked = sorted(store.bridged_heads(qw) & heads)
         if len(asked) != 1:
             return None                 # a tie is not a guess
         head = asked[0]

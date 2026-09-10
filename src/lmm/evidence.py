@@ -805,6 +805,13 @@ class SentenceStore:
         # the first kind is worth expanding: a window is the same sentences
         # again, so paying for its expansion buys the same words twice.
         self._derived = set()
+        # READER-WORD -> FIELD-HEAD, generated once per head at the
+        # operator's request (`Session.learn_bridges`) and owned by the
+        # store like the expansion is: never speakable, never evidence —
+        # a word here can only NOMINATE a head for the record path, where
+        # the one-head rule and every gate stand unchanged. Deleting the
+        # .bridge side-file restores the memory exactly as it was.
+        self.head_bridge = {}               # folded word -> set(head)
         self._key_index = None              # lazy — see the `key_index` property
         self._key_bounds = None             # the bound it was built under
         self._key_at = 0                    # how many sentences are in it
@@ -1813,6 +1820,62 @@ class SentenceStore:
         return [(sid, text) for sid, (text, _src) in enumerate(self.sentences)
                 if sid not in self._derived and sid not in self.expansions]
 
+    def learn_bridge(self, mapping):
+        """Index the reader's words for each head. `mapping`: {head: [word]}.
+
+        Two filters, both structural. A word the head itself carries adds
+        nothing — the lexical match already covers it. And a word that IS
+        another head's own word may not bridge here: it already means
+        something else in this corpus, and a bridge that overrides the
+        corpus's own vocabulary is how MEMORY answers for STORAGE.
+        Returns how many words were kept."""
+        owned = {}
+        for head in mapping:
+            for w in _words(head):
+                owned.setdefault(w, set()).add(head)
+        kept = 0
+        for head, words in mapping.items():
+            mine = set(_words(head))
+            for word in words:
+                for w in _words(word):
+                    if w in mine:
+                        continue
+                    if owned.get(w) and head not in owned[w]:
+                        continue        # another head's own word
+                    if head not in self.head_bridge.get(w, ()):
+                        self.head_bridge.setdefault(w, set()).add(head)
+                        kept += 1
+        return kept
+
+    def bridged_heads(self, question_words):
+        """The heads this question's words nominate — no model call.
+
+        A vote, not a union, and the weight is the same statistic every
+        other channel here uses. Measured on the first live corpus: the
+        union handed "kaç gün?" THREE heads — "kaç" is a question word
+        the engine had offered to half the fields, so it nominated
+        everywhere and the one-head rule rightly refused the tie. A word
+        that bridges to one head knows something; a word that bridges to
+        many knows almost nothing; log(1 + H/df) says exactly that, the
+        way log(S/s) already does for source names. The best-weighted
+        head(s) are returned — a genuine tie still declines downstream.
+        """
+        heads_total = set()
+        for hs in self.head_bridge.values():
+            heads_total |= hs
+        votes = {}
+        for q in question_words:
+            named = self.head_bridge.get(q)
+            if not named:
+                continue
+            weight = math.log(1 + len(heads_total) / len(named))
+            for head in named:
+                votes[head] = votes.get(head, 0.0) + weight
+        if not votes:
+            return set()
+        best = max(votes.values())
+        return {h for h, v in votes.items() if v >= best}
+
     def learn_expansions(self, generated):
         """Filter the generated queries and index the survivors.
 
@@ -2015,14 +2078,16 @@ class SentenceStore:
     # `.expansion` file leaves a memory that answers exactly as it did before
     # the expansion was ever paid for.
     def _save_expansion(self, memory_path):
-        if not (self.expansions or self._derived):
+        if not (self.expansions or self._derived or self.head_bridge):
             return
         path = memory_path + ".expansion"
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump({"derived": sorted(self._derived),
                        "expansions": {str(sid): texts for sid, texts
-                                      in sorted(self.expansions.items())}},
+                                      in sorted(self.expansions.items())},
+                       "bridge": {w: sorted(heads) for w, heads
+                                  in sorted(self.head_bridge.items())}},
                       f, ensure_ascii=False)
         os.replace(tmp, path)
 
@@ -2037,6 +2102,8 @@ class SentenceStore:
             return              # a corrupt aid is no aid: the document still
             #                     answers, lexically, exactly as it always did
         self._derived = set(blob.get("derived", ()))
+        self.head_bridge = {w: set(heads) for w, heads
+                            in blob.get("bridge", {}).items()}
         for key, texts in blob.get("expansions", {}).items():
             sid = int(key)
             if sid >= len(self.sentences):

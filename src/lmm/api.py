@@ -655,6 +655,17 @@ class Memory:
         return self.session.compose(brief, seats=seats, topics=topics,
                                     on_line=on_line)
 
+    def bridge(self):
+        """Teach the store, once, what words readers ask its fields with.
+
+        One engine call per field head, paid at the operator's request
+        (the way `learn(..., expand=True)` is) and saved with the store;
+        after it, questions like "kaç saat?" against a field written
+        EĞİTİM SÜRESİ are answered by the record itself — milliseconds,
+        no model call, every gate unchanged. Calling it again is free:
+        a head already bridged is not asked about twice."""
+        return self.session.learn_bridges()
+
     def save(self, path=None):
         """Persist the graph and the evidence index. A path given here becomes
         this memory's path, so `Memory()` can be given one late."""

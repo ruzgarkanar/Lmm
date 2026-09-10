@@ -426,6 +426,31 @@ def field_for(message, heads):
     return (out or "").strip().strip('".')
 
 
+def asked_words(head, value=""):
+    """The words a reader might use to ask for this FIELD — one call per
+    head, paid once at the operator's request, owned by the store.
+
+    The mirror of `field_for`: that one runs at question time and maps a
+    question onto the store's vocabulary; this one runs at learning time
+    and maps the store's vocabulary onto the reader's, so that at question
+    time no engine is needed at all. The example value is shown because a
+    head is often an abbreviation the value disambiguates. The reply is
+    WORDS, not sentences — nothing produced here can ever be spoken, it
+    can only nominate a head for the record path, where every existing
+    rule (one head only, one source only, the gates) still stands."""
+    shown = ("FIELD NAME: %s\nEXAMPLE VALUE: %s" % (head, value) if value
+             else "FIELD NAME: %s" % head)
+    system = ("A document stores a field. List the words a reader would "
+              "likely use when ASKING for this field, in the language(s) "
+              "of the field name itself. Include plain everyday words "
+              "(units, question words a reader would pair with it). Output "
+              "ONLY the words, comma-separated, no sentences.")
+    out = runtime.generate(shown, system=system, max_tokens=60,
+                           temperature=0.0)
+    return [w.strip() for w in (out or "").replace("\n", ",").split(",")
+            if w.strip()]
+
+
 def wants_material(message):
     """Is the message asking the responder to PRODUCE a deliverable NOW — a
     plan, programme, draft, catalogue, recommendation — rather than sharing
