@@ -6042,6 +6042,53 @@ def w72():
 
 
 
+@test("W85 which came first is read off the dates, not remembered")
+def w85():
+    """LongMemEval's temporal questions, measured: asked which of two
+    events came first, the memory abstained twice — no single line
+    states the order, and ordering was nobody's organ. But the store
+    already knows: every chat line carries a dated source, and "which
+    first" is arithmetic over those dates.
+
+    THE ENGINE NAMES THE TWO THINGS, THE STORE DATES THEM. The engine's
+    one call (`generate.things_of`) turns the question into the two
+    phrases it compares — a reading, not a claim. Each phrase is then
+    anchored by the store alone: the earliest dated line carrying all
+    of the phrase's words, by stem. A phrase the store cannot anchor
+    ends the reading (no invented order); two anchors on the same date
+    end it too (a tie is not a guess). What is spoken is the ordered
+    pair with its dates — derived, witnessed, no prose."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.evidence.add("User: the Data Analysis webinar was fascinating today.",
+                   "chat 2023/04/11 (Tue) 10:00")
+    s.evidence.add("User: just left the Time Management workshop, long day.",
+                   "chat 2023/05/02 (Tue) 19:40")
+    s.evidence.add("User: the weather held up nicely.",
+                   "chat 2023/04/11 (Tue) 10:05")
+    real = generate.things_of
+    generate.things_of = (lambda question:
+                          ["Time Management workshop",
+                           "Data Analysis webinar"])
+    try:
+        said = s._order_answer(
+            "which did I attend first, the workshop or the webinar?")
+    finally:
+        generate.things_of = real
+    assert said is not None, "the ordering organ did not speak"
+    low = said.lower()
+    assert low.index("data analysis") < low.index("time management"), said
+    assert "2023/04/11" in said and "2023/05/02" in said, said
+    # a thing the store cannot anchor -> no order is invented
+    generate.things_of = lambda q: ["Data Analysis webinar", "Pottery class"]
+    try:
+        none = s._order_answer("which came first, the webinar or pottery?")
+    finally:
+        generate.things_of = real
+    assert none is None, none
+
+
 @test("W84 a count is the length of a verified list, never a number")
 def w84():
     """LongMemEval's multi-session questions, measured: asked how many
