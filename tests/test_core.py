@@ -6004,9 +6004,9 @@ def w72():
     assert "vale coach" in block, block
     assert "valemark" in block, block
     # ...and the operator may give a name without inventing a maker
-    named = Session(None, identity="Kitap Arkadaşı")
+    named = Session(None, identity="Ledger Companion")
     said = named._chat_id_block().lower()
-    assert "kitap arkadaşı" in said, said
+    assert "ledger companion" in said, said
     assert "creator" not in said and "valemark" not in said, said
 
     # AN IDENTITY ANSWER THAT DOES NOT NAME THE MEMORY HAS NOT ANSWERED.
@@ -6017,19 +6017,26 @@ def w72():
     # declared. The route asks again, once; if the second sentence is
     # also nameless the memory says its name plainly rather than
     # something pleasant.
-    from lmm import generate
+    # THE ROUTE IS WHAT IS UNDER TEST, NOT THE GATE. The exit gate reads
+    # the engine, and this suite's own claim is that it runs with no
+    # engine and no network — so the gate is scenery here and answers
+    # locally, the way every other routing test in this file does. The
+    # gate has its own invariants; this one is about asking again.
+    from lmm import generate, verify
     tries = []
-    real_answer = generate.identity_answer
+    real_answer, real_verify = generate.identity_answer, verify.verify
     generate.identity_answer = (lambda q, name, block:
                                 tries.append(1) or
-                                ("Size yardımcı olmak için buradayım!"
+                                ("I am here to help!"
                                  if len(tries) < 2 else
-                                 "Ben Kitap Arkadaşı'yım."))
+                                 "I am Ledger Companion."))
+    verify.verify = lambda memory, text, *a, **kw: text
     try:
-        out = named._identity_reply("sen kimsin?")
+        out = named._identity_reply("who are you?")
     finally:
+        verify.verify = real_verify
         generate.identity_answer = real_answer
-    assert "Kitap Arkadaşı" in out, out
+    assert "Ledger Companion" in out, out
     assert len(tries) == 2, ("the nameless answer was spoken as-is or "
                              "retried more than once: %d" % len(tries))
 
