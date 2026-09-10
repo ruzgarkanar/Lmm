@@ -684,7 +684,14 @@ def language_of(text):
               "Ik heb die informatie niet. -> Dutch\n"
               "Quel est le prix ? -> French\n"
               "Wie hoch ist der Preis? -> German")
-    out = runtime.generate(text, system=system, max_tokens=4, temperature=0.0, small=True)
+    # THE TEXT IS QUOTED MATERIAL, NOT A MESSAGE TO OBEY (W89's root).
+    # Handed bare, a question-shaped sentence was ANSWERED — "I'm
+    # sorry, but" — and the token cap clipped that to "Im", which the
+    # caller then compared as a language name. Between markers the
+    # sentence is data, and the classifier names its language reliably.
+    out = runtime.generate("TEXT: <<%s>> LANGUAGE:" % text,
+                           system=system, max_tokens=4, temperature=0.0,
+                           small=True)
     return re.sub(r"[^A-Za-z]", "", (out or "").strip().split()[:1][0]
                   if (out or "").strip() else "")
 
@@ -726,12 +733,16 @@ def _spoken_to(message, system, persona="", warmth=0.3, max_tokens=50):
         tongue = language_of(message)
     except Exception:                                        # noqa: BLE001
         tongue = ""
+    # THE NAME IS FOR COMPARING, NEVER FOR COMMANDING (W89). Naming the
+    # tongue inside the instruction turned one clipped classifier reply
+    # ("Im") into an order to write in a language that does not exist,
+    # and the retry repeated the order. The sample carries the language;
+    # the name only lets two readings be compared by arithmetic below.
     anchored = (system + "\n\nLANGUAGE SAMPLE — the user wrote this, and your "
                 "reply must be in the SAME language as this sentence:\n"
                 + message.strip() +
-                ("\n\nWrite one short sentence, in %s." % tongue if tongue
-                 else "\n\nWrite one short sentence, in the language of the "
-                      "sample above."))
+                "\n\nWrite one short sentence, in the language of the "
+                "sample above.")
     said = runtime.generate(message, system=_voiced(anchored, persona),
                             max_tokens=max_tokens, temperature=warmth)
     if said and tongue:
@@ -747,10 +758,37 @@ def _spoken_to(message, system, persona="", warmth=0.3, max_tokens=50):
             # was what the user read. The retry is the turn's final
             # sentence; it is written at temperature zero, the way every
             # candidate the gates read is.
+            # THE RETRY IS SHOWN ITS OWN MISTAKE, AND — WHEN TWO
+            # INDEPENDENT READINGS AGREE — THE SAMPLE'S NAME. Measured:
+            # the engine writes an English question's refusal in Dutch
+            # deterministically, instruction or no instruction; only
+            # naming the language moves it. W89's law stands — a bogus
+            # name must never command — so the name may enter the
+            # instruction only when a SECOND naming, differently
+            # phrased, returns the same word: a clipped chat reply does
+            # not survive two prompt shapes. One extra small call, paid
+            # only on the mismatch turns.
+            second = ""
+            try:
+                second = re.sub(r"[^A-Za-z]", "", (runtime.generate(
+                    "<<%s>>" % message,
+                    system=("Identify the language of the text between "
+                            "the markers. Output only the language name "
+                            "in English."),
+                    max_tokens=4, temperature=0.0, small=True)
+                    or "").strip().split()[0] if True else "")
+            except Exception:                                # noqa: BLE001
+                second = ""
+            named = (("\nThe sample's language is %s. Write strictly in "
+                      "%s." % (tongue, tongue))
+                     if second and second.lower() == tongue.lower() else "")
             said = runtime.generate(
                 message,
-                system=_voiced(anchored + "\n\nYour reply MUST be written in "
-                               "%s and in no other language." % tongue,
+                system=_voiced(anchored + "\n\nYour previous reply was:\n"
+                               + said + "\nThat is NOT the language of the "
+                               "sample. Write one short sentence, strictly "
+                               "in the language of the sample above."
+                               + named,
                                persona),
                 max_tokens=max_tokens, temperature=0.0)
     return said
@@ -765,7 +803,7 @@ def offer_research(subject, message):
                       "offer/question. Invent no facts.", max_tokens=40)
 
 
-def refusal(message, persona="", warmth=0.3, max_tokens=None):
+def refusal(message, persona="", warmth=0.0, max_tokens=None):
     """In the user's language: 'I don't have this information'. No fabrication, short."""
     return _spoken_to(message, _MATCH_LANGUAGE +
                       "The user asked about something that is NOT in your memory. "

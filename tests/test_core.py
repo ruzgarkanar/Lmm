@@ -6200,6 +6200,41 @@ def w87():
                 os.environ[key] = value
 
 
+@test("W89 an untrusted language name is never a command")
+def w89():
+    """Epidemic on the first full benchmark run, reproduced at
+    temperature zero: `language_of` named a plain English question's
+    language "Im" — a chatty reply clipped by the token cap — and the
+    refusal writer obeyed, inventing sentences in an "Im language"
+    ("Nim n'kaw n'kaw"), with the retry doubling down because its
+    instruction REPEATED the bogus name.
+
+    The name was only ever needed for COMPARISON (that is why
+    `language_of` exists — two names compare by arithmetic); writing
+    was always anchored by the sample. So the name is confined to the
+    comparison: the write instruction, first try and retry alike, may
+    reference the SAMPLE and never the name. A misfiring name now
+    costs one redundant retry with a correct instruction — the
+    catastrophic path does not exist to take."""
+    from lmm import generate, runtime
+    sent = []
+    real_gen, real_lang = runtime.generate, generate.language_of
+    def spy(messages, max_tokens=256, temperature=0.7, system=None, **kw):
+        sent.append(system or "")
+        return "I do not know that yet."
+    runtime.generate = spy
+    generate.language_of = lambda text: "Im"      # the live misfire
+    try:
+        said = generate.refusal("How many days did the search take?")
+    finally:
+        runtime.generate, generate.language_of = real_gen, real_lang
+    assert said, said
+    assert sent, "nothing was generated"
+    for system in sent:
+        assert "in Im" not in system and "written in Im" not in system, (
+            "a bogus language name reached an instruction: %r" % system[-200:])
+
+
 @test("W86 a turn can say which organs it passed through")
 def w86():
     """The orchestration made visible. The session already IS an
