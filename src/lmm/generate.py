@@ -183,7 +183,7 @@ def are_rivals(a, b):
         "groß + klein -> EXCLUSIVE\n"
         "Paris + Berlin -> EXCLUSIVE")
     out = runtime.generate(f"{a} + {b}", system=system,
-                           max_tokens=4, temperature=0.0)
+                           max_tokens=4, temperature=0.0, small=True)
     return "EXCLUSIVE" in out.upper()
 
 
@@ -217,7 +217,7 @@ def supported(answer, block):
     dangerous)."""
     out = runtime.generate(f"EVIDENCE:\n{block}\n\nCLAIM: {answer}",
                            system=prompts.SUPPORT_SYSTEM, max_tokens=4,
-                           temperature=0.0)
+                           temperature=0.0, small=True)
     return out.strip().lower().startswith("yes")
 
 
@@ -235,7 +235,7 @@ def answers_asked(question, answer, block):
     means the turn abstains."""
     out = runtime.generate(
         f"EVIDENCE:\n{block}\n\nQUESTION: {question}\n\nANSWER: {answer}",
-        system=prompts.RELATION_SYSTEM, max_tokens=4, temperature=0.0)
+        system=prompts.RELATION_SYSTEM, max_tokens=4, temperature=0.0, small=True)
     return out.strip().lower().startswith("yes")
 
 
@@ -284,7 +284,7 @@ def is_causal(message):
               "an eagle is a bird -> NONE\n"
               "was ist Beton -> NONE\n"
               "merhaba -> NONE")
-    out = runtime.generate(message, system=system, max_tokens=30, temperature=0.0)
+    out = runtime.generate(message, system=system, max_tokens=30, temperature=0.0, small=True)
     m = re.search(r"CAUSE:\s*(.+?)\s*->\s*EFFECT:\s*(.+)", out, re.I)
     if not m:
         return None
@@ -352,7 +352,7 @@ def is_identity_question(message):
               "¿qué es una brújula? -> no\nkartal nedir -> no\n"
               "how are you -> no\nwie geht es dir -> no\ngracias -> no\n"
               "merhaba -> no\nnaber -> no")
-    out = runtime.generate(message, system=system, max_tokens=3, temperature=0.0)
+    out = runtime.generate(message, system=system, max_tokens=3, temperature=0.0, small=True)
     return "yes" in out.strip().lower()
 
 
@@ -401,7 +401,7 @@ def phrasings(message, sample=()):
               "\ncombien de personnes -> personne, participant, nombre"
               + listing)
     out = runtime.generate(message, system=system, max_tokens=40,
-                           temperature=0.0)
+                           temperature=0.0, small=True)
     words = [w.strip(" .;:\"'") for w in re.split(r"[,\n]", out or "")]
     return [w for w in words if w and len(w) > 1][:6]
 
@@ -422,7 +422,7 @@ def field_for(message, heads):
               "if no field fits. Output nothing else.\n\nFIELDS:\n"
               + listing)
     out = runtime.generate(message, system=system, max_tokens=16,
-                           temperature=0.0)
+                           temperature=0.0, small=True)
     return (out or "").strip().strip('".')
 
 
@@ -446,7 +446,7 @@ def asked_words(head, value=""):
               "(units, question words a reader would pair with it). Output "
               "ONLY the words, comma-separated, no sentences.")
     out = runtime.generate(shown, system=system, max_tokens=60,
-                           temperature=0.0)
+                           temperature=0.0, small=True)
     return [w.strip() for w in (out or "").replace("\n", ",").split(",")
             if w.strip()]
 
@@ -485,7 +485,7 @@ def things_of(question):
               "from the question's own words. Output nothing else. If "
               "the question does not compare two things, output NONE.")
     out = runtime.generate(question, system=system, max_tokens=48,
-                           temperature=0.0)
+                           temperature=0.0, small=True)
     out = (out or "").strip()
     if not out or out.upper().startswith("NONE"):
         return []
@@ -510,7 +510,7 @@ def wants_order(message):
               "when is the next session -> no\n"
               "thanks, that helps -> no")
     out = runtime.generate(message, system=system, max_tokens=3,
-                           temperature=0.0)
+                           temperature=0.0, small=True)
     return "yes" in (out or "").strip().lower()
 
 
@@ -530,7 +530,7 @@ def wants_count(message):
               "list my projects -> no\n"
               "thanks a lot -> no")
     out = runtime.generate(message, system=system, max_tokens=3,
-                           temperature=0.0)
+                           temperature=0.0, small=True)
     return "yes" in (out or "").strip().lower()
 
 
@@ -576,7 +576,7 @@ def wants_material(message):
               "risk is our main focus -> no\n"
               "thanks, that helps -> no\nmerhaba -> no\nhola -> no")
     out = runtime.generate(message, system=system, max_tokens=3,
-                           temperature=0.0)
+                           temperature=0.0, small=True)
     return "yes" in out.strip().lower()
 
 
@@ -609,7 +609,7 @@ def identity_answer(question, name, id_block):
     # chat voice, which says something pleasant and nameless. The rows are
     # fixed; the sentence should be too.
     return runtime.generate(question, system=system, max_tokens=60,
-                            temperature=0.0)
+                            temperature=0.0, small=True)
 
 
 def is_affirmative(message):
@@ -617,7 +617,7 @@ def is_affirmative(message):
     offer). Language-independent (Qwen). Returns: True=approval."""
     system = ("Does the user's message mean YES / go ahead / approval, as opposed "
               "to no or a different request? Answer exactly ONE word: YES or NO.")
-    out = runtime.generate(message, system=system, max_tokens=3, temperature=0.0)
+    out = runtime.generate(message, system=system, max_tokens=3, temperature=0.0, small=True)
     return "YES" in out.upper()
 
 
@@ -641,7 +641,7 @@ def language_of(text):
               "Ik heb die informatie niet. -> Dutch\n"
               "Quel est le prix ? -> French\n"
               "Wie hoch ist der Preis? -> German")
-    out = runtime.generate(text, system=system, max_tokens=4, temperature=0.0)
+    out = runtime.generate(text, system=system, max_tokens=4, temperature=0.0, small=True)
     return re.sub(r"[^A-Za-z]", "", (out or "").strip().split()[:1][0]
                   if (out or "").strip() else "")
 
@@ -792,7 +792,7 @@ def expansions(sentence):
     # a synonym.
     out = runtime.generate(sentence,
                            system=_MATCH_LANGUAGE + prompts.EXPAND_SYSTEM,
-                           max_tokens=40 * count, temperature=0.0)
+                           max_tokens=40 * count, temperature=0.0, small=True)
     seen, kept = {_flat(sentence)}, []
     for line in (out or "").splitlines():
         # Leading list marks are FORMAT the prompt asked not to produce; the

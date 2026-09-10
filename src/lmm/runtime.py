@@ -176,7 +176,35 @@ def generate_stream(messages, max_tokens=256, temperature=0.7, system=None):
                    system=system)
 
 
-def generate(messages, max_tokens=256, temperature=0.7, system=None):
+def small_backend():
+    """Which backend answers the turn's SMALL questions — the yes/no
+    classifiers and one-word namings (is this an identity question, does
+    this ask for material, what language is this). They are the calls a
+    cascade sends to a small local model in every production writeup on
+    cost, and the one we measured agreed with the hosted engine 19/20
+    on fresh multilingual examples.
+
+    OFF unless the operator sets `LMM_SMALL_BACKEND` (same values as
+    LMM_BACKEND; "local" for the transformers default): only
+    wants_material has a measured agreement, and a switch shipped on one
+    measurement ships OFF. Returns the backend name or None."""
+    small = os.environ.get("LMM_SMALL_BACKEND", "").strip()
+    if not small:
+        return None
+    return None if small == os.environ.get("LMM_BACKEND") else small
+
+
+def generate(messages, max_tokens=256, temperature=0.7, system=None,
+             small=False):
+    # THE SMALL ROAD IS A NAME, NOT AN ENVIRONMENT MUTATION: half this
+    # codebase runs its calls side by side (`parallel_map`), and a
+    # thread that edits LMM_BACKEND edits every thread's engine.
+    chosen = small_backend() if small else None
+    return _dispatch(chosen, messages, max_tokens, temperature, system)
+
+
+def _dispatch(backend_name, messages, max_tokens=256, temperature=0.7,
+              system=None):
     """Generates. `messages`: str (a single user utterance) or [{role,content}].
     `system`: the system instruction (for grounding). Returns: plain text.
 
@@ -188,7 +216,9 @@ def generate(messages, max_tokens=256, temperature=0.7, system=None):
     client, which needs a different one because a deployment name and an
     api-version are a shape only Azure has. Unset means the local transformers
     model, which is the product default."""
-    backend = os.environ.get("LMM_BACKEND")
+    backend = backend_name or os.environ.get("LMM_BACKEND")
+    if backend == "local":
+        backend = None                  # the transformers default, by name
     if backend == "gguf":
         from . import runtime_gguf
         return runtime_gguf.generate(messages, max_tokens=max_tokens,
