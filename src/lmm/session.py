@@ -569,6 +569,10 @@ class Session:
                 ordered = self._order_answer(message)
                 if ordered:
                     said = ordered
+            elif shape == "sum":
+                summed = self._sum_answer(message)
+                if summed:
+                    said = summed
         census_line = getattr(self, "_census_line", "")
         if (said and self.last_abstained and census_line
                 and not self.last_from_graph):
@@ -1143,6 +1147,10 @@ class Session:
                         ordered = self._order_answer(message)
                         if ordered:
                             return ordered
+                    elif shape == "sum":
+                        summed = self._sum_answer(message)
+                        if summed:
+                            return summed
                     elif shape == "material" and self._conversational:
                         delivered = self._delivery(message)
                         if delivered:
@@ -1278,7 +1286,11 @@ class Session:
         if not lines:
             return None
         sources = list(self.evidence.last_sources[:len(lines)])
-        block = "\n".join(lines)
+        # each line under its dated stamp: two tellings of one event
+        # carry one date, and the engine can see that they are one
+        block = "\n".join(
+            "[%s] %s" % (evidence._source_name(src), line) if src else line
+            for line, src in zip(lines, sources + [""] * len(lines)))
         held = set()
         for line in lines:
             held |= set(evidence._words(line))
@@ -1313,6 +1325,65 @@ class Session:
         self.last_from_graph = True     # derived like a record: no prose
         self._mark = next((s for s in sources if s), "") or ""
         return "%d: %s." % (len(kept), ", ".join(kept))
+
+    def _sum_answer(self, question):
+        """A total is the sum of verified amounts, never a number (W91).
+
+        The counting organ's sibling: "how much in total?" over amounts
+        scattered across sessions. The engine lists ITEM :: AMOUNT
+        pairs from the seated lines; a pair survives only if its amount
+        is WRITTEN on a line that also carries the item's words; the
+        total is our arithmetic over the survivors. Returns the
+        sentence or None."""
+        lines = self.evidence.find(question, most=24, floor_share=0.0)
+        if not lines:
+            return None
+        block = "\n".join(lines)
+        try:
+            offered = generate.amounts_of(question, block)
+        except Exception:                               # noqa: BLE001
+            return None
+        kept, seen = [], set()
+        for item, amount in offered:
+            digits = re.findall(r"\d+(?:[.,]\d+)?", amount)
+            if len(digits) != 1:
+                continue
+            value = digits[0]
+            item_words = [w for w in evidence._words(item)
+                          if any(c.isalpha() for c in w)]
+            home = None
+            # THE AMOUNT'S HOME MAY BE ANY LINE THE STORE HOLDS — the
+            # engine can only name what the seats showed it, but a
+            # named amount is verified against the WHOLE store: wider
+            # verification admits nothing unwritten, and a true addend
+            # whose line missed a seat is not thrown away for it.
+            for line, _origin in self.evidence.sentences:
+                if value not in line:
+                    continue
+                held = set(evidence._words(line))
+                if item_words and not any(
+                        any(inflect.same_stem(w, h) for h in held)
+                        for w in item_words):
+                    continue
+                home = line
+                break
+            if home is None:
+                continue                # an amount nowhere written
+            key = (value, " ".join(item_words))
+            if key in seen:
+                continue
+            seen.add(key)
+            kept.append((item.strip(), value))
+        if not kept:
+            return None
+        total = sum(float(v.replace(",", ".")) for _i, v in kept)
+        shown = ("%d" % total) if total == int(total) else ("%.2f" % total)
+        self._step("sum")
+        self.last_abstained = False
+        self.last_from_graph = True
+        self._mark = ""
+        return "%s (%s)." % (shown,
+                             " + ".join("%s: %s" % (i, v) for i, v in kept))
 
     def _order_answer(self, question):
         """Which came first is read off the dates, not remembered.

@@ -6123,6 +6123,47 @@ def w88():
     assert "wrong thing" not in low2, said2
 
 
+@test("W91 a total is the sum of verified amounts, never a number")
+def w91():
+    """The counting organ's sibling, for the benchmark's second-biggest
+    failing shape: "how much in total did I spend on X?" — amounts
+    scattered over sessions, no line holding the sum. Same law as the
+    count (W84): the engine LISTS item and amount pairs from the seated
+    lines; the store verifies each amount is written where its item is;
+    the TOTAL is our arithmetic over what survives. An invented amount
+    fails verification and does not enter the sum; nothing verified is
+    an abstention, as ever."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.evidence.add("User: new helmet today, 120 dollars well spent.",
+                   "chat 2024/03/02")
+    s.evidence.add("User: the bike tune-up cost 45 dollars.",
+                   "chat 2024/04/11")
+    s.evidence.add("User: bought panniers for 35 dollars.",
+                   "chat 2024/05/09")
+    real = generate.amounts_of
+    generate.amounts_of = (lambda q, b: [("helmet", "120"),
+                                         ("tune-up", "45"),
+                                         ("panniers", "35"),
+                                         ("carbon wheels", "900")])
+    try:
+        said = s._sum_answer("how much in total have I spent on bike gear?")
+    finally:
+        generate.amounts_of = real
+    assert said is not None
+    assert "200" in said, said                    # 120+45+35, fake excluded
+    assert "900" not in said, said
+    assert "120" in said and "45" in said and "35" in said, said
+    # nothing verifiable -> silence
+    generate.amounts_of = lambda q, b: [("ghost", "500")]
+    try:
+        none = s._sum_answer("how much did I spend on skis?")
+    finally:
+        generate.amounts_of = real
+    assert none is None, none
+
+
 @test("W90 how many days apart is subtraction, not counting")
 def w90():
     """Fifty-three of the benchmark's temporal failures share one
