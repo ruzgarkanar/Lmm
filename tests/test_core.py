@@ -6042,6 +6042,53 @@ def w72():
 
 
 
+@test("W80 a need-shaped turn is a delivery, not a gamble")
+def w80():
+    """The reproduced failure this closes, caught live twice in one day.
+    Asked what to give a team of newly promoted managers, a consultation
+    answered with one course's DURATION ROW, stamped — every word
+    attested, and none of it an answer. The delivery bridge that exists
+    for exactly this question only ran when the factual chain ABSTAINED;
+    a need-question whose words drag in any row at all was never
+    rescued, because the chain "succeeded".
+
+    CRAG's lesson, applied structurally: evaluate BEFORE generation. The
+    turn already asks "does this message want material produced?" in
+    parallel (wants_material); when the verdict is yes on a consultation
+    turn, the turn goes to the delivery reading DIRECTLY — the same
+    composer, the same gates, the same stamps — and the factual chain is
+    never gambled. When the composer has nothing, the turn falls through
+    to the chain as before: a delivery that cannot deliver is not a
+    refusal."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.evidence.add("COURSE: Alpha. AUDIENCE: new managers.", "#doc:alpha")
+    s.history.append({"role": "user", "content": "hello"})
+    called = {"compose": 0, "answer": 0}
+    real_wm = generate.wants_material
+    generate.wants_material = lambda message: True
+    real_compose, real_answer = s.compose, s._answer
+    def compose_spy(brief, seats=24, topics=None, on_line=None):
+        called["compose"] += 1
+        return "CATALOGUE LINE.", ["#doc:alpha"]
+    def answer_spy(message, subject="", **kw):
+        called["answer"] += 1
+        return "COURSE: Alpha row read back."
+    s.compose, s._answer = compose_spy, answer_spy
+    try:
+        said = s.respond("what should we give our newly promoted managers?",
+                         teach=False)
+    finally:
+        generate.wants_material = real_wm
+        s.compose, s._answer = real_compose, real_answer
+    assert called["compose"] == 1, called
+    assert called["answer"] == 0, (
+        "the factual chain was gambled on a need-shaped turn: %r" % said)
+    assert "CATALOGUE" in said, said
+    assert s.last_abstained is False
+
+
 @test("W79 a field learns the words a reader asks for it with, once")
 def w79():
     """The measured 12 seconds this closes: a corpus writes EĞİTİM

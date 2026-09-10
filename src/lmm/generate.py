@@ -468,6 +468,16 @@ def wants_material(message):
               "stell mir bitte einen Katalog zusammen -> yes\n"
               "prepara una propuesta para nosotros -> yes\n"
               "propose-moi une formation adapt\u00e9e -> yes\n"
+              # A NEED WITH "WHAT SHOULD WE...?" IS AN ORDER TO PRODUCE,
+              # measured live: a team's situation plus "what do we give
+              # them?" was read as a factual question, so the delivery
+              # seat never opened and the factual chain answered with
+              # whichever row shared the question's words. Stating a need
+              # and asking what fits it IS asking for a recommendation.
+              "my new hires struggle with clients, what should we give them -> yes\n"
+              "yeni terfi edenler i\u00e7in ne verelim -> yes\n"
+              "was empfiehlst du f\u00fcr unser Vertriebsteam -> yes\n"
+              "\u00bfqu\u00e9 nos recomiendas para los gerentes nuevos -> yes\n"
               # the boundary, measured live: an OFFER OF HELP and a BRAKE
               # both wear request grammar and are not orders to produce —
               # "can you help us" opened a catalogue, and "wait, you

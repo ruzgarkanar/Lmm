@@ -550,18 +550,9 @@ class Session:
             except Exception:                           # noqa: BLE001
                 pass
             if wants:
-                brief = " ".join([h["content"] for h in self.history
-                                  if h.get("role") == "user"] + [message])
-                try:
-                    text, sources = self.compose(
-                        brief, topics=list(self._brief) or None,
-                        on_line=getattr(self, "_on_line", None))
-                except Exception:                       # noqa: BLE001
-                    text, sources = "", []
-                if text and sources:
-                    said = text
-                    self.last_abstained = False
-                    self._composed = True
+                delivered = self._delivery(message)
+                if delivered:
+                    said = delivered
         census_line = getattr(self, "_census_line", "")
         if (said and self.last_abstained and census_line
                 and not self.last_from_graph):
@@ -1107,6 +1098,29 @@ class Session:
                         return said
                     # the causal route had nothing speakable → the normal
                     # retrieval path still gets its turn (see _causal_answer)
+            # A NEED-SHAPED TURN IS A DELIVERY, NOT A GAMBLE (W80).
+            # Reproduced twice in one day: asked what to give a team of
+            # newly promoted managers, the factual chain found a row
+            # that merely shared the question's words and spoke its
+            # duration, stamped — and the delivery bridge built for this
+            # question never ran, because it only rescued ABSTENTIONS.
+            # The verdict the turn already buys in parallel
+            # (wants_material) is read BEFORE the chain: yes on a
+            # consultation means the composer speaks — same gates, same
+            # stamps — and only its silence lets the chain have the turn.
+            if self._no_teach and self._conversational:
+                wants = False
+                try:
+                    spec_wants = getattr(self, "_spec_wants", None)
+                    wants = (bool(spec_wants.result())
+                             if spec_wants is not None
+                             else generate.wants_material(message))
+                except Exception:                       # noqa: BLE001
+                    pass
+                if wants:
+                    delivered = self._delivery(message)
+                    if delivered:
+                        return delivered
             if op["kind"] in (extract.WRITE, extract.ASK):
                 return self._answer(message, subject)
             return self._chat(message, spec, spec_queue)
@@ -1116,6 +1130,28 @@ class Session:
             # the fallback sentence as an answer.
             self.last_abstained = True
             return FALLBACK_DONT_KNOW
+
+    def _delivery(self, message):
+        """The delivery reading of a need-shaped turn: compose from the
+        whole conversation's brief, gates and stamps unchanged. Returns
+        the composed text, or "" when the composer had nothing to say —
+        in which case the caller's ordinary path still gets its turn.
+        One reading, two seats: before the factual chain (a need-shaped
+        consultation never gambles that chain — see W80) and after an
+        abstention (the original rescue seat)."""
+        brief = " ".join([h["content"] for h in self.history
+                          if h.get("role") == "user"] + [message])
+        try:
+            text, sources = self.compose(
+                brief, topics=list(self._brief) or None,
+                on_line=getattr(self, "_on_line", None))
+        except Exception:                               # noqa: BLE001
+            return ""
+        if text and sources:
+            self.last_abstained = False
+            self._composed = True
+            return text
+        return ""
 
     # --- identity (deterministic route) --------------------------------
     def _identity_reply(self, message):
