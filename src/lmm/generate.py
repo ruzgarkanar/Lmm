@@ -451,6 +451,49 @@ def asked_words(head, value=""):
             if w.strip()]
 
 
+def items_of(question, block):
+    """The distinct items in this evidence that answer the question — a
+    LIST, never a number. The counting organ's one engine call
+    (`Session._count_answer`): the engine reads the seated lines and
+    names the items; the STORE then verifies every name against the
+    block, and the count is the length of what survives. A hallucinated
+    item fails verification and does not count, which is why the number
+    is never asked for directly — a model asked "how many" answers from
+    plausibility, a model asked "which ones" hands over claims the store
+    can check one by one."""
+    system = ("The EVIDENCE lines below mention zero or more distinct "
+              "items of the kind the question asks about. List the NAMES "
+              "of those items, exactly as the evidence writes them, "
+              "comma-separated. Name nothing the evidence does not "
+              "contain. If there are none, output NONE.")
+    out = runtime.generate("EVIDENCE:\n%s\n\nQUESTION: %s" % (block, question),
+                           system=system, max_tokens=120, temperature=0.0)
+    out = (out or "").strip()
+    if not out or out.upper().startswith("NONE"):
+        return []
+    return [x.strip() for x in out.replace("\n", ",").split(",") if x.strip()]
+
+
+def wants_count(message):
+    """Does this message ask HOW MANY of something — a count over what
+    the memory holds? Language-independent, few-shot on both sides,
+    called only on abstained turns (the rescue seat): one tiny call
+    exactly where the turn would otherwise end in a shrug."""
+    system = ("Classify if the message asks for a COUNT — how many of "
+              "something. Output ONLY yes/no.\n"
+              "how many projects am I leading -> yes\n"
+              "ka\u00e7 e\u011fitim ald\u0131m bug\u00fcne kadar -> yes\n"
+              "wie viele Kurse haben wir gebucht -> yes\n"
+              "\u00bfcu\u00e1ntos restaurantes he probado -> yes\n"
+              "what is the duration of the Alpha module -> no\n"
+              "hangi e\u011fitimler yar\u0131m g\u00fcn s\u00fcr\u00fcyor -> no\n"
+              "list my projects -> no\n"
+              "thanks a lot -> no")
+    out = runtime.generate(message, system=system, max_tokens=3,
+                           temperature=0.0)
+    return "yes" in (out or "").strip().lower()
+
+
 def wants_material(message):
     """Is the message asking the responder to PRODUCE a deliverable NOW — a
     plan, programme, draft, catalogue, recommendation — rather than sharing
