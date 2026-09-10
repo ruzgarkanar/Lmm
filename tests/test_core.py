@@ -6089,6 +6089,41 @@ def w85():
     assert none is None, none
 
 
+@test("W86 a turn can say which organs it passed through")
+def w86():
+    """The orchestration made visible. The session already IS an
+    orchestrator — a turn moves through the record door, the delivery
+    seat, the chain, the rescues — but the route lived in control flow
+    and vanished with the stack. A memory whose every CLAIM shows its
+    source can show its ROUTE too: `last_route` is the ordered list of
+    organs the turn consulted, and `Answer.route` carries it out, so a
+    wrong turn is debugged by reading, not by re-running with a
+    debugger attached. Pure bookkeeping: no model call, no behaviour
+    change, and the suite proves the latter by not moving."""
+    from lmm import generate
+    from lmm.api import Memory
+    m = Memory(None)
+    m.learn("SPANWIDTH: 91 metres.", source="tower notes", deep=False)
+    m.learn("SPANWIDTH: 44 metres.", source="bridge notes", deep=False)
+    # a record-direct turn: one door, no engine anywhere
+    said = m.ask("what is the SPANWIDTH of the tower notes?", explain=True)
+    assert said.route, "the turn kept no route"
+    assert said.route[0] == "record", said.route
+    assert not said.abstained and "91" in said, said
+    # a delivery turn consults the router and the composer, in order
+    s = m.session
+    real_wm, real_compose = generate.wants_material, s.compose
+    generate.wants_material = lambda message: True
+    s.compose = lambda brief, seats=24, topics=None, on_line=None: (
+        "CATALOGUE.", ["spans.csv"])
+    s.history.append({"role": "user", "content": "hello"})
+    try:
+        s.respond("put together a plan for us", teach=False)
+    finally:
+        generate.wants_material, s.compose = real_wm, real_compose
+    assert "delivery" in s.last_route, s.last_route
+
+
 @test("W84 a count is the length of a verified list, never a number")
 def w84():
     """LongMemEval's multi-session questions, measured: asked how many

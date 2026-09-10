@@ -60,13 +60,19 @@ class Answer(str):
     them would have been a lie.
     """
 
-    __slots__ = ("abstained", "sources", "subject", "kind", "wrote",
+    __slots__ = ("abstained", "sources", "subject", "kind", "wrote", "route",
                  "from_graph")
 
     def __new__(cls, text, *, abstained=False, sources=(), subject="",
-                kind="", wrote=(), from_graph=False):
+                kind="", wrote=(), from_graph=False, route=()):
         self = super().__new__(cls, text)
         self.abstained = bool(abstained)
+        # THE ROUTE — which organs the turn consulted, in order (W86):
+        # ("record",) for a row read with no model call, ("chain",
+        # "refuse", "count") for a rescued count. The orchestration was
+        # always there; now it is a fact on the answer instead of a
+        # story in the stack.
+        self.route = tuple(route)
         # WHICH PATH ANSWERED — the graph alone, or the engine. It is a fact
         # about cost and about dependency: a `from_graph` turn spent no model
         # call, so it reads the same on a 3B local build as on a hosted one.
@@ -635,6 +641,7 @@ class Memory:
             subject=session.last_subject,
             kind=session.last_kind,
             wrote=tuple(session.last_written),
+            route=tuple(getattr(session, "last_route", ())),
         )
 
     # ----------------------------------------------------------------- keep
