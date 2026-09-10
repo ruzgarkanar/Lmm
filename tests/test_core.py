@@ -4616,6 +4616,8 @@ def w43():
     extract.reextract = fake_reextract
     had = hasattr(generate, "chat_stream")
     real_cs = getattr(generate, "chat_stream", None)
+    real_shape = generate.turn_shape
+    generate.turn_shape = lambda message: "none"
     generate.chat_stream = fake_stream
     lines = []
     def cb(t):
@@ -4630,8 +4632,10 @@ def w43():
         extract.extract, extract.reextract = real
         if had:
             generate.chat_stream = real_cs
+            generate.turn_shape = real_shape
         else:
             del generate.chat_stream
+            generate.turn_shape = real_shape
         if old is None:
             os.environ.pop("LMM_BACKEND", None)
         else:
@@ -6117,6 +6121,47 @@ def w88():
     low2 = said2.lower()
     assert "alpine leadership" in low2 and "harbour leadership" in low2, said2
     assert "wrong thing" not in low2, said2
+
+
+@test("W90 how many days apart is subtraction, not counting")
+def w90():
+    """Fifty-three of the benchmark's temporal failures share one
+    shape: "how many days passed between X and Y?" — which the shape
+    reader rightly calls a COUNT, and the counting organ then tried to
+    answer by listing items, because nobody told it that a count of
+    DAYS between two anchored events is not a list but a difference.
+
+    The counting organ's opening move now asks the store first: the
+    engine names the two things (things_of — already the ordering
+    organ's reader), the store anchors each to its earliest dated line,
+    and when BOTH anchor, the answer is arithmetic — the day span,
+    stated in both fences ("14 days (15 including the last day)"),
+    with the two dates shown. No anchors, or one — the ordinary
+    counting path is untouched. Nothing here is a word of any
+    language: the trigger is two anchorable things under a
+    count-shaped question."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.evidence.add("User: the Walk for Hunger went wonderfully.",
+                   "chat 2023/03/12 (Sun) 09:00")
+    s.evidence.add("User: today's Coastal Cleanup was windy but fun.",
+                   "chat 2023/03/26 (Sun) 15:00")
+    real_things = generate.things_of
+    real_items = generate.items_of
+    generate.things_of = (lambda q: ["Walk for Hunger", "Coastal Cleanup"])
+    generate.items_of = (lambda q, b: (_ for _ in ()).throw(
+        AssertionError("a span question fell into item counting")))
+    try:
+        said = s._count_answer(
+            "How many days had passed between the Walk for Hunger and "
+            "the Coastal Cleanup?")
+    finally:
+        generate.things_of = real_things
+        generate.items_of = real_items
+    assert said is not None, "the span reading did not speak"
+    assert "14" in said and "15" in said, said
+    assert "2023/03/12" in said and "2023/03/26" in said, said
 
 
 @test("W85 which came first is read off the dates, not remembered")
