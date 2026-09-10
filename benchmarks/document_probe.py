@@ -488,7 +488,18 @@ class Probe:
         except Exception:                                    # noqa: BLE001
             meter = None
         stamped = claimed = 0
+        # PENALIZED SCORING — the literature's knowledge-gap-canary
+        # discipline, with no knob. Volume accuracy rewards guessing: a
+        # system that answers everything scores every lucky hit and
+        # loses nothing on the fabrications. Here every question ends in
+        # one of three states — CORRECT (the gold, or a rightful
+        # abstention on a canary), ABSTAINED (worth nothing, costing
+        # nothing), WRONG (a wrong claim, or ANY claim on a canary) —
+        # and the score is (correct - wrong) / total. Parameter-free: an
+        # invention cancels a truth, silence cancels neither.
+        correct = wrong = abstained_n = total = 0
         for group, items in self.questions.items():
+            canary = group in ("absent", "foreign", "nonsense")
             for question, gold in items:
                 t0 = time.time()
                 answer = self.memory.ask(question, explain=True)
@@ -498,6 +509,13 @@ class Probe:
                     ok = bool(answer.abstained)
                 else:
                     ok = _hit(text, gold) and not answer.abstained
+                total += 1
+                if ok:
+                    correct += 1
+                elif answer.abstained:
+                    abstained_n += 1     # a miss, but not an invention
+                elif canary or gold is None or not answer.abstained:
+                    wrong += 1
                 if not answer.abstained:
                     claimed += 1
                     stamped += bool(answer.sources)
@@ -506,6 +524,10 @@ class Probe:
                      else ",".join(answer.sources)[:40]))
         self.stats["seconds_per_question"] = round(statistics.median(times), 2)
         self.stats["provenance"] = "%d/%d" % (stamped, claimed)
+        self.stats["penalized"] = (
+            "%.2f  (%d correct - %d wrong, %d abstained, over %d)"
+            % ((correct - wrong) / max(1, total),
+               correct, wrong, abstained_n, total))
         if meter is not None:
             total = meter.METER.totals()
             n = max(1, sum(len(v) for v in self.questions.values()))
@@ -541,6 +563,7 @@ class Probe:
                  self.stats.get("seconds_per_question", "?")))
         print("provenance: %s claims carry a source stamp"
               % self.stats.get("provenance", "?"))
+        print("penalized : %s" % self.stats.get("penalized", "?"))
         for tag, said in self.stats.get("refusals", []):
             print("refusal %s: %s" % (tag, said))
         print()

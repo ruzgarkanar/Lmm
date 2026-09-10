@@ -6042,6 +6042,31 @@ def w72():
 
 
 
+@test("W82 the answer cache sees every index an answer can read")
+def w82():
+    """The staleness the bridge introduced without anyone noticing: a
+    question asked before `Memory.bridge()` is cached with its slow-path
+    answer (or its refusal); the bridge then teaches the store the
+    reader's words, the record path becomes reachable in milliseconds —
+    and the cache, whose fingerprint counted records, identities,
+    sentences and trust but neither the bridge nor the expansion index,
+    would replay the pre-bridge answer forever. A stale answer is worse
+    than an expensive one, and an index nothing fingerprints is an index
+    the cache is blind to."""
+    from lmm import Memory
+    m = Memory(None)
+    m.learn("HEIGHT: 91 metres.", deep=False)
+    before = m._state()
+    kept = m.session.evidence.learn_bridge({"HEIGHT": ["tall", "high"]})
+    assert kept >= 2, kept
+    assert m._state() != before, "the bridge moved and the fingerprint did not"
+    mid = m._state()
+    # a query that SURVIVES the margin filter: it shares a word with
+    # the line it was generated from, so it demonstrably reaches it
+    m.session.evidence.learn_expansions({0: ["what height in metres"]})
+    assert m._state() != mid, "the expansion moved and the fingerprint did not"
+
+
 @test("W81 two entities that never meet are connected through a witness")
 def w81():
     """The question one posting-list intersection cannot answer: what

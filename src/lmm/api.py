@@ -333,9 +333,18 @@ class Memory:
         """
         memory = self.session.memory
         records = memory.records.values()
+        store = self.session.evidence
         return (len(memory.records), len(memory.identities),
                 len(memory.transitive),
-                len(self.session.evidence.sentences),
+                len(store.sentences),
+                # THE RETRIEVAL AIDS COUNT TOO (W82): the bridge and the
+                # expansion change WHICH lines a question reaches without
+                # adding a sentence or a record, so a fingerprint blind
+                # to them replays pre-bridge answers forever — a question
+                # cached with its slow-path refusal would never meet the
+                # record path the bridge just opened.
+                sum(len(heads) for heads in store.head_bridge.values()),
+                sum(len(sids) for sids in store.expand_index.values()),
                 round(math.fsum(r.trust for r in records), 9),
                 sum(len(r.sources) for r in records))
 
