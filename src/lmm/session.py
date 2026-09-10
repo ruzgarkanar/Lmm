@@ -553,6 +553,19 @@ class Session:
                 delivered = self._delivery(message)
                 if delivered:
                     said = delivered
+        # THE COUNTING RESCUE — same seat, same economics as the
+        # delivery: only an abstained turn pays the one tiny call that
+        # asks whether a count was wanted, and the count itself is a
+        # verified list (`_count_answer`), never a number the engine
+        # chose. An answered turn costs nothing extra.
+        if said and self.last_abstained and message and message.strip():
+            try:
+                if generate.wants_count(message):
+                    counted = self._count_answer(message)
+                    if counted:
+                        said = counted
+            except Exception:                           # noqa: BLE001
+                pass
         census_line = getattr(self, "_census_line", "")
         if (said and self.last_abstained and census_line
                 and not self.last_from_graph):
@@ -1130,6 +1143,69 @@ class Session:
             # the fallback sentence as an answer.
             self.last_abstained = True
             return FALLBACK_DONT_KNOW
+
+    def _count_answer(self, question):
+        """A count is the length of a verified list, never a number.
+
+        LongMemEval's multi-session questions, measured: asked how many
+        projects the user led, the memory abstained — honest, and
+        empty. The items were all IN the store, one per session; no
+        single line counts them.
+
+        THE ENGINE PROPOSES, THE STORE DISPOSES — the second-ask's rule
+        applied to counting. The engine reads the seated lines and
+        LISTS the items; every proposed name is verified against the
+        block (each of its words must be written there, by stem), and
+        the answer is the surviving list with its length in front —
+        every element witnessed, the number derived, never claimed. A
+        fabricated item fails verification and does not count; an empty
+        verified list stays an abstention. Returns the sentence or
+        None."""
+        # A COUNT WANTS COMPLETENESS, NOT RELEVANCE. The top-k seats
+        # are built to answer, and eight of them answered "how many"
+        # with two of three items — the third sat in a line ranked
+        # ninth. Counting reads every line the words can reach; the
+        # engine lists over the whole of it, and what the words cannot
+        # reach is recorded as this organ's honest limit (a hypernym
+        # names members no line spells out).
+        lines = self.evidence.find(question, most=24, floor_share=0.0)
+        if not lines:
+            return None
+        sources = list(self.evidence.last_sources[:len(lines)])
+        block = "\n".join(lines)
+        held = set()
+        for line in lines:
+            held |= set(evidence._words(line))
+        try:
+            offered = generate.items_of(question, block)
+        except Exception:                               # noqa: BLE001
+            return None
+        kept, seen = [], set()
+        for item in offered:
+            words = evidence._words(item)
+            if not words:
+                continue
+            # A NAME IS MADE OF WORDS. Measured on the first live run:
+            # the engine offered the bare numeral "2" as an item, the
+            # digit sat in the block, verification passed, and the turn
+            # counted one item named "2". A proposal with no word that
+            # carries a letter is not naming anything.
+            if all(not any(c.isalpha() for c in w) for w in words):
+                continue
+            if not all(any(inflect.same_stem(w, h) for h in held)
+                       for w in words):
+                continue                # a name the evidence never wrote
+            key = " ".join(words)
+            if key in seen:
+                continue
+            seen.add(key)
+            kept.append(item.strip())
+        if not kept:
+            return None
+        self.last_abstained = False
+        self.last_from_graph = True     # derived like a record: no prose
+        self._mark = next((s for s in sources if s), "") or ""
+        return "%d: %s." % (len(kept), ", ".join(kept))
 
     def _delivery(self, message):
         """The delivery reading of a need-shaped turn: compose from the

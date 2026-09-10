@@ -6042,6 +6042,58 @@ def w72():
 
 
 
+@test("W84 a count is the length of a verified list, never a number")
+def w84():
+    """LongMemEval's multi-session questions, measured: asked how many
+    projects the user led, the memory abstained — honest, and empty.
+    The items are all IN the store, one per session; no single line
+    counts them, and no organ gathered them.
+
+    THE ENGINE PROPOSES, THE STORE DISPOSES — the second-ask's rule,
+    applied to counting. The engine is shown the seated lines and asked
+    to LIST the distinct items answering the question; every proposal is
+    then verified against the block (its words must be written there),
+    and the answer is the VERIFIED list with its length — "3: A, B, C",
+    each element witnessed. The number is never the engine's: a
+    hallucinated fourth item fails verification and does not count, so
+    the count cannot exceed what the evidence carries. An empty verified
+    list is an abstention, exactly as before."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.evidence.add("User: I lead the Harbour Atlas project at work.",
+                   "chat 2024/01/10")
+    s.evidence.add("User: my second project, Quiet Lantern, started well.",
+                   "chat 2024/02/12")
+    s.evidence.add("User: I now also lead the Copper Vale project.",
+                   "chat 2024/03/03")
+    s.evidence.add("User: the weather was lovely today.", "chat 2024/03/04")
+    # the engine's list arrives with a FABRICATED fourth item
+    real_items = generate.items_of
+    generate.items_of = (lambda question, block:
+                         ["Harbour Atlas", "Quiet Lantern",
+                          "Copper Vale", "Golden Meridian"])
+    try:
+        said = s._count_answer("how many projects do I lead?")
+    finally:
+        generate.items_of = real_items
+    assert said is not None, "the counting organ did not speak"
+    low = said.lower()
+    assert "3" in said, said
+    assert "harbour atlas" in low and "copper vale" in low, said
+    assert "golden meridian" not in low, (
+        "an unverified item was counted: %r" % said)
+    # nothing seated -> no count, no invention
+    empty = Session(None)
+    empty.evidence.add("A quiet unrelated line.", "#doc:x")
+    generate.items_of = lambda question, block: ["Ghost Item"]
+    try:
+        none = empty._count_answer("how many projects do I lead?")
+    finally:
+        generate.items_of = real_items
+    assert none is None, none
+
+
 @test("W83 of two dated lines that clash on a value, the later speaks")
 def w83():
     """Measured on LongMemEval's knowledge-update questions, first live
