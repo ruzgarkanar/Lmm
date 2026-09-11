@@ -527,7 +527,7 @@ def turn_shape(message):
     return "none"
 
 
-def event_date(phrase, rows):
+def event_date(phrase, rows, question=""):
     """WHEN did this event happen — read off the candidate lines.
 
     `rows`: [(stamp "YYYY/MM/DD", line text), ...]. People tell events
@@ -545,7 +545,13 @@ def event_date(phrase, rows):
               "Tuesday\" resolved against its stamp), use that; "
               "otherwise use the stamp of the line that reports it. "
               "Output ONLY the date as YYYY/MM/DD.")
-    out = runtime.generate("LINES:\n%s\n\nEVENT: %s" % (shown, phrase),
+    # THE QUESTION RIDES ALONG: a recurring event ("the Sunday mass")
+    # has many true dates, and WHICH one is meant lives in the question
+    # — measured, the reading without it picked the wrong week and the
+    # arithmetic could not object, because that week was written too.
+    asked = ("\n\nQUESTION THIS SERVES: %s" % question) if question else ""
+    out = runtime.generate("LINES:\n%s\n\nEVENT: %s%s"
+                           % (shown, phrase, asked),
                            system=system, max_tokens=12, temperature=0.0)
     out = (out or "").strip()
     match = re.search(r"(\d{4})\D(\d{1,2})\D(\d{1,2})", out)
