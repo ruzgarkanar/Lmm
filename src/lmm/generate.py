@@ -527,6 +527,32 @@ def turn_shape(message):
     return "none"
 
 
+def event_date(phrase, rows):
+    """WHEN did this event happen — read off the candidate lines.
+
+    `rows`: [(stamp "YYYY/MM/DD", line text), ...]. People tell events
+    days later; the date may be written in the LINE ("back on March 22
+    the GPS died") or the line's stamp may be the event's own day. The
+    engine reads — the one thing it does reliably with the sentence in
+    front of it — and answers one date; the CALLER's arithmetic decides
+    whether the reading may stand (`Session._event_anchor`): a proposal
+    is a proposal here like everywhere else."""
+    shown = "\n".join("[stamped %s] %s" % (stamp, text[:300])
+                      for stamp, text in rows[:8])
+    system = ("Each line below is a chat message with the date it was "
+              "SENT. When did the event in question actually happen? If "
+              "a line's text states the date (\"on March 22\", \"last "
+              "Tuesday\" resolved against its stamp), use that; "
+              "otherwise use the stamp of the line that reports it. "
+              "Output ONLY the date as YYYY/MM/DD.")
+    out = runtime.generate("LINES:\n%s\n\nEVENT: %s" % (shown, phrase),
+                           system=system, max_tokens=12, temperature=0.0)
+    out = (out or "").strip()
+    match = re.search(r"(\d{4})\D(\d{1,2})\D(\d{1,2})", out)
+    return "%04d/%02d/%02d" % tuple(int(g) for g in match.groups()) \
+        if match else ""
+
+
 PLAN_OPS = (
     "anchor: PHRASE -> the earliest dated line carrying the phrase\n"
     "latest: PHRASE -> the latest dated line carrying the phrase\n"

@@ -6056,6 +6056,54 @@ def w72():
 
 
 
+@test("W95 an event's date is the sentence's word before the envelope's")
+def w95():
+    """The missing gear the strong-model experiment isolated: people
+    tell events days later — "[stamped April 10] back on March 22 the
+    GPS died" — and the anchor primitive read the ENVELOPE, so every
+    span and order computed from telling-dates, confidently wrong. A
+    plain LLM reads the sentence right when it is in front of it; so
+    ours does too — as a PROPOSAL: the engine is shown the candidate
+    lines with their stamps and asked when the event happened, and the
+    arithmetic decides whether the proposal may stand. Accepted only
+    if the date equals some candidate's stamp, OR its day-of-month is
+    written as a number in that line's text with the year within one
+    of the stamp's. A date the engine invents whole fails both tests
+    and the envelope speaks, as before. No month table, no date
+    grammar: the reading is the engine's, the arithmetic ours."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.evidence.add("User: back on March 22 the GPS died completely.",
+                   "chat 2023/04/10 (Mon) 17:50")
+    s.evidence.add("User: new phone arrived today, great screen.",
+                   "chat 2023/04/14 (Fri) 09:00")
+    real = generate.event_date
+    # the engine reads the text date — accepted: day 22 is written in
+    # the line, year matches the stamp's
+    generate.event_date = lambda phrase, rows: "2023/03/22"
+    try:
+        got = s._event_anchor("the GPS died")
+    finally:
+        generate.event_date = real
+    assert got is not None and got[0].strftime("%Y/%m/%d") == "2023/03/22", got
+    # an invented date — day 27 nowhere in any candidate line: refused,
+    # the envelope speaks
+    generate.event_date = lambda phrase, rows: "2023/03/27"
+    try:
+        got2 = s._event_anchor("the GPS died")
+    finally:
+        generate.event_date = real
+    assert got2 is not None and got2[0].strftime("%Y/%m/%d") == "2023/04/10", got2
+    # no text date in the line - the engine echoes the stamp, accepted
+    generate.event_date = lambda phrase, rows: "2023/04/14"
+    try:
+        got3 = s._event_anchor("new phone arrived")
+    finally:
+        generate.event_date = real
+    assert got3 is not None and got3[0].strftime("%Y/%m/%d") == "2023/04/14", got3
+
+
 @test("W94 a plan is a proposal; the primitives are the law")
 def w94():
     """The end of the hand-written organ queue. Every organ so far is
