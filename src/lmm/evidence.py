@@ -58,6 +58,12 @@ WINDOW = SCALES[1]
 CHANNEL = 2
 
 
+# WHERE THE MEMORY'S OWN SPEECH IS FILED. Not a document name, so
+# every source-scoped reading — `named_in`, the census, the scope rule
+# — passes it by, and a citation can never confuse the two.
+SAID_SOURCE = "#said"
+
+
 def _expansion_on():
     """`LMM_EXPAND=0` turns the expansion channel off — at generation time and
     at query time both, so one variable produces the whole A/B."""
@@ -1029,6 +1035,12 @@ class SentenceStore:
             return []
         tally = {}
         for text, source in self.sentences:
+            # THE CENSUS COUNTS DOCUMENTS (W105). The memory's own
+            # speech is kept in the same store so a follow-up can read
+            # it, and it is not a document: counting it would let the
+            # memory vote for itself in its own census.
+            if source == SAID_SOURCE:
+                continue
             held = set(_words(text))
             if all(any(inflect.same_stem(q, w) for w in held)
                    for q in wanted):
@@ -1182,8 +1194,11 @@ class SentenceStore:
         order = _words(text, known=self.units)
         words = set(order)
         total = len(self.by_source)
+        # THE MEMORY'S OWN SPEECH IS NOT A SOURCE ANYBODY NAMES (W105):
+        # it is kept in the store so a follow-up can read it, and it
+        # carries no document name to be called by.
         names = [(src, set(_words(_source_name(src), known=self.units)))
-                 for src in self.by_source]
+                 for src in self.by_source if src != SAID_SOURCE]
         called = set()
         for qw in words:
             matched = [src for src, ws in names
@@ -1716,6 +1731,15 @@ class SentenceStore:
         if named_sources:
             keep.sort(key=lambda sid: self.sentences[sid][1]
                       not in named_sources)
+        # THE MEMORY'S OWN SPEECH SITS BELOW THE DOCUMENTS (W105). A
+        # turn's words are kept so the NEXT question can read them
+        # (`Session._remember_said`) — that is what makes a follow-up
+        # answerable at all — but a memory that quotes itself can
+        # drift, and a drifted sentence must never outrank the page it
+        # drifted from. Stable, so nothing else about the order moves:
+        # documents keep their seats in their own order, and `#said`
+        # follows.
+        keep.sort(key=lambda sid: self.sentences[sid][1] == SAID_SOURCE)
         keep = self._supersede(keep)
         self.last_sources = [self.sentences[sid][1] for sid in keep]
         return [self.sentences[sid][0] for sid in keep]
