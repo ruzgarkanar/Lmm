@@ -6090,6 +6090,12 @@ def w105():
     lines = s.evidence.find("how long does the Alpha Course run", most=4,
                             floor_share=0.0)
     assert lines, lines
+    # ...AND IT IS GUARANTEED A SEAT, NOT LEFT TO COMPETE. Measured on a
+    # live store of 16,637 document lines: sorted to the back, the
+    # memory's own words never took a seat at all and the follow-up
+    # ("what is it called?") refused exactly as before the reading
+    # existed. A tail seat below the documents is the whole design.
+    assert any("five days" in line for line in lines), lines
     assert "two days" in lines[0], (
         "the memory's own sentence outranked the document: %r" % lines)
     # the census counts documents, and the memory's own speech is none
