@@ -812,6 +812,10 @@ class SentenceStore:
         # the one-head rule and every gate stand unchanged. Deleting the
         # .bridge side-file restores the memory exactly as it was.
         self.head_bridge = {}               # folded word -> set(head)
+        # WHO SPOKE, per line — dialogue's second piece of real metadata
+        # beside the date (W98). A tag the operator supplies, like the
+        # source name; None for every document that has no voices.
+        self.speakers = {}                  # sid -> speaker tag
         self._key_index = None              # lazy — see the `key_index` property
         self._key_bounds = None             # the bound it was built under
         self._key_at = 0                    # how many sentences are in it
@@ -961,7 +965,7 @@ class SentenceStore:
                 keys += _words(m.group(1))[-3:]
         return [k for k in keys if not k.isdigit()]
 
-    def add(self, sentence, source="", derived=False):
+    def add(self, sentence, source="", derived=False, speaker=None):
         # THE SAME SENTENCE IN TWO DOCUMENTS IS TWO ATTESTATIONS. The
         # duplicate guard exists so that reading one document twice does
         # not multiply its evidence — keyed on the text alone it silenced
@@ -976,6 +980,8 @@ class SentenceStore:
         self._seen.add(key)
         sid = len(self.sentences)
         self.sentences.append((sentence, source))
+        if speaker:
+            self.speakers[sid] = speaker
         if derived:
             self._derived.add(sid)
         for mark in re.findall(r"(?<=\d)([^\w\s]+)(?=\d)", sentence):
@@ -2151,7 +2157,8 @@ class SentenceStore:
         path = memory_path + ".evidence"
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump([[s, src] for s, src in self.sentences], f,
+            json.dump([[s, src, self.speakers.get(i)]
+                       for i, (s, src) in enumerate(self.sentences)], f,
                       ensure_ascii=False)
         os.replace(tmp, path)
 
@@ -2171,8 +2178,9 @@ class SentenceStore:
                 return store        # corrupt side-file → empty store (the graph
                 #                     is intact; evidence can be re-ingested,
                 #                     no fabrication risk)
-            for sentence, source in rows:
-                store.add(sentence, source)
+            for row in rows:
+                store.add(row[0], row[1],
+                          speaker=(row[2] if len(row) > 2 else None))
             store._load_expansion(memory_path)
         return store
 

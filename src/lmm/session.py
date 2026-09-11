@@ -126,6 +126,7 @@ class Session:
         self._rival_cache = {}
         self.gate.rival = self._are_rivals
         self._pending = None    # subject offered for research (ask-first flow)
+        self.asker = None       # who is asking, if the operator says (W98)
         self._mark = ""         # this turn's provenance mark (see UNCERTAIN):
         #                         recorded while answering, attached in
         #                         `respond` and ONLY to a turn that asserted
@@ -459,6 +460,9 @@ class Session:
         # list out. Bookkeeping only: no call, no behaviour.
         self.last_route = []
         self._shape_cache = None        # turn_shape, read once per turn
+        # WHO IS ASKING — the operator may say (W98); the event organs
+        # seat that speaker's lines first, and None changes nothing
+        self.asker = getattr(self, "asker", None)
         self._spec_wants = None
         self._spec_chat = None
         self._composed = False
@@ -1257,6 +1261,22 @@ class Session:
         except AttributeError:
             self.last_route = [organ]
 
+    def _asker_first(self, lines, sources):
+        """THE ASKER'S EVENTS LIVE IN THE ASKER'S LINES (W98). Dialogue
+        carries who spoke as real metadata beside the date; when the
+        operator has said who is asking (`self.asker`), that speaker's
+        lines are seated FIRST — a stable reorder, nothing excluded,
+        because some answers do live in the other voice. With no asker
+        set, or a store with no voices, byte-for-byte the old order."""
+        if not self.asker or not self.evidence.speakers:
+            return lines, sources
+        by_text = {}
+        for sid, (text, _src) in enumerate(self.evidence.sentences):
+            by_text.setdefault(text, self.evidence.speakers.get(sid))
+        paired = list(zip(lines, sources))
+        paired.sort(key=lambda pair: by_text.get(pair[0]) != self.asker)
+        return [p[0] for p in paired], [p[1] for p in paired]
+
     def _count_answer(self, question):
         """A count is the length of a verified list, never a number.
 
@@ -1384,6 +1404,7 @@ class Session:
             sources = sources + [s for _l, s in extra]
         if not lines:
             return None
+        lines, sources = self._asker_first(lines, sources)
         # each line under its dated stamp: two tellings of one event
         # carry one date, and the engine can see that they are one
         block = "\n".join(

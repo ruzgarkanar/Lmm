@@ -6056,6 +6056,48 @@ def w72():
 
 
 
+@test("W98 the asker's events live in the asker's lines")
+def w98():
+    """Found by reading one drowned block: asked how many items of
+    clothing awaited pickup, the gather seated sixty lines of the
+    ASSISTANT'S closet-organizing advice — clothing words wall to wall,
+    not one event — while the user's own "I need to return some boots
+    to Zara" never sat. Dialogue has a piece of metadata as real as
+    the date: WHO SPOKE. The store now keeps it per line
+    (`add(..., speaker=)` / `learn(..., speaker=)`), and the event
+    organs seat the asker's lines first when `session.asker` is set —
+    nothing is excluded (some answers do live in the other voice),
+    priority alone moves. No word of any language: the speaker is a
+    tag the operator supplies, like the source name."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.asker = "member"
+    for i in range(12):
+        s.evidence.add(
+            "Tip %d: store your boots, coats and blazers on racks." % i,
+            "chat 2023/02/1%d" % (i % 9), speaker="advisor")
+    s.evidence.add("I need to return some boots to the store.",
+                   "chat 2023/02/15", speaker="member")
+    s.evidence.add("my blazer is at the dry cleaner for pickup.",
+                   "chat 2023/02/16", speaker="member")
+    seen = {}
+    real = generate.items_of
+    def spy(question, block):
+        seen["block"] = block
+        return ["boots", "blazer"]
+    generate.items_of = spy
+    try:
+        said = s._count_answer(
+            "how many items do I need to pick up or return from a store?")
+    finally:
+        generate.items_of = real
+    assert said and "2" in said, said
+    head = "\n".join(seen["block"].splitlines()[:4])
+    assert "return some boots" in head and "dry cleaner" in head, (
+        "the asker's events are not seated first:\n%s" % head)
+
+
 @test("W97 a refusal in chat register is not an assertion")
 def w97():
     """Fifty-three turns of the first full benchmark run wore a stamp
