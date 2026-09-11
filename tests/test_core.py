@@ -6104,6 +6104,39 @@ def w105():
         == {"#docx:Alpha.docx"}
 
 
+@test("W111 a follow-up follows the LAST answer, not the whole conversation")
+def w111():
+    """Traced across eight turns of a live consultation: the recap grew
+    — three courses, then five, then seven — because every assertive
+    turn adds to `#said` and the reading took all of it. "Which ones?"
+    then answers with everything ever mentioned, and "the first one"
+    points at a list nobody is looking at. A follow-up follows the LAST
+    answer.
+
+    The lines stay in the store (they are evidence, and an older
+    answer may still be retrieved on its words); what is windowed is
+    the CONVERSATIONAL reading — recap and the carried scope read the
+    sentences the previous turn spoke. A turn that asserted nothing
+    adds nothing and leaves the window where it was, which is why
+    "which ones?" after a refusal still answers about the last real
+    answer."""
+    from lmm.session import Session
+    s = Session(None)
+    for name in ("Alpha Sales", "Beta Sales", "Gamma Leadership"):
+        s.learn_text("EĞİTİM SÜRESİ: 2 days.", source="#docx:%s.docx" % name,
+                     deep=False)
+    s._remember_said("I recommend Alpha Sales.")
+    assert [n for _s, n in s._said_names()] == ["Alpha Sales"], s._said_names()
+    s._remember_said("Now I recommend Beta Sales and Gamma Leadership.")
+    names = sorted(n for _s, n in s._said_names())
+    assert names == ["Beta Sales", "Gamma Leadership"], names
+    assert "#docx:Alpha Sales.docx" not in s._carried_scope(), \
+        "the scope kept a document two answers old"
+    # every line is still in the store, and still findable on its words
+    assert any("Alpha Sales" in text for text, src in s.evidence.sentences
+               if src == s.SAID)
+
+
 @test("W110 the route records every organ that spoke, including the wager")
 def w110():
     """The audit tool, found wanting in the middle of an audit. A live
