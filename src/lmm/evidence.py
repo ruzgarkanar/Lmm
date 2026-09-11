@@ -1229,7 +1229,7 @@ class SentenceStore:
             called = {src for src in called if _covered(src) >= best - 1e-9}
         return called
 
-    def find(self, query, most=4, floor_share=0.5):
+    def find(self, query, most=4, floor_share=0.5, scope=None):
         """Sentences whose content-words intersect the query the MOST.
         Prefix-tolerant (inflection: "doluluğu"~"doluluk"). Score = number of
         intersecting words; on a tie the short sentence wins (denser evidence)."""
@@ -1336,7 +1336,11 @@ class SentenceStore:
         if not scores:
             self.last_census = []
             self.last_named = set()
-            return []
+            # ...unless the CONVERSATION handed this turn its documents
+            # (W109): "how long is the first one?" reaches no line by
+            # word overlap at all, which is exactly the turn a scope
+            # exists for. Nothing outside the scope can enter.
+            return self._scoped_only(qwords, scope, most) if scope else []
         # THE CENSUS RIDES ALONG. Scoring has already touched every sentence
         # this question reaches; grouping those hits by source costs one pass
         # and answers a question retrieval cannot: not "what is the best
@@ -1346,6 +1350,7 @@ class SentenceStore:
         # what lets a conversational turn say "this appears in eight
         # programmes" instead of naming whichever single one won the seats.
         found = self._seats(qwords, scores, named, most, base=base,
+                            scope=scope,
                             floor_share=floor_share,
                             named_sources=named_sources)
         # THE CENSUS COUNTS THE TOPIC, NOT THE QUESTION — and the topic is
@@ -1398,6 +1403,17 @@ class SentenceStore:
                                       key=lambda kv: (-kv[1], kv[0]))
         else:
             self.last_census = []
+        # A SCOPE ANSWERS EVEN WHEN THE WORDS DO NOT REACH IT (W109).
+        # "How long is the first one?" shares no word with "EĞİTİM
+        # SÜRESİ: 2 Tam Gün", so word overlap seats nothing at all and
+        # a scope that only FILTERS filters an empty list. When the
+        # conversation has handed this turn its documents, their lines
+        # are eligible on scope alone — best word overlap first, which
+        # is zero for all of them and therefore the document's own
+        # order. Nothing outside the scope enters; with no scope this
+        # branch does not exist.
+        if scope and not found:
+            return self._scoped_only(qwords, scope, most)
         return found
 
 
@@ -1552,8 +1568,29 @@ class SentenceStore:
                     sid, weight) * (CHANNEL if sid in keyed else 1)
         return scores, named
 
+    def _scoped_only(self, qwords, scope, most):
+        """The scoped sources' own lines, when word overlap seats none.
+
+        A follow-up names nothing a search can hold, so the ordinary
+        channels score nothing and a scope that only FILTERS filters an
+        empty list. Here the scope is the ONLY admission: best overlap
+        first (usually zero for all, and then the document's own
+        order), nothing from outside it, and no scope means no branch.
+        """
+        pool = []
+        for src in scope or ():
+            pool += list(self.by_source.get(src, ()))
+        if not pool:
+            return []
+        qset = set(qwords)
+        pool.sort(key=lambda sid: (
+            -len(qset & set(_words(self.sentences[sid][0]))), sid))
+        seated = pool[:most]
+        self.last_sources = [self.sentences[sid][1] for sid in seated]
+        return [self.sentences[sid][0] for sid in seated]
+
     def _seats(self, qwords, scores, named, most, base=None,
-               floor_share=0.5, named_sources=()):
+               floor_share=0.5, named_sources=(), scope=None):
         """The ranking, the noise floor and the seats — unchanged, and moved
         here only so that `find` can score two channels before ranking once."""
         # on a tie the LONG one wins: a short table crumb ("Orta · 3") must not
@@ -1747,6 +1784,17 @@ class SentenceStore:
         # seat they won, and the memory's own words are appended after
         # them — at most two, below everything, never in place of a
         # document.
+        # THE CONVERSATION'S SCOPE, WHEN THE QUESTION CARRIES NONE
+        # (W109): a follow-up ("how long is the first one?") names no
+        # document a search can hold, and the turn before named some.
+        # Those sources are handed in as `scope`, and this reading
+        # honours them the way it honours a named document — seats go to
+        # them, and to nothing else, unless they hold nothing at all.
+        if scope:
+            scoped = [sid for sid in keep
+                      if self.sentences[sid][1] in scope]
+            if scoped:
+                keep = scoped
         keep = [sid for sid in keep
                 if self.sentences[sid][1] != SAID_SOURCE]
         spoken = [sid for sid, _score in ranked

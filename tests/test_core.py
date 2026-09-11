@@ -6104,6 +6104,43 @@ def w105():
         == {"#docx:Alpha.docx"}
 
 
+@test("W109 a follow-up inherits the conversation's scope")
+def w109():
+    """The confident wrong answer this closes, read off a live
+    consultation. The memory recommended three sales programmes; asked
+    "how long is the FIRST one?", it answered about a leadership course
+    it had never mentioned — correctly stamped, entirely wrong. The
+    chain had retrieved afresh from every document, because "ilki" (the
+    first one) names nothing a lexical search can hold, and nothing
+    carried the conversation's subject into retrieval.
+
+    The scope rule already exists for questions that NAME a document;
+    a follow-up inherits it instead. When this turn names no source and
+    the turn before named some — the same `#said` names the recap
+    reads — those become this turn's scope, and every gate downstream
+    treats them exactly as though the question had named them. A turn
+    that names its own source keeps it; a conversation that has said
+    nothing carries nothing."""
+    from lmm.session import Session
+    s = Session(None)
+    for name, days in (("Alpha Sales", "two"), ("Beta Sales", "three"),
+                       ("Gamma Leadership", "four")):
+        s.learn_text("EĞİTİM SÜRESİ: %s days." % days,
+                     source="#docx:%s.docx" % name, deep=False)
+    assert s._carried_scope() == set(), "an empty conversation carried scope"
+    s._remember_said("I recommend Alpha Sales and Beta Sales for your team.")
+    carried = s._carried_scope()
+    assert carried == {"#docx:Alpha Sales.docx", "#docx:Beta Sales.docx"}, \
+        carried
+    lines = s.evidence.find("how long is the first one", most=4,
+                            floor_share=0.0, scope=carried)
+    assert lines, lines
+    joined = " ".join(lines)
+    assert "two days" in joined or "three days" in joined, joined
+    assert "four days" not in joined, (
+        "a document nobody mentioned answered the follow-up: %r" % lines)
+
+
 @test("W108 a question about the answer is answered from the answer")
 def w108():
     """The empty list, twice over. Asked "which ones, briefly?" after a
