@@ -1323,6 +1323,37 @@ class Session:
                 kept += 1
         return kept
 
+    def _said_names(self):
+        """The store's own source names that appear in what the memory
+        has said this conversation — longest first, so a name is not
+        swallowed by a shorter one it contains."""
+        spoken = [text for text, src in self.evidence.sentences
+                  if src == self.SAID]
+        if not spoken:
+            return []
+        folded = " ".join(evidence._words(" ".join(spoken)))
+        pairs = sorted(
+            ((src, evidence._source_name(src))
+             for src in self.evidence.by_source if src != self.SAID),
+            key=lambda pair: -len(pair[1]))
+        found, taken = [], ""
+        for src, name in pairs:
+            key = " ".join(evidence._words(name))
+            if key and key in folded and key not in taken:
+                found.append((src, name))
+                taken += " " + key
+        return found
+
+    def _carried_scope(self):
+        """The documents this turn inherits from the conversation (W109).
+
+        The scope rule exists for questions that NAME a document; a
+        follow-up inherits it instead, because "the first one" names
+        nothing a lexical search can hold. Empty when the conversation
+        has said nothing — and the caller uses it only when the
+        question named no source of its own."""
+        return {src for src, _name in self._said_names()}
+
     def _recap_answer(self, question):
         """A question about the answer is answered from the answer (W108).
 
@@ -1344,18 +1375,7 @@ class Session:
                   if src == self.SAID]
         if not spoken:
             return None
-        blob = " ".join(spoken)
-        folded = " ".join(evidence._words(blob))
-        names = sorted(
-            {evidence._source_name(src) for src in self.evidence.by_source
-             if src != self.SAID},
-            key=lambda n: -len(n))
-        found, taken = [], ""
-        for name in names:
-            key = " ".join(evidence._words(name))
-            if key and key in folded and key not in taken:
-                found.append(name)
-                taken += " " + key
+        found = [name for _src, name in self._said_names()]
         if not found:
             return None
         self._step("recap")
@@ -3115,6 +3135,25 @@ class Session:
             proof = self.evidence.find(
                 f"{anchor_label or ''} {question_query} {consult}".strip(),
                 most=seats)
+        # THE CONVERSATION'S SCOPE, WHEN THIS TURN NAMED NOTHING (W109).
+        # Measured live: after three recommended programmes, "how long
+        # is the FIRST one?" was answered about a leadership course the
+        # memory had never mentioned — correctly stamped, entirely
+        # wrong, because "the first one" names nothing a lexical search
+        # can hold and the chain retrieved afresh from every document.
+        # The scope rule already exists for questions that NAME a
+        # source; a follow-up inherits it from what the memory just
+        # said. A question that names its own source keeps it, and a
+        # conversation that has said nothing carries nothing.
+        if self._no_teach and self._conversational \
+                and not self.evidence.named_in(question):
+            carried = self._carried_scope()
+            if carried:
+                scoped = self.evidence.find(
+                    f"{question_query} {consult}".strip(),
+                    most=seats, scope=carried)
+                if scoped:
+                    proof = scoped
         # which document each seat came from, aligned with `proof` — read off
         # the store's `last_sources`, which `find` leaves beside its result
         proof_origins = list(self.evidence.last_sources[:len(proof)])
