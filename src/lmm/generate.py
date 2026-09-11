@@ -565,6 +565,8 @@ PLAN_OPS = (
     "lines: PHRASE -> every dated line carrying the phrase\n"
     "span: A, B -> days between two anchors\n"
     "before: A, B -> whether anchor A predates anchor B\n"
+    "before_lines: L, A -> only the lines dated before anchor A\n"
+    "after_lines: L, A -> only the lines dated after anchor A\n"
     "count: L -> how many lines\n"
     "month_tally: L -> the month with the most lines")
 
@@ -597,6 +599,12 @@ def plan_of(question):
               "a = anchor: the recital\n"
               "b = anchor: the gala\n"
               "out = span: a, b\n"
+              "Example:\n"
+              "Q: how many rehearsals did we hold before the premiere?\n"
+              "l = lines: rehearsals\n"
+              "a = anchor: the premiere\n"
+              "f = before_lines: l, a\n"
+              "out = count: f\n"
               "Example:\n"
               "Q: when did I last water the orchids?\n"
               "out = latest: water the orchids\n"
