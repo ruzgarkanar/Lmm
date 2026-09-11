@@ -503,6 +503,9 @@ def turn_shape(message):
               "time\n"
               "when - asks WHEN something happened, or the first/last "
               "time it did\n"
+              "recap - asks about what YOU (the assistant) just said or "
+              "recommended: which ones, how many, their names, a shorter "
+              "version of your last answer\n"
               "none - anything else (facts, durations, greetings, "
               "context, thanks, brakes)\n"
               "give me your best three-hour plan -> material\n"
@@ -519,6 +522,11 @@ def turn_shape(message):
               "which did I attend first, the workshop or the webinar -> order\n"
               "hangisine \u00f6nce kat\u0131ld\u0131m -> order\n"
               "when did I last go hiking -> when\n"
+              "which ones exactly, briefly -> recap\n"
+              "hangileri yani k\u0131saca -> recap\n"
+              "ka\u00e7 tane \u00f6nerdin -> recap\n"
+              "what were their names again -> recap\n"
+              "welche hast du empfohlen -> recap\n"
               "en son ne zaman y\u00fcr\u00fcy\u00fc\u015fe \u00e7\u0131kt\u0131m -> when\n"
               "wann war ich zuletzt wandern -> when\n"
               "what is the duration of the Alpha module -> none\n"
@@ -530,7 +538,7 @@ def turn_shape(message):
     out = runtime.generate(message, system=system, max_tokens=4,
                            temperature=0.0, small=True)
     word = (out or "").strip().lower()
-    for shape in ("material", "count", "order", "sum", "when"):
+    for shape in ("material", "count", "order", "sum", "when", "recap"):
         if shape in word:
             return shape
     return "none"
