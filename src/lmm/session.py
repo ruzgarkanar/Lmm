@@ -1379,6 +1379,41 @@ class Session:
                 self._mark = ""
                 return "%d: %s." % (len(matched),
                                     ", ".join(sorted(matched)))
+        # DISTILLED EVENTS ARE COUNTED FROM THE GRAPH FIRST (W99).
+        # Chat is trickle data: events melt into talk, and every
+        # retrieval lever was measured against that wall — cap,
+        # expansion, speaker — none moved it. When the asker's turns
+        # have been distilled (learn(deep=True) per turn, the door that
+        # always existed), the facts are already in the graph, already
+        # gated at write, each carrying its dated source — and a count
+        # of events is a walk over THEM, not a re-finding in prose. A
+        # record qualifies when its dated source marks it as a told
+        # event (digits in the stamp), it is nobody's inference, and
+        # its own words meet the question's. Two or more count; the
+        # prose modes stay behind, untouched, for everything else.
+        qw = set(evidence._words(question))
+        told = {}
+        for record in self.memory.records.values():
+            src = str(record.source or "")
+            if len(re.findall(r"\d+", src)) < 3:
+                continue                # not a dated telling
+            if "#inference" in src:
+                continue
+            subject = link.label_of(self.memory, record.subject) or ""
+            value = link.label_of(self.memory, record.value) or ""
+            words = set(evidence._words(subject + " " + value))
+            if not any(any(inflect.same_stem(q, w) for w in words)
+                       for q in qw):
+                continue
+            told.setdefault(subject or value, src)
+        if len(told) >= 2:
+            self._step("count")
+            self.last_abstained = False
+            self.last_from_graph = True
+            self._mark = next(iter(told.values()), "")
+            names = sorted(told)
+            return "%d: %s." % (len(names), ", ".join(names))
+
         lines = self.evidence.find(question, most=60, floor_share=0.0)
         # A COUNT'S GATHERING GETS THE SECOND ASK TOO. Multi-session
         # events are told in whatever words each day brought — the
