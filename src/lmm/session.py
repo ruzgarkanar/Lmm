@@ -516,6 +516,7 @@ class Session:
                 again = self._answer(message, self.last_subject or "",
                                      widen=words)
                 if again:
+                    self._step("widened")
                     spoken = self._strip_marks(again)
                     if spoken and self._asserted_a_fact(again):
                         said = again
@@ -710,12 +711,24 @@ class Session:
             except Exception:                           # noqa: BLE001
                 voiced = ""
             if voiced:
+                # THE WAGER SPEAKS, AND SAYS SO (W110). A live audit
+                # found a recommendation answered with an EMPTY route:
+                # the chain had abstained and this reply — written in
+                # parallel, gated by the chat reading — spoke without
+                # leaving a trace. A route that records only the paths
+                # somebody instrumented is not an audit trail.
+                self._step("wager")
                 said = voiced
         # A TURN THAT SAYS NOTHING CARRIES NO STAMP. Measured: gate-trimmed
         # candidates could leave an empty text with the provenance mark
         # still set, and the caller printed a bare citation — a stamp on
         # silence. Silence is a refusal, and is flagged as one.
         if not (said or "").strip():
+            # SILENCE IS A REFUSAL, AND IT SIGNS ITS NAME (W110). A turn
+            # whose every path came back empty ends here, and until this
+            # it ended here without a trace — the audit read "chain" and
+            # stopped, as though the chain had spoken.
+            self._step("refuse")
             self.last_abstained = True
             self._mark = ""
             said = FALLBACK_DONT_KNOW

@@ -1349,6 +1349,19 @@ class SentenceStore:
         # it to the answer path as one line of store-attested fact — which is
         # what lets a conversational turn say "this appears in eight
         # programmes" instead of naming whichever single one won the seats.
+        # A SCOPE IS A SMALLER WORLD, NOT A FILTER ON THE BIG ONE (W109).
+        # Filtering the global winners was measured to seat the wrong
+        # lines: on a store of a hundred documents the winners all came
+        # from outside the scope, and what survived the filter was
+        # whatever the scoped documents happened to have won — their
+        # outcome lists, not their duration rows. Scoring is confined
+        # first, so the ranking happens INSIDE the conversation's
+        # documents and the best line there wins.
+        if scope:
+            scores = {sid: sc for sid, sc in scores.items()
+                      if self.sentences[sid][1] in scope}
+            if not scores:
+                return self._scoped_only(qwords, scope, most)
         found = self._seats(qwords, scores, named, most, base=base,
                             scope=scope,
                             floor_share=floor_share,
@@ -1793,8 +1806,7 @@ class SentenceStore:
         if scope:
             scoped = [sid for sid in keep
                       if self.sentences[sid][1] in scope]
-            if scoped:
-                keep = scoped
+            keep = scoped
         keep = [sid for sid in keep
                 if self.sentences[sid][1] != SAID_SOURCE]
         spoken = [sid for sid, _score in ranked

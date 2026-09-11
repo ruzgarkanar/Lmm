@@ -6104,6 +6104,69 @@ def w105():
         == {"#docx:Alpha.docx"}
 
 
+@test("W110 the route records every organ that spoke, including the wager")
+def w110():
+    """The audit tool, found wanting in the middle of an audit. A live
+    consultation answered a recommendation with an empty route — no
+    organ claimed it — and the answer had come from the WAGERED CHAT,
+    the speculative reply that speaks when the answering chain
+    abstains. Three paths could speak without leaving a trace: that
+    wager, the second-ask retry, and the delivery rescue. A route that
+    records only the paths somebody remembered to instrument is not an
+    audit trail; it is a story with the inconvenient parts missing.
+
+    Every path that can put words in front of a reader now leaves its
+    name."""
+    from lmm import extract, generate
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The hall seats 90 people.", source="#docx:Hall.docx",
+                 deep=False)
+    real = (extract.extract, generate.chat, generate.turn_shape,
+            generate.refusal)
+    extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
+    generate.turn_shape = lambda m: "none"
+    generate.chat = (lambda message, identity_block="", warmth=0.7,
+                     history=None, persona="", max_tokens=None:
+                     "Happy to help with the hall.")
+    generate.refusal = lambda message, persona="", **kw: "I do not know."
+    s._answer = lambda message, subject="", **kw: ""      # the chain says nothing
+    try:
+        said = s.respond("tell me about the hall", teach=False)
+    finally:
+        (extract.extract, generate.chat, generate.turn_shape,
+         generate.refusal) = real
+    assert said, said
+    assert s.last_route, "a turn spoke and left no trace"
+    # the chain was entered and said nothing, so the turn refused — and
+    # the refusal is an organ like any other
+    assert "refuse" in s.last_route, s.last_route
+    # ...and when the wager speaks instead, it says so
+    s2 = Session(None)
+    s2.learn_text("The hall seats 90 people.", source="#docx:Hall.docx",
+                  deep=False)
+    # the chain refuses in words and leaves a wager outstanding, which
+    # is the shape of the live turn: `respond` clears the wager on entry,
+    # so it can only be seeded from inside the turn
+    def chain_refuses(message, fluent=False, teach=True):
+        s2._step("chain")
+        s2._spec_chat = object()
+        return "I do not know."
+    s2._respond = chain_refuses
+    s2._chat = lambda message, spec=None, queue=None: "Happy to help."
+    extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
+    generate.turn_shape = lambda m: "none"
+    generate.refusal = lambda message, persona="", **kw: "I do not know."
+    try:
+        voiced = s2.respond("tell me about the hall", teach=False)
+    finally:
+        (extract.extract, generate.chat, generate.turn_shape,
+         generate.refusal) = real
+    assert "Happy to help" in voiced, voiced
+    assert "wager" in s2.last_route, (
+        "the wager spoke and left no trace: %r" % s2.last_route)
+
+
 @test("W109 a follow-up inherits the conversation's scope")
 def w109():
     """The confident wrong answer this closes, read off a live
