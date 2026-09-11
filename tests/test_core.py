@@ -6104,6 +6104,81 @@ def w105():
         == {"#docx:Alpha.docx"}
 
 
+@test("W113 the second view of a claim is bought only if the first declines")
+def w113():
+    """Metered after W112: the read-back became the biggest line on a
+    refusal — ten calls, twenty thousand prompt tokens — because every
+    candidate is judged against TWO views (the lines it draws on, then
+    everything retrieved) side by side. Parallel was chosen for
+    latency, and it buys the second view even when the first confirms,
+    which is the common case on an answering turn and pure waste on
+    both.
+
+    The views are asked in order now: the narrow one first, because it
+    is the one measured to be right more often, and the wide one only
+    when the narrow declines. The verdict is unchanged — ANY confirming
+    view confirms — and the only thing lost is the parallelism on turns
+    where the narrow view says no, which are the turns already heading
+    for a refusal."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The hall seats 90 people.", source="#docx:Hall.docx",
+                 deep=False)
+    # a claim the proof does NOT carry verbatim — the verbatim shortcut
+    # answers without any jury at all, and this test is about the jury
+    asked = []
+    real = generate.supported
+    generate.supported = lambda answer, view: (asked.append(view) or True)
+    claim = "The hall can seat ninety guests comfortably."
+    proof = ["The hall seats 90 people.", "The foyer holds 30."]
+    block = "[Hall] The hall seats 90 people. The foyer holds 30."
+    try:
+        ok = s._read_back(claim, proof, block, question="how many seats?")
+    finally:
+        generate.supported = real
+    assert ok is True, ok
+    assert len(asked) == 1, (
+        "the wide view was bought though the narrow one confirmed: %r" % asked)
+    # ...and a declining narrow view still buys the wide one
+    asked.clear()
+    generate.supported = (lambda answer, view:
+                          asked.append(view) or len(asked) > 1)
+    try:
+        ok2 = s._read_back(claim, proof, block, question="how many seats?")
+    finally:
+        generate.supported = real
+    assert ok2 is True and len(asked) == 2, (ok2, asked)
+
+
+@test("W112 the rescue pass buys one candidate, not three")
+def w112():
+    """Metered on a live consultation: a REFUSAL cost 23 model calls
+    and 53,000 prompt tokens — twice what a good answer cost — because
+    the chain runs in full TWICE on a failing turn (its own pass, then
+    the widened second ask) and a chat wager rides along. The first
+    pass has already established that the evidence does not answer;
+    the second is a long shot, and paying it three candidates and three
+    read-backs is the imbalance.
+
+    The rescue keeps its chance and loses its escort: the widened pass
+    is capped at ONE candidate — the widest, which is the reading a
+    long shot wants — while the first pass keeps all three, because
+    W88 measured what cutting those costs. Nothing about the gates
+    moves: the one candidate is judged exactly as three were."""
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The hall seats 90 people.", source="#docx:Hall.docx",
+                 deep=False)
+    proof = ["a", "b", "c", "d"]
+    assert len(s._subsets([], proof, "")) > 1, "the ordinary pass lost its ladder"
+    s._rescue_pass = True
+    try:
+        assert len(s._subsets([], proof, "")) == 1, "the rescue pass still escorts"
+    finally:
+        s._rescue_pass = False
+
+
 @test("W111 a follow-up follows the LAST answer, not the whole conversation")
 def w111():
     """Traced across eight turns of a live consultation: the recap grew

@@ -513,8 +513,12 @@ class Session:
             self._widened = True
             words = self._store_words(message)
             if words:
-                again = self._answer(message, self.last_subject or "",
-                                     widen=words)
+                self._rescue_pass = True
+                try:
+                    again = self._answer(message, self.last_subject or "",
+                                         widen=words)
+                finally:
+                    self._rescue_pass = False
                 if again:
                     self._step("widened")
                     spoken = self._strip_marks(again)
@@ -3817,7 +3821,18 @@ class Session:
                                             records[:len(records) // 2])
                 if half and half not in blocks:
                     blocks.append(half)
-        return [b for b in blocks if b][:self.CANDIDATES]
+        kept = [b for b in blocks if b]
+        # THE RESCUE PASS BUYS ONE CANDIDATE, NOT THREE (W112). Metered
+        # live: a refusal cost 23 model calls and 53,000 prompt tokens,
+        # twice what a good answer cost, because a failing turn runs the
+        # chain in full TWICE — its own pass, then the widened second
+        # ask. The first pass has already established that the evidence
+        # does not answer; the second is a long shot, and the widest
+        # reading is the one a long shot wants. The first pass keeps its
+        # ladder, because W88 measured what cutting it costs.
+        if getattr(self, "_rescue_pass", False):
+            return kept[:1]
+        return kept[:self.CANDIDATES]
 
     def _select(self, question, records, proof, fact_block, block):
         """Generate one answer per evidence subset, choose by GATE SCORE.
@@ -4660,13 +4675,18 @@ class Session:
             for view in (self._focus_view(raw, proof), block):
                 if view and view not in views:
                     views.append(view)
-        # the two views are independent readings of one claim — they go to
-        # the engine side by side where the backend allows (the occasional
-        # cost: one small extra call when the first view would have
-        # sufficed; the gain: the second view no longer queues behind a
-        # refusal). Verdict unchanged: ANY confirming view confirms.
-        return any(runtime.parallel_map(
-            lambda view: generate.supported(raw, view), views))
+        # THE SECOND VIEW IS BOUGHT ONLY IF THE FIRST DECLINES (W113).
+        # Side by side was chosen for latency, and metered live it was
+        # the biggest line on a refusal — ten calls and twenty thousand
+        # prompt tokens — because the wide view is paid even when the
+        # narrow one confirms, which is the common case on an answering
+        # turn and waste on both. The narrow view is measured to be
+        # right more often, so it goes first; the wide one follows only
+        # on a no. Verdict unchanged: ANY confirming view confirms.
+        for view in views:
+            if generate.supported(raw, view):
+                return True
+        return False
 
     def _hedge(self, answer, record, message):
         """RECORDS the provenance mark for a VERIFIED answer resting on a
