@@ -522,6 +522,60 @@ def turn_shape(message):
     return "none"
 
 
+PLAN_OPS = (
+    "anchor: PHRASE -> the earliest dated line carrying the phrase\n"
+    "latest: PHRASE -> the latest dated line carrying the phrase\n"
+    "lines: PHRASE -> every dated line carrying the phrase\n"
+    "span: A, B -> days between two anchors\n"
+    "before: A, B -> whether anchor A predates anchor B\n"
+    "count: L -> how many lines\n"
+    "month_tally: L -> the month with the most lines")
+
+
+def plan_of(question):
+    """A PLAN over the verified primitives — the composer's one call.
+
+    The end of the hand-written organ queue (W94): instead of one organ
+    per question shape, the engine proposes how to COMPOSE the shapes
+    it sees from the store's own primitives. Each step is
+    `name = op: args`; the interpreter executes only known operations
+    on store-anchored phrases, and the spoken sentence is built from
+    the final step's typed value by our template — the engine
+    contributes operation names and phrases, never an output word. A
+    plan that misreads the question costs a retrieval, never a claim.
+    """
+    system = ("Decompose the question into steps over ONLY these "
+              "operations:\n" + PLAN_OPS + "\n"
+              "One step per line, exactly `name = op: arg` (args comma-"
+              "separated; PHRASE args copied from the question's own "
+              "words; the final step must be named out). If the "
+              "question does not fit these operations, output NONE.\n"
+              "Example:\n"
+              "Q: did I adopt the cat before I moved house?\n"
+              "a = anchor: adopt the cat\n"
+              "b = anchor: moved house\n"
+              "out = before: a, b\n"
+              "Example:\n"
+              "Q: how many weeks passed between the recital and the gala?\n"
+              "a = anchor: the recital\n"
+              "b = anchor: the gala\n"
+              "out = span: a, b")
+    raw = runtime.generate("Q: %s" % question, system=system,
+                           max_tokens=120, temperature=0.0)
+    raw = (raw or "").strip()
+    if not raw or raw.upper().startswith("NONE"):
+        return []
+    steps = []
+    for line in raw.splitlines():
+        if "=" not in line:
+            continue
+        name, _eq, rest = line.partition("=")
+        op, _colon, args = rest.partition(":")
+        parts = [a.strip() for a in args.split(",") if a.strip()]
+        steps.append(tuple([name.strip(), op.strip()] + parts))
+    return steps[:6]
+
+
 def things_of(question):
     """The two things a comparison/order question weighs — phrases, not
     an answer. The ordering organ's one call (`Session._order_answer`):

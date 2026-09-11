@@ -6056,6 +6056,66 @@ def w72():
 
 
 
+@test("W94 a plan is a proposal; the primitives are the law")
+def w94():
+    """The end of the hand-written organ queue. Every organ so far is
+    one question SHAPE wired by hand to deterministic readings — and
+    shapes are endless. The composer closes the queue: the engine reads
+    the question and proposes a PLAN over the verified primitives
+    (anchor a phrase to its dated line, span two dates, order them,
+    tally by month...); the interpreter executes it deterministically;
+    the sentence is built from the final step's TYPED value by our own
+    template. The engine contributes operation names and phrases the
+    store must anchor — never an output word. An unknown operation, an
+    unanchorable phrase, a dangling reference: the plan dies and no
+    claim is born.
+
+    The test asks a shape NO organ covers — "did A happen before B?",
+    a yes/no over two anchored dates — and a tally shape — "in which
+    month did I go hiking most?" — and a poisoned plan whose invented
+    operation must kill it silently."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.evidence.add("User: dentist visit went fine today.", "chat 2023/03/14")
+    s.evidence.add("User: first day at the new job!", "chat 2023/05/02")
+    for d in ("2023/07/01", "2023/07/15", "2023/07/29", "2023/08/05"):
+        s.evidence.add("User: went hiking on the ridge again.", "chat %s" % d
+                       ) if d == "2023/07/01" else s.evidence.add(
+                       "User: hiking trip, this time %s." % d, "chat %s" % d)
+    real = generate.plan_of
+    generate.plan_of = (lambda q: [
+        ("a", "anchor", "dentist visit"),
+        ("b", "anchor", "the new job"),
+        ("out", "before", "a", "b")])
+    try:
+        said = s._plan_answer("did I visit the dentist before starting "
+                              "the new job?")
+    finally:
+        generate.plan_of = real
+    assert said is not None, "the composer did not speak"
+    assert "yes" in said.lower(), said
+    assert "2023/03/14" in said and "2023/05/02" in said, said
+    # a tally shape, no organ anywhere near it
+    generate.plan_of = (lambda q: [
+        ("l", "lines", "hiking"),
+        ("out", "month_tally", "l")])
+    try:
+        said2 = s._plan_answer("in which month did I go hiking the most?")
+    finally:
+        generate.plan_of = real
+    assert said2 is not None, "the tally plan did not speak"
+    assert "2023/07" in said2 and "3" in said2, said2
+    # a poisoned plan: an operation that does not exist kills it silently
+    generate.plan_of = (lambda q: [("x", "summon_demon", "the answer"),
+                                   ("out", "before", "x", "x")])
+    try:
+        none = s._plan_answer("did the ritual work?")
+    finally:
+        generate.plan_of = real
+    assert none is None, none
+
+
 @test("W93 when the organs are silent, a count is a refusal, not a guess")
 def w93():
     """The measurement that forced this: fifty-five span-shaped
