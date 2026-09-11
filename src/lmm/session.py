@@ -728,6 +728,16 @@ class Session:
             # system's, and a voice that reads it learns to imitate it
             self.history.append({"role": "assistant", "content": bare or ""})
             self.history = self.history[-12:]     # last ~6 turns (sliding window)
+            # ...AND WHAT WAS SAID BECOMES EVIDENCE FOR WHAT IS ASKED
+            # NEXT (W104). A conversational turn that asserted something
+            # files its own words under `#said`, so "what is it called?"
+            # and "how many did you recommend?" have somewhere to be
+            # answered from. An abstention files nothing — there is
+            # nothing to remember about a shrug — and the documents
+            # always outrank this (W105).
+            if (self._no_teach and self._conversational
+                    and not self.last_abstained):
+                self._remember_said(bare or "")
         return said
 
     def _asserted_a_fact(self, said):
@@ -1260,6 +1270,40 @@ class Session:
             self.last_route.append(organ)
         except AttributeError:
             self.last_route = [organ]
+
+    # WHAT THE MEMORY SAID IS EVIDENCE FOR WHAT COMES NEXT (W104).
+    # The source it is filed under — never a document name, so a
+    # citation can never confuse the two.
+    SAID = "#said"
+
+    def _remember_said(self, text):
+        """Keep this turn's own words as evidence for the next question.
+
+        Read off a live consultation: the memory recommended three
+        courses, and "what is it called?" was REFUSED while "how many
+        did you recommend?" re-ran the catalogue — both answers two
+        lines above, in its own words, in a place the answering chain
+        never looks. A RAG pipeline looks cleverer here for no cleverer
+        reason: it posts the conversation into the prompt.
+
+        The memory's own speech is stored like anything else and gated
+        like anything else; what keeps it in its place is the source.
+        It is never a document, so `named_in`, the census and every
+        source-scoped reading pass it by, and a question about the
+        world is answered from the world."""
+        text = (text or "").strip()
+        if not text or len(text) < 12:
+            return 0
+        # the provenance mark the turn appends is the system's, not the
+        # sentence's — it must not come back as though a document wrote it
+        text = re.sub(r"\s*\(~[^)]*\)\s*$", "", text).strip()
+        kept = 0
+        for line in re.split(r"(?<=[.!?])\s+", text):
+            line = line.strip()
+            if len(line) >= 12:
+                self.evidence.add(line, self.SAID)
+                kept += 1
+        return kept
 
     def _without_gaps(self, draft):
         """Drop what the gap marker marks — the rows, and the heading

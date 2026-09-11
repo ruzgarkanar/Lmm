@@ -6070,6 +6070,76 @@ def w72():
 
 
 
+@test("W105 the memory's own speech never outranks a document")
+def w105():
+    """The danger the conversation-as-evidence reading brings, closed
+    at the same time it opens: a memory that quotes itself can drift —
+    say something once, cite it forever, and the citation looks exactly
+    like a document's. Two structural rules keep it honest. The turn's
+    words are filed under `#said`, which is not a document name, so
+    every source-scoped reading (`named_in`, the census, the scope
+    rule) passes them by. And they are seated LAST: when a question
+    reaches any document line at all, the documents answer; the
+    memory's own speech sits below them and only speaks when nothing
+    else does."""
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("The Alpha Course runs for two days.",
+                 source="#docx:Alpha.docx", deep=False)
+    s._remember_said("The Alpha Course runs for five days.")   # drifted
+    lines = s.evidence.find("how long does the Alpha Course run", most=4,
+                            floor_share=0.0)
+    assert lines, lines
+    assert "two days" in lines[0], (
+        "the memory's own sentence outranked the document: %r" % lines)
+    # the census counts documents, and the memory's own speech is none
+    assert all("#said" not in src for src, _n in s.evidence.where("Alpha"))
+    assert s.evidence.named_in("what does #said say about Alpha") \
+        == {"#docx:Alpha.docx"}
+
+
+@test("W104 what the memory just said is evidence for the next question")
+def w104():
+    """Read off a live consultation, three failures with one root. The
+    memory recommended three courses; asked "what is it called?" it
+    REFUSED, and asked "how many did you recommend?" it dumped the
+    catalogue again. Both answers were two lines above, in its own
+    words — and the answering chain never looks there. A RAG pipeline
+    seems cleverer here for no cleverer reason: it posts the whole
+    conversation into the prompt, so the model can read what it just
+    said. Our conversation was not in our memory.
+
+    So the turn's own words become evidence for the turn after, under
+    the same law as everything else: they are STORED, sourced
+    ("#said"), gated on the way out like any line, and — being the
+    memory's own speech rather than a document — they are seated only
+    when the question finds nothing in the documents, never over them.
+    A question about the conversation is answered from the
+    conversation; a question about the world is answered from the
+    world."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("ALPHA COURSE: two days, sixteen seats.",
+                 source="#docx:Alpha.docx", deep=False)
+    # the memory speaks — and remembers having spoken
+    s._remember_said("I recommend the Alpha Course and the Beta Course "
+                     "for your sales team.")
+    said_lines = [text for text, src in s.evidence.sentences
+                  if src == "#said"]
+    assert said_lines, "the turn's own words were not kept"
+    # a follow-up about the conversation reaches them
+    found = s.evidence.find("which courses did you recommend", most=4,
+                            floor_share=0.0)
+    assert any("Alpha Course and the Beta Course" in line for line in found), \
+        found
+    # ...and a document question still answers from the document, not
+    # from the memory's own speech
+    doc = s.evidence.find("how long is the Alpha Course", most=2,
+                          floor_share=0.0)
+    assert doc and "two days" in doc[0], doc
+
+
 @test("W103 arithmetic runs on verified dates, or it does not run")
 def w103():
     """The regression a full benchmark run caught, and it is this
