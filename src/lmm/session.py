@@ -572,21 +572,24 @@ class Session:
                     said = planned
             if shape == "count":
                 counted = (self._count_answer(message)
-                           or self._plan_answer(message))
+                           or self._plan_answer(message,
+                                                want=("count", "days")))
                 if counted:
                     said = counted
             elif shape == "order":
                 ordered = (self._order_answer(message)
-                           or self._plan_answer(message))
+                           or self._plan_answer(message,
+                                                want=("bool", "date")))
                 if ordered:
                     said = ordered
             elif shape == "sum":
                 summed = (self._sum_answer(message)
-                          or self._plan_answer(message))
+                          or self._plan_answer(message,
+                                               want=("count", "days")))
                 if summed:
                     said = summed
             elif shape == "when":
-                dated = self._plan_answer(message)
+                dated = self._plan_answer(message, want=("date",))
                 if dated:
                     said = dated
         census_line = getattr(self, "_census_line", "")
@@ -1197,11 +1200,13 @@ class Session:
                     # a shape it measurably cannot hold.
                     if shape == "count":
                         counted = (self._count_answer(message)
-                                   or self._plan_answer(message))
+                                   or self._plan_answer(
+                                       message, want=("count", "days")))
                         return counted if counted else self._refuse(message)
                     if shape == "order":
                         ordered = (self._order_answer(message)
-                                   or self._plan_answer(message))
+                                   or self._plan_answer(
+                                       message, want=("bool", "date")))
                         if ordered:
                             return ordered
                     elif shape == "when":
@@ -1209,12 +1214,13 @@ class Session:
                         # hold; the chain, gambled here, answered the
                         # FIRST seated line's date for a question about
                         # the LAST time — plan first, chain only after
-                        dated = self._plan_answer(message)
+                        dated = self._plan_answer(message, want=("date",))
                         if dated:
                             return dated
                     elif shape == "sum":
                         summed = (self._sum_answer(message)
-                                  or self._plan_answer(message))
+                                  or self._plan_answer(
+                                      message, want=("count", "days")))
                         return summed if summed else self._refuse(message)
                     elif shape == "material" and self._conversational:
                         delivered = self._delivery(message)
@@ -1353,10 +1359,31 @@ class Session:
                 self._mark = ""
                 return "%d: %s." % (len(matched),
                                     ", ".join(sorted(matched)))
-        lines = self.evidence.find(question, most=24, floor_share=0.0)
+        lines = self.evidence.find(question, most=60, floor_share=0.0)
+        # A COUNT'S GATHERING GETS THE SECOND ASK TOO. Multi-session
+        # events are told in whatever words each day brought — the
+        # question says "clothing", the lines say boots and blazer —
+        # and the lexical gather alone left the counter blind to lines
+        # a reader would obviously include. The widening is the second
+        # ask's, unchanged: the engine proposes REWORDINGS, only words
+        # the store itself wrote may search, and everything found still
+        # passes the same verification. One small call, only on count
+        # turns.
+        try:
+            widened = self.evidence.find_again(question, most=60,
+                                               floor_share=0.0)
+        except Exception:                               # noqa: BLE001
+            widened = []
+        seen_lines = set(lines)
+        widened_sources = list(self.evidence.last_sources[:len(widened)])
+        extra = [(ln, src) for ln, src in zip(widened, widened_sources)
+                 if ln not in seen_lines]
+        sources = list(self.evidence.last_sources[:len(lines)])
+        if extra:
+            lines = lines + [ln for ln, _s in extra]
+            sources = sources + [s for _l, s in extra]
         if not lines:
             return None
-        sources = list(self.evidence.last_sources[:len(lines)])
         # each line under its dated stamp: two tellings of one event
         # carry one date, and the engine can see that they are one
         block = "\n".join(
@@ -1493,7 +1520,7 @@ class Session:
                             return (when, src, phrase)
         return fallback
 
-    def _plan_answer(self, question):
+    def _plan_answer(self, question, want=None):
         """A plan is a proposal; the primitives are the law (W94).
 
         The composer: the engine proposes a plan over the verified
@@ -1620,6 +1647,13 @@ class Session:
 
         if out is None:
             return None
+        # THE SEAT SAYS WHICH TYPES IT WILL SPEAK (W94). A count-shaped
+        # turn once received a month tally — correct arithmetic, absurd
+        # answer ("2023/10 (426 lines)" for "how many weddings"). The
+        # plan may propose any composition; the SEAT only voices the
+        # value kinds the question's shape asked for.
+        if want and out[0] not in want:
+            return None
         # THE SENTENCE IS OURS. Typed value -> template; the engine's
         # phrases appear only as the question's own anchored words.
         def _shown(date):
@@ -1665,7 +1699,7 @@ class Session:
         is WRITTEN on a line that also carries the item's words; the
         total is our arithmetic over the survivors. Returns the
         sentence or None."""
-        lines = self.evidence.find(question, most=24, floor_share=0.0)
+        lines = self.evidence.find(question, most=60, floor_share=0.0)
         if not lines:
             return None
         block = "\n".join(lines)

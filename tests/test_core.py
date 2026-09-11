@@ -6234,6 +6234,18 @@ def w94():
     finally:
         generate.plan_of = real
     assert none is None, none
+    # ...and a plan whose FINAL TYPE does not fit the asked shape dies
+    # too: a "how many weddings" turn once answered "2023/10 (426
+    # lines)" — a month tally, correct arithmetic, absurd answer. The
+    # seat says which value types it will speak; the rest are refused.
+    generate.plan_of = (lambda q: [("l", "lines", "hiking"),
+                                   ("out", "month_tally", "l")])
+    try:
+        misfit = s._plan_answer("how many hikes did I take?",
+                                want=("count", "days"))
+    finally:
+        generate.plan_of = real
+    assert misfit is None, misfit
 
 
 @test("W93 when the organs are silent, a count is a refusal, not a guess")
