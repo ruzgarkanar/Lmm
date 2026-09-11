@@ -1333,20 +1333,33 @@ class Session:
         # the provenance mark the turn appends is the system's, not the
         # sentence's — it must not come back as though a document wrote it
         text = re.sub(r"\s*\(~[^)]*\)\s*$", "", text).strip()
-        kept = 0
+        kept, fresh = 0, []
         for line in re.split(r"(?<=[.!?])\s+", text):
             line = line.strip()
             if len(line) >= 12:
                 self.evidence.add(line, self.SAID)
+                fresh.append(line)
                 kept += 1
+        if fresh:
+            # A FOLLOW-UP FOLLOWS THE LAST ANSWER (W111). Every
+            # assertive turn adds to the store, and a reading that took
+            # all of it grew across a live consultation — three
+            # courses, then five, then seven — until "which ones?"
+            # answered with everything ever mentioned and "the first
+            # one" pointed at a list nobody was looking at. The lines
+            # stay (they are evidence); the CONVERSATIONAL window is
+            # the previous turn's sentences. A turn that asserts
+            # nothing adds nothing and leaves the window where it was.
+            self._said_window = fresh
         return kept
 
     def _said_names(self):
         """The store's own source names that appear in what the memory
         has said this conversation — longest first, so a name is not
         swallowed by a shorter one it contains."""
-        spoken = [text for text, src in self.evidence.sentences
-                  if src == self.SAID]
+        spoken = getattr(self, "_said_window", None) or [
+            text for text, src in self.evidence.sentences
+            if src == self.SAID]
         if not spoken:
             return []
         folded = " ".join(evidence._words(" ".join(spoken)))
@@ -1389,8 +1402,9 @@ class Session:
         swallowed by a shorter one it contains), and speaks the list.
         Nothing outside the store's own names can appear; with nothing
         said yet it declines and the ordinary paths run."""
-        spoken = [text for text, src in self.evidence.sentences
-                  if src == self.SAID]
+        spoken = getattr(self, "_said_window", None) or [
+            text for text, src in self.evidence.sentences
+            if src == self.SAID]
         if not spoken:
             return None
         found = [name for _src, name in self._said_names()]
