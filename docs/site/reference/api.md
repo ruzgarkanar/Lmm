@@ -34,6 +34,8 @@ turn is not a judge:
 | `m.ask(q, explain=True)` | answer, with `.sources` and `.abstained` — **cannot write memory** | engine |
 | `m.compose(brief, topics=, on_line=)` | a structured draft from the evidence — per-topic gathering, gated line by line, streamed to `on_line` as lines survive, returned with its sources | engine |
 | `m.where(term)` | which documents mention this — names and counts, the census | no engine |
+| `m.distil(text, source=, speaker=)` | write the EVENTS a passage reports into the graph — the engine lists them, the passage's own words admit them, each survivor is one gated dated record | one call per passage |
+| `m.bridge()` | teach the store, once, what words readers ask its fields with — afterwards those questions are answered by the record itself, in milliseconds | one call per field, once |
 | `m.about(label)` | the records held on a concept | no engine |
 | `m.facts` | how many records exist | no engine |
 | `m.save(path)` | graph and evidence, both | no engine |
@@ -108,3 +110,4 @@ turn knows about itself:
 | `.sources` | the provenance stamps the answer rests on |
 | `.subject` | the subject label the turn was about |
 | `.from_graph` | answered by the graph alone (zero model calls) |
+| `.route` | which organs the turn passed through, in order — `("record",)`, `("chain", "refuse", "count")`, `("plan",)` |

@@ -78,6 +78,68 @@ reading without reading the document.
 
 ---
 
+## The composer: a plan is a proposal, the primitives are the law
+
+A memory that answers only the question shapes somebody wired by hand
+answers a finite set of questions, and shapes are endless. So the shapes
+are composed rather than coded:
+
+```
+question ──► the engine proposes a PLAN over verified primitives
+             a = anchor: the recital        (its dated line, read from the
+             b = anchor: the gala            sentence before the envelope)
+             out = span: a, b               (arithmetic, ours)
+                    │
+                    ▼
+             the interpreter executes ONLY operations it knows, on phrases
+             the STORE can anchor — an unknown operation, an unanchorable
+             phrase, a dangling reference: the plan dies, no claim is born
+                    │
+                    ▼
+             the sentence is built from the final step's TYPED value by our
+             template; the engine contributes operation names and phrases,
+             never an output word
+```
+
+The primitives are the measured organs: anchor a phrase to its dated line,
+take the latest, gather lines, span two dates, order them, filter by a
+cutoff, count, tally by month. Measured on a dated store, five question
+shapes nobody wrote an organ for — *did A happen before B*, *in which month
+most*, *how many days between*, *when first*, *when last* — answered
+correctly with no new code.
+
+And the seat binds the plan's output TYPE: a count-shaped turn will not
+voice a month tally, however correct that tally's arithmetic. Organs
+silent and plan dead, the turn refuses rather than gambles the prose
+chain — measured on a benchmark slice where the chain earned two right
+answers and twenty-three wrong ones.
+
+### Dialogue is data with two more columns
+
+Chat is trickle data: events melt into talk, and two things every
+conversation carries were being flattened into prose.
+
+**When it happened** is the sentence's word before the envelope's. People
+tell events days later — *[stamped April 10] back on March 22 the GPS
+died* — so the engine reads the candidate lines and proposes the date; the
+arithmetic decides whether the reading may stand (the date must equal some
+candidate's stamp, or its day must be written as a number in that line
+with the year in the stamp's neighbourhood). An invented date fails both
+and the envelope speaks, as before. No month table, no date grammar.
+
+**Who spoke** is metadata as real as the date. `learn(..., speaker=)` keeps
+it per line, `session.asker` says who is asking, and the event organs seat
+that speaker's lines first — nothing excluded, priority alone moves.
+
+**`m.distil(text)`** is the write-time reading for passages where events
+melt into talk: the engine LISTS each event as thing/what-happened, the
+passage's own words admit it, and each survivor becomes one gated dated
+record — while the passage is kept as evidence, so nothing is lost.
+Documents that state their own structure need none of it; their rows reach
+the graph for free.
+
+---
+
 ## Why not embedding RAG
 
 |  | Embedding RAG | LMM |
@@ -625,12 +687,14 @@ listed here because a feature with no documented entry point is not a feature.
 | | | |
 |---|---|---|
 | `m.learn(what)` | teach it a file or a string | no engine for tables |
-| `m.ask(q, explain=True)` | answer, with `.sources` and `.abstained` — cannot write memory | engine |
+| `m.ask(q, explain=True)` | answer, with `.sources`, `.abstained` and `.route` (which organs the turn passed through) — cannot write memory | engine |
 | `m.about(label)` | the records held on a concept | no engine |
 | `m.facts` | how many records exist | no engine |
 | `m.save(path)` | graph and evidence, both | no engine |
 | `m.compose(brief, topics=, on_line=)` | a structured draft from the evidence — per-topic gathering, gated line by line, streamed to `on_line` as lines survive, returned with its sources | engine |
 | `m.where(term)` | which documents mention this — names and counts, the census | no engine |
+| `m.distil(text, source=, speaker=)` | write the EVENTS a passage reports into the graph — the engine lists them, the passage's own words admit them, each survivor is one gated dated record | one call per passage |
+| `m.bridge()` | teach the store, once, what words readers ask its fields with — afterwards those questions are answered by the record itself | one call per field, once |
 | `m.session.respond(msg, teach=False, on_line=)` | a conversational turn — `teach=False` is the consultation surface (context, brief, delivery; cannot write memory) | engine |
 | `m.session.learn_rows(rows)` | `[{column: value}]` straight to the graph | no engine |
 | `m.session.learn_cause(a, b)` | record that a causes b | no engine |
@@ -657,6 +721,23 @@ See [`examples/`](examples/) — including one that runs with no engine at all.
 ## Honest limits
 
 Kept current, and deliberately specific.
+
+- **Cross-session counting over chatty dialogue is not solved.** Asked how many
+  of something a long conversation reports, the memory is systematically one or
+  two short when the items are named differently each time a speaker mentions
+  them ("finished the Mustang build" is a fifth model kit no word search
+  recognises). Five levers were measured against this wall — wider gathering,
+  the offline expansion, speaker priority, whole-turn extraction, and the
+  event distiller — and none of them moved a twenty-question sample beyond
+  noise. The distiller is the right shape and ships (`m.distil`); the reading
+  that makes it complete is not written.
+- On LongMemEval's 500-question chat-memory benchmark, with gpt-4o-mini as the
+  engine, this memory scores **37.6%** — against published figures of 63.8%
+  (Zep) and 49.0% (Mem0), both measured with a far stronger answering model.
+  That benchmark is a long-personal-conversation exam, not a document exam;
+  the same code answers 40/40 on the field set above. Both numbers are true
+  and neither is the whole picture. The slices this release moved are named in
+  the changelog; the ones it did not are named here.
 
 - Answer *selection* can still pick a true-but-off-target sentence. The gate
   guarantees non-fabrication, not perfect relevance.
@@ -721,7 +802,7 @@ that make this project what it is: **no document-specific constants** and **no
 hand-written language rules**. Both are stated with what enforcing them cost.
 
 ```bash
-python3.11 tests/test_core.py     # 63 tests · no model · no GPU · no network
+python3.11 tests/test_core.py     # 182 tests · no model · no GPU · no network
 ```
 
 Every test is a pathology that was measured on this code, written back as an
