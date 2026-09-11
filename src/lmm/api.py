@@ -671,6 +671,22 @@ class Memory:
         return self.session.compose(brief, seats=seats, topics=topics,
                                     on_line=on_line)
 
+    def distil(self, text, source=None, speaker=None):
+        """Write the EVENTS a passage reports into the graph.
+
+        The engine lists each event as thing/what-happened, THIS
+        passage's own words admit it (an invented event fails there and
+        never reaches the graph), and each survivor becomes one gated,
+        dated record — while the passage itself is kept as evidence, so
+        nothing is lost. One call per passage, and the passages worth
+        it are the ones where events melt into talk: chat turns, minutes,
+        logs. Documents that state their structure need nothing of the
+        sort — their rows already go to the graph for free.
+
+        Returns how many events were written."""
+        return self.session.distil(text, source=source or "#document",
+                                   speaker=speaker)
+
     def bridge(self):
         """Teach the store, once, what words readers ask its fields with.
 

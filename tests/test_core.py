@@ -6056,6 +6056,54 @@ def w72():
 
 
 
+@test("W100 a distiller lists events, and the turn's own words admit them")
+def w100():
+    """The fifth key, after four measured failures. Chat is trickle
+    data and events melt into talk; conversion is the answer, but the
+    general triple-miner SUMMARISES a turn ("1: 3 model kits") where a
+    count needs the events themselves. So the distiller asks for the
+    LIST — the counting organ's law (W84) moved to write time: the
+    engine names each event as THING :: WHAT HAPPENED, the TURN'S OWN
+    TEXT admits it (every content word of the thing written there, by
+    stem), and each survivor becomes one gated, dated record. An event
+    the engine invents fails on the turn and never reaches the graph.
+
+    This is not a benchmark organ: a programme document listing its
+    workshops needs exactly the same reading, and the counting organ
+    already walks the graph (W99)."""
+    from lmm import generate, link
+    from lmm.session import Session
+    s = Session(None)
+    turn = ("User: finished the Mustang build last night, and I picked "
+            "up a Tamiya Spitfire kit at the hobby shop.")
+    real = generate.events_of
+    generate.events_of = lambda text: [
+        ("the Mustang build", "finished"),
+        ("a Tamiya Spitfire kit", "picked up"),
+        ("the Ferrari model", "sold"),          # nowhere in the turn
+    ]
+    try:
+        kept = s.distil(turn, source="chat 2023/04/05 · user")
+    finally:
+        generate.events_of = real
+    assert kept == 2, kept
+    written = {link.label_of(s.memory, r.subject) or ""
+               for r in s.memory.records.values()}
+    joined = " ".join(written).lower()
+    assert "mustang" in joined and "spitfire" in joined, written
+    assert "ferrari" not in joined, "an invented event reached the graph"
+    # ...and the counting organ finds them, no prose, no engine
+    def no_items(question, block):
+        raise AssertionError("prose listing ran though the graph could count")
+    real_items = generate.items_of
+    generate.items_of = no_items
+    try:
+        said = s._count_answer("how many model builds and kits do I have?")
+    finally:
+        generate.items_of = real_items
+    assert said and "2" in said, said
+
+
 @test("W99 distilled events are counted from the graph, not refound in prose")
 def w99():
     """The key the stubborn room asked for, cut to this codebase's
