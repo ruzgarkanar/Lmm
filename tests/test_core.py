@@ -6104,6 +6104,64 @@ def w105():
         == {"#docx:Alpha.docx"}
 
 
+@test("W107 a chat turn may repeat what the memory itself just said")
+def w107():
+    """The empty list, read off a live consultation: asked which
+    courses were meant, the reply came back "1.  2.  Hangisi ilginizi
+    çekiyor?" — the numbers survived and the NAMES were struck. The
+    chat gate lets a sentence through when its claims are in the
+    identity graph or ECHO the user's own words, and it was right by
+    its own lights: the course names were neither. They were the
+    memory's own previous sentence, which the gate could not see.
+
+    So the echo pool gains what the memory said in this conversation —
+    the same `#said` lines the retrieval reads (W104), under the same
+    ceiling: they are the turn's own speech, so repeating them invents
+    nothing, and a document still outranks them everywhere else."""
+    from lmm.session import Session
+    s = Session(None)
+    s._remember_said("I recommend the Vale Coaching Programme and the "
+                     "Harbour Sales Clinic.")
+    pool = s._echo_pool("which ones exactly?")
+    assert "Vale Coaching Programme" in pool, pool
+    assert "Harbour Sales Clinic" in pool, pool
+    # the user's own words stay in the pool, as before
+    s.history.append({"role": "user", "content": "we are a software firm"})
+    assert "software firm" in s._echo_pool("and for us?"), s._echo_pool("x")
+
+
+@test("W106 a document's own name is a citation, not a claim")
+def w106():
+    """Caught by reading a live catalogue: two of its four sections had
+    NO TITLE, and the titles were the documents' own names. The digit
+    veto had eaten them — a name like "… Gelişim Projesi (4 segment)"
+    carries a 4, the material never writes that 4 beside those words,
+    and the veto that exists to stop invented agenda times ("45
+    minutes") censored a document's name instead. A section without its
+    name is worse than useless: the reader cannot tell which programme
+    they are reading about.
+
+    A line that IS a source's own name asserts nothing about the world
+    — it points at a document, which is what every section title in a
+    composed draft does. The store knows its own source names, so the
+    reading needs no list: when a line's words are the words of a name
+    the store holds, the digits in that name are the name's, and the
+    veto stands aside. Every other line keeps the veto exactly."""
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("EĞİTİM SÜRESİ: 2 Tam Gün.",
+                 source="#docx:Gelişim Projesi (4 segment).docx", deep=False)
+    material = "[Gelişim Projesi (4 segment)] EĞİTİM SÜRESİ: 2 Tam Gün."
+    assert s._is_source_name("Gelişim Projesi (4 segment)"), \
+        "the store did not recognise its own document's name"
+    assert not s._is_source_name("The course lasts 4 days"), \
+        "an ordinary sentence was taken for a document name"
+    assert s._line_admissible("Gelişim Projesi (4 segment)", material), \
+        "the digit veto ate a document's own name"
+    assert not s._line_admissible("The course takes 45 minutes", material), \
+        "the digit veto stopped working for ordinary lines"
+
+
 @test("W104 what the memory just said is evidence for the next question")
 def w104():
     """Read off a live consultation, three failures with one root. The

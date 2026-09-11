@@ -1305,6 +1305,61 @@ class Session:
                 kept += 1
         return kept
 
+    def _echo_pool(self, message):
+        """What a chat sentence may repeat without asserting anything new.
+
+        The user's own words — repeating them invents nothing — and now
+        ALSO what the memory itself said in this conversation (W107).
+        Read off a live consultation: asked which courses were meant,
+        the reply came back "1.  2.  Hangisi ilginizi çekiyor?" — the
+        numbers survived and the NAMES were struck, because the names
+        were neither identity facts nor the user's words. They were the
+        memory's own previous sentence, which the gate could not see.
+        Its own speech is already gated and already stored (`#said`);
+        letting a follow-up repeat it adds no claim to the world."""
+        prior_user = [h["content"] for h in self.history
+                      if h.get("role") == "user"]
+        pool = (prior_user if self.last_kind == extract.ASK
+                else prior_user + [message])
+        pool += [text for text, src in self.evidence.sentences
+                 if src == self.SAID][-12:]
+        return " ".join(p for p in pool if p)
+
+    def _is_source_name(self, line):
+        """Is this line a CITATION — the store's own document name(s)?
+
+        A section title in a composed draft points at a document; it
+        asserts nothing about the world. The store knows the names it
+        holds, so this needs no list and no language: a line is a
+        citation when every word it carries belongs to some source
+        name the store holds (which covers "Name", "Name (Name)" and
+        "Name (file.docx)"). Measured on a live catalogue, this is the
+        line the digit veto was eating — a programme called "... (4
+        segment)" carries a 4 the material never writes beside it — and
+        two of four sections reached the reader with no title at all.
+        """
+        words = [w for w in evidence._words(line or "")
+                 if any(c.isalpha() for c in w)]
+        if not words or len(words) > 24:
+            return False
+        known = set()
+        for src in self.evidence.by_source:
+            if src == self.SAID:
+                continue
+            known |= set(evidence._words(evidence._source_name(src)))
+        if not known:
+            return False
+        return all(any(inflect.same_stem(w, k) for k in known)
+                   for w in words)
+
+    def _line_admissible(self, line, material):
+        """The digit veto, with citations exempted (W106). Everything
+        else keeps the veto exactly: an invented agenda time is what it
+        exists for, and a document's own name is not one."""
+        if evidence.digits_ok(line, material):
+            return True
+        return self._is_source_name(line)
+
     def _without_gaps(self, draft):
         """Drop what the gap marker marks — the rows, and the heading
         with nothing left under it (W102).
@@ -2563,8 +2618,13 @@ class Session:
             if not text:
                 return ""
             # the digit veto first — non-negotiable on the short path, and
-            # a composed agenda is where invented numbers would try to live
-            if not evidence.digits_ok(text, material):
+            # a composed agenda is where invented numbers would try to
+            # live. A CITATION IS EXEMPT (W106): a section title is the
+            # store's own document name, and a programme called
+            # "… (4 segment)" was losing its title to the 4 in its own
+            # name — measured on a live catalogue, two of four sections
+            # reached the reader with no title at all.
+            if not self._line_admissible(text, material):
                 return None
             # A TITLE IS STRUCTURE, AND TITLE CASE IS ITS FORMAT. In a
             # heading every word is capitalised, so capitals there carry no
@@ -4577,11 +4637,7 @@ class Session:
         on_line = getattr(self, "_on_line", None)
         if on_line is not None:
             self._spec_chat = None
-            prior_user = [h["content"] for h in self.history
-                          if h.get("role") == "user"]
-            echo_pool = (prior_user if self.last_kind == extract.ASK
-                         else prior_user + [message])
-            echo_text = " ".join(echo_pool)
+            echo_text = self._echo_pool(message)
             id_records = retrieve.gather(self.memory, self._lmm_key)
             id_block = "\n".join(
                 f"{link.label_of(self.memory, r.subject)} "
