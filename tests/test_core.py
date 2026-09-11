@@ -6165,6 +6165,35 @@ def w110():
     assert "Happy to help" in voiced, voiced
     assert "wager" in s2.last_route, (
         "the wager spoke and left no trace: %r" % s2.last_route)
+    # ...and so does the early delivery, the seat that answered a live
+    # recommendation turn with an empty route
+    s3 = Session(None)
+    s3.learn_text("The hall seats 90 people.", source="#docx:Hall.docx",
+                  deep=False)
+    s3.history.append({"role": "user", "content": "we run workshops"})
+    s3._brief = ["workshops"]
+    s3.compose = lambda brief, seats=24, topics=None, on_line=None: (
+        "Hall (Hall)\nSeats: 90", ["#docx:Hall.docx"])
+    class _Done:
+        def result(self):
+            return True
+    extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
+    generate.turn_shape = lambda m: "none"
+    real_wants = generate.wants_material
+    generate.wants_material = lambda m: True
+    try:
+        import lmm.runtime as _rt
+        real_ok = _rt.parallel_ok
+        _rt.parallel_ok = lambda: True
+        drafted = s3.respond("put something together for us", teach=False)
+    finally:
+        _rt.parallel_ok = real_ok
+        generate.wants_material = real_wants
+        (extract.extract, generate.chat, generate.turn_shape,
+         generate.refusal) = real
+    assert "Hall" in drafted, drafted
+    assert "delivery" in s3.last_route, (
+        "the early delivery spoke and left no trace: %r" % s3.last_route)
 
 
 @test("W109 a follow-up inherits the conversation's scope")

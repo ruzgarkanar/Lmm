@@ -1130,6 +1130,11 @@ class Session:
                     except Exception:                   # noqa: BLE001
                         text, sources = "", []
                     if text and sources:
+                        # THE EARLY DELIVERY IS AN ORGAN TOO (W110): this
+                        # seat was the fourth silent path — a live audit
+                        # read an empty route on a recommendation turn
+                        # that this composer had answered.
+                        self._step("delivery")
                         self.last_abstained = False
                         self._composed = True
                         return text
