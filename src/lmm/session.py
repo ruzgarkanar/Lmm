@@ -1279,7 +1279,8 @@ class Session:
             return row
         try:
             said = (generate.answer(question, raw, warmth=0.0,
-                                    persona=self.persona) or "").strip()
+                                    persona=self.persona,
+                                    keep_digits=True) or "").strip()
         except Exception:                               # noqa: BLE001
             return row
         if not said:

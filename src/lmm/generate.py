@@ -46,7 +46,7 @@ def _voiced(system, persona):
 
 
 def answer(question, facts_block, warmth=0.2, persona="", max_tokens=None,
-           field=""):
+           field="", keep_digits=False):
     """Answer the question fluently, using only the given facts. If there is no
     fact, the model is steered to say 'I don't know' (system prompt).
 
@@ -61,6 +61,13 @@ def answer(question, facts_block, warmth=0.2, persona="", max_tokens=None,
     name it is the difference between an attested sentence and a silence.
     """
     system = prompts.ANSWER_SYSTEM
+    if keep_digits:
+        # A DERIVED ROW IS SPOKEN, NOT RE-COMPUTED (W101). The caller
+        # has already done the arithmetic and will verify that every
+        # number survived; an engine that spells "two" for 2 fails that
+        # check and loses a good sentence, so the request is explicit.
+        system += ("\n\nWRITE EVERY NUMBER EXACTLY AS THE FACTS WRITE IT: "
+                   "digits stay digits, and you may not compute a new one.")
     if field:
         system += ("\n\nTHE FACTS CALL THIS FIELD \"%s\". The question uses "
                    "another word for it. Answer with the facts' word and the "
