@@ -3513,6 +3513,12 @@ def w16():
     had = hasattr(generate, "wants_material")
     real_wm = getattr(generate, "wants_material", None)
     generate.wants_material = lambda m: True
+    # ...and the shape reader is the door that routes now
+    # (0.5.0): with no engine on the machine — which is
+    # where this suite lives — it answers "none" and the
+    # delivery seat never opens.
+    real_shape = generate.turn_shape
+    generate.turn_shape = lambda message: "material"
     briefs = []
     def fake_compose(brief, seats=24, topics=None, on_line=None):
         briefs.append(brief)
@@ -3551,6 +3557,7 @@ def w16():
     finally:
         (extract.extract, generate.chat, generate.offer_research,
          generate.refusal) = real
+        generate.turn_shape = real_shape
         if had:
             generate.wants_material = real_wm
         else:
