@@ -1739,7 +1739,19 @@ class SentenceStore:
         # drifted from. Stable, so nothing else about the order moves:
         # documents keep their seats in their own order, and `#said`
         # follows.
-        keep.sort(key=lambda sid: self.sentences[sid][1] == SAID_SOURCE)
+        # ...AND THEY ARE GIVEN A TAIL SEAT, NOT LEFT TO COMPETE. The
+        # first cut sorted them to the back of the same list, and on a
+        # store of sixteen thousand document lines that is the same as
+        # deleting them: measured live, the follow-up refused exactly as
+        # it did before the reading existed. So the documents keep every
+        # seat they won, and the memory's own words are appended after
+        # them — at most two, below everything, never in place of a
+        # document.
+        keep = [sid for sid in keep
+                if self.sentences[sid][1] != SAID_SOURCE]
+        spoken = [sid for sid, _score in ranked
+                  if self.sentences[sid][1] == SAID_SOURCE][:2]
+        keep = keep + [sid for sid in spoken if sid not in keep]
         keep = self._supersede(keep)
         self.last_sources = [self.sentences[sid][1] for sid in keep]
         return [self.sentences[sid][0] for sid in keep]
