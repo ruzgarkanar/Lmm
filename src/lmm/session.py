@@ -1404,6 +1404,64 @@ class Session:
                   if any(inflect.same_stem(w, h) for h in held))
         return got * 2 > total
 
+    def _event_anchor(self, phrase):
+        """The event's date: the sentence's word before the envelope's.
+
+        Candidate lines are gathered as ever (known-word IDF majority,
+        dated stamps). The ENGINE then reads them once and proposes when
+        the event happened (`generate.event_date`); the arithmetic
+        decides whether the proposal stands — accepted only when the
+        date equals some candidate's stamp, OR its day-of-month is
+        written as a number in that candidate's text with the year
+        within one of that stamp's. A date invented whole fails both
+        and the earliest stamp speaks, exactly as before. Returns
+        (date, src, phrase) or None. No month table, no date grammar."""
+        import datetime as _dt
+        words = evidence._words(phrase)
+        if not words:
+            return None
+        rows = []
+        for text, src in self.evidence.sentences:
+            held = set(evidence._words(text))
+            if not self._phrase_holds(words, held):
+                continue
+            digits = [int(d) for d in re.findall(r"\d+", src or "")]
+            if len(digits) < 3:
+                continue
+            try:
+                stamp = _dt.date(digits[0], digits[1], digits[2])
+            except ValueError:
+                continue
+            rows.append((stamp, src, text))
+        if not rows:
+            return None
+        rows.sort()
+        fallback = (rows[0][0], rows[0][1], phrase)
+        try:
+            offered = generate.event_date(
+                phrase, [(r[0].strftime("%Y/%m/%d"), r[2]) for r in rows])
+        except Exception:                               # noqa: BLE001
+            offered = ""
+        if offered:
+            digits = [int(d) for d in re.findall(r"\d+", offered)]
+            if len(digits) == 3:
+                try:
+                    when = _dt.date(digits[0], digits[1], digits[2])
+                except ValueError:
+                    when = None
+                if when is not None:
+                    for stamp, src, text in rows:
+                        if when == stamp:
+                            return (when, src, phrase)
+                        # the day is the sentence's own number, the year
+                        # is the envelope's neighbourhood — both checks
+                        # arithmetic, neither a grammar
+                        day_written = str(when.day) in set(
+                            re.findall(r"\d+", text))
+                        if day_written and abs(when.year - stamp.year) <= 1:
+                            return (when, src, phrase)
+        return fallback
+
     def _plan_answer(self, question):
         """A plan is a proposal; the primitives are the law (W94).
 
@@ -1451,8 +1509,14 @@ class Session:
                 return None
             name, op, args = step[0], step[1], list(step[2:])
             value = None
-            if op in ("anchor", "latest") and len(args) == 1:
-                got = _anchored(args[0], want_latest=(op == "latest"))
+            if op == "anchor" and len(args) == 1:
+                # the event's date, the sentence's word first (W95)
+                got = self._event_anchor(args[0])
+                if got is None:
+                    return None
+                value = ("date",) + got
+            elif op == "latest" and len(args) == 1:
+                got = _anchored(args[0], want_latest=True)
                 if got is None:
                     return None
                 value = ("date",) + got
