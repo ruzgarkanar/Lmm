@@ -1042,6 +1042,16 @@ turn is not a judge:</p>
 <td>no engine</td>
 </tr>
 <tr>
+<td><code>m.distil(text, source=, speaker=)</code></td>
+<td>write the EVENTS a passage reports into the graph — the engine lists them, the passage's own words admit them, each survivor is one gated dated record</td>
+<td>one call per passage</td>
+</tr>
+<tr>
+<td><code>m.bridge()</code></td>
+<td>teach the store, once, what words readers ask its fields with — afterwards those questions are answered by the record itself, in milliseconds</td>
+<td>one call per field, once</td>
+</tr>
+<tr>
 <td><code>m.about(label)</code></td>
 <td>the records held on a concept</td>
 <td>no engine</td>
@@ -1183,6 +1193,10 @@ turn knows about itself:</p>
 <tr>
 <td><code>.from_graph</code></td>
 <td>answered by the graph alone (zero model calls)</td>
+</tr>
+<tr>
+<td><code>.route</code></td>
+<td>which organs the turn passed through, in order — <code>("record",)</code>, <code>("chain", "refuse", "count")</code>, <code>("plan",)</code></td>
 </tr>
 </tbody>
 </table>
