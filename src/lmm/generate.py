@@ -505,6 +505,8 @@ def turn_shape(message):
               "ka\u00e7 tane liderlik e\u011fitiminiz var -> count\n"
               "\u00bfcu\u00e1ntos restaurantes he probado -> count\n"
               "how much money have I spent on bike gear in total -> sum\n"
+              "how many days did my breaks take in total -> sum\n"
+              "how many weeks did it take to finish the series -> sum\n"
               "toplam ka\u00e7 saat yol gittim -> sum\n"
               "wie viel habe ich insgesamt ausgegeben -> sum\n"
               "which did I attend first, the workshop or the webinar -> order\n"
