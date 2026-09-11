@@ -683,6 +683,38 @@ def wants_order(message):
     return "yes" in (out or "").strip().lower()
 
 
+def events_of(text):
+    """The events this passage reports — THING :: WHAT HAPPENED pairs.
+
+    The distiller's one call (`Session.distil`), and deliberately not
+    the general triple-miner: asked to mine a chatty turn, that one
+    SUMMARISES ("3 model kits") where a memory needs the events
+    themselves, one per thing. The engine names; the TURN'S OWN TEXT
+    admits — every content word of a thing must be written there — so
+    an invented event never reaches the graph. Same law as items_of,
+    moved to write time."""
+    system = ("List the concrete events, acquisitions or commitments "
+              "the passage reports — one per line, as "
+              "THING :: WHAT HAPPENED, the thing named in the "
+              "passage's OWN words. One line per distinct thing; no "
+              "summaries, no counts, no advice or general tips. If the "
+              "passage reports none, output NONE.")
+    out = runtime.generate("PASSAGE:\n%s" % text, system=system,
+                           max_tokens=200, temperature=0.0)
+    out = (out or "").strip()
+    if not out or out.upper().startswith("NONE"):
+        return []
+    pairs = []
+    for line in out.splitlines():
+        if "::" not in line:
+            continue
+        thing, _sep, happened = line.partition("::")
+        thing, happened = thing.strip(" -*\t"), happened.strip()
+        if thing and happened:
+            pairs.append((thing, happened))
+    return pairs[:12]
+
+
 def amounts_of(question, block):
     """Item and amount pairs the evidence states for this question — a
     LIST of pairs, never a total. The summing organ's one engine call

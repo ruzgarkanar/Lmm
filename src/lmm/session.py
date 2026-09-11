@@ -1261,6 +1261,48 @@ class Session:
         except AttributeError:
             self.last_route = [organ]
 
+    def distil(self, text, source="", speaker=None):
+        """Write the EVENTS a passage reports into the graph (W100).
+
+        The fifth key to the counting room, after four measured
+        failures — wider caps, offline expansion, speaker priority and
+        the general triple-miner all left it shut. The miner's flaw was
+        not effort but SHAPE: it summarises a turn where a memory needs
+        the events themselves. So the counting organ's law moves to
+        write time: the engine LISTS each event as thing/what-happened
+        (`generate.events_of`), THIS PASSAGE'S OWN WORDS admit it —
+        every content word of the thing written here, by stem — and
+        each survivor becomes one dated record through the ordinary
+        write, gated like any other fact. An invented event fails on
+        the passage and never reaches the graph.
+
+        The passage is kept as evidence too, so nothing is lost to the
+        distillation. Returns how many events were written."""
+        if not (text or "").strip():
+            return 0
+        self.evidence.add(text, source or "#document", speaker=speaker)
+        try:
+            offered = generate.events_of(text)
+        except Exception:                               # noqa: BLE001
+            return 0
+        held = set(evidence._words(text))
+        kept = 0
+        for thing, happened in offered:
+            words = [w for w in evidence._words(thing)
+                     if any(c.isalpha() for c in w)]
+            if not words:
+                continue
+            if not all(any(inflect.same_stem(w, h) for h in held)
+                       for w in words):
+                continue                # the passage never said it
+            try:
+                self.memory.write(thing.strip(), "event", happened,
+                                  source=source or "#document")
+                kept += 1
+            except Exception:                           # noqa: BLE001
+                continue
+        return kept
+
     def _asker_first(self, lines, sources):
         """THE ASKER'S EVENTS LIVE IN THE ASKER'S LINES (W98). Dialogue
         carries who spoke as real metadata beside the date; when the
@@ -1402,8 +1444,18 @@ class Session:
             subject = link.label_of(self.memory, record.subject) or ""
             value = link.label_of(self.memory, record.value) or ""
             words = set(evidence._words(subject + " " + value))
-            if not any(any(inflect.same_stem(q, w) for w in words)
-                       for q in qw):
+            # THE QUESTION'S WORD MUST MEET THE RECORD'S — and a plural
+            # is the same word ("kits"/"kit", the measured miss). Short-
+            # stem kinship is the retrieval side's tool and it is
+            # deliberately wider than a stem; on a gateless count that
+            # width is real, so the match must ALSO be mutual: the
+            # question word and the record word have to reach each other
+            # by the same reading ("model"/"modem" are kin one way and
+            # not the other, and a count is an assertion).
+            def _meets(q, w):
+                return (inflect.same_stem(q, w)
+                        or (inflect.kin(q, w) and inflect.kin(w, q)))
+            if not any(_meets(q, w) for w in words for q in qw):
                 continue
             told.setdefault(subject or value, src)
         if len(told) >= 2:
