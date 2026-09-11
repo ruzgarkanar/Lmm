@@ -1202,6 +1202,12 @@ class Session:
                 # small call; chat-shaped turns never do.
                 if self._no_teach:
                     shape = self._turn_shape(message)
+                    if shape == "recap":
+                        # a question about what was just said, answered
+                        # from what was just said (W108)
+                        recap = self._recap_answer(message)
+                        if recap:
+                            return recap
                     # THE SHAPE READER'S VERDICT BINDS BOTH WAYS (W93).
                     # Measured on fifty-five span-shaped questions: the
                     # organs spoke on four and were right on four; the
@@ -1242,6 +1248,18 @@ class Session:
                             return delivered
                 self._step("chain")
                 return self._answer(message, subject)
+            if self._no_teach and self._conversational:
+                # THE ROUTER CALLS A FOLLOW-UP SMALL TALK. "hangileri
+                # kısaca" carries no question grammar the extractor
+                # recognises, so it arrived at free chat — the one path
+                # with no evidence — and the gate struck every name the
+                # engine rephrased. A question about the conversation is
+                # answered from the conversation (W108) before chat is
+                # reached; when nothing was said, chat runs as before.
+                if self._turn_shape(message) == "recap":
+                    recap = self._recap_answer(message)
+                    if recap:
+                        return recap
             self._step("chat")
             return self._chat(message, spec, spec_queue)
         except Exception:                                   # noqa: BLE001
@@ -1304,6 +1322,49 @@ class Session:
                 self.evidence.add(line, self.SAID)
                 kept += 1
         return kept
+
+    def _recap_answer(self, question):
+        """A question about the answer is answered from the answer (W108).
+
+        Asked "which ones, briefly?" after a catalogue, the turn went to
+        free chat — the one path with no evidence — and its gate struck
+        every name the engine rephrased, leaving "1.  2.  3."; asked
+        "how many did you recommend?", the delivery seat re-ran the
+        whole catalogue. Both questions are about the CONVERSATION, and
+        the conversation is not a thing to generate: the memory said
+        those names, the names are the store's own documents, and the
+        answer is a list of them.
+
+        Reads the turn's own `#said` lines, keeps the SOURCE NAMES the
+        store recognises in them (longest first, so a name is not
+        swallowed by a shorter one it contains), and speaks the list.
+        Nothing outside the store's own names can appear; with nothing
+        said yet it declines and the ordinary paths run."""
+        spoken = [text for text, src in self.evidence.sentences
+                  if src == self.SAID]
+        if not spoken:
+            return None
+        blob = " ".join(spoken)
+        folded = " ".join(evidence._words(blob))
+        names = sorted(
+            {evidence._source_name(src) for src in self.evidence.by_source
+             if src != self.SAID},
+            key=lambda n: -len(n))
+        found, taken = [], ""
+        for name in names:
+            key = " ".join(evidence._words(name))
+            if key and key in folded and key not in taken:
+                found.append(name)
+                taken += " " + key
+        if not found:
+            return None
+        self._step("recap")
+        self.last_abstained = False
+        self.last_from_graph = True
+        self._mark = ""
+        ordered = sorted(found)
+        return self._spoken_row(question,
+                                "%d: %s." % (len(ordered), ", ".join(ordered)))
 
     def _echo_pool(self, message):
         """What a chat sentence may repeat without asserting anything new.

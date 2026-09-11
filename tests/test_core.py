@@ -6104,6 +6104,50 @@ def w105():
         == {"#docx:Alpha.docx"}
 
 
+@test("W108 a question about the answer is answered from the answer")
+def w108():
+    """The empty list, twice over. Asked "which ones, briefly?" after a
+    catalogue, the turn went to FREE CHAT — the one path with no
+    evidence — and its gate struck every name the engine rephrased,
+    leaving "1.  2.  3.". Asked "how many did you recommend?", the
+    delivery seat re-ran the whole catalogue. Both questions are about
+    the CONVERSATION, and the conversation is not a thing to generate:
+    the memory said those names, the names are the store's own
+    documents, and the answer is a list of them.
+
+    So the shape reader gains one more class — recap, a question about
+    what was just said — and the organ that serves it reads the turn's
+    own `#said` lines, keeps the SOURCE NAMES the store recognises in
+    them, and speaks the list. No engine writes a word of it (the row
+    is phrased by W101's reading, digits preserved); nothing outside
+    the store's own names can appear; and with nothing said yet, it
+    declines and the ordinary paths run."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.learn_text("EĞİTİM SÜRESİ: 2 gün.", source="#docx:Temel Satış Becerileri.docx",
+                 deep=False)
+    s.learn_text("EĞİTİM SÜRESİ: 1 gün.", source="#docx:Etkin Çatışma Yönetimi.docx",
+                 deep=False)
+    s.learn_text("EĞİTİM SÜRESİ: 3 gün.", source="#docx:Doğal Liderlik.docx",
+                 deep=False)
+    assert s._recap_answer("hangileri kısaca") is None      # nothing said yet
+    s._remember_said("Temel Satış Becerileri ve Etkin Çatışma Yönetimi "
+                     "programlarını öneriyorum.")
+    real = s._spoken_row
+    s._spoken_row = lambda question, row: row               # phrasing is W101's
+    try:
+        said = s._recap_answer("hangileri yani kısaca")
+    finally:
+        s._spoken_row = real
+    assert said is not None, "the recap did not speak"
+    assert "Temel Satış Becerileri" in said, said
+    assert "Etkin Çatışma Yönetimi" in said, said
+    assert "Doğal Liderlik" not in said, (
+        "a document nobody recommended was listed: %r" % said)
+    assert "2" in said, said
+
+
 @test("W107 a chat turn may repeat what the memory itself just said")
 def w107():
     """The empty list, read off a live consultation: asked which
