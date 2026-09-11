@@ -1139,18 +1139,26 @@ class Session:
                 # small call; chat-shaped turns never do.
                 if self._no_teach:
                     shape = self._turn_shape(message)
+                    # THE SHAPE READER'S VERDICT BINDS BOTH WAYS (W93).
+                    # Measured on fifty-five span-shaped questions: the
+                    # organs spoke on four and were right on four; the
+                    # chain gambled the rest into twenty-three confident
+                    # wrong claims against the TWO it ever earned on
+                    # that slice. A count is arithmetic over the store;
+                    # prose generation does not do arithmetic. Count-,
+                    # sum- and span-shaped turns are answered by their
+                    # organs or refused — the chain is never gambled on
+                    # a shape it measurably cannot hold.
                     if shape == "count":
                         counted = self._count_answer(message)
-                        if counted:
-                            return counted
-                    elif shape == "order":
+                        return counted if counted else self._refuse(message)
+                    if shape == "order":
                         ordered = self._order_answer(message)
                         if ordered:
                             return ordered
                     elif shape == "sum":
                         summed = self._sum_answer(message)
-                        if summed:
-                            return summed
+                        return summed if summed else self._refuse(message)
                     elif shape == "material" and self._conversational:
                         delivered = self._delivery(message)
                         if delivered:

@@ -3224,6 +3224,8 @@ def w11():
     seen = {"answer": [], "judge": []}
     real_ans, real_sup = generate.answer, generate.supported
     real_ex = extract.extract
+    real_shape = generate.turn_shape
+    generate.turn_shape = lambda message: "none"
     extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
     def spy_answer(question, block_, warmth=0.2, persona="", **kw):
         seen["answer"].append(persona)
@@ -3238,6 +3240,7 @@ def w11():
     finally:
         generate.answer, generate.supported = real_ans, real_sup
         extract.extract = real_ex
+        generate.turn_shape = real_shape
     # the persona reached the voice...
     assert any("Coach Alpha" in p for p in seen["answer"]), seen["answer"]
     # ...the fabricated price did not reach the user (digit veto: 500 is in
@@ -6051,6 +6054,44 @@ def w72():
     assert len(tries) == 2, ("the nameless answer was spoken as-is or "
                              "retried more than once: %d" % len(tries))
 
+
+
+@test("W93 when the organs are silent, a count is a refusal, not a guess")
+def w93():
+    """The measurement that forced this: fifty-five span-shaped
+    questions, the organs speaking on four (four correct), and the
+    chain gambling the other fifty-one into twenty-three confident
+    wrong claims — against TWO it ever got right on that slice. A
+    count-shaped question asks for arithmetic over the store; prose
+    generation does not do arithmetic, and its wins there were noise.
+    So the shape reader's verdict is binding both ways: count-, sum-
+    and span-shaped turns are answered by their organs or REFUSED —
+    the chain is never gambled on a shape it measurably cannot hold."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.evidence.add("User: a quiet line about gardening.", "chat 2024/01/05")
+    called = {"chain": 0}
+    real_shape, real_items = generate.turn_shape, generate.items_of
+    real_things = generate.things_of
+    generate.turn_shape = lambda message: "count"
+    generate.items_of = lambda q, b: []
+    generate.things_of = lambda q: []
+    real_answer = s._answer
+    def chain_spy(message, subject="", **kw):
+        called["chain"] += 1
+        return "SEVEN, confidently."
+    s._answer = chain_spy
+    try:
+        said = s.respond("how many rare orchids have I grown?", teach=False)
+    finally:
+        generate.turn_shape, generate.items_of = real_shape, real_items
+        generate.things_of = real_things
+        s._answer = real_answer
+    assert called["chain"] == 0, (
+        "the chain was gambled on an organ-silent count: %r" % said)
+    assert s.last_abstained, said
+    assert "SEVEN" not in (said or ""), said
 
 
 @test("W88 a counting question never gambles the chain")
