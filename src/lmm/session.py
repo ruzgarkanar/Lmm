@@ -561,6 +561,15 @@ class Session:
         # chose. An answered turn costs nothing extra.
         if said and self.last_abstained and message and message.strip():
             shape = self._turn_shape(message)
+            if shape not in ("count", "order", "sum"):
+                # THE COMPOSER'S GENERAL DOOR: shapes nobody classified
+                # ("did A come before B?", "in which month most?") end
+                # abstained at the chain — one plan proposal before the
+                # turn closes, under the same law: the plan dies, the
+                # refusal stands.
+                planned = self._plan_answer(message)
+                if planned:
+                    said = planned
             if shape == "count":
                 counted = (self._count_answer(message)
                            or self._plan_answer(message))
@@ -576,6 +585,10 @@ class Session:
                           or self._plan_answer(message))
                 if summed:
                     said = summed
+            elif shape == "when":
+                dated = self._plan_answer(message)
+                if dated:
+                    said = dated
         census_line = getattr(self, "_census_line", "")
         if (said and self.last_abstained and census_line
                 and not self.last_from_graph):
@@ -1161,6 +1174,14 @@ class Session:
                                    or self._plan_answer(message))
                         if ordered:
                             return ordered
+                    elif shape == "when":
+                        # a WHEN is a date the store's stamps already
+                        # hold; the chain, gambled here, answered the
+                        # FIRST seated line's date for a question about
+                        # the LAST time — plan first, chain only after
+                        dated = self._plan_answer(message)
+                        if dated:
+                            return dated
                     elif shape == "sum":
                         summed = (self._sum_answer(message)
                                   or self._plan_answer(message))
@@ -1346,6 +1367,43 @@ class Session:
         self._mark = next((s for s in sources if s), "") or ""
         return "%d: %s." % (len(kept), ", ".join(kept))
 
+    def _word_weight(self, word):
+        """The store's information weight for one word — log(1+N/df),
+        the retrieval channel's own statistic, reused wherever a
+        MAJORITY of a phrase must be counted: 'the' votes almost
+        nothing, a rare name votes almost everything, and no stopword
+        list exists in any language."""
+        store = self.evidence
+        n = max(1, len(store.sentences))
+        postings = store.index.get(word)
+        df = len(postings) if postings else 0
+        import math
+        return math.log(1 + n / (df if df else n))
+
+    def _phrase_holds(self, words, held):
+        """Does this line hold the INFORMATION-majority of the phrase?
+
+        Two rules, both the codebase's own. A word the store NEVER
+        WROTE votes nothing — the second-ask's law ("a word nobody
+        wrote cannot enter a search") applied to anchoring: the
+        question's frame words ('visit', 'the') would otherwise sit in
+        the denominator of every majority and outvote the rare words
+        that actually name the thing. And among the words the store
+        does know, the majority is counted in IDF weight, not in heads
+        — so on a large store 'the' still votes almost nothing."""
+        known = [w for w in words
+                 if self.evidence.index.get(w)
+                 or any(inflect.same_stem(w, k)
+                        for k in self.evidence.index)]
+        if not known:
+            return False
+        total = sum(self._word_weight(w) for w in known)
+        if not total:
+            return False
+        got = sum(self._word_weight(w) for w in known
+                  if any(inflect.same_stem(w, h) for h in held))
+        return got * 2 > total
+
     def _plan_answer(self, question):
         """A plan is a proposal; the primitives are the law (W94).
 
@@ -1373,9 +1431,7 @@ class Session:
             best = None
             for text, src in self.evidence.sentences:
                 held = set(evidence._words(text))
-                hit = sum(1 for w in words
-                          if any(inflect.same_stem(w, h) for h in held))
-                if hit * 2 <= len(words):
+                if not self._phrase_holds(words, held):
                     continue
                 digits = [int(d) for d in re.findall(r"\d+", src or "")]
                 if len(digits) < 3:
@@ -1405,9 +1461,7 @@ class Session:
                 rows = []
                 for text, src in self.evidence.sentences:
                     held = set(evidence._words(text))
-                    hit = sum(1 for w in words
-                              if any(inflect.same_stem(w, h) for h in held))
-                    if words and hit * 2 > len(words):
+                    if words and self._phrase_holds(words, held):
                         digits = [int(d) for d in
                                   re.findall(r"\d+", src or "")]
                         when = None
@@ -1481,6 +1535,10 @@ class Session:
         elif out[0] == "count":
             said = "%d." % out[1]
             mark = ""
+        elif out[0] == "date":
+            _k, when, src, phrase = out
+            said = "%s — %s." % (phrase, _shown(when))
+            mark = src
         else:
             return None
         self._step("plan")

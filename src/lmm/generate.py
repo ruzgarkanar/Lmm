@@ -494,6 +494,8 @@ def turn_shape(message):
               "distance) accumulated over time\n"
               "order - asks which of two things came FIRST or LATER in "
               "time\n"
+              "when - asks WHEN something happened, or the first/last "
+              "time it did\n"
               "none - anything else (facts, durations, greetings, "
               "context, thanks, brakes)\n"
               "give me your best three-hour plan -> material\n"
@@ -507,6 +509,9 @@ def turn_shape(message):
               "wie viel habe ich insgesamt ausgegeben -> sum\n"
               "which did I attend first, the workshop or the webinar -> order\n"
               "hangisine \u00f6nce kat\u0131ld\u0131m -> order\n"
+              "when did I last go hiking -> when\n"
+              "en son ne zaman y\u00fcr\u00fcy\u00fc\u015fe \u00e7\u0131kt\u0131m -> when\n"
+              "wann war ich zuletzt wandern -> when\n"
               "what is the duration of the Alpha module -> none\n"
               "Empatik Liderlik ka\u00e7 g\u00fcn -> none\n"
               "wie lange dauert das Training -> none\n"
@@ -516,7 +521,7 @@ def turn_shape(message):
     out = runtime.generate(message, system=system, max_tokens=4,
                            temperature=0.0, small=True)
     word = (out or "").strip().lower()
-    for shape in ("material", "count", "order", "sum"):
+    for shape in ("material", "count", "order", "sum", "when"):
         if shape in word:
             return shape
     return "none"
@@ -559,7 +564,13 @@ def plan_of(question):
               "Q: how many weeks passed between the recital and the gala?\n"
               "a = anchor: the recital\n"
               "b = anchor: the gala\n"
-              "out = span: a, b")
+              "out = span: a, b\n"
+              "Example:\n"
+              "Q: when did I last water the orchids?\n"
+              "out = latest: water the orchids\n"
+              "Example:\n"
+              "Q: when was the first shipment?\n"
+              "out = anchor: the shipment")
     raw = runtime.generate("Q: %s" % question, system=system,
                            max_tokens=120, temperature=0.0)
     raw = (raw or "").strip()
