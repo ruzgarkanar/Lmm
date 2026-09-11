@@ -1404,7 +1404,7 @@ class Session:
                   if any(inflect.same_stem(w, h) for h in held))
         return got * 2 > total
 
-    def _event_anchor(self, phrase):
+    def _event_anchor(self, phrase, question=""):
         """The event's date: the sentence's word before the envelope's.
 
         Candidate lines are gathered as ever (known-word IDF majority,
@@ -1439,7 +1439,8 @@ class Session:
         fallback = (rows[0][0], rows[0][1], phrase)
         try:
             offered = generate.event_date(
-                phrase, [(r[0].strftime("%Y/%m/%d"), r[2]) for r in rows])
+                phrase, [(r[0].strftime("%Y/%m/%d"), r[2]) for r in rows],
+                question=question)
         except Exception:                               # noqa: BLE001
             offered = ""
         if offered:
@@ -1511,7 +1512,7 @@ class Session:
             value = None
             if op == "anchor" and len(args) == 1:
                 # the event's date, the sentence's word first (W95)
-                got = self._event_anchor(args[0])
+                got = self._event_anchor(args[0], question=question)
                 if got is None:
                     return None
                 value = ("date",) + got

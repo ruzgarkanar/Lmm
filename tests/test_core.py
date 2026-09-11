@@ -6081,7 +6081,7 @@ def w95():
     real = generate.event_date
     # the engine reads the text date — accepted: day 22 is written in
     # the line, year matches the stamp's
-    generate.event_date = lambda phrase, rows: "2023/03/22"
+    generate.event_date = lambda phrase, rows, **kw: "2023/03/22"
     try:
         got = s._event_anchor("the GPS died")
     finally:
@@ -6089,14 +6089,14 @@ def w95():
     assert got is not None and got[0].strftime("%Y/%m/%d") == "2023/03/22", got
     # an invented date — day 27 nowhere in any candidate line: refused,
     # the envelope speaks
-    generate.event_date = lambda phrase, rows: "2023/03/27"
+    generate.event_date = lambda phrase, rows, **kw: "2023/03/27"
     try:
         got2 = s._event_anchor("the GPS died")
     finally:
         generate.event_date = real
     assert got2 is not None and got2[0].strftime("%Y/%m/%d") == "2023/04/10", got2
     # no text date in the line - the engine echoes the stamp, accepted
-    generate.event_date = lambda phrase, rows: "2023/04/14"
+    generate.event_date = lambda phrase, rows, **kw: "2023/04/14"
     try:
         got3 = s._event_anchor("new phone arrived")
     finally:
