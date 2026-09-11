@@ -47,6 +47,32 @@ which is what an embedding cannot do at any price — and every word it can
 offer was written in this corpus. It widens what can be FOUND; it never
 widens what may be SAID.
 
+**The composer.** A memory that answers only the shapes somebody wired by
+hand answers a finite set of questions, and shapes are endless. So the
+engine proposes a PLAN over verified primitives — anchor a phrase to its
+dated line, take the latest, gather lines, span two dates, order them,
+filter by a cutoff, count, tally by month — and the interpreter executes
+only operations it knows, on phrases the store can anchor. The sentence
+is built from the final step's typed value by the library's own template:
+the engine contributes operation names and phrases, never an output word.
+An unknown operation, an unanchorable phrase, a dangling reference: the
+plan dies and no claim is born. *Plan is a proposal; the primitives are
+the law.*
+
+**The event organs.** A count is the length of a VERIFIED list (the
+engine lists, the store checks each item, the number is what survives); a
+total is the sum of verified amounts; "which came first" and "how many
+days between" are date arithmetic. The shape reader routes at the door
+and its verdict binds both ways — organs silent and plan dead, the turn
+refuses rather than gambling prose.
+
+**Dialogue's two columns.** WHEN an event happened is read from the
+sentence before the envelope's stamp (the engine proposes the date, the
+arithmetic admits it or keeps the stamp); WHO SPOKE is kept per line, so
+the asker's own lines seat first. `Memory.distil()` writes the events a
+chatty passage reports into the graph — listed by the engine, admitted by
+the passage's own words, gated like any other fact.
+
 **The trust ladder.**
 
 | level | source | trust | |

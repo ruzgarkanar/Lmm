@@ -4,6 +4,127 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-09-11
+
+The release where question shapes stopped being hand-written. Everything
+here was found by measurement — a public benchmark, a live consultation,
+a drowned block read line by line — and every fix is a class, never a
+case: the two rules in CONTRIBUTING (no document-specific constants, no
+hand-written language rules) held through all of it.
+
+### Added
+
+- **The composer** (`Session._plan_answer`). A memory that answers only
+  the shapes somebody wired by hand answers a finite set of questions.
+  The engine now proposes a PLAN over the verified primitives — anchor a
+  phrase to its dated line, take the latest, gather lines, span two
+  dates, order them, filter by a cutoff, count, tally by month — and the
+  interpreter executes only operations it knows, on phrases the store
+  can anchor. The sentence is built from the final step's TYPED value by
+  our own template: the engine contributes operation names and phrases,
+  never an output word. An unknown operation, an unanchorable phrase, a
+  dangling reference — the plan dies and no claim is born.
+
+  Measured on a dated store: five shapes nobody wrote an organ for —
+  *did A happen before B*, *in which month most*, *how many days
+  between*, *when first*, *when last* — answered correctly with no new
+  code. And the seat binds the plan's output type: a count-shaped turn
+  will not voice a month tally, however correct its arithmetic.
+
+- **Four event organs, each the arithmetic its question asks for.** A
+  count is the length of a VERIFIED LIST — the engine lists the items,
+  the store checks each against the block, and the number is the length
+  of what survives, so a hallucinated item cannot be counted (and where
+  the things counted are documents, the census counts them with no model
+  call at all). A total is the SUM of verified amounts. "Which came
+  first" is date arithmetic over anchors. "How many days between" is
+  subtraction, not counting.
+
+  The shape reader that routes them is one small call at the door
+  (material / count / order / sum / when / none), replacing three
+  separate classifiers asked after the fact — and its verdict binds both
+  ways: organs silent and plan dead, the turn REFUSES rather than
+  gambling the prose chain. Measured on a benchmark slice, that chain
+  had earned two right answers and twenty-three wrong ones.
+
+- **Dialogue's two missing columns.** WHEN an event happened is the
+  sentence's word before the envelope's: people tell events days later,
+  so the engine reads the candidate lines and proposes the date, and the
+  arithmetic decides whether the reading may stand — the date must match
+  a candidate's stamp, or its day must be written as a number in that
+  line with the year in the stamp's neighbourhood. An invented date
+  fails both and the envelope speaks. No month table, no date grammar.
+  WHO SPOKE is metadata as real as the date: `learn(..., speaker=)`
+  keeps it per line, `session.asker` says who is asking, and the event
+  organs seat that speaker's lines first.
+
+- **`Memory.distil(text)`** — the write-time reading for passages where
+  events melt into talk. The engine lists each event as
+  thing/what-happened, the passage's own words admit it, and each
+  survivor becomes one gated dated record, while the passage is kept as
+  evidence so nothing is lost. Documents that state their own structure
+  need none of it; their rows reach the graph for free.
+
+- **`Memory.bridge()`** — one call per field head, once, teaching the
+  store what words readers ask each field with. Measured on a live
+  62-document corpus: a duration question fell from 12 s and six model
+  calls to **2.7 ms and none**.
+
+- **`Answer.route`** — which organs a turn passed through, in order
+  (`("record",)`, `("chain", "refuse", "count")`). The orchestration was
+  always there; now it is a fact on the answer instead of a story in the
+  stack, and an organ a router can be asked about is an organ a planner
+  can schedule.
+
+- **`LMM_SMALL_BACKEND`** — the turn's yes/no classifiers may take a
+  cheaper road (a small local model agreed with the hosted engine 19/20
+  on fresh multilingual examples). OFF by default: one measured
+  classifier is not a licence to reroute sixteen.
+
+### Fixed
+
+- **No apparatus of ours can be spoken.** Asked which documents state a
+  field, the memory answered "K1, K2, K3, K4" — reciting the labels this
+  code puts in front of evidence lines. The label is ours to choose, so
+  it is now the name of the source that wrote the line: an answer that
+  echoes a label cites a document.
+- **An untrusted language name is never a command.** The language
+  classifier was handed the question bare, the engine began answering it
+  ("I'm sorry, but"), the token cap clipped that to "Im" — and refusals
+  came out in an invented language. The classifier's text is quoted
+  material now; the name only compares; the retry may name a language
+  only when a second, differently-phrased reading agrees. Six languages,
+  six correct refusals.
+- **A refusal in chat register is not an assertion.** Chat evidence
+  speaks a refusal's own words, so fifty-three honest shrugs wore
+  provenance marks and were scored as wrong claims. An assertion now
+  needs something load-bearing besides word overlap: a shared digit, or
+  a shared word sitting in a minority of the proof's lines.
+- **`LMM_TIMEOUT=0` removes the limit, not the patience.** It was
+  removing the retry, so under load every rate-limit wait was raised raw
+  — forty-nine of fifty answers in one benchmark run came back 429.
+- **A derived row is spoken as a sentence**, with the arithmetic
+  preserved: "3: Dr. Lee, Dr. Smith, Dr. Patel." became "You visited 3
+  different doctors." A phrasing that changes or drops a number is
+  refused and the row stands.
+- The answer cache now fingerprints the retrieval aids, so a question
+  asked before `bridge()` is not replayed after it. The record path no
+  longer matches field names by short-stem kinship — it speaks without a
+  gate, and kinship called two sibling fields relatives. Newer Azure
+  deployments (which refuse `max_tokens` and any non-default
+  temperature) are handled by reading the endpoint's own refusal, not a
+  model-name list.
+
+### Measured, and stated plainly
+
+The field set is unchanged: 40/40 factual · 15/15 comparisons · 10/10
+traps. On LongMemEval — a long-personal-conversation benchmark, not a
+document one — this release scores 37.6% with gpt-4o-mini, against
+published 63.8% (Zep) and 49.0% (Mem0) measured with far stronger
+answering models. Its temporal "how many" slice moved from 2 correct to
+11 across this work; its cross-session counting slice did not move
+beyond noise, and README's Honest limits says so. 182 invariants.
+
 ## [0.4.0] — 2026-09-10
 
 The release where retrieval stopped being one channel. Two new readings,

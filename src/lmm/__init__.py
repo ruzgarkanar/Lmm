@@ -23,7 +23,7 @@ beside it are the layer that gives it language.
 Names are exported LAZILY. `import lmm` must stay cheap and must not drag in an
 engine, so the heavy modules are imported on first attribute access.
 """
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __all__ = ["Memory", "Answer", "Learned", "Session", "__version__"]
 
