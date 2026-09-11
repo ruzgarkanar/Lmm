@@ -1681,7 +1681,14 @@ class Session:
         if not rows:
             return None
         rows.sort()
-        fallback = (rows[0][0], rows[0][1], phrase)
+        # AN ANCHOR CARRIES WHETHER IT WAS VERIFIED (W103). The envelope
+        # fallback is right for "when did I last do X" — the stamp IS
+        # the day — and wrong as an addend: measured across 500
+        # benchmark questions, arithmetic on fallbacks turned 172
+        # abstentions into 71 and 140 wrong claims into 235. The
+        # operations that compute decide for themselves; this reading
+        # only reports what it knows.
+        fallback = (rows[0][0], rows[0][1], phrase, False)
         try:
             offered = generate.event_date(
                 phrase, [(r[0].strftime("%Y/%m/%d"), r[2]) for r in rows],
@@ -1698,14 +1705,14 @@ class Session:
                 if when is not None:
                     for stamp, src, text in rows:
                         if when == stamp:
-                            return (when, src, phrase)
+                            return (when, src, phrase, True)
                         # the day is the sentence's own number, the year
                         # is the envelope's neighbourhood — both checks
                         # arithmetic, neither a grammar
                         day_written = str(when.day) in set(
                             re.findall(r"\d+", text))
                         if day_written and abs(when.year - stamp.year) <= 1:
-                            return (when, src, phrase)
+                            return (when, src, phrase, True)
         return fallback
 
     def _plan_answer(self, question, want=None):
@@ -1765,7 +1772,8 @@ class Session:
                 got = _anchored(args[0], want_latest=True)
                 if got is None:
                     return None
-                value = ("date",) + got
+                # the envelope's own stamp: a WHEN answer, not an addend
+                value = ("date",) + got + (False,)
             elif op == "lines" and len(args) == 1:
                 words = evidence._words(args[0])
                 rows = []
@@ -1790,6 +1798,11 @@ class Session:
                 right = env.get(args[1])
                 if not left or not right or left[0] != "date" \
                         or right[0] != "date":
+                    return None
+                # ARITHMETIC RUNS ON VERIFIED DATES, OR IT DOES NOT RUN
+                # (W103): a span or an order built on two envelope
+                # fallbacks is two guesses wearing one sentence.
+                if not (left[4] and right[4]):
                     return None
                 if op == "span":
                     days = abs((right[1] - left[1]).days)
@@ -1867,7 +1880,7 @@ class Session:
             said = "%d." % out[1]
             mark = ""
         elif out[0] == "date":
-            _k, when, src, phrase = out
+            _k, when, src, phrase = out[0], out[1], out[2], out[3]
             said = "%s — %s." % (phrase, _shown(when))
             mark = src
         else:
