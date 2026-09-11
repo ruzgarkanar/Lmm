@@ -562,15 +562,18 @@ class Session:
         if said and self.last_abstained and message and message.strip():
             shape = self._turn_shape(message)
             if shape == "count":
-                counted = self._count_answer(message)
+                counted = (self._count_answer(message)
+                           or self._plan_answer(message))
                 if counted:
                     said = counted
             elif shape == "order":
-                ordered = self._order_answer(message)
+                ordered = (self._order_answer(message)
+                           or self._plan_answer(message))
                 if ordered:
                     said = ordered
             elif shape == "sum":
-                summed = self._sum_answer(message)
+                summed = (self._sum_answer(message)
+                          or self._plan_answer(message))
                 if summed:
                     said = summed
         census_line = getattr(self, "_census_line", "")
@@ -1150,14 +1153,17 @@ class Session:
                     # organs or refused — the chain is never gambled on
                     # a shape it measurably cannot hold.
                     if shape == "count":
-                        counted = self._count_answer(message)
+                        counted = (self._count_answer(message)
+                                   or self._plan_answer(message))
                         return counted if counted else self._refuse(message)
                     if shape == "order":
-                        ordered = self._order_answer(message)
+                        ordered = (self._order_answer(message)
+                                   or self._plan_answer(message))
                         if ordered:
                             return ordered
                     elif shape == "sum":
-                        summed = self._sum_answer(message)
+                        summed = (self._sum_answer(message)
+                                  or self._plan_answer(message))
                         return summed if summed else self._refuse(message)
                     elif shape == "material" and self._conversational:
                         delivered = self._delivery(message)
@@ -1339,6 +1345,149 @@ class Session:
         self.last_from_graph = True     # derived like a record: no prose
         self._mark = next((s for s in sources if s), "") or ""
         return "%d: %s." % (len(kept), ", ".join(kept))
+
+    def _plan_answer(self, question):
+        """A plan is a proposal; the primitives are the law (W94).
+
+        The composer: the engine proposes a plan over the verified
+        primitives (`generate.plan_of`); this interpreter executes only
+        the operations it knows, on phrases the STORE can anchor, and
+        the sentence is built from the final step's typed value by our
+        own template. An unknown operation, an unanchorable phrase, a
+        dangling reference — the plan dies, no claim is born, and the
+        caller's ordinary law applies. The engine never writes an
+        output word; the dates, counts and verdicts spoken are the
+        store's arithmetic, each anchored line's stamp in hand."""
+        try:
+            steps = generate.plan_of(question)
+        except Exception:                               # noqa: BLE001
+            return None
+        if not steps:
+            return None
+        import datetime as _dt
+
+        def _anchored(phrase, want_latest=False):
+            words = evidence._words(phrase)
+            if not words:
+                return None
+            best = None
+            for text, src in self.evidence.sentences:
+                held = set(evidence._words(text))
+                hit = sum(1 for w in words
+                          if any(inflect.same_stem(w, h) for h in held))
+                if hit * 2 <= len(words):
+                    continue
+                digits = [int(d) for d in re.findall(r"\d+", src or "")]
+                if len(digits) < 3:
+                    continue
+                try:
+                    when = _dt.date(digits[0], digits[1], digits[2])
+                except ValueError:
+                    continue
+                if (best is None
+                        or (when > best[0] if want_latest else when < best[0])):
+                    best = (when, src, phrase)
+            return best
+
+        env, out = {}, None
+        for step in steps:
+            if len(step) < 3:
+                return None
+            name, op, args = step[0], step[1], list(step[2:])
+            value = None
+            if op in ("anchor", "latest") and len(args) == 1:
+                got = _anchored(args[0], want_latest=(op == "latest"))
+                if got is None:
+                    return None
+                value = ("date",) + got
+            elif op == "lines" and len(args) == 1:
+                words = evidence._words(args[0])
+                rows = []
+                for text, src in self.evidence.sentences:
+                    held = set(evidence._words(text))
+                    hit = sum(1 for w in words
+                              if any(inflect.same_stem(w, h) for h in held))
+                    if words and hit * 2 > len(words):
+                        digits = [int(d) for d in
+                                  re.findall(r"\d+", src or "")]
+                        when = None
+                        if len(digits) >= 3:
+                            try:
+                                when = _dt.date(digits[0], digits[1],
+                                                digits[2])
+                            except ValueError:
+                                when = None
+                        rows.append((when, src, text))
+                if not rows:
+                    return None
+                value = ("lines", rows)
+            elif op in ("span", "before") and len(args) == 2:
+                left = env.get(args[0])
+                right = env.get(args[1])
+                if not left or not right or left[0] != "date" \
+                        or right[0] != "date":
+                    return None
+                if op == "span":
+                    days = abs((right[1] - left[1]).days)
+                    value = ("days", days, left, right)
+                else:
+                    value = ("bool", left[1] < right[1], left, right)
+            elif op == "count" and len(args) == 1:
+                got = env.get(args[0])
+                if not got or got[0] != "lines":
+                    return None
+                value = ("count", len(got[1]))
+            elif op == "month_tally" and len(args) == 1:
+                got = env.get(args[0])
+                if not got or got[0] != "lines":
+                    return None
+                tally = {}
+                for when, _src, _text in got[1]:
+                    if when is not None:
+                        key = "%04d/%02d" % (when.year, when.month)
+                        tally[key] = tally.get(key, 0) + 1
+                if not tally:
+                    return None
+                best = max(sorted(tally), key=lambda k: tally[k])
+                value = ("month", best, tally[best])
+            else:
+                return None             # an operation the law does not know
+            env[name] = value
+            out = value
+
+        if out is None:
+            return None
+        # THE SENTENCE IS OURS. Typed value -> template; the engine's
+        # phrases appear only as the question's own anchored words.
+        def _shown(date):
+            return date.strftime("%Y/%m/%d")
+        if out[0] == "days":
+            _k, days, left, right = out
+            said = ("%d days (%d including the last day) — %s (%s) → %s (%s)."
+                    % (days, days + 1, left[3], _shown(left[1]),
+                       right[3], _shown(right[1])))
+            mark = right[2]
+        elif out[0] == "bool":
+            _k, verdict, left, right = out
+            said = ("%s — %s (%s), %s (%s)."
+                    % ("Yes" if verdict else "No",
+                       left[3], _shown(left[1]),
+                       right[3], _shown(right[1])))
+            mark = right[2]
+        elif out[0] == "month":
+            _k, month, n = out
+            said = "%s (%d lines)." % (month, n)
+            mark = ""
+        elif out[0] == "count":
+            said = "%d." % out[1]
+            mark = ""
+        else:
+            return None
+        self._step("plan")
+        self.last_abstained = False
+        self.last_from_graph = True
+        self._mark = mark or ""
+        return said
 
     def _sum_answer(self, question):
         """A total is the sum of verified amounts, never a number (W91).
