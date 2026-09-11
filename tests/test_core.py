@@ -6056,6 +6056,78 @@ def w72():
 
 
 
+@test("W97 a refusal in chat register is not an assertion")
+def w97():
+    """Fifty-three turns of the first full benchmark run wore a stamp
+    on a refusal: "I don't have that information yet. (~ chat ...)" —
+    marked as a claim, scored as a wrong one. The assertion reading's
+    word-majority was built against DOCUMENT blocks, where a refusal
+    shares almost nothing; chat evidence speaks the refusal's own
+    register — I, have, that, information — and the majority test
+    could not tell an honest shrug from a statement.
+
+    An assertion is what the gates could have admitted: a sentence
+    carrying something LOAD-BEARING from the proof — a shared digit,
+    or a shared word that sits in a MINORITY of the proof's lines.
+    Register blankets the proof; content sits in a line or two. The
+    boundary is the codebase's own more-than-half, read off the proof
+    itself, so a four-line chat and a hundred-page standard measure
+    the same way."""
+    from lmm.session import Session
+    s = Session(None)
+    chatty = ["User: I have that information about the gala somewhere.",
+              "User: yes I do have the March schedule with me.",
+              "User: that information came from the parish letter.",
+              "User: I think the gala is on March 22, that is the plan."]
+    for i, line in enumerate(chatty):
+        s.evidence.add(line, "chat 2023/03/0%d" % (i + 1))
+    s._last_proof = chatty
+    assert not s._asserted_a_fact("I don't have that information yet."), \
+        "a chat-register refusal read as an assertion"
+    assert s._asserted_a_fact(
+        "The March schedule came from the parish letter."), \
+        "a real claim with load-bearing content read as a shrug"
+    assert s._asserted_a_fact("The gala is on March 22."), \
+        "a digit-bearing claim read as a shrug"
+
+
+@test("W96 a cutoff is a filter over dated lines, not a new organ")
+def w96():
+    """The benchmark's cutoff counts — "how many charity events did I
+    attend BEFORE the gala?" — sent the composer to a before() verdict
+    over two anchors, because before was the only operation that knew
+    the word. The vocabulary gains the filter pair instead: before_lines
+    and after_lines take gathered lines and an anchor and keep the side
+    asked for; count stands on what survives. Same law, no new organ —
+    a plan is two more lines."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.evidence.add("User: charity fun-run done, tired but happy.",
+                   "chat 2023/02/01")
+    s.evidence.add("User: volunteered at the charity bake sale.",
+                   "chat 2023/03/05")
+    s.evidence.add("User: charity book drive wrapped up today.",
+                   "chat 2023/04/10")
+    s.evidence.add("User: the big gala fundraiser was tonight!",
+                   "chat 2023/03/20")
+    real_plan = generate.plan_of
+    real_read = generate.event_date
+    generate.event_date = lambda phrase, rows, **kw: ""
+    generate.plan_of = (lambda q: [
+        ("l", "lines", "charity"),
+        ("a", "anchor", "the big gala fundraiser"),
+        ("f", "before_lines", "l", "a"),
+        ("out", "count", "f")])
+    try:
+        said = s._plan_answer("how many charity events before the gala?")
+    finally:
+        generate.plan_of = real_plan
+        generate.event_date = real_read
+    assert said is not None, "the filtered count did not speak"
+    assert "2" in said, said            # fun-run + bake sale; book drive is after
+
+
 @test("W95 an event's date is the sentence's word before the envelope's")
 def w95():
     """The missing gear the strong-model experiment isolated: people

@@ -767,8 +767,38 @@ class Session:
             # carries almost none; the mixture in between asserted something
             # either way. More-than-half is the same non-dial boundary every
             # other mixture reading in this codebase uses.
+            # ...AND THE MAJORITY MUST BE MADE OF LOAD-BEARING WORDS
+            # (W97). Chat evidence speaks a refusal's own register — I,
+            # have, that, information — and fifty-three benchmark turns
+            # wore a stamp on an honest shrug because word-majority
+            # could not tell register from content. What the gates could
+            # have admitted carries something the proof does not blanket:
+            # a shared DIGIT, or a shared word sitting in a MINORITY of
+            # the proof's lines. Register blankets; content sits in a
+            # line or two. More-than-half again, read off the proof
+            # itself, so a four-line chat and a hundred-page standard
+            # measure the same way.
+            per_line = [set(evidence._words(line)) for line in proof]
+            half = len(per_line) / 2
+
+            def _load_bearing_words(sentence):
+                # a population of one has no register to subtract: with
+                # a single proof line, blanket and content are the same
+                # set, and the reading defers to coverage as it always
+                # did (W5's standing cases)
+                if len(per_line) < 2:
+                    return True
+                for w in evidence._words(sentence):
+                    holders = sum(1 for held in per_line if any(
+                        inflect.same_stem(w, h) for h in held))
+                    if holders and (holders < half
+                                    or any(c.isdigit() for c in w)):
+                        return True
+                return False
+
             held = "\n".join(proof)
             return any(evidence.coverage(sentence, held) > 0.5
+                       and _load_bearing_words(sentence)
                        for sentence in re.split(r"(?<=[.!?])\s+",
                                                 text.strip())
                        if sentence.strip())
@@ -1551,6 +1581,20 @@ class Session:
                     value = ("days", days, left, right)
                 else:
                     value = ("bool", left[1] < right[1], left, right)
+            elif op in ("before_lines", "after_lines") and len(args) == 2:
+                got = env.get(args[0])
+                cut = env.get(args[1])
+                if not got or got[0] != "lines" or not cut \
+                        or cut[0] != "date":
+                    return None
+                edge = cut[1]
+                kept_rows = [row for row in got[1]
+                             if row[0] is not None
+                             and (row[0] < edge if op == "before_lines"
+                                  else row[0] > edge)]
+                if not kept_rows:
+                    return None         # an empty side is an abstention
+                value = ("lines", kept_rows)
             elif op == "count" and len(args) == 1:
                 got = env.get(args[0])
                 if not got or got[0] != "lines":
