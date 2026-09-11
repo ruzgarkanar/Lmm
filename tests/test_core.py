@@ -6056,6 +6056,47 @@ def w72():
 
 
 
+@test("W99 distilled events are counted from the graph, not refound in prose")
+def w99():
+    """The key the stubborn room asked for, cut to this codebase's
+    laws. Chat is trickle data: events melt into talk ("finished the
+    Mustang build" is a fifth model kit no word-search can recognise),
+    and three retrieval levers were measured against that wall — cap,
+    expansion, speaker — none moved it. Conversion is the answer, and
+    conversion is measured too: ALL-turns deep poisoned the graph with
+    the assistant's advice walls (16→10). So the ASKER'S turns alone
+    are distilled — learn(deep=True) per user turn, the door that
+    always existed — and the counting organ gains its graph mode:
+    distilled facts matching the question are counted AS FACTS, each
+    one already gated at write, each carrying its dated source. The
+    prose modes stay behind it untouched."""
+    from lmm import extract
+    from lmm.session import Session
+    s = Session(None)
+    s.asker = "user"
+    # damıtılmış olgular: kapıdan geçmiş, tarihli-kaynaklı kayıtlar
+    for subj, val, day in (("model kit b-29", "built", "2023/03/02"),
+                           ("model kit camaro", "bought", "2023/03/18"),
+                           ("mustang build", "finished", "2023/04/05")):
+        s.memory.write(subj, "event", val,
+                       source="chat %s · user" % day)
+    seen = {}
+    def no_items(question, block):
+        raise AssertionError("prose listing ran though the graph could count")
+    from lmm import generate
+    real = generate.items_of
+    generate.items_of = no_items
+    try:
+        said = s._count_answer("how many model kits and builds have I "
+                               "worked on?")
+    finally:
+        generate.items_of = real
+    assert said is not None, "the graph count did not speak"
+    assert "3" in said, said
+    low = said.lower()
+    assert "mustang" in low and "camaro" in low, said
+
+
 @test("W98 the asker's events live in the asker's lines")
 def w98():
     """Found by reading one drowned block: asked how many items of
