@@ -1261,6 +1261,54 @@ class Session:
         except AttributeError:
             self.last_route = [organ]
 
+    def _without_gaps(self, draft):
+        """Drop what the gap marker marks — the rows, and the heading
+        with nothing left under it (W102).
+
+        The marker exists so a thin section cannot be FILLED with
+        invention; it does that job at the gate and then has no
+        business in front of a reader. Measured on a live consultation:
+        eleven sections whose every field read "[no material]" reached
+        the user — a confession printed twelve times. The gate's rule is
+        untouched: the engine still may not fill a gap, it simply no
+        longer shows one. A draft that is nothing but markers returns
+        empty, and the caller refuses as it does for any empty answer.
+
+        WHAT COUNTS AS A HEADING IS PUNCTUATION, NOT VOCABULARY: a line
+        with no field colon, no bullet or number opening it, and no
+        sentence-final mark is a heading; everything else is content.
+        The first cut called every colon-less line a heading and ate a
+        composed agenda's prose (W3 caught it in the same run).
+        """
+        marker = "[no material]"
+        lines = [ln for ln in (draft or "").splitlines() if ln.strip()]
+
+        def _heading(line):
+            text = line.strip()
+            return (":" not in text
+                    and text[:1] not in "-*•"
+                    and not text[:1].isdigit()
+                    and not text.endswith((".", "!", "?")))
+
+        kept, i = [], 0
+        while i < len(lines):
+            line = lines[i]
+            if not _heading(line):
+                if marker not in line:
+                    kept.append(line)
+                i += 1
+                continue
+            block, j = [], i + 1
+            while j < len(lines) and not _heading(lines[j]):
+                block.append(lines[j])
+                j += 1
+            alive = [ln for ln in block if marker not in ln]
+            if alive:
+                kept.append(line)
+                kept.extend(alive)
+            i = j
+        return "\n".join(kept)
+
     def _spoken_row(self, question, row):
         """A derived row, spoken as a sentence (W101).
 
@@ -2527,7 +2575,13 @@ class Session:
                 kept = _admit(line)
                 if kept is not None:
                     kept_lines.append(kept)
-        text = "\n".join(kept_lines).strip()
+        # THE GAP MARKER DOES ITS JOB AT THE GATE, NOT ON THE SCREEN
+        # (W102): rows the engine declined to invent are dropped here,
+        # and a title left with nothing under it goes with them.
+        # what the GATE passed, kept for the tests and the audit trail —
+        # the marker belongs to that record, not to the reader's screen
+        self._last_composed_raw = "\n".join(kept_lines)
+        text = self._without_gaps(self._last_composed_raw).strip()
         if not text:
             return self._refuse(brief), []
         self.last_abstained = False

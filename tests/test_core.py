@@ -3289,7 +3289,14 @@ def w12():
     assert "Gamma" not in text, text                   # invented name: dead
     assert "45" not in text, text                      # invented number: dead
     assert "Morning" in text, text                     # structure stands
-    assert "[no material]" in text, text               # the marker stands
+    # THE MARKER PASSES THE GATE AND LEAVES BEFORE THE READER (W102).
+    # It is not evidence and claims nothing, so the gate lets it stand —
+    # that is this test's original point and it still holds, checked one
+    # layer down where the gate hands its lines on. What the reader gets
+    # is the draft without the gap, because a printed confession is not
+    # an answer.
+    assert "[no material]" not in text, text
+    assert "[no material]" in s._last_composed_raw, s._last_composed_raw
 
 
 @test("W13 a contributing document brings its fact-sheet along")
@@ -6061,6 +6068,40 @@ def w72():
     assert len(tries) == 2, ("the nameless answer was spoken as-is or "
                              "retried more than once: %d" % len(tries))
 
+
+
+@test("W102 a section with no material is dropped, not printed empty")
+def w102():
+    """Read off a live consultation, and it is a product bug of the
+    plainest kind: a catalogue came back with eleven sections whose
+    every field read "[no material]" — a marker this codebase asks the
+    engine for so that a thin section cannot be FILLED with invention.
+    The marker does its job at the gate and then has no business in
+    front of a reader: a section that says nothing is not an answer,
+    it is a confession printed twelve times.
+
+    So the composition drops what the marker marks — the empty rows
+    and, when nothing survives under it, the title above them — while
+    the gate's rule is untouched: the engine still may not fill a gap,
+    it simply no longer shows the gap. A draft that is nothing BUT
+    markers is a refusal, and refuses like every other empty answer."""
+    from lmm.session import Session
+    s = Session(None)
+    draft = ("Alpha Course (alpha.docx)\n"
+             "Duration: 2 days\n"
+             "Audience: [no material]\n"
+             "Beta Course (beta.docx)\n"
+             "Duration: [no material]\n"
+             "Audience: [no material]\n"
+             "Gamma Course (gamma.docx)\n"
+             "Duration: 1 day\n")
+    kept = s._without_gaps(draft)
+    assert "[no material]" not in kept, kept
+    assert "Alpha Course" in kept and "Duration: 2 days" in kept, kept
+    assert "Gamma Course" in kept, kept
+    assert "Beta Course" not in kept, (
+        "a title with nothing under it was kept: %r" % kept)
+    assert s._without_gaps("Solo (x.docx)\nDuration: [no material]\n") == ""
 
 
 @test("W101 a derived row is spoken as a sentence, and the value survives")
