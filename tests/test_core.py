@@ -6070,6 +6070,50 @@ def w72():
 
 
 
+@test("W103 arithmetic runs on verified dates, or it does not run")
+def w103():
+    """The regression a full benchmark run caught, and it is this
+    project's own law broken by its newest organ. `_event_anchor` falls
+    back to the envelope's stamp when it cannot verify a date — right
+    for "when did I last go hiking", where the stamp IS the day — and
+    the composer then computed spans and orders from those fallbacks as
+    confidently as from verified readings. Measured across 500
+    questions: abstentions 172 -> 71, wrong claims 140 -> 235, and the
+    penalised score (correct - wrong) fell from +9.6% to -8.2%. More
+    talk, less honesty.
+
+    So an anchor now carries whether it was VERIFIED — the date matched
+    a candidate's stamp, or its day is written in that line — and the
+    arithmetic operations (span, before) require verified anchors on
+    both sides. A fallback anchor still answers "when", which is what
+    it is for. A guess is not an answer, and arithmetic on a guess is
+    two guesses."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.evidence.add("User: the gala was wonderful, everyone came.",
+                   "chat 2023/05/02")
+    s.evidence.add("User: we talked about the audit again today.",
+                   "chat 2023/06/11")
+    real = generate.event_date
+    generate.event_date = lambda phrase, rows, **kw: ""   # no reading
+    try:
+        got = s._event_anchor("the gala")
+        assert got is not None and got[3] is False, got   # unverified
+        generate.plan_of = lambda q: [("a", "anchor", "the gala"),
+                                      ("b", "anchor", "the audit"),
+                                      ("out", "span", "a", "b")]
+        span = s._plan_answer("how many days between the gala and the audit?")
+    finally:
+        generate.event_date = real
+    assert span is None, (
+        "arithmetic ran on unverified dates: %r" % span)
+    # ...and a WHEN still answers from the envelope, which is its job
+    generate.plan_of = lambda q: [("out", "latest", "the gala")]
+    said = s._plan_answer("when was the gala?", want=("date",))
+    assert said and "2023/05/02" in said, said
+
+
 @test("W102 a section with no material is dropped, not printed empty")
 def w102():
     """Read off a live consultation, and it is a product bug of the
