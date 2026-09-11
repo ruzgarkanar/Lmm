@@ -65,6 +65,41 @@ def _retryable():
             InternalServerError)
 
 
+# WHAT THE DEPLOYMENT DECLARED IT CANNOT TAKE. Newer models refuse
+# `max_tokens` (they want `max_completion_tokens`) and refuse any
+# temperature but their default; the endpoint SAYS so in its error, and
+# that declaration — not a model-name list — is what these flags cache.
+# Per-process, learned on the first refusal, never guessed.
+_CAPS = {"completion_tokens": False, "no_temperature": False}
+
+
+def _kwargs(max_tokens, temperature):
+    out = {}
+    if _CAPS["completion_tokens"]:
+        out["max_completion_tokens"] = max_tokens
+    else:
+        out["max_tokens"] = max_tokens
+    if not _CAPS["no_temperature"]:
+        out["temperature"] = temperature if temperature > 0 else 0
+    return out
+
+
+def _adapted(said):
+    """Read the endpoint's own declaration out of a BadRequest; True if
+    a capability flag moved and the call is worth one retry."""
+    text = str(said)
+    moved = False
+    if "max_tokens" in text and "max_completion_tokens" in text \
+            and not _CAPS["completion_tokens"]:
+        _CAPS["completion_tokens"] = True
+        moved = True
+    if "temperature" in text and "not support" in text \
+            and not _CAPS["no_temperature"]:
+        _CAPS["no_temperature"] = True
+        moved = True
+    return moved
+
+
 def generate(messages, max_tokens=256, temperature=0.7, system=None):
     client = _load()
     if isinstance(messages, str):
@@ -76,11 +111,18 @@ def generate(messages, max_tokens=256, temperature=0.7, system=None):
         # The remaining budget is handed to the SDK as the request timeout, so
         # a stalled socket is bounded by the same clock as a quota wait.
         api = client if left is None else client.with_options(timeout=left)
-        out = api.chat.completions.create(
-            model=os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini"),
-            messages=messages, max_tokens=max_tokens,
-            temperature=temperature if temperature > 0 else 0)
-        return (out.choices[0].message.content or "").strip()
+        for _try in (1, 2, 3):
+            try:
+                out = api.chat.completions.create(
+                    model=os.environ.get("AZURE_OPENAI_DEPLOYMENT",
+                                         "gpt-4o-mini"),
+                    messages=messages,
+                    **_kwargs(max_tokens, temperature))
+                return (out.choices[0].message.content or "").strip()
+            except Exception as said:                    # noqa: BLE001
+                if not _adapted(said):
+                    raise
+        raise RuntimeError("the deployment kept refusing its own advice")
 
     return runtime.within_budget(call, _retryable(), what="the Azure endpoint")
 
