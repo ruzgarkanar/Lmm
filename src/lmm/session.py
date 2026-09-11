@@ -1261,6 +1261,35 @@ class Session:
         except AttributeError:
             self.last_route = [organ]
 
+    def _spoken_row(self, question, row):
+        """A derived row, spoken as a sentence (W101).
+
+        The organs answer in debug notation — "3: Dr. Lee, Dr. Smith,
+        Dr. Patel." — which is a dump: a reader reconstructs the
+        sentence, and a grader reads the leading number as a list
+        label. The record channel's own remedy, and the codebase's
+        oldest law: the ROW becomes the evidence, the engine phrases
+        from it alone, and arithmetic keeps the last word — every digit
+        the row carries must survive into the sentence, and nothing the
+        row does not carry may be added as a digit. Any failure returns
+        the row as it stands, which is what shipped before this. One
+        call, only when an organ has already decided what is true."""
+        raw = (row or "").strip()
+        if not raw:
+            return row
+        try:
+            said = (generate.answer(question, raw, warmth=0.0,
+                                    persona=self.persona) or "").strip()
+        except Exception:                               # noqa: BLE001
+            return row
+        if not said:
+            return row
+        mine = re.findall(r"\d+", raw)
+        theirs = re.findall(r"\d+", said)
+        if sorted(mine) != sorted(theirs):
+            return row                  # the arithmetic did not survive
+        return said
+
     def distil(self, text, source="", speaker=None):
         """Write the EVENTS a passage reports into the graph (W100).
 
@@ -1464,7 +1493,8 @@ class Session:
             self.last_from_graph = True
             self._mark = next(iter(told.values()), "")
             names = sorted(told)
-            return "%d: %s." % (len(names), ", ".join(names))
+            return self._spoken_row(
+                question, "%d: %s." % (len(names), ", ".join(names)))
 
         lines = self.evidence.find(question, most=60, floor_share=0.0)
         # A COUNT'S GATHERING GETS THE SECOND ASK TOO. Multi-session
@@ -1530,7 +1560,8 @@ class Session:
         self.last_abstained = False
         self.last_from_graph = True     # derived like a record: no prose
         self._mark = next((s for s in sources if s), "") or ""
-        return "%d: %s." % (len(kept), ", ".join(kept))
+        return self._spoken_row(
+            question, "%d: %s." % (len(kept), ", ".join(kept)))
 
     def _word_weight(self, word):
         """The store's information weight for one word — log(1+N/df),
@@ -1854,8 +1885,10 @@ class Session:
         self.last_abstained = False
         self.last_from_graph = True
         self._mark = ""
-        return "%s (%s)." % (shown,
-                             " + ".join("%s: %s" % (i, v) for i, v in kept))
+        return self._spoken_row(
+            question,
+            "%s (%s)." % (shown,
+                          " + ".join("%s: %s" % (i, v) for i, v in kept)))
 
     def _order_answer(self, question):
         """Which came first is read off the dates, not remembered.

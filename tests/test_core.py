@@ -6056,6 +6056,42 @@ def w72():
 
 
 
+@test("W101 a derived row is spoken as a sentence, and the value survives")
+def w101():
+    """The organs answer in debug notation — "3: Dr. Lee, Dr. Smith,
+    Dr. Patel." — which is a dump, not an answer: a reader has to
+    reconstruct the sentence, and a grader reads it as a list label.
+    The record channel already knows the remedy, and it is the
+    codebase's oldest law: the derived row becomes the EVIDENCE, the
+    engine phrases from it alone, and the gates read the result. The
+    engine may not change a number the arithmetic produced — every
+    digit of the row must survive into the sentence — and any failure
+    falls back to the row as it stands, which is what ships today.
+    Phrasing is not knowing."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    row = "3: Dr. Lee, Dr. Smith, Dr. Patel."
+    real = generate.answer
+    generate.answer = (lambda question, facts, warmth=0.2, persona="",
+                       **kw: "You visited 3 different doctors: Dr. Lee, "
+                             "Dr. Smith and Dr. Patel.")
+    try:
+        said = s._spoken_row("how many different doctors did I visit?", row)
+    finally:
+        generate.answer = real
+    assert said.startswith("You visited 3"), said
+    # a phrasing that drops or changes the arithmetic is refused: the row
+    # stands instead
+    generate.answer = (lambda question, facts, warmth=0.2, persona="",
+                       **kw: "You visited several doctors.")
+    try:
+        kept = s._spoken_row("how many different doctors did I visit?", row)
+    finally:
+        generate.answer = real
+    assert kept == row, kept
+
+
 @test("W100 a distiller lists events, and the turn's own words admit them")
 def w100():
     """The fifth key, after four measured failures. Chat is trickle
@@ -6444,6 +6480,8 @@ def w88():
     real_shape = generate.turn_shape
     real_items = generate.items_of
     real_answer = s._answer
+    real_say = s._spoken_row
+    s._spoken_row = lambda question, row: row      # phrasing is W101's
     generate.turn_shape = lambda message: "count"
     generate.items_of = (lambda question, block:
                          ["Harbour Atlas", "Quiet Lantern", "Copper Vale"])
@@ -6458,6 +6496,7 @@ def w88():
         generate.turn_shape = real_shape
         generate.items_of = real_items
         s._answer = real_answer
+        s._spoken_row = real_say
     assert called["chain"] == 0, (
         "the chain was gambled on a count-shaped turn: %r" % said)
     assert "3" in said and "copper vale" in said.lower(), said
