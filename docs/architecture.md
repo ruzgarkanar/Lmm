@@ -59,10 +59,20 @@ With `deep=True` the engine additionally mines each sentence for triples. It is
 off by default for files: a large document's structure is already taken by the
 adapters, and an extractor call per sentence costs minutes to add little.
 
+A **document profile** is embedded at the same time — the document's name and
+its longest lines, through the static matrix that ships with the library. It
+is one vector per document, not per line, so ingesting a hundred documents
+costs about half a second and no model call. Which layer that sits at was
+measured: over lines it moved nothing, over documents the store's retrieval
+went from 92% to 99%.
+
 ## Answering
 
 1. Resolve the question's subject against the graph.
-2. Gather candidate records and retrieve evidence sentences.
+2. Gather candidate records and retrieve evidence sentences. Retrieval runs
+   two rankings — the words, and the meaning channel naming which DOCUMENTS
+   the question is about — fused by reciprocal rank, then reordered by late
+   interaction over the same matrix. No model call in any of it.
 3. Hand *only that material* to the engine, in a structural frame — field names,
    not sentences in any user language.
 4. Check what came back: does it cover the question, are its digits present in

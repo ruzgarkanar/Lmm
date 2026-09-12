@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 470"
      width="980" height="470" role="img"
-     aria-label="LMM architecture: documents, tables and messages pass an entry gate into a graph memory with evidence; a question retrieves from that memory, a small engine phrases the answer, and an exit gate either releases it or drops it.">
+     aria-label="LMM architecture: documents, tables and messages pass an entry gate into a graph memory holding facts, evidence sentences and a bundled meaning channel; a question retrieves from that memory by words and by meaning, a small engine phrases the answer, and an exit gate either releases it or drops it.">
   <defs>
     <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
             markerHeight="7" orient="auto-start-reverse">
@@ -82,9 +82,10 @@
   <text x="474" y="96" class="s">facts · source · trust · time</text>
   <text x="474" y="116" class="l">links between facts</text>
   <text x="474" y="132" class="s">cause · then · contradicts</text>
-  <text x="474" y="152" class="l">evidence index</text>
-  <text x="474" y="168" class="s">sentences, kept verbatim</text>
-  <text x="474" y="192" class="g">DERIVES · NO MODEL CALL</text>
+  <text x="474" y="150" class="l">evidence index</text>
+  <text x="474" y="164" class="s">sentences verbatim · words</text>
+  <text x="474" y="180" class="l">meaning channel</text>
+  <text x="474" y="194" class="s">vectors, bundled · no model call</text>
 
   <!-- answering -->
   <text x="24" y="292" class="k">ANSWERING</text>
@@ -95,7 +96,7 @@
 
   <path d="M156,329 H502 V212" class="ln" marker-end="url(#a)"/>
   <text x="196" y="322" class="k">RETRIEVE</text>
-  <text x="196" y="344" class="s">graph lookup + evidence — deterministic</text>
+  <text x="196" y="344" class="s">graph lookup · words + meaning, fused by rank, reordered — no model call</text>
 
   <!-- memory feeds the engine -->
   <path d="M565,204 L565,300" class="lt" marker-end="url(#t)"/>

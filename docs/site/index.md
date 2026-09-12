@@ -8,6 +8,10 @@ cannot leave the system.
 pip install living-memory-model      # the import is `lmm`
 ```
 
+One dependency (numpy), and a 30 MB multilingual embedding matrix travels in
+the wheel — so a question asked in other words than the document used is
+understood **out of the box**, offline, with nothing to configure.
+
 ```python
 from lmm import Memory
 
@@ -38,6 +42,17 @@ other property of this system is downstream of that sentence.
 | Indexing that standard | **0 model calls** | 220 calls · 498k tokens |
 | Wrong facts asserted | **0** | 1 |
 
+Retrieval in 0.6, measured on this repository's own corpora — by whether the
+line that answers actually reaches the engine:
+
+| | first | in five |
+|---|---|---|
+| words alone | 31% | 32% |
+| + the bundled meaning channel | 31% | 60% |
+| + late-interaction reordering | 34% | **79%** |
+
+No model call in any of it.
+
 Every number on this site carries the commit it was measured at, and the
 [two bugs found in our own scorer — both penalising the competitor —
 were published with the corrected numbers](reference/measurements.md).
@@ -48,4 +63,6 @@ were published with the corrected numbers](reference/measurements.md).
 - **[Why a memory](concepts/why.md)** — the argument, in five minutes.
 - **[The API surface](reference/api.md)** — everything callable, and what
   needs an engine (most of it does not).
+- **[The architecture](concepts/architecture.md)** — the three channels, the
+  two gates, and which layer each instrument sits at.
 - **[Honest limits](concepts/limits.md)** — what this does not do, measured.
