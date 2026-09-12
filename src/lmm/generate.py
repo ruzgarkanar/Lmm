@@ -1050,60 +1050,10 @@ def confirm(learned, conflicts, message):
 
 
 # HOW MANY QUESTIONS TO ASK FOR PER LINE. This is a GENERATION BUDGET, not a
-# decision threshold — it buys candidates, and which of them survive is decided
-# by the document itself (`evidence.SentenceStore.learn_expansions`). It is
 # stated once, overridable with `LMM_EXPAND_K`, and nothing downstream depends
 # on its value: a larger K costs more completion tokens and hands the same
 # filter a longer list.
 EXPANSIONS = 3
-
-
-def expansions(sentence):
-    """The questions this line answers, asked in other words — index material
-    for the offline expansion (doc2query--).
-
-    Returns a list of strings, at most `EXPANSIONS` of them. NOTHING here is
-    speakable: the caller writes it into a separate index and the answer block
-    is still built from the document's own sentences. See
-    `evidence.SentenceStore.__init__` for the wall and why it is absolute.
-
-    Two structural filters, and neither is a language rule: a line that comes
-    back as itself is not an expansion (the engine echoed instead of rewording),
-    and an empty output is the prompt's own way of saying this line asks for
-    nothing.
-    """
-    import os
-    count = int(os.environ.get("LMM_EXPAND_K", EXPANSIONS))
-    if count <= 0:
-        return []
-    # THE LANGUAGE RULE GOES FIRST, and it is the one this codebase already
-    # measured: a language instruction buried inside a list of rules is not
-    # enough (see `_MATCH_LANGUAGE`). Measured here too, and expensively — the
-    # first full run of this pass expanded an ENGLISH corpus and an English NIST
-    # publication entirely in SPANISH, 4,766 units of it, because the rule sat
-    # third in a list while three few-shot examples sat under it in three
-    # languages. Every generated word was then novel to the document by virtue
-    # of being in the wrong language, which is index bloat wearing the shape of
-    # a synonym.
-    out = runtime.generate(sentence,
-                           system=_MATCH_LANGUAGE + prompts.EXPAND_SYSTEM,
-                           max_tokens=40 * count, temperature=0.0, small=True)
-    seen, kept = {_flat(sentence)}, []
-    for line in (out or "").splitlines():
-        # Leading list marks are FORMAT the prompt asked not to produce; the
-        # engine produces them anyway, and stripping punctuation off the front
-        # of a line is not a word list.
-        line = line.strip().lstrip("-*•").strip().strip("\"'").strip()
-        if not line or line == "->":
-            continue
-        key = _flat(line)
-        if key in seen:
-            continue
-        seen.add(key)
-        kept.append(line)
-        if len(kept) >= count:
-            break
-    return kept
 
 
 def _flat(text):

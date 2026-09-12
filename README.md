@@ -275,9 +275,9 @@ document says *Circular A-130*.
 *LMM's two misses are refusals.* Both are reworded questions whose answer is in
 the document and was not retrieved; both came back "I do not know" rather than
 approximated. Retrieval recall on synonyms is the open work item — and nothing
-was fabricated to cover it. The offline expansion channel was built for exactly
-this class and has since been measured against it: it does not close these two.
-See **Honest limits** for what was measured and why.
+was fabricated to cover it. Two instruments were built for exactly this class:
+an offline expansion channel, measured not to close it and since deleted, and
+the meaning channel that now ships switched on. See **Honest limits**.
 
 Cost, on the 45k-token standard:
 
@@ -726,7 +726,8 @@ Kept current, and deliberately specific.
   two short when the items are named differently each time a speaker mentions
   them ("finished the Mustang build" is a fifth model kit no word search
   recognises). Five levers were measured against this wall — wider gathering,
-  the offline expansion, speaker priority, whole-turn extraction, and the
+  the offline expansion (since deleted), speaker priority, whole-turn
+  extraction, and the
   event distiller — and none of them moved a twenty-question sample beyond
   noise. The distiller is the right shape and ships (`m.distil`); the reading
   that makes it complete is not written.
@@ -752,18 +753,20 @@ Kept current, and deliberately specific.
   and is answered there, at the engine's price. What is guaranteed is that the
   three columns the question ruled out are never spoken over it
   (`benchmarks/COST.md` §8.4.1).
-- **The offline expansion channel does not work on a large document, and the
-  reason is structural.** It generates the questions each line answers and
-  indexes them, filtering with the document: a generated query is kept when it
-  reaches its own line better than any other. Measured on NIST SP 800-63B, that
-  filter is inverted. The line reads *"Memorized secrets SHALL be at least 8
-  characters in length"*; a reader asks *"what is the shortest password"* —
-  which shares not one distinguishing word with it. A real rephrasing never
-  reaches its own line, so the filter keeps only the queries that COPY the
-  line, which are the ones that buy nothing. Handed the perfect queries by
-  hand, it kept zero of them. `session.expand()` still exists and is off unless
-  asked for; it is not counted as a capability here until this is solved, and
-  solving it needs a relevance judgement rather than a lexical one.
+- **The offline expansion channel was deleted, and the case it was built for
+  is still open.** It generated the questions each line answers and indexed
+  them, keeping a query when it reached its own line better than any other.
+  Measured on NIST SP 800-63B that filter is inverted: the line reads
+  *"Memorized secrets SHALL be at least 8 characters in length"* and a reader
+  asks *"what is the shortest password"*, which shares not one distinguishing
+  word with it — so a real rephrasing never reaches its own line and the filter
+  kept only the queries that COPIED it. Handed perfect queries by hand, it kept
+  zero. A switch nobody should turn on is a liability, so it is gone.
+  The meaning channel that replaced it closes much of the class (the answering
+  line reaches the engine 32% -> 79% of the time on a 115k-line corpus) but
+  **not this example**: measured again after, "what is the shortest password"
+  still does not reach that line, while "minimum length for a memorised secret"
+  reaches it first.
 - Two benchmark questions are stable failures and are named rather than hidden:
   one whose answer sits in a table row sharing a single stem with the question,
   and one needing a heading plus a line eight sentences below it in one window.

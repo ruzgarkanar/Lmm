@@ -2766,97 +2766,6 @@ def p2():
 # assertions are about the store's wiring rather than about a model's output.
 
 
-def _expanded_store():
-    """A store holding one document line and one generated query for it, where
-    the query carries a word the document does not contain at all."""
-    from lmm import evidence
-    store = evidence.SentenceStore()
-    store.add("Kelvane tower measures 42 metres.", "#doc:x")
-    store.add("The Nordheim archive opened in 1904.", "#doc:x")
-    store.add("Visitors reach the archive by the western stair.", "#doc:x")
-    store.learn_expansions({0: ["how tall is the Kelvane spire"]})
-    return store
-
-
-@test("X1 generated text is not evidence and cannot be returned as evidence")
-def x1():
-    """THE WALL. `find` returns `self.sentences[sid][0]` and the expansion lives
-    in a different structure entirely — asserted here rather than trusted,
-    because the day a generated sentence can be returned is the day the gate is
-    auditing an answer against a model's own invention."""
-    store = _expanded_store()
-    assert len(store.sentences) == 3, "an expansion was written as a sentence"
-    written = {text for text, _src in store.sentences}
-    assert not any("spire" in text for text in written)
-    # the generated word REACHES the line...
-    got = store.find("how tall is the spire", most=4)
-    assert got and got[0].startswith("Kelvane tower"), got
-    # ...and nothing generated comes back with it, from any query
-    for question in ("spire", "how tall is the Kelvane spire",
-                     "archive", "western stair"):
-        for block in store.find(question, most=6):
-            assert block in written, block
-
-
-@test("X2 the expansion channel cannot outweigh the document's own words")
-def x2():
-    """The ladder (`evidence.CHANNEL`): a guess sits exactly as far below a
-    plain occurrence as a field name sits above it. A sentence reachable only
-    through a guess must never displace one the document's own words name."""
-    from lmm import evidence
-    store = evidence.SentenceStore()
-    store.add("The Kelvane tower is closed on Mondays.", "#doc:y")
-    store.add("Storms are frequent in the eastern valley.", "#doc:y")
-    # every generated query points the SECOND line at the first line's words
-    store.learn_expansions({1: ["when is the Kelvane tower closed"] * 1})
-    ranked = store.find("Kelvane tower", most=2)
-    assert ranked[0].startswith("The Kelvane tower"), ranked
-
-
-@test("X3 a generated query that drifts to another line is filtered out")
-def x3():
-    """doc2query--: the filter is the document. A query whose words belong to
-    ANOTHER region reaches that region better than the line it was generated
-    from, and a negative margin is never indexed — the threshold's floor is the
-    sign of the margin, not a number anyone chose."""
-    from lmm import evidence
-    store = evidence.SentenceStore()
-    store.add("The Kelvane tower measures 42 metres.", "#doc:z")
-    store.add("The Nordheim archive opened in 1904.", "#doc:z")
-    store.learn_expansions({0: ["when did the Nordheim archive open",
-                                "how tall is the Kelvane spire"]})
-    kept = store.expansions.get(0, [])
-    assert "how tall is the Kelvane spire" in kept, kept
-    assert "when did the Nordheim archive open" not in kept, kept
-
-
-@test("X4 LMM_EXPAND=0 restores the retrieval byte for byte")
-def x4():
-    """The A/B has to be ONE variable, and turning it off has to leave nothing
-    behind: the same query over the same store must retrieve exactly what it
-    retrieved before the expansion was ever paid for."""
-    from lmm import evidence
-    plain = evidence.SentenceStore()
-    for line in ("Kelvane tower measures 42 metres.",
-                 "The Nordheim archive opened in 1904.",
-                 "Visitors reach the archive by the western stair."):
-        plain.add(line, "#doc:x")
-    store = _expanded_store()
-    was = os.environ.get("LMM_EXPAND")
-    os.environ["LMM_EXPAND"] = "0"
-    try:
-        for question in ("how tall is the spire", "archive", "42 metres"):
-            assert store.find(question, most=4) == plain.find(question, most=4)
-    finally:
-        if was is None:
-            del os.environ["LMM_EXPAND"]
-        else:
-            os.environ["LMM_EXPAND"] = was
-    # and with it back on, the guessed word reaches the line again
-    assert store.find("spire", most=4)
-    assert not plain.find("spire", most=4)
-
-
 @test("W1 a question that names a document gets that document's sentences")
 def w1():
     """THE SOURCE-NAME CHANNEL, and the corpus class it was measured on: many
@@ -4197,39 +4106,6 @@ def w33():
         "the turn's own words never got their search"
     assert blocks and any("July" in b for b in blocks), \
         "the better-covering proof was not chosen"
-
-
-@test("W34 an expansion is judged by the words it adds")
-def w34():
-    """The keep filter's one inconsistency with its own principle, and the
-    fourth member of the IDF-inversion family — measured in the field: a
-    record line ("SEATS: sixteen people maximum") got exactly the bridge
-    it exists for ("how many people can attend"), and the filter threw it
-    away, because the margin was scored over ALL the query's words and
-    "people" reaches every other line of a topical corpus better than it
-    reaches the record. But the filter's own closing rule says only the
-    NOVEL words are ever indexed — a word the line already carries is
-    reachable already. What is indexed is what must be judged: the margin
-    reads the added words alone. A drifting query still dies (its novel
-    words score another region higher); a query whose additions reach
-    nothing at all scores zero, which the docstring already names as the
-    case the expansion exists for."""
-    from lmm.session import Session
-    s = Session(None)
-    s.learn_text("CAPACITY: sixteen people maximum.\n"
-                 "people join the morning arc in pairs.\n"
-                 "people walk the ravine with a guide.\n"
-                 "the guide counts people at the gate.\n"
-                 "people rest before the abseil drill.",
-                 source="#docx:Alpha.docx", deep=False)
-    ev = s.evidence
-    sid = next(i for i, (t, _src) in enumerate(ev.sentences)
-               if t.strip() == "CAPACITY: sixteen people maximum.")
-    kept = ev.learn_expansions(
-        {sid: ["how many people fit the capacity maximum"]})
-    assert kept == 1, "the record's bridge was thrown away again"
-    assert any(sid in ids for w, ids in ev.expand_index.items()
-               if w not in ("people",)), ev.expand_index.keys()
 
 
 @test("W35 retrieval knows kinship the gates refuse to license")
@@ -7787,10 +7663,14 @@ def w82():
     assert kept >= 2, kept
     assert m._state() != before, "the bridge moved and the fingerprint did not"
     mid = m._state()
-    # a query that SURVIVES the margin filter: it shares a word with
-    # the line it was generated from, so it demonstrably reaches it
-    m.session.evidence.learn_expansions({0: ["what height in metres"]})
-    assert m._state() != mid, "the expansion moved and the fingerprint did not"
+    # A SECOND AID MOVED THE FINGERPRINT TOO, and it was the offline
+    # expansion index, which no longer exists. What remains of the claim
+    # is the one that matters: an aid that changes WHICH LINES a
+    # question reaches must change the fingerprint, or the cache
+    # replays an answer from before the aid existed.
+    kept = m.session.evidence.learn_bridge({"HEIGHT": ["elevation"]})
+    assert kept >= 1, kept
+    assert m._state() != mid, "a second aid moved and the fingerprint did not"
 
 
 @test("W81 two entities that never meet are connected through a witness")
@@ -8540,46 +8420,6 @@ def w53():
     assert out.startswith("I do not have"), out
     assert calls["n"] == 2, ("the refusal was rewritten more than once: %r"
                              % calls)
-
-
-@test("X5 an expansion written in another language never reaches the index")
-def x5():
-    """THE MARGIN FILTER CANNOT SEE THIS ONE, BY CONSTRUCTION.
-
-    A query in another language reaches nothing lexically and scores a zero
-    margin, which is the exact signature of the genuinely-new vocabulary the
-    expansion exists to buy — so `X3`'s filter waves it through. Measured on
-    NIST SP 800-63B, an English publication: the engine expanded it into
-    Turkish, German, Spanish, Portuguese and French, 62% of that survived, and
-    one survivor was a refusal sentence indexed as a query.
-
-    It is not a prompt defect and cannot be fixed as one. Putting the language
-    rule first changed nothing; removing the multilingual examples moved the
-    drift from Spanish to French. A 3B engine does not hold a language
-    instruction across this task, so the property has to be structural.
-
-    The document is the only language sample there is. Below, the store speaks
-    English, and the two assertions are the whole rule: an English question
-    that introduces a NEW word still reaches the index, because the rest of it
-    is words this document uses — while a translation of that same question
-    does not, because almost none of it is. No language is named in the
-    implementation; a Turkish document keeps its Turkish expansions by the same
-    reading."""
-    from lmm import evidence
-    store = evidence.SentenceStore()
-    for line in ("The Kelvane tower measures 42 metres and was finished early.",
-                 "The Nordheim archive opened in 1904 and holds the county maps.",
-                 "Visitors reach the archive by the western stair in the tower."):
-        store.add(line, "#doc:x")
-    store.learn_expansions({0: [
-        "how tall is the Kelvane spire",          # English, one new word
-        "wie hoch ist der Kelvane Turm",          # the same question, German
-        "quelle est la hauteur de la tour",       # French
-    ]})
-    kept = store.expansions.get(0, [])
-    assert "how tall is the Kelvane spire" in kept, kept
-    assert "wie hoch ist der Kelvane Turm" not in kept, kept
-    assert "quelle est la hauteur de la tour" not in kept, kept
 
 
 def main():

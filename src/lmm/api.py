@@ -135,18 +135,16 @@ class Learned:
     """
 
     __slots__ = ("facts", "tables", "source", "adapter", "evidence",
-                 "warnings", "expanded")
+                 "warnings")
 
     def __init__(self, facts=0, tables=0, source="", adapter="", evidence=0,
-                 warnings=(), expanded=0):
+                 warnings=()):
         self.facts = facts        # triples the GATE admitted (not offered)
         self.tables = tables      # structured grids routed around the engine
         self.source = source      # the stamp every one of them now carries
         self.adapter = adapter    # which reader ran
         self.evidence = evidence  # sentences/windows this file added to the index
         self.warnings = tuple(warnings)   # what the reader could not read
-        self.expanded = expanded  # generated queries indexed (expand=True only);
-        #                           index material, never answerable material
 
     def __bool__(self):
         """False when this file put NOTHING in the memory — so `if not
@@ -156,9 +154,8 @@ class Learned:
 
     def __repr__(self):
         warned = (" — " + "; ".join(self.warnings)) if self.warnings else ""
-        grown = f", {self.expanded} expansions" if self.expanded else ""
         return (f"<Learned {self.facts} facts, {self.tables} tables, "
-                f"{self.evidence} evidence{grown} via {self.adapter} "
+                f"{self.evidence} evidence via {self.adapter} "
                 f"from {self.source!r}{warned}>")
 
 
@@ -348,43 +345,31 @@ class Memory:
         return (len(memory.records), len(memory.identities),
                 len(memory.transitive),
                 len(store.sentences),
-                # THE RETRIEVAL AIDS COUNT TOO (W82): the bridge and the
-                # expansion change WHICH lines a question reaches without
-                # adding a sentence or a record, so a fingerprint blind
-                # to them replays pre-bridge answers forever — a question
-                # cached with its slow-path refusal would never meet the
-                # record path the bridge just opened.
+                # THE RETRIEVAL AIDS COUNT TOO (W82): the bridge changes
+                # WHICH lines a question reaches without adding a
+                # sentence or a record, so a fingerprint blind to it
+                # replays pre-bridge answers forever — a question cached
+                # with its slow-path refusal would never meet the record
+                # path the bridge just opened.
                 sum(len(heads) for heads in store.head_bridge.values()),
-                sum(len(sids) for sids in store.expand_index.values()),
                 round(math.fsum(r.trust for r in records), 9),
                 sum(len(r.sources) for r in records))
 
     # ---------------------------------------------------------------- learn
 
-    def learn(self, what, source=None, deep=None, expand=False):
+    def learn(self, what, source=None, deep=None):
         """Teach the memory something — see `_read_into` for `what` and `deep`.
 
-        `expand=True` additionally pays, once, for the OFFLINE EXPANSION: the
-        engine is asked what questions each line of the document answers, and
-        those questions go into a SEPARATE index so that a reader asking in
-        other words than the document used can still reach the line that
-        answers them. Nothing generated this way can be spoken — it is never
-        evidence, never in the answer block, never audited by the gate as
-        though the document had written it. It is off by default because it
-        costs a model call per line; `LMM_EXPAND=0` disables it outright, at
-        ingestion and at query time both.
+        AN `expand=True` STOOD HERE AND IS GONE. It paid a model call per
+        line at ingestion for the questions that line answers, indexed
+        them separately, and bought reach for a reader who does not use
+        the document's words. It was measured not to work (a real
+        rephrasing never reaches its own line, so the filter kept only
+        the queries that copied it) and the meaning channel now covers
+        that class by construction. A switch nobody should turn on is
+        not an option; it is a liability.
         """
-        report = self._read_into(what, source=source, deep=deep)
-        # OFFLINE EXPANSION, asked for rather than assumed. It is a model call
-        # per line of the document, paid ONCE at ingestion, and it buys reach
-        # for questions worded differently from the document (`Session.expand`).
-        # The default is off because a document is bulk material and this
-        # doubles what reading one costs; `benchmarks/COST.md` §9 measures both
-        # halves of that trade so the choice can be made on numbers.
-        if expand:
-            _asked, kept = self.session.expand()
-            report.expanded = kept
-        return report
+        return self._read_into(what, source=source, deep=deep)
 
     def _read_into(self, what, source=None, deep=None):
         """Teach the memory something. `what` is a file path or the text itself.
@@ -710,7 +695,7 @@ class Memory:
         """Teach the store, once, what words readers ask its fields with.
 
         One engine call per field head, paid at the operator's request
-        (the way `learn(..., expand=True)` is) and saved with the store;
+        (asked for rather than assumed) and saved with the store;
         after it, questions like "kaç saat?" against a field written
         EĞİTİM SÜRESİ are answered by the record itself — milliseconds,
         no model call, every gate unchanged. Calling it again is free:
