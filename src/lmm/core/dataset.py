@@ -64,8 +64,8 @@ def fold(text):
     script: 'I' folds to 'i' and 'ı' folds to 'ı', so a word written in
     capitals and the same word in lower case became TWO different index
     keys. Measured on a 103-document catalogue whose field headings are
-    written in capitals: "KATILIMCI SAYISI: 14-18 kişi." was indexed under
-    `katilimci`, the reader's "katılımcı sayısı" searched `katılımcı`, and
+    written in capitals: "SEAT COUNT: 14-18 people." was indexed under
+    `seat`, the reader's "seat count" searched `seat`, and
     the line stating the answer could not be found by the question that
     asked for it — in the corpus's own language, silently, on every
     capitalised heading.

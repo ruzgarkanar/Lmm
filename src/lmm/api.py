@@ -697,7 +697,7 @@ class Memory:
         One engine call per field head, paid at the operator's request
         (asked for rather than assumed) and saved with the store;
         after it, questions like "kaç saat?" against a field written
-        EĞİTİM SÜRESİ are answered by the record itself — milliseconds,
+        COURSE LENGTH are answered by the record itself — milliseconds,
         no model call, every gate unchanged. Calling it again is free:
         a head already bridged is not asked about twice."""
         return self.session.learn_bridges()

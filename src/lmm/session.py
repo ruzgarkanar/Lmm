@@ -623,7 +623,7 @@ class Session:
                 # spells out one of the corpus's own record heads is a
                 # field question wearing counting grammar, and the
                 # counting organ answers it by counting DOCUMENTS —
-                # measured live, "X eğitiminin katılımcı sayısı nedir"
+                # measured live, "what is X's seat count"
                 # came back "14: <a list of other courses>". Guarding
                 # only the door left this seat open, and it is the one
                 # that fires, because such a turn abstains first.
@@ -1200,6 +1200,13 @@ class Session:
             if op["kind"] == extract.ASK:
                 direct = self._record_answer(message)
                 if direct is not None:
+                    # THIS PATH SPEAKS, SO IT SAYS SO (W110). Its twin
+                    # above stamps the route and this one did not, so a
+                    # record read straight from the store came back with
+                    # an empty route — and a turn that leaves no trace
+                    # cannot be audited or told apart from one that never
+                    # ran.
+                    self._step("record")
                     line, src = direct
                     if not line:        # the document does not speak of it
                         self._widened = True
@@ -3280,7 +3287,7 @@ class Session:
                             src, (head.strip(), text))
             # THE FIELD IS THE ONE THE QUESTION COVERS BEST, and A TIE IS
             # NOT A GUESS. Measured on the corpus: "which training takes
-            # the most people" covers KATILIMCI SAYISI and EĞİTİM SÜRESİ
+            # the most people" covers SEAT COUNT and COURSE LENGTH
             # equally — one word each — and picking either by file order
             # is how the wrong field got harvested. Every field at the
             # top coverage comes to the table, at most three, and the
@@ -4254,18 +4261,39 @@ class Session:
         got = getattr(self, "_head_cache", None)
         if got is not None and got[0] == stamp:
             return got[1]
-        heads = {}
+        # A FIELD IS ITS WORDS, NOT ITS CAPITALISATION. One document
+        # writes "COURSE LENGTH:" and its neighbour "Course Length:", and
+        # keyed by the literal spelling each looked like a field ONE
+        # document uses — so `_fields`, which keeps what the corpus
+        # REPEATS, threw both away. Everything downstream then failed in
+        # a way that pointed elsewhere: the bridge nominated a field
+        # nobody held, the one-head rule saw a tie, the record path stood
+        # aside, and the field veto fell back to matching heads by
+        # kinship and killed a correct answer. Spellings are collapsed
+        # here, at the only place that decides what a field IS, and the
+        # form kept is the one the corpus writes most often, so what the
+        # reader sees is the documents' own usage.
+        seen = {}
         for text, origin in self.evidence.sentences:
             for head, _value in evidence.record_pairs(text, cap_chars):
-                heads.setdefault(head, set()).add(origin)
+                key = tuple(evidence._words(head))
+                if not key:
+                    continue
+                spellings, sources = seen.setdefault(key, ({}, set()))
+                spellings[head] = spellings.get(head, 0) + 1
+                sources.add(origin)
+        heads = {}
+        for spellings, sources in seen.values():
+            best = max(sorted(spellings), key=lambda h: spellings[h])
+            heads[best] = sources
         self._head_cache = (stamp, heads)
         return heads
 
     def learn_bridges(self):
         """Ask, once per field, what words a reader asks for it with.
 
-        The measured 12 seconds this closes: a corpus writes EĞİTİM
-        SÜRESİ, a reader asks "kaç saat?", no shared word — so the
+        The measured 12 seconds this closes: a corpus writes COURSE
+        LENGTH, a reader asks "how many hours?", no shared word — so the
         record-direct path (milliseconds, no engine) stood aside and the
         full chain ran to read a value that was sitting in a row. One
         call per field, at the operator's request, and the words join the
@@ -4309,8 +4337,8 @@ class Session:
         heads, contiguously?
 
         A counting organ and a record head can want the same words. This
-        catalogue writes "KATILIMCI SAYISI: 16 - 20 kişi" on two hundred
-        lines, so "X eğitiminin katılımcı sayısı nedir" reads as a COUNT
+        catalogue writes "SEAT COUNT: 16 - 20 people" on two hundred
+        lines, so "what is X's seat count" reads as a COUNT
         to any shape reader — and the counting organ then counts the
         documents that mention it and answers "21: <a list of courses>",
         which is arithmetic over the wrong thing. The answer was never to
@@ -4606,9 +4634,10 @@ class Session:
 
         # WHICH HEAD IS ASKED, in a language that glues its endings on.
         # Requiring every word of a head to be matched is right; reading
-        # "matched" through kinship alone was not. "eğitiminin" carries
+        # "matched" through kinship alone was not. A question's frame
+        # word carries
         # four letters of suffix, one past what kinship admits, so
-        # EĞİTİM SÜRESİ counted as unasked and two good answers were
+        # COURSE LENGTH counted as unasked and two good answers were
         # vetoed — with zero flips, the sure sign of a rule rather than
         # of noise. Loosening kinship would loosen every gate that reads
         # it. Picking the best-COVERED head instead (the census's rule)

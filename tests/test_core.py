@@ -5935,6 +5935,52 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W132 a field is its words, not its capitalisation")
+def w132():
+    """Traced end to end on a live turn, and every step before the last
+    was right. The question named its document, the scope bound to it,
+    the bridge nominated the right field, retrieval seated the answering
+    line second, and the engine wrote "2 full days" with the digits
+    present and full coverage. The turn refused anyway.
+
+    One document writes "COURSE LENGTH:" and its neighbour writes
+    "Course Length:", so the corpus offers the same field twice. The
+    one-head rule read two spellings as a TIE and declined; the record
+    path stood aside; the chain ran; and the field veto downstream fell
+    back to matching heads by kinship, where the question's word for
+    training reached the head INSTRUCTOR — close enough to be kin,
+    nothing to do with what was asked — and vetoed a correct answer for
+    not carrying that field's digits.
+
+    Two spellings of one field are one field. Two different fields are
+    still a tie, and still decline. Measured after: the turn answers
+    from the record in 2.7 s where it had refused in 25.3 s."""
+    from lmm.evidence import SentenceStore
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    s._no_teach, s._conversational = True, False
+    s.evidence.add("COURSE LENGTH: 2 full days.", "#docx:Alpha Sales")
+    s.evidence.add("Course Length: 1 day.", "#docx:Beta Conflict")
+    s.evidence.add("SEAT COUNT: 18 people.", "#docx:Alpha Sales")
+
+    got = s._record_answer("what is Alpha Sales course length")
+    assert got is not None, "the one-head rule read two spellings as a tie"
+    line, src = got
+    assert "2 full days" in line, line
+    assert src == "#docx:Alpha Sales", src
+
+    # ...and two DIFFERENT fields are still a tie, so nothing is guessed
+    s2 = Session(None, dense=False)
+    s2._no_teach, s2._conversational = True, False
+    s2.evidence.add("COURSE LENGTH: 2 full days.", "#docx:Alpha Sales")
+    s2.evidence.add("COURSE SIZE: 18 people.", "#docx:Alpha Sales")
+    s2.evidence.add("COURSE LENGTH: 1 day.", "#docx:Beta Conflict")
+    s2.evidence.add("COURSE SIZE: 12 people.", "#docx:Beta Conflict")
+    assert s2._record_answer("what about Alpha Sales course") is None, (
+        "a question that names no single field was answered anyway")
+
+
 @test("W131 a word folded from capitals reaches the same key as from lower case")
 def w131():
     """The quietest defect this project has had, and it was in its own
@@ -5943,10 +5989,11 @@ def w131():
     and the same word in lower case became TWO index keys — and a
     catalogue writes its field headings in capitals.
 
-    Measured on a 103-document catalogue: "KATILIMCI SAYISI: 14-18
-    kişi." was indexed under `katilimci`, a reader asking "katılımcı
-    sayısı" searched `katılımcı`, and the line stating the answer could
-    not be reached by the question that asked for it. Every gate behaved
+    Measured on a 103-document catalogue whose field headings are
+    written in capitals: a heading like "IŞIK SEVİYESİ: 300 lux" was
+    indexed under one key and the reader's lower-case "ışık seviyesi"
+    searched another, so the line stating the answer could not be
+    reached by the question that asked for it. Every gate behaved
     correctly on the way out — the memory refused to attribute another
     course's number — so it read as an honest "I don't have that" about
     something the document plainly states. On twenty field questions
@@ -5960,7 +6007,7 @@ def w131():
     depends on."""
     from lmm.core.dataset import fold
 
-    for pair in (("KATILIMCI", "Katılımcı"), ("İSTANBUL", "istanbul"),
+    for pair in (("IŞIK", "ışık"), ("İSTANBUL", "istanbul"),
                  ("ΣΟΦΟΣ", "σοφος"), ("STRASSE", "strasse"),
                  ("ÉCOLE", "école")):
         upper, lower = pair
@@ -5968,11 +6015,18 @@ def w131():
             "%r and %r fold apart: %r vs %r"
             % (upper, lower, fold(upper), fold(lower)))
     # the contract the span arithmetic rests on
-    for word in ("İstanbul", "KATILIMCI", "Straße", "ΣΟΦΟΣ", "çığır"):
+    for word in ("İstanbul", "IŞIK", "Straße", "ΣΟΦΟΣ", "çığır"):
         assert len(fold(word)) == len(word), word
-    # and the fold is stable however the word arrives
-    for word in ("Katılımcı", "SAYISI", "Eğitim"):
-        assert fold(word) == fold(word.upper()) == fold(word.lower()), word
+    # AND THE INDEX KEY IS STABLE HOWEVER THE WORD ARRIVES. The test is
+    # through `_words`, which is what the index is built from: `fold`
+    # alone is length-preserving per character, and Python's own
+    # lower-casing of 'İ' emits a combining dot that `_words` strips
+    # before folding. The contract belongs to the pair, not to either
+    # half.
+    from lmm import evidence as ev
+    for word in ("Işık", "SEVİYE", "Kağıt"):
+        keys = {tuple(ev._words(w)) for w in (word, word.upper(), word.lower())}
+        assert len(keys) == 1, (word, keys)
 
 
 @test("W130 a question that names a document is answered from it")
@@ -6000,14 +6054,14 @@ def w130():
     store = SentenceStore()
     store.add("ALPHA SALES. Objectives: sell more, sell better.",
               "#docx:Alpha Sales")
-    store.add("KATILIMCI SAYISI: 14-18 kisi.", "#docx:Alpha Sales")
-    store.add("KATILIMCI SAYISI: 20-24 kisi.", "#docx:Beta Leadership")
+    store.add("SEAT COUNT: 14-18 people.", "#docx:Alpha Sales")
+    store.add("SEAT COUNT: 20-24 people.", "#docx:Beta Leadership")
     topic = Topic(store)
 
-    bound = topic.scope_for("Alpha Sales egitiminin katilimci sayisi nedir")
+    bound = topic.scope_for("what is Alpha Sales' seat count")
     assert bound == {"#docx:Alpha Sales"}, bound
 
-    got = store.find("Alpha Sales egitiminin katilimci sayisi nedir",
+    got = store.find("what is Alpha Sales' seat count",
                      most=2, floor_share=0.0, scope=bound)
     assert got, got
     assert all("20-24" not in line for line in got), (
@@ -6033,14 +6087,14 @@ def w129():
     from lmm.evidence import SentenceStore
 
     store = SentenceStore()
-    store.add("Empatik Liderlik lasts two days.", "#docx:Empatik Liderlik")
+    store.add("Alpha Sales lasts two days.", "#docx:Alpha Sales")
     topic = Topic(store)
-    topic.sources = {"#docx:Empatik Liderlik"}
+    topic.sources = {"#docx:Alpha Sales"}
 
     held = topic.scope_for("which ones exactly", shape="recap")
-    assert held == {"#docx:Empatik Liderlik"}, held
+    assert held == {"#docx:Alpha Sales"}, held
     held = topic.scope_for("how many seats does it take", shape="none")
-    assert held == {"#docx:Empatik Liderlik"}, held
+    assert held == {"#docx:Alpha Sales"}, held
     fresh = topic.scope_for("our sales team stalls on objections, "
                             "what do you suggest", shape="material")
     assert fresh == set(), (
@@ -6066,7 +6120,7 @@ def w128():
     from lmm.evidence import SentenceStore
 
     store = SentenceStore()
-    shared = "Katilimci sayisi 16 - 20 kisi."
+    shared = "Seat count 16 - 20 people."
     # alpha holds the shared line and nothing the question can reach
     store.add(shared, "#doc:alpha")
     store.add("Alpha covers unrelated matters entirely.", "#doc:alpha")
@@ -6728,7 +6782,7 @@ def w115():
     topic — each right, each computed somewhere else, and the fifth one
     revealed the flaw in all of them: the topic was REBUILT every turn
     from the names in the last sentence, so an answer whose words named
-    no document ("EĞİTİM SÜRESİ: 1 gün", with the document in its
+    no document ("COURSE LENGTH: 1 day", with the document in its
     STAMP) reset the conversation to the whole corpus, and the next
     question was answered from anywhere.
 
@@ -6741,7 +6795,7 @@ def w115():
     for name, days, seats in (("Alpha Sales", "2", "18"),
                               ("Beta Sales", "1", "20"),
                               ("Gamma Leadership", "4", "45")):
-        s.learn_text("EĞİTİM SÜRESİ: %s gün. KATILIMCI SAYISI: %s kişi."
+        s.learn_text("COURSE LENGTH: %s days. SEAT COUNT: %s people."
                      % (days, seats), source="#docx:%s.docx" % name,
                      deep=False)
     s._no_teach, s._conversational = True, True
@@ -6749,7 +6803,7 @@ def w115():
     s.topic.remember("I recommend Alpha Sales and Beta Sales.", mark="")
     assert len(s.topic.scope_for("how long is the first one?")) == 2
     # an answer that names none, resting on one -> the topic narrows to it
-    s.topic.remember("EĞİTİM SÜRESİ: 1 gün.", mark="#docx:Beta Sales.docx")
+    s.topic.remember("COURSE LENGTH: 1 day.", mark="#docx:Beta Sales.docx")
     assert s.topic.scope_for("how many participants?") == \
         {"#docx:Beta Sales.docx"}, s.topic.scope_for("x")
     # an answer that names nothing and rests on nothing -> the topic HOLDS
@@ -6785,7 +6839,7 @@ def w114():
     s = Session(None)
     for name, seats in (("Alpha Sales", "18"), ("Beta Sales", "20"),
                         ("Gamma Leadership", "45")):
-        s.learn_text("KATILIMCI SAYISI: %s kişi." % seats,
+        s.learn_text("SEAT COUNT: %s people." % seats,
                      source="#docx:%s.docx" % name, deep=False)
     s.topic.remember("I recommend Alpha Sales and Beta Sales.")
     s._no_teach, s._conversational = True, True
@@ -6859,7 +6913,7 @@ def w111():
     from lmm.session import Session
     s = Session(None)
     for name in ("Alpha Sales", "Beta Sales", "Gamma Leadership"):
-        s.learn_text("EĞİTİM SÜRESİ: 2 days.", source="#docx:%s.docx" % name,
+        s.learn_text("COURSE LENGTH: 2 days.", source="#docx:%s.docx" % name,
                      deep=False)
     s.topic.remember("I recommend Alpha Sales.")
     assert [n for _s, n in [(x, x) for x in s.topic.names()]] == ["Alpha Sales"], [(x, x) for x in s.topic.names()]
@@ -6983,7 +7037,7 @@ def w109():
     s = Session(None)
     for name, days in (("Alpha Sales", "two"), ("Beta Sales", "three"),
                        ("Gamma Leadership", "four")):
-        s.learn_text("EĞİTİM SÜRESİ: %s days." % days,
+        s.learn_text("COURSE LENGTH: %s days." % days,
                      source="#docx:%s.docx" % name, deep=False)
     assert s.topic.scope_for('') == set(), "an empty conversation carried scope"
     s.topic.remember("I recommend Alpha Sales and Beta Sales for your team.")
@@ -7020,15 +7074,15 @@ def w108():
     from lmm import generate
     from lmm.session import Session
     s = Session(None)
-    s.learn_text("EĞİTİM SÜRESİ: 2 gün.", source="#docx:Temel Satış Becerileri.docx",
+    s.learn_text("COURSE LENGTH: 2 days.", source="#docx:Alpha Sales.docx",
                  deep=False)
-    s.learn_text("EĞİTİM SÜRESİ: 1 gün.", source="#docx:Etkin Çatışma Yönetimi.docx",
+    s.learn_text("COURSE LENGTH: 1 day.", source="#docx:Beta Conflict.docx",
                  deep=False)
-    s.learn_text("EĞİTİM SÜRESİ: 3 gün.", source="#docx:Doğal Liderlik.docx",
+    s.learn_text("COURSE LENGTH: 3 days.", source="#docx:Gamma Leadership.docx",
                  deep=False)
     assert s._recap_answer("hangileri kısaca") is None      # nothing said yet
-    s.topic.remember("Temel Satış Becerileri ve Etkin Çatışma Yönetimi "
-                     "programlarını öneriyorum.")
+    s.topic.remember("Alpha Sales ve Beta Conflict programlarını "
+                     "öneriyorum.")
     real = s._spoken_row
     s._spoken_row = lambda question, row: row               # phrasing is W101's
     try:
@@ -7036,9 +7090,9 @@ def w108():
     finally:
         s._spoken_row = real
     assert said is not None, "the recap did not speak"
-    assert "Temel Satış Becerileri" in said, said
-    assert "Etkin Çatışma Yönetimi" in said, said
-    assert "Doğal Liderlik" not in said, (
+    assert "Alpha Sales" in said, said
+    assert "Beta Conflict" in said, said
+    assert "Gamma Leadership" not in said, (
         "a document nobody recommended was listed: %r" % said)
     assert "2" in said, said
 
@@ -7073,7 +7127,7 @@ def w107():
 def w106():
     """Caught by reading a live catalogue: two of its four sections had
     NO TITLE, and the titles were the documents' own names. The digit
-    veto had eaten them — a name like "… Gelişim Projesi (4 segment)"
+    veto had eaten them — a name like "… Delta Programme (4 segments)"
     carries a 4, the material never writes that 4 beside those words,
     and the veto that exists to stop invented agenda times ("45
     minutes") censored a document's name instead. A section without its
@@ -7088,14 +7142,14 @@ def w106():
     veto stands aside. Every other line keeps the veto exactly."""
     from lmm.session import Session
     s = Session(None)
-    s.learn_text("EĞİTİM SÜRESİ: 2 Tam Gün.",
-                 source="#docx:Gelişim Projesi (4 segment).docx", deep=False)
-    material = "[Gelişim Projesi (4 segment)] EĞİTİM SÜRESİ: 2 Tam Gün."
-    assert s._is_source_name("Gelişim Projesi (4 segment)"), \
+    s.learn_text("COURSE LENGTH: 2 full days.",
+                 source="#docx:Delta Programme (4 segments).docx", deep=False)
+    material = "[Delta Programme (4 segments)] COURSE LENGTH: 2 full days."
+    assert s._is_source_name("Delta Programme (4 segments)"), \
         "the store did not recognise its own document's name"
     assert not s._is_source_name("The course lasts 4 days"), \
         "an ordinary sentence was taken for a document name"
-    assert s._line_admissible("Gelişim Projesi (4 segment)", material), \
+    assert s._line_admissible("Delta Programme (4 segments)", material), \
         "the digit veto ate a document's own name"
     assert not s._line_admissible("The course takes 45 minutes", material), \
         "the digit veto stopped working for ordinary lines"
@@ -8206,7 +8260,7 @@ def w80():
 
 @test("W79 a field learns the words a reader asks for it with, once")
 def w79():
-    """The measured 12 seconds this closes: a corpus writes EĞİTİM
+    """The measured 12 seconds this closes: a corpus writes COURSE
     SÜRESİ and a reader asks "kaç saat?" — no shared word, so the
     record-direct path (milliseconds, no engine) stands aside and the
     full chain runs: candidates, gates, read-back, twelve seconds and
