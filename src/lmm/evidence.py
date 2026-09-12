@@ -178,6 +178,15 @@ def record_pairs(text, cap_chars=200):
     return out
 
 
+def sentences_of(text):
+    """A passage, sentence by sentence — one definition, so the store's
+    readers and the conversation's memory cut a text the same way."""
+    import re as _re
+    return [line.strip() for line in _re.split(r"(?<=[.!?])\s+|\n+",
+                                               (text or "").strip())
+            if line.strip()]
+
+
 def _source_name(source):
     """The human name inside a source stamp — '#docx:Delegation Basics.docx'
     -> 'Delegation Basics'. Format only: the tag prefix before the first ':'

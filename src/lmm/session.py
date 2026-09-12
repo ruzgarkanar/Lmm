@@ -22,7 +22,7 @@ from lmm.core.dataset import bare, fold
 from lmm.core.gate import Gate
 from lmm.core.memory import Memory, OPERATOR, STRANGER, DOCUMENT
 from lmm.core.transitive import Transitivity
-from lmm import (evidence, extract, generate, inflect, link, lookup,
+from lmm import (evidence, extract, generate, inflect, link, lookup, topic,
                  research, retrieve, runtime, verify)
 
 SLEEP_EVERY = 50   # sleep every N turns (distill/fade/adjudicate) — v3 §117
@@ -175,6 +175,12 @@ class Session:
         # don't fit a triple aren't lost; representation-narrowness fix). The
         # graph is structure, the sentence is evidence.
         self.evidence = evidence.SentenceStore.load(path)
+        # WHAT THE CONVERSATION IS ABOUT — one object, read by every
+        # organ (`lmm/topic.py`). Five separate readings grew for this
+        # over two days of audit and none of them agreed; the topic now
+        # lives in one place and holds until another is named.
+        self.topic = topic.Topic(self.evidence)
+        self._scope_now = set()         # this turn's scope; see respond()
 
     def _seed_identity(self):
         """IDENTITY as a fact in the graph: (lmm → creator → the operator's name). This way
@@ -465,14 +471,14 @@ class Session:
         # seat that speaker's lines first, and None changes nothing
         self.asker = getattr(self, "asker", None)
         self._spec_wants = None
-        self._spec_chat = None
         self._composed = False
         self._widened = False
         self._on_line = on_line
         self._conversational = conversational
         # THE TURN'S SCOPE IS DECIDED ONCE, BEFORE ANY READING (W114)
-        if self._no_teach and self._conversational:
-            self._open_scope(message)
+        self._scope_now = (self.topic.scope_for(message)
+                           if self._no_teach and self._conversational
+                           else set())
         said = self._respond(message, fluent=fluent, teach=teach)
         if said and not self.last_abstained and not self.last_from_graph \
                 and not self._composed:
@@ -703,30 +709,6 @@ class Session:
         # asserted anything — the same organ the fabrication gate trusts — and
         # an abstention leaves this method byte-for-byte as the answer path
         # produced it.
-        # THE CONVERSATION IS THE FALLBACK, NOT THE SHRUG. Measured with
-        # the wager's receipts in hand: the answering chain abstained (its
-        # candidates died at the gate wearing an unattested persona
-        # introduction) and the turn ended in a bare refusal — while the
-        # wagered chat reply, already written and already through its own
-        # reading, said exactly the right thing and had been discarded on
-        # a classifier's verdict. In a consultation, when delivery and the
-        # informed refusal have both declined, that reply speaks; the bare
-        # refusal remains for surfaces that have no conversation.
-        if (said and self.last_abstained and self._no_teach
-                and getattr(self, "_spec_chat", None) is not None):
-            try:
-                voiced = self._chat(message, self._spec_chat)
-            except Exception:                           # noqa: BLE001
-                voiced = ""
-            if voiced:
-                # THE WAGER SPEAKS, AND SAYS SO (W110). A live audit
-                # found a recommendation answered with an EMPTY route:
-                # the chain had abstained and this reply — written in
-                # parallel, gated by the chat reading — spoke without
-                # leaving a trace. A route that records only the paths
-                # somebody instrumented is not an audit trail.
-                self._step("wager")
-                said = voiced
         # A TURN THAT SAYS NOTHING CARRIES NO STAMP. Measured: gate-trimmed
         # candidates could leave an empty text with the provenance mark
         # still set, and the caller printed a bare citation — a stamp on
@@ -758,7 +740,7 @@ class Session:
             # always outrank this (W105).
             if (self._no_teach and self._conversational
                     and not self.last_abstained):
-                self._remember_said(bare or "")
+                self.topic.remember(bare or "", mark=self._mark)
         return said
 
     def _asserted_a_fact(self, said):
@@ -1005,13 +987,16 @@ class Session:
                 pool.shutdown(wait=False)
             elif (self._no_teach and self._conversational
                     and runtime.parallel_ok() and self._on_line is None):
+                # THE WAGER IS GONE (2026-09-12). A full chat completion
+                # was written in parallel with every consultation turn
+                # and spoken when the chain abstained. Metered, it cost
+                # ~2 calls and 30,000 prompt tokens a turn; audited, it
+                # was the path that answered a recommendation with an
+                # evasive pleasantry and left no trace in the route. A
+                # turn that cannot answer says so; the organs and the
+                # delivery seat are what rescue it.
                 from concurrent.futures import ThreadPoolExecutor
-                pool = ThreadPoolExecutor(max_workers=2)
-                spec = pool.submit(self._chat_raw, message)
-                self._spec_chat = spec
-                # the delivery question rides out beside the router too —
-                # measured with the stream clock, asking it LAST put the
-                # catalogue's first line at second 13 of an 18-second turn
+                pool = ThreadPoolExecutor(max_workers=1)
                 spec_wants = pool.submit(generate.wants_material, message)
                 pool.shutdown(wait=False)
             elif (self._no_teach and self._conversational
@@ -1315,106 +1300,16 @@ class Session:
         except AttributeError:
             self.last_route = [organ]
 
-    # WHAT THE MEMORY SAID IS EVIDENCE FOR WHAT COMES NEXT (W104).
-    # The source it is filed under — never a document name, so a
-    # citation can never confuse the two.
-    SAID = "#said"
-
-    def _remember_said(self, text):
-        """Keep this turn's own words as evidence for the next question.
-
-        Read off a live consultation: the memory recommended three
-        courses, and "what is it called?" was REFUSED while "how many
-        did you recommend?" re-ran the catalogue — both answers two
-        lines above, in its own words, in a place the answering chain
-        never looks. A RAG pipeline looks cleverer here for no cleverer
-        reason: it posts the conversation into the prompt.
-
-        The memory's own speech is stored like anything else and gated
-        like anything else; what keeps it in its place is the source.
-        It is never a document, so `named_in`, the census and every
-        source-scoped reading pass it by, and a question about the
-        world is answered from the world."""
-        text = (text or "").strip()
-        if not text or len(text) < 12:
-            return 0
-        # the provenance mark the turn appends is the system's, not the
-        # sentence's — it must not come back as though a document wrote it
-        text = re.sub(r"\s*\(~[^)]*\)\s*$", "", text).strip()
-        kept, fresh = 0, []
-        for line in re.split(r"(?<=[.!?])\s+", text):
-            line = line.strip()
-            if len(line) >= 12:
-                self.evidence.add(line, self.SAID)
-                fresh.append(line)
-                kept += 1
-        if fresh:
-            # A FOLLOW-UP FOLLOWS THE LAST ANSWER (W111). Every
-            # assertive turn adds to the store, and a reading that took
-            # all of it grew across a live consultation — three
-            # courses, then five, then seven — until "which ones?"
-            # answered with everything ever mentioned and "the first
-            # one" pointed at a list nobody was looking at. The lines
-            # stay (they are evidence); the CONVERSATIONAL window is
-            # the previous turn's sentences. A turn that asserts
-            # nothing adds nothing and leaves the window where it was.
-            self._said_window = fresh
-        return kept
-
-    def _said_names(self):
-        """The store's own source names that appear in what the memory
-        has said this conversation — longest first, so a name is not
-        swallowed by a shorter one it contains."""
-        spoken = getattr(self, "_said_window", None) or [
-            text for text, src in self.evidence.sentences
-            if src == self.SAID]
-        if not spoken:
-            return []
-        folded = " ".join(evidence._words(" ".join(spoken)))
-        pairs = sorted(
-            ((src, evidence._source_name(src))
-             for src in self.evidence.by_source if src != self.SAID),
-            key=lambda pair: -len(pair[1]))
-        found, taken = [], ""
-        for src, name in pairs:
-            key = " ".join(evidence._words(name))
-            if key and key in folded and key not in taken:
-                found.append((src, name))
-                taken += " " + key
-        return found
-
-    def _open_scope(self, message):
-        """Decide this TURN's scope, once (W114).
-
-        W109 gave the follow-up its scope and gave it to one reading.
-        Traced live across fifteen turns: "how long is the first one?"
-        ran the scoped search and still answered about a leadership
-        course, because the field bridge reads its field across the
-        corpus before that block is reached; and "how many
-        participants?" never saw the scope at all, because the counting
-        organ gathers for itself. A scope is a property of the turn: it
-        is computed here, and every reading that gathers in this turn
-        honours it (`_find`)."""
-        named = self.evidence.named_in(message) if message else set()
-        self._scope_now = set() if named else self._carried_scope()
-        return self._scope_now
+    # the source the memory's own speech is filed under — one
+    # definition, in `lmm/topic.py`
+    SAID = topic.SAID
 
     def _find(self, query, **kw):
         """Gather, inside this turn's scope when it has one (W114)."""
-        scope = getattr(self, "_scope_now", None)
+        scope = self._scope_now
         if scope and "scope" not in kw:
             kw["scope"] = scope
         return self.evidence.find(query, **kw)
-
-    def _carried_scope(self):
-        """The documents this turn inherits from the conversation (W109).
-
-        The scope rule exists for questions that NAME a document; a
-        follow-up inherits it instead, because "the first one" names
-        nothing a lexical search can hold. Empty when the conversation
-        has said nothing — and the caller uses it only when the
-        question named no source of its own."""
-        return {src for src, _name in self._said_names()}
 
     def _recap_answer(self, question):
         """A question about the answer is answered from the answer (W108).
@@ -1433,12 +1328,7 @@ class Session:
         swallowed by a shorter one it contains), and speaks the list.
         Nothing outside the store's own names can appear; with nothing
         said yet it declines and the ordinary paths run."""
-        spoken = getattr(self, "_said_window", None) or [
-            text for text, src in self.evidence.sentences
-            if src == self.SAID]
-        if not spoken:
-            return None
-        found = [name for _src, name in self._said_names()]
+        found = self.topic.names()
         if not found:
             return None
         self._step("recap")
@@ -1465,8 +1355,7 @@ class Session:
                       if h.get("role") == "user"]
         pool = (prior_user if self.last_kind == extract.ASK
                 else prior_user + [message])
-        pool += [text for text, src in self.evidence.sentences
-                 if src == self.SAID][-12:]
+        pool += self.topic.lines()[-12:]
         return " ".join(p for p in pool if p)
 
     def _is_source_name(self, line):
@@ -1801,7 +1690,7 @@ class Session:
         try:
             widened = self.evidence.find_again(
                 question, most=60, floor_share=0.0,
-                scope=getattr(self, "_scope_now", None) or None)
+                scope=self._scope_now or None)
         except Exception:                               # noqa: BLE001
             widened = []
         seen_lines = set(lines)
@@ -3299,8 +3188,7 @@ class Session:
             # course in the store, a document the conversation had
             # never mentioned. When the turn carries a scope, the
             # corpus for this reading is that scope.
-            sources = sorted(getattr(self, "_scope_now", None)
-                             or self.evidence.by_source)
+            sources = sorted(self._scope_now or self.evidence.by_source)
             for src in sources:
                 for _sid, text in self._record_rows(src, question_query, cap=12):
                     head, _sep, val = text.partition(":")
@@ -4810,10 +4698,9 @@ class Session:
         # so each completed sentence goes through its reading the moment
         # its full stop arrives: a kept sentence is on screen while the
         # engine writes the next, a struck sentence is never seen at all.
-        # Without a listener the wagered path stands, byte for byte.
+        # Without a listener the whole reply is read at once, as before.
         on_line = getattr(self, "_on_line", None)
         if on_line is not None:
-            self._spec_chat = None
             echo_text = self._echo_pool(message)
             id_records = retrieve.gather(self.memory, self._lmm_key)
             id_block = "\n".join(
@@ -4859,10 +4746,8 @@ class Session:
                     on_line(ok)
             return " ".join(kept).strip() or self._refuse(message)
         # The IDENTITY block (the maker must not be hidden) and the recent
-        # turns both ride inside _chat_raw — the wager and this path speak
-        # with byte-identical arguments. Fabrication is still filtered below.
-        raw = spec.result() if spec is not None \
-            else self._chat_raw(message)
+        # turns both ride inside `_chat_raw`. Fabrication is filtered below.
+        raw = self._chat_raw(message)
         # the voice may have LEARNED the stamp notation from the history it
         # reads (prior turns carry system marks) — measured: with every
         # claiming sentence gate-dropped, the sole survivor of a reply was
@@ -4875,7 +4760,6 @@ class Session:
         # fabrication (Google) still falls. And the ECHO: the user's own
         # words in this conversation are things the reply may repeat back —
         # listening is not asserting. See verify.verify.
-        self._spec_chat = None          # the wager is spent
         # AN ECHO CANNOT TURN A QUESTION INTO ITS OWN ASSERTION. Caught by
         # our own trap set: "do participants receive a certificate?" —
         # unanswerable, honestly abstained, and the fallback said "Yes,

@@ -3717,63 +3717,6 @@ def w20():
     assert got == {"warmth": 0.7, "max_tokens": None}, got
 
 
-@test("W21 a consultation turn speculates: the voice warms up while the router reads")
-@engine_free
-def w21():
-    """The chain's floor is its depth, not its width: classify, THEN speak
-    — two calls in single file, on every turn, forever. But on the
-    consultation surface most turns end at the chat voice anyway, so the
-    voice can start speaking WHILE the router classifies: both calls go
-    out together, and the router's verdict decides whether the prepared
-    reply is used (CHAT, and W14's context statements) or quietly dropped
-    (a question, which takes the answer path as always). The wager costs
-    one small discarded call on consultation question turns and is never
-    placed where tokens are counted: a teaching turn — the benchmarks —
-    still classifies first and speaks second, byte for byte."""
-    import os, threading, time
-    from lmm import generate, extract, runtime
-    from lmm.session import Session
-    s = Session(None, persona="Warm.")
-    lock = threading.Lock()
-    state = {"now": 0, "peak": 0, "chat_calls": 0}
-    def enter():
-        with lock:
-            state["now"] += 1
-            state["peak"] = max(state["peak"], state["now"])
-        time.sleep(0.12)
-        with lock:
-            state["now"] -= 1
-    real = (extract.extract, generate.chat)
-    def slow_extract(m):
-        enter()
-        return {"kind": extract.CHAT, "triples": []}
-    def slow_chat(message, identity_block="", warmth=0.7, history=None,
-                  persona="", max_tokens=None):
-        state["chat_calls"] += 1
-        enter()
-        return "Hello there!"
-    extract.extract, generate.chat = slow_extract, slow_chat
-    old = os.environ.get("LMM_BACKEND")
-    try:
-        os.environ["LMM_BACKEND"] = "azure"
-        said = s.respond("hello", teach=False)
-        peak_consult, calls_consult = state["peak"], state["chat_calls"]
-        state.update(peak=0, chat_calls=0)
-        s2 = Session(None, persona="Warm.")
-        s2.respond("hello", teach=True)
-        peak_teach = state["peak"]
-    finally:
-        extract.extract, generate.chat = real
-        if old is None:
-            os.environ.pop("LMM_BACKEND", None)
-        else:
-            os.environ["LMM_BACKEND"] = old
-    assert said == "Hello there!", said
-    assert peak_consult == 2, "the consultation turn never speculated"
-    assert calls_consult == 1, "the prepared reply was not reused"
-    assert peak_teach == 1, "a teaching turn placed the wager"
-
-
 @test("W22 the draft streams through the gate line by line")
 def w22():
     """Measured: the catalogue turn holds its 18 seconds because the
@@ -3918,71 +3861,6 @@ def w24():
     assert "ops team" in kept, kept          # the echo survives
     assert "founded" not in kept, kept       # the invention still dies
     assert "What should the training fix?" in kept
-
-
-@test("W25 in a consultation, the conversation is the fallback, not the shrug")
-@engine_free
-def w25():
-    """Measured, live, with the wager's receipts in hand: "I am the HR
-    manager at a bank, researching training" was read as a QUESTION, the
-    answering chain ran and abstained — every candidate died at the gate,
-    wearing a persona introduction the evidence could not attest — and
-    the turn ended in a bare refusal... while the wagered chat reply,
-    already written, already through its own gate, said exactly the right
-    thing and had been thrown away for the crime of a classifier verdict.
-    The rule: in a consultation, when the answering chain ends empty —
-    delivery bridge declined, informed refusal declined — the WAGERED
-    conversational reply speaks. It passed the chat reading (identity +
-    echo); continuing the conversation is what a consultant does with an
-    unanswerable turn. The bare refusal remains for surfaces that have no
-    conversation: a teaching turn, the benchmarks, keep it byte for byte."""
-    import os
-    from lmm import generate, extract
-    from lmm.session import Session
-    s = Session(None, persona="Warm.")
-    s.learn_text("The trust walk closes the morning arc.",
-                 source="#docx:Alpha.docx", deep=False)
-    orig_find = s.evidence.find
-    def empty_find(query, most=4, floor_share=0.5):
-        s.evidence.last_sources = []
-        s.evidence.last_census = []
-        return []
-    s.evidence.find = empty_find
-    real = (extract.extract, generate.chat, generate.offer_research,
-            generate.refusal)
-    extract.extract = lambda m: {"kind": extract.ASK,
-                                 "triples": [("materials", "for", "")]}
-    generate.chat = (lambda message, identity_block="", warmth=0.7,
-                     history=None, persona="", max_tokens=None:
-                     "Got it \u2014 HR training. What should it fix?")
-    generate.offer_research = lambda subject, question: ""
-    generate.refusal = (lambda message, persona="", warmth=0.3,
-                        max_tokens=None: "I do not know.")
-    had = hasattr(generate, "wants_material")
-    real_wm = getattr(generate, "wants_material", None)
-    generate.wants_material = lambda m: False
-    old = os.environ.get("LMM_BACKEND")
-    try:
-        os.environ["LMM_BACKEND"] = "azure"
-        s.respond("hello there", teach=False)
-        said = s.respond("I am researching training materials", teach=False)
-        s2 = Session(None)
-        s2.evidence.find = empty_find
-        teach_said = s2.respond("what are the materials", teach=True)
-    finally:
-        (extract.extract, generate.chat, generate.offer_research,
-         generate.refusal) = real
-        if had:
-            generate.wants_material = real_wm
-        else:
-            del generate.wants_material
-        s.evidence.find = orig_find
-        if old is None:
-            os.environ.pop("LMM_BACKEND", None)
-        else:
-            os.environ["LMM_BACKEND"] = old
-    assert "HR training" in said, said
-    assert "I do not know" in teach_said, teach_said
 
 
 @test("W26 the operator's format sheet travels to the composer alone")
@@ -6093,7 +5971,7 @@ def w105():
     s = Session(None)
     s.learn_text("The Alpha Course runs for two days.",
                  source="#docx:Alpha.docx", deep=False)
-    s._remember_said("The Alpha Course runs for five days.")   # drifted
+    s.topic.remember("The Alpha Course runs for five days.")   # drifted
     lines = s.evidence.find("how long does the Alpha Course run", most=4,
                             floor_share=0.0)
     assert lines, lines
@@ -6158,6 +6036,47 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W115 one state holds the conversation, and the topic holds until another is named")
+def w115():
+    """The consolidation the audit earned. Five patches grew over two
+    days — the said-window, the carried scope, the turn scope, the
+    topic — each right, each computed somewhere else, and the fifth one
+    revealed the flaw in all of them: the topic was REBUILT every turn
+    from the names in the last sentence, so an answer whose words named
+    no document ("EĞİTİM SÜRESİ: 1 gün", with the document in its
+    STAMP) reset the conversation to the whole corpus, and the next
+    question was answered from anywhere.
+
+    One object holds it now. The topic is SET when a question names
+    documents, when an answer names documents, or from the stamp the
+    answer rested on; otherwise it HOLDS. Nothing said, nothing held;
+    a new name always wins."""
+    from lmm.session import Session
+    s = Session(None)
+    for name, days, seats in (("Alpha Sales", "2", "18"),
+                              ("Beta Sales", "1", "20"),
+                              ("Gamma Leadership", "4", "45")):
+        s.learn_text("EĞİTİM SÜRESİ: %s gün. KATILIMCI SAYISI: %s kişi."
+                     % (days, seats), source="#docx:%s.docx" % name,
+                     deep=False)
+    s._no_teach, s._conversational = True, True
+    # an answer names two documents -> they are the topic
+    s.topic.remember("I recommend Alpha Sales and Beta Sales.", mark="")
+    assert len(s.topic.scope_for("how long is the first one?")) == 2
+    # an answer that names none, resting on one -> the topic narrows to it
+    s.topic.remember("EĞİTİM SÜRESİ: 1 gün.", mark="#docx:Beta Sales.docx")
+    assert s.topic.scope_for("how many participants?") == \
+        {"#docx:Beta Sales.docx"}, s.topic.scope_for("x")
+    # an answer that names nothing and rests on nothing -> the topic HOLDS
+    s.topic.remember("I am not sure about that.", mark="")
+    assert s.topic.scope_for("and the seats?") == \
+        {"#docx:Beta Sales.docx"}, "the topic was lost to an empty answer"
+    # a question that names its own document owns the turn
+    assert s.topic.scope_for("how long is Gamma Leadership?") == set()
+    # and the recap reads the same state
+    assert s.topic.names() == ["Beta Sales"], s.topic.names()
+
+
 @test("W114 the conversation's scope belongs to the turn, not to one reading")
 def w114():
     """W109 gave the follow-up its scope and gave it to ONE reading.
@@ -6180,17 +6099,17 @@ def w114():
                         ("Gamma Leadership", "45")):
         s.learn_text("KATILIMCI SAYISI: %s kişi." % seats,
                      source="#docx:%s.docx" % name, deep=False)
-    s._remember_said("I recommend Alpha Sales and Beta Sales.")
+    s.topic.remember("I recommend Alpha Sales and Beta Sales.")
     s._no_teach, s._conversational = True, True
-    s._open_scope("how many participants?")
+    s._scope_now = s.topic.scope_for("how many participants?")
     assert len(s._scope_now) == 2, s._scope_now
     lines = s._find("how many participants", most=6, floor_share=0.0)
     assert lines, lines
     assert not any("45" in line for line in lines), (
         "a reading gathered outside the turn's scope: %r" % lines)
     # a turn that names its own document owns the turn
-    s._open_scope("how many participants in Gamma Leadership?")
-    assert s._scope_now == set(), s._scope_now
+    assert s.topic.scope_for(
+        "how many participants in Gamma Leadership?") == set()
 
 
 @test("W112 the rescue pass buys one candidate, not three")
@@ -6242,19 +6161,19 @@ def w111():
     for name in ("Alpha Sales", "Beta Sales", "Gamma Leadership"):
         s.learn_text("EĞİTİM SÜRESİ: 2 days.", source="#docx:%s.docx" % name,
                      deep=False)
-    s._remember_said("I recommend Alpha Sales.")
-    assert [n for _s, n in s._said_names()] == ["Alpha Sales"], s._said_names()
-    s._remember_said("Now I recommend Beta Sales and Gamma Leadership.")
-    names = sorted(n for _s, n in s._said_names())
+    s.topic.remember("I recommend Alpha Sales.")
+    assert [n for _s, n in [(x, x) for x in s.topic.names()]] == ["Alpha Sales"], [(x, x) for x in s.topic.names()]
+    s.topic.remember("Now I recommend Beta Sales and Gamma Leadership.")
+    names = sorted(n for _s, n in [(x, x) for x in s.topic.names()])
     assert names == ["Beta Sales", "Gamma Leadership"], names
-    assert "#docx:Alpha Sales.docx" not in s._carried_scope(), \
+    assert "#docx:Alpha Sales.docx" not in s.topic.scope_for(''), \
         "the scope kept a document two answers old"
     # every line is still in the store, and still findable on its words
     assert any("Alpha Sales" in text for text, src in s.evidence.sentences
                if src == s.SAID)
 
 
-@test("W110 the route records every organ that spoke, including the wager")
+@test("W110 the route records every organ that spoke")
 def w110():
     """The audit tool, found wanting in the middle of an audit. A live
     consultation answered a recommendation with an empty route — no
@@ -6291,30 +6210,6 @@ def w110():
     # the chain was entered and said nothing, so the turn refused — and
     # the refusal is an organ like any other
     assert "refuse" in s.last_route, s.last_route
-    # ...and when the wager speaks instead, it says so
-    s2 = Session(None)
-    s2.learn_text("The hall seats 90 people.", source="#docx:Hall.docx",
-                  deep=False)
-    # the chain refuses in words and leaves a wager outstanding, which
-    # is the shape of the live turn: `respond` clears the wager on entry,
-    # so it can only be seeded from inside the turn
-    def chain_refuses(message, fluent=False, teach=True):
-        s2._step("chain")
-        s2._spec_chat = object()
-        return "I do not know."
-    s2._respond = chain_refuses
-    s2._chat = lambda message, spec=None, queue=None: "Happy to help."
-    extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
-    generate.turn_shape = lambda m: "none"
-    generate.refusal = lambda message, persona="", **kw: "I do not know."
-    try:
-        voiced = s2.respond("tell me about the hall", teach=False)
-    finally:
-        (extract.extract, generate.chat, generate.turn_shape,
-         generate.refusal) = real
-    assert "Happy to help" in voiced, voiced
-    assert "wager" in s2.last_route, (
-        "the wager spoke and left no trace: %r" % s2.last_route)
     # ...and so does the early delivery, the seat that answered a live
     # recommendation turn with an empty route
     s3 = Session(None)
@@ -6369,9 +6264,9 @@ def w109():
                        ("Gamma Leadership", "four")):
         s.learn_text("EĞİTİM SÜRESİ: %s days." % days,
                      source="#docx:%s.docx" % name, deep=False)
-    assert s._carried_scope() == set(), "an empty conversation carried scope"
-    s._remember_said("I recommend Alpha Sales and Beta Sales for your team.")
-    carried = s._carried_scope()
+    assert s.topic.scope_for('') == set(), "an empty conversation carried scope"
+    s.topic.remember("I recommend Alpha Sales and Beta Sales for your team.")
+    carried = s.topic.scope_for('')
     assert carried == {"#docx:Alpha Sales.docx", "#docx:Beta Sales.docx"}, \
         carried
     lines = s.evidence.find("how long is the first one", most=4,
@@ -6411,7 +6306,7 @@ def w108():
     s.learn_text("EĞİTİM SÜRESİ: 3 gün.", source="#docx:Doğal Liderlik.docx",
                  deep=False)
     assert s._recap_answer("hangileri kısaca") is None      # nothing said yet
-    s._remember_said("Temel Satış Becerileri ve Etkin Çatışma Yönetimi "
+    s.topic.remember("Temel Satış Becerileri ve Etkin Çatışma Yönetimi "
                      "programlarını öneriyorum.")
     real = s._spoken_row
     s._spoken_row = lambda question, row: row               # phrasing is W101's
@@ -6443,7 +6338,7 @@ def w107():
     nothing, and a document still outranks them everywhere else."""
     from lmm.session import Session
     s = Session(None)
-    s._remember_said("I recommend the Vale Coaching Programme and the "
+    s.topic.remember("I recommend the Vale Coaching Programme and the "
                      "Harbour Sales Clinic.")
     pool = s._echo_pool("which ones exactly?")
     assert "Vale Coaching Programme" in pool, pool
@@ -6510,7 +6405,7 @@ def w104():
     s.learn_text("ALPHA COURSE: two days, sixteen seats.",
                  source="#docx:Alpha.docx", deep=False)
     # the memory speaks — and remembers having spoken
-    s._remember_said("I recommend the Alpha Course and the Beta Course "
+    s.topic.remember("I recommend the Alpha Course and the Beta Course "
                      "for your sales team.")
     said_lines = [text for text, src in s.evidence.sentences
                   if src == "#said"]
