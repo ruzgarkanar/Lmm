@@ -92,7 +92,8 @@ class Session:
 
     def __init__(self, path=None, who="#operator", mode="STRICT",
                  persona="", warmth=None, reply_tokens=None, style="",
-                 identity=None):
+                 identity=None, encoder=None, dense=True,
+                 reranker="bundled"):
         # THE OPERATOR'S VOICE — tone, greeting style, when to ask a
         # clarifying question. It rides in front of the PHRASING prompts only
         # (generate._voiced): the gates read the output, never the prompt, so
@@ -175,6 +176,34 @@ class Session:
         # don't fit a triple aren't lost; representation-narrowness fix). The
         # graph is structure, the sentence is evidence.
         self.evidence = evidence.SentenceStore.load(path)
+        # THE MEANING CHANNEL BELONGS TO THE STORE, SO IT IS ATTACHED
+        # HERE. It was attached in `Memory` — the front door — and a
+        # caller using this class directly, which this codebase says is
+        # supported, got a store with no vectors and no reordering and
+        # no way to tell. The failure was silent, which is the worst
+        # kind: paraphrased questions simply missed.
+        #
+        # Defaults: the matrix that ships with the library, and the
+        # late-interaction reordering over it. `encoder=` takes any
+        # callable from strings to vectors, `reranker=` any callable
+        # from (query, texts) to an order, and `dense=False` turns the
+        # whole channel off. A checkout without the data, a missing
+        # numpy, or an encoder that raises leaves it ABSENT — never
+        # degraded, and never a reason for a question to go unanswered.
+        if dense:
+            try:
+                rerank = reranker if callable(reranker) else None
+                if encoder is None or reranker == "bundled":
+                    from lmm import static             # noqa: PLC0415
+                    if static.available():
+                        if encoder is None:
+                            encoder = static.encode
+                        if reranker == "bundled":
+                            rerank = static.maxsim
+                if encoder is not None:
+                    self.evidence.attach_dense(encoder, rerank)
+            except Exception:                          # noqa: BLE001
+                pass
         # WHAT THE CONVERSATION IS ABOUT — one object, read by every
         # organ (`lmm/topic.py`). Five separate readings grew for this
         # over two days of audit and none of them agreed; the topic now
@@ -872,6 +901,12 @@ class Session:
         same `_hedge`, same '~' mark attached in `respond` — because a cheaper
         answer is not a less accountable one.
         """
+        # THE CHEAPEST PATH LEAVES A TRACE TOO (W110). This one spends no
+        # model call at all, which is exactly why it was invisible: a
+        # record question came back with an empty route, so the audit
+        # tool could not tell a graph answer from a turn that never
+        # happened. A path that speaks is a path that says so.
+        self._step("record")
         self.last_from_graph = True
         self.last_abstained = False
         self.last_kind = extract.ASK
