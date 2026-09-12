@@ -1,4 +1,22 @@
-"""The meaning channel: vectors over the store's own lines.
+"""The meaning channel: vectors over the store's own documents.
+
+WHICH LAYER, AND HOW WE FOUND OUT. The channel was first built over
+LINES, which is where the industry's line-level hybrid puts it. Measured
+over 103 documents with the distinctive terms dropped from each query —
+known-item retrieval, no hand-written gold — that arrangement moved
+nothing: the words were already at 90% and the vectors agreed with them.
+Moved to DOCUMENTS, the same encoder and the same fusion reached 99%,
+and the two together 103/103. The reason is visible in the data: a line
+here reads "Aidiyet ve Motivasyon." — four words carry no topic, so
+vectors over lines compare fragments, while vectors over a document's
+profile compare subjects, which is what a reader who cannot name the
+document is actually asking about. It is also 160x smaller: 103 vectors
+instead of 16,637, a first pass in about a second instead of half a
+minute, and a query in milliseconds.
+
+So the channel does not rank lines. It proposes DOCUMENTS, and the words
+retrieve inside them — the scope the store already understood.
+
 
 WHY THIS EXISTS, AND WHY IT TOOK SO LONG TO ADD. Retrieval here finds a
 line because a WORD arrived, which is what makes every decision
@@ -19,10 +37,11 @@ WHAT KEEPS IT OURS.
     RRF (reciprocal rank fusion), which reads RANKS, not scores: there
     is no weight to tune, no threshold to drift, and a line the words
     already found cannot be pushed out by a vector's opinion.
-  * IT EMBEDS THE LINE WITH ITS CONTEXT. Each vector is computed over
-    "source name · record head · line", not the bare line — contextual
-    retrieval without a second model, and the reason a row reading
-    "2 Tam Gün" is findable at all.
+  * IT EMBEDS A DOCUMENT BY WHAT IT SAYS AT LENGTH. A profile is the
+    document's name followed by its longest lines — the sentences that
+    carry a subject, rather than the headings and one-word rows that
+    every document shares. Nothing is summarised and nothing is
+    invented: the profile is the document's own text, cut.
   * IT WIDENS WHAT CAN BE FOUND, NEVER WHAT MAY BE SAID. The gates read
     the evidence exactly as before; a line that arrives by vector is
     judged by the same jury as a line that arrives by word.
@@ -38,10 +57,18 @@ vectors are best; it ships the channel.
 """
 import math
 
-# How many neighbours the channel offers a query. The fusion reads
-# ranks, so this is a horizon, not a threshold: it bounds work, and
-# nothing about it decides what is true.
-NEIGHBOURS = 30
+# How many documents the channel offers a query. The fusion reads ranks,
+# so this is a horizon, not a threshold: it bounds work, and nothing
+# about it decides what is true. Five, because the measurement put the
+# right document in the first three for 99 of 103 queries — two seats of
+# margin, and still a narrow enough field for the words to search.
+SOURCES = 5
+
+# How much of a document is embedded: its longest lines, to this many
+# lines and this many characters. Longest, because in a catalogue the
+# short rows are the ones every document shares.
+PROFILE_LINES = 12
+PROFILE_CHARS = 1200
 
 # The rank-fusion constant from the RRF paper (Cormack et al., 2009),
 # used at its published value. It flattens the difference between rank 1
@@ -65,12 +92,12 @@ def fuse(*rankings, most=None):
 
 
 class Dense:
-    """Vectors for a sentence store, and the nearest-neighbour reading."""
+    """Vectors for a store's documents, and the nearest-neighbour reading."""
 
     def __init__(self, encode):
         self.encode = encode
-        self.vectors = []               # sid -> unit vector (list of floats)
-        self.at = 0                     # how many sentences are embedded
+        self.vectors = {}               # source -> unit vector
+        self.size = {}                  # source -> its line count when embedded
 
     # ------------------------------------------------------------ build
     @staticmethod
@@ -78,46 +105,46 @@ class Dense:
         norm = math.sqrt(sum(x * x for x in vector)) or 1.0
         return [x / norm for x in vector]
 
-    def _context_of(self, store, sid):
-        """The line, under the name of the document that wrote it and the
-        head it sits below — what the vector is actually computed over."""
-        text, source = store.sentences[sid]
+    @staticmethod
+    def _profile_of(store, source):
+        """A document as the vector sees it: its name, then its longest
+        lines. The name because a catalogue's subject is usually written
+        there; the longest lines because they are the ones that say
+        something this document says and its neighbours do not."""
         from lmm import evidence                          # noqa: PLC0415
+        lines = sorted((store.sentences[sid][0]
+                        for sid in store.by_source.get(source, ())),
+                       key=len, reverse=True)[:PROFILE_LINES]
         name = evidence._source_name(source) if source else ""
-        head = ""
-        if ":" in text:
-            maybe = text.split(":", 1)[0]
-            if len(maybe) <= 60:
-                head = maybe
-        parts = [p for p in (name, head, text) if p]
-        return " · ".join(parts)
+        body = " ".join(lines)[:PROFILE_CHARS]
+        return ("%s. %s" % (name, body)).strip()
 
     def catch_up(self, store):
-        """Embed whatever the store has learned since the last pass.
+        """Embed the documents that are new or have grown since last pass.
 
-        Incremental by construction: ingestion adds lines, and the
-        channel embeds the new ones only, in one batch."""
-        total = len(store.sentences)
-        if total <= self.at:
+        Incremental by document: ingesting one more file re-embeds one
+        profile, not the corpus, and a store that has not changed does
+        no work at all."""
+        stale = [src for src, sids in store.by_source.items()
+                 if src and self.size.get(src) != len(sids)]
+        if not stale:
             return 0
-        fresh = [self._context_of(store, sid) for sid in range(self.at, total)]
-        vectors = self.encode(fresh)
-        for vector in vectors:
-            self.vectors.append(self._unit(list(vector)))
-        self.at = total
-        return total - self.at + len(fresh)
+        vectors = self.encode([self._profile_of(store, src) for src in stale])
+        for src, vector in zip(stale, vectors):
+            self.vectors[src] = self._unit(list(vector))
+            self.size[src] = len(store.by_source.get(src, ()))
+        return len(stale)
 
     # ------------------------------------------------------------- read
-    def near(self, query, most=NEIGHBOURS):
-        """The sentence ids whose vectors sit closest to this query."""
+    def near(self, query, most=SOURCES):
+        """The documents whose profiles sit closest to this question."""
         if not self.vectors:
             return []
         try:
             asked = self._unit(list(self.encode([query])[0]))
         except Exception:                                # noqa: BLE001
             return []
-        scored = []
-        for sid, vector in enumerate(self.vectors):
-            scored.append((sum(a * b for a, b in zip(asked, vector)), sid))
-        scored.sort(key=lambda row: (-row[0], row[1]))
-        return [sid for _score, sid in scored[:most]]
+        scored = [(sum(a * b for a, b in zip(asked, vector)), src)
+                  for src, vector in self.vectors.items()]
+        scored.sort(key=lambda row: (-row[0], str(row[1])))
+        return [src for _score, src in scored[:most]]

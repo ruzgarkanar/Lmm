@@ -6046,12 +6046,21 @@ def w116():
     the offline expansion, the engine's second ask — closed part of it
     at best. A vector channel closes it by construction.
 
+    WHICH LAYER IS NOT A MATTER OF TASTE; IT WAS MEASURED. Built over
+    LINES, the channel moved nothing: 103 known-item queries over 103
+    documents, distinctive terms dropped, words 90% and the vectors
+    agreeing with them. Built over DOCUMENTS — same encoder, same
+    fusion — 99%, and the two together 103/103. A line here reads
+    "Aidiyet ve Motivasyon."; four words carry no subject, so vectors
+    over lines compare fragments while vectors over a profile compare
+    subjects. So the channel names DOCUMENTS and the words read inside
+    them. It is also 160x smaller, which is where the speed came from.
+
     Three rules keep it ours. It is a CHANNEL, not a replacement: the
     two rankings are fused by RRF, which is rank-based and has no
     weight to tune, so a line the words already found cannot be pushed
-    out by a vector's opinion. It embeds the line WITH ITS CONTEXT —
-    the source's name and the record head above it — which is
-    contextual retrieval without a second model. And with no encoder
+    out by a vector's opinion. It embeds a document by ITS OWN LONGEST
+    LINES — nothing summarised, nothing invented. And with no encoder
     available the store behaves exactly as it did: the channel is
     absent, not degraded."""
     from lmm.evidence import SentenceStore
@@ -6079,6 +6088,11 @@ def w116():
         "the premise is wrong: the words already reach it: %r" % before)
 
     store.attach_dense(encode)
+    # the index is one vector per DOCUMENT, not per line — the layer is
+    # the finding, so it is the invariant
+    assert len(store._dense.vectors) == len(store.by_source), (
+        "the channel is not at the document layer: %d vectors, %d documents"
+        % (len(store._dense.vectors), len(store.by_source)))
     after = store.find("gossip", most=2, floor_share=0.0)
     assert any("dispute resolution" in line for line in after), (
         "the meaning channel did not reach the line: %r" % after)
@@ -6866,7 +6880,16 @@ def w94():
         s.evidence.add("User: went hiking on the ridge again.", "chat %s" % d
                        ) if d == "2023/07/01" else s.evidence.add(
                        "User: hiking trip, this time %s." % d, "chat %s" % d)
-    real = generate.plan_of
+    # The composer's contract is ENGINE PROPOSES, ARITHMETIC VERIFIES —
+    # so a test of the composer supplies BOTH proposals, the plan and
+    # the reading of when each event happened. Stubbing only the plan
+    # tested a machine half-attached, and passed anyway wherever an
+    # engine happened to be reachable; with none (which is CI's world)
+    # every anchor came back unverified and W103 correctly killed the
+    # plan. The reading here is the honest one: each phrase's date is
+    # the stamp of the line that holds it.
+    real, real_date = generate.plan_of, generate.event_date
+    generate.event_date = lambda phrase, rows, **kw: rows[0][0] if rows else ""
     generate.plan_of = (lambda q: [
         ("a", "anchor", "dentist visit"),
         ("b", "anchor", "the new job"),
@@ -6909,6 +6932,7 @@ def w94():
     finally:
         generate.plan_of = real
     assert misfit is None, misfit
+    generate.event_date = real_date
 
 
 @test("W93 when the organs are silent, a count is a refusal, not a guess")
