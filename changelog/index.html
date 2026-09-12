@@ -835,13 +835,151 @@
 <p>All notable changes to this project are documented here. The format follows
 <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>, and this project
 follows <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<h2 id="060-2026-09-13">[0.6.0] — 2026-09-13<a class="headerlink" href="#060-2026-09-13" title="Permanent link">&para;</a></h2>
+<p>The release where retrieval stopped being only words, and where three
+hedges against weak retrieval were retired because measurement said they
+had stopped earning. Every number below was produced by a protocol in the
+repository; none of it is an estimate.</p>
+<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>The meaning channel ships with the library and is on by default.</strong> A
+  30 MB static multilingual matrix travels in the wheel, so a reader who
+  paraphrases — a lease that says RESIDES against a question that says
+  LIVES — is understood with no download, no account and no network. It is
+  a matrix, not a model: one lookup per word-piece and a mean, so there is
+  no torch and no warm-up. Measured on 20,000 lines and 180 known-item
+  queries it beats the transformer it would otherwise take (MRR <strong>0.883</strong>
+  against 0.710) and builds its index a hundred times faster (0.3 s against
+  36.1 s). Source: <code>minishlab/potion-multilingual-128M</code> (MIT, the model2vec
+  method), reduced to 108k pieces and 128 dimensions; the segmentation is
+  thirty lines of our own, so no tokenizer library is required. See NOTICE.</p>
+</li>
+<li>
+<p><strong>Rank fusion, and late interaction over the same matrix.</strong> The word
+  ranking and the meaning ranking are fused by reciprocal rank (RRF, K=60)
+  — order, not score, so there is no weight to tune. The lines inside a
+  proposal are then reordered by late interaction (ColBERT's idea without
+  ColBERT's model). End to end, by whether the ANSWERING line reaches the
+  five the engine is shown, on a 115,913-line corpus: <strong>32% → 60% → 79%</strong>.
+  Reordering is worth more the vaguer the question gets (six terms removed
+  from the query: MRR 0.707 → 0.807), which is the way round that matters.</p>
+</li>
+<li>
+<p><strong>A parametric surface for all of it.</strong> <code>Memory(encoder=...)</code> takes any
+  callable from strings to vectors; <code>reranker=</code> any callable from
+  <code>(query, texts)</code> to an order, or <code>None</code>; <code>dense=False</code> removes the
+  channel entirely. With no numpy, no bundled data, or an encoder that
+  raises, the channel is <strong>absent, never degraded</strong> — the words carry the
+  turn.</p>
+</li>
+<li>
+<p><strong>W123</strong>: the derived field-name index is written beside the store. It
+  was built on first use, once per PROCESS: 10.6 s before the first answer
+  on a 115,913-line store, paid again by every command-line run. Now
+  0.7 MB on disk and <strong>0.13 s</strong>, with the sentence count and the bound it
+  was built under, so a file that does not match is rebuilt rather than
+  trusted.</p>
+</li>
+<li>
+<p><strong>W117</strong>: a deterministic question is asked once. At temperature 0 the
+  engine is a function, and one refusal turn was asking the amount reader
+  twice on the same 45,755-character block. Byte-exact pooling, and warmth
+  is never pooled.</p>
+</li>
+<li>
+<p><strong>W125</strong>: every shipped entry point imports what it runs — including the
+  lazy imports inside functions, which is the class of breakage no
+  import-time check can see.</p>
+</li>
+</ul>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>The meaning channel sits at the DOCUMENT layer, and the layer was
+  measured.</strong> Over lines it moved nothing; over document profiles the
+  store's own retrieval went <strong>92% → 99%</strong> on 103 known-item queries. The
+  opposite arrangement was measured too: choosing the lines INSIDE a
+  proposed document by meaning rather than by words took the answering line
+  from 78% to <strong>31%</strong>. Meaning says which document; inside it, the
+  question's own words are sharper.</p>
+</li>
+<li>
+<p><strong><code>CANDIDATES</code> 3 → 1</strong> (W124). Three evidence subsets were answered per
+  question and the gate chose among them — insurance bought before the
+  meaning channel existed. Measured after it: across eleven field questions
+  every admitted answer came from the wide block and the narrow candidates
+  won <strong>nothing</strong>. Collapsed, the run went from 139 engine calls to 104 and
+  correctness from 4/11 to 5/11. It stays a number, not a deletion.</p>
+</li>
+<li>
+<p><strong><code>VIEWS</code> 2 → 1</strong> (W126). Both judges could buy a second, wider view when
+  the first declined. In the same run the second view confirmed <strong>nothing</strong>,
+  on either judge — eight calls of a hundred and four.</p>
+</li>
+<li>
+<p><strong>One dependency: numpy</strong>, named in <code>pyproject.toml</code> with its reason.
+  "Zero dependencies" was true and is no longer; hiding that would be worse
+  than losing it.</p>
+</li>
+<li>
+<p><code>learn()</code> lost its <code>expand=</code> argument, and <code>Learned</code> its <code>expanded</code> count.</p>
+</li>
+</ul>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>The memory answers the identity question it was asked</strong> (W120). Asked
+  WHO WROTE IT, it answered with its own NAME — true, attested, past every
+  gate, and an answer to a different question. The name is one field among
+  the rows the operator declared, and the question is now mapped onto those
+  fields — including the fields we could hold but do not, because a mapping
+  shown only what it has can never discover that something is missing.</p>
+</li>
+<li>
+<p><strong>The meaning channel is attached where the store is built</strong> (Session,
+  not Memory). A caller using the older class got a store with no vectors
+  and no way to tell; the failure was silent.</p>
+</li>
+<li>
+<p><strong>The graph-direct path records its route</strong> (W110's fifth path). It spends
+  no model call, so it was never instrumented, and a record question came
+  back with an empty route — indistinguishable from a turn that never
+  happened.</p>
+</li>
+<li>
+<p><strong><code>lmm/mind.py</code> restored.</strong> It was retired as "an idle derivation loop on
+  no product path" and is on the product path: the <code>lmm</code> console command
+  builds it at startup. The import sits inside <code>main()</code>, so the package
+  imported cleanly, every test passed, and the command crashed on launch.
+  W125 exists so that cannot recur.</p>
+</li>
+</ul>
+<h3 id="removed">Removed<a class="headerlink" href="#removed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>The offline expansion channel, entirely</strong> (−607 lines). It generated
+  the questions each line answers and indexed them; measured on NIST
+  SP 800-63B its keep filter is inverted — a real rephrasing never reaches
+  its own line, so it kept only the queries that COPIED the line. Handed
+  perfect queries by hand, it kept zero. The README recorded that for
+  months while the channel stayed, off by default, costing a rung on the
+  channel ladder, a side-file key, a prompt, a session pass, an api
+  argument and five invariants. A switch nobody should turn on is a
+  liability, not an option.</p>
+</li>
+<li>
+<p><code>generate.wants_material</code> — it was <code>turn_shape</code>'s "material" asked a
+  second time with a second prompt on the same sentence.</p>
+</li>
+</ul>
 <h2 id="050-2026-09-11">[0.5.0] — 2026-09-11<a class="headerlink" href="#050-2026-09-11" title="Permanent link">&para;</a></h2>
 <p>The release where question shapes stopped being hand-written. Everything
 here was found by measurement — a public benchmark, a live consultation,
 a drowned block read line by line — and every fix is a class, never a
 case: the two rules in CONTRIBUTING (no document-specific constants, no
 hand-written language rules) held through all of it.</p>
-<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The composer</strong> (<code>Session._plan_answer</code>). A memory that answers only
   the shapes somebody wired by hand answers a finite set of questions.
@@ -916,7 +1054,7 @@ hand-written language rules) held through all of it.</p>
   classifier is not a licence to reroute sixteen.</p>
 </li>
 </ul>
-<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>No apparatus of ours can be spoken.</strong> Asked which documents state a
   field, the memory answered "K1, K2, K3, K4" — reciting the labels this
@@ -963,7 +1101,7 @@ beyond noise, and README's Honest limits says so. 182 invariants.</p>
 both built from the document itself with no model call and no vendor, and
 both able to show why a line arrived — which is the property this project
 would have had to give up to buy the same abilities from an embedding.</p>
-<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
+<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The document's own entity graph</strong> (<code>lmm.mentions</code>). GraphRAG hands
   each chunk to a model and asks for the entities and relations; what
@@ -1014,7 +1152,7 @@ would have had to give up to buy the same abilities from an embedding.</p>
   can answer: a head that opens a hundredth of the units is a field, one
   that opens three lines of a novel is a colon.</li>
 </ul>
-<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A row is reachable by the name a question uses.</strong> A spreadsheet
   writes people as "Taylor, Mr. Elmer Zebley" and a question arrives as
@@ -1042,7 +1180,7 @@ specifications the system has never seen 8/8 · 4/4 · 3/3 · 4/4; a
 thousand generated documents 25/25 · 25/25; NIST 11/13; EN 17/17; 158
 invariants.</p>
 <h2 id="036-2026-09-09">[0.3.6] — 2026-09-09<a class="headerlink" href="#036-2026-09-09" title="Permanent link">&para;</a></h2>
-<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A document that never uses the words is not asked about them.</strong> The
   mirror of the record answer, on the refusal path: a question naming
@@ -1068,7 +1206,7 @@ traps 10/10 — and a factual question that names a document now takes
 has never seen, with no adaptation: <strong>8/8 · 4/4 · 3/3 · 4/4</strong>. A thousand
 generated specifications (50 q): <strong>25/25 · 25/25</strong>. NIST 11/13, EN 17/17;
 151 invariants.</p>
-<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
+<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A field of a named document is read, not generated.</strong> The commonest
   question a document store is asked needs no engine: the row exists,
@@ -1078,7 +1216,7 @@ generated specifications (50 q): <strong>25/25 · 25/25</strong>. NIST 11/13, EN
   twelve — the cause was the naming underneath it, and a bullet being
   read as part of a head, both fixed here.</li>
 </ul>
-<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_3">Fixed<a class="headerlink" href="#fixed_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A value belongs to the field it was written under.</strong> A
   specification carrying MEMORY: 128 GB and no STORAGE line was asked
@@ -1112,7 +1250,7 @@ hardware specifications the system had never seen (19 q): 8/8, 4/4, 3/3,
 4/4 — a complete card on a corpus with no adaptation. 1,000 generated
 specifications (50 q): factual 25/25, traps 23/25. NIST 11/13 and EN
 17/17 unchanged; 148 invariants.</p>
-<h3 id="fixed_3">Fixed<a class="headerlink" href="#fixed_3" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_4">Fixed<a class="headerlink" href="#fixed_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The extremes of a field are the corpus's, not the block's.</strong> The
   first measurement above sixty documents found the worst kind of bug
@@ -1158,7 +1296,7 @@ specifications (50 q): factual 25/25, traps 23/25. NIST 11/13 and EN
   nothing installed. The suite's own claim — no model, no network — is
   now verified the only way it can be, in a virtualenv with neither.</li>
 </ul>
-<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
+<h3 id="changed_2">Changed<a class="headerlink" href="#changed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The question door does not gamble on a chat.</strong> Every question was
   paying for a full chat completion that was thrown away: the
@@ -1185,7 +1323,7 @@ specifications this system had never seen, with no adaptation: frontier
 0/3 → 2/3, factual 8/8, comparisons 4/4, traps 4/4. On the 73-question
 Turkish field set: frontier 5/8 → 7/8, factual 38/40, traps 10/10,
 comparisons 12/15. NIST 11/13 and EN 17/17 unchanged; 142 invariants.</p>
-<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
+<h3 id="added_4">Added<a class="headerlink" href="#added_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The same three verbs over HTTP, one memory per user</strong> (<code>lmm.serve</code>).
   A memory that lives in one process is a library; it becomes a product
@@ -1209,7 +1347,7 @@ comparisons 12/15. NIST 11/13 and EN 17/17 unchanged; 142 invariants.</p>
   server and checks across the two languages that what one user teaches,
   another cannot read.</li>
 </ul>
-<h3 id="fixed_4">Fixed<a class="headerlink" href="#fixed_4" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_5">Fixed<a class="headerlink" href="#fixed_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A refusal is spoken in the language it was asked in.</strong> Hidden behind
   a Turkish corpus: six English questions with no answer in the store
@@ -1257,7 +1395,7 @@ grew up. Measured on a 73-question field set (40 factual, 15
 comparisons, 10 traps, 8 frontier), three runs, medians: comparisons
 8/15 → 13/15, factual 37/40 → 38/40, traps 10/10 throughout. NIST
 11/13 and EN 17/17 unchanged; 130 invariants.</p>
-<h3 id="fixed_5">Fixed<a class="headerlink" href="#fixed_5" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_6">Fixed<a class="headerlink" href="#fixed_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>In a comparison, two sources saying the same thing say it twice.</strong>
   Sibling documents share a template, so two items of equal value write
@@ -1277,7 +1415,7 @@ comparisons, 10 traps, 8 frontier), three runs, medians: comparisons
   same_stem, so kinship widens what can be FOUND and nothing about what
   may be SAID.</li>
 </ul>
-<h3 id="added_4">Added<a class="headerlink" href="#added_4" title="Permanent link">&para;</a></h3>
+<h3 id="added_5">Added<a class="headerlink" href="#added_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li>The comparison verdict is written into the evidence: two named
   sources answering the same field head yield one system-written row —
@@ -1295,7 +1433,7 @@ and a head-to-head benchmark against LangChain, LlamaIndex and Mem0 —
 with every finding, ours included, fixed architecturally or filed
 openly. Published numbers re-measured unchanged after every batch
 (NIST 11/13, EN 17/17; 124 invariants, W27-W42).</p>
-<h3 id="fixed_6">Fixed<a class="headerlink" href="#fixed_6" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_7">Fixed<a class="headerlink" href="#fixed_7" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>One-row Word tables are fact boxes, and fact boxes are prose.</strong> The
   docx reader dropped single-row grids whole (no header row to read),
@@ -1320,7 +1458,7 @@ openly. Published numbers re-measured unchanged after every batch
 <li>The prior subject rides retrieval as a challenger, not a preemption —
   restoring a benchmark answer to its honest, attested path.</li>
 </ul>
-<h3 id="added_5">Added<a class="headerlink" href="#added_5" title="Permanent link">&para;</a></h3>
+<h3 id="added_6">Added<a class="headerlink" href="#added_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The comparison reading</strong>: a question naming two or more sources
   lays them side by side — per-source seats, record rows riding along,
@@ -1343,7 +1481,7 @@ turn, and every fix below is architectural: no keyword, no language rule, no
 corpus-specific line anywhere. The published numbers were re-measured
 unchanged after every change batch (NIST 11/13, EN 17/17; 110 unit
 invariants, W14–W26).</p>
-<h3 id="added_6">Added<a class="headerlink" href="#added_6" title="Permanent link">&para;</a></h3>
+<h3 id="added_7">Added<a class="headerlink" href="#added_7" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The consultation surface.</strong> <code>respond(msg, teach=False)</code>: a statement is
   CONTEXT (routes to the chat voice; its extracted terms accumulate in the
@@ -1369,7 +1507,7 @@ invariants, W14–W26).</p>
 <li><code>compose(..., topics=)</code> gathers per topic — dedicated seats, dedicated
   queries.</li>
 </ul>
-<h3 id="changed_2">Changed<a class="headerlink" href="#changed_2" title="Permanent link">&para;</a></h3>
+<h3 id="changed_3">Changed<a class="headerlink" href="#changed_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Latency, halved and then some</strong> (measured, same dialogue): a greeting
   turn 15.9 s → ~6 s, a catalogue's first line on screen 13.4 s → ~5 s.
@@ -1385,7 +1523,7 @@ invariants, W14–W26).</p>
   format, not a quantity — the digit gate no longer kills the engine's own
   section numbering.</li>
 </ul>
-<h3 id="fixed_7">Fixed<a class="headerlink" href="#fixed_7" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_8">Fixed<a class="headerlink" href="#fixed_8" title="Permanent link">&para;</a></h3>
 <ul>
 <li>A context statement in a no-teach conversation no longer falls through to
   the question treatment (it used to end in a refusal wearing the
@@ -1399,7 +1537,7 @@ corpus of 62 sibling documents sharing a template — a class no benchmark had
 covered — worked through question by question, with the published
 single-document numbers re-measured unchanged after every change (NIST 11/13,
 EN corpus 17/17).</p>
-<h3 id="added_7">Added<a class="headerlink" href="#added_7" title="Permanent link">&para;</a></h3>
+<h3 id="added_8">Added<a class="headerlink" href="#added_8" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>Memory.compose(brief)</code> — long-form drafts from the evidence: the engine
   organises, the material speaks, and every line is re-read on the way out
@@ -1427,7 +1565,7 @@ EN corpus 17/17).</p>
   not a lesson, however imperative its grammar. Teaching stays on
   <code>Session.respond</code>, deliberately.</li>
 </ul>
-<h3 id="fixed_8">Fixed<a class="headerlink" href="#fixed_8" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_9">Fixed<a class="headerlink" href="#fixed_9" title="Permanent link">&para;</a></h3>
 <ul>
 <li>The abstention stamp is read off the evidence, not asked of a model — a
   full correct answer was being recorded as a refusal when the re-extractor
@@ -1450,7 +1588,7 @@ EN corpus 17/17).</p>
 <h2 id="010-2026-08-18"><a href="https://github.com/ruzgarkanar/lmm/releases/tag/v0.1.0">0.1.0</a> — 2026-08-18<a class="headerlink" href="#010-2026-08-18" title="Permanent link">&para;</a></h2>
 <p>First public release. The layer had been working for some time; this release is
 the work of making it installable, readable and lawful to publish.</p>
-<h3 id="added_8">Added<a class="headerlink" href="#added_8" title="Permanent link">&para;</a></h3>
+<h3 id="added_9">Added<a class="headerlink" href="#added_9" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>Memory</code> — one front door.</strong> <code>Memory("mind.lmm")</code>, <code>.learn(...)</code>,
   <code>.ask(...)</code>, <code>.save()</code>. <code>learn()</code> takes a file path or the text itself and
@@ -1470,7 +1608,7 @@ the work of making it installable, readable and lawful to publish.</p>
   the core installs with no dependencies.</li>
 <li>Six tests for the new surface (59 total), none of which needs a model.</li>
 </ul>
-<h3 id="changed_3">Changed<a class="headerlink" href="#changed_3" title="Permanent link">&para;</a></h3>
+<h3 id="changed_4">Changed<a class="headerlink" href="#changed_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The core install has no dependencies.</strong> <code>pandas</code> was imported at
   <code>tables.py</code>'s top level, which meant the pure-python layer could not be
@@ -1484,7 +1622,7 @@ the work of making it installable, readable and lawful to publish.</p>
   number. It is the discrete layer — memory, gate, geometry, dynamics,
   transitivity — and it is now named for what it is. <code>bench/</code> is <code>benchmarks/</code>.</li>
 </ul>
-<h3 id="removed">Removed<a class="headerlink" href="#removed" title="Permanent link">&para;</a></h3>
+<h3 id="removed_1">Removed<a class="headerlink" href="#removed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Third-party and private benchmark material: a device manufacturer's manual, an
   institution's internal strategy document and an inspection report naming real
