@@ -1799,8 +1799,9 @@ class Session:
         # passes the same verification. One small call, only on count
         # turns.
         try:
-            widened = self.evidence.find_again(question, most=60,
-                                               floor_share=0.0)
+            widened = self.evidence.find_again(
+                question, most=60, floor_share=0.0,
+                scope=getattr(self, "_scope_now", None) or None)
         except Exception:                               # noqa: BLE001
             widened = []
         seen_lines = set(lines)
@@ -3291,7 +3292,16 @@ class Session:
             # question's words are read for what field is meant.
             qw = evidence._words(question_query)
             heads = {}                      # head words -> {source: row}
-            for src in sorted(self.evidence.by_source):
+            # NO READING IS EXEMPT FROM THE TURN'S SCOPE (W114). This
+            # one reads a field ACROSS the corpus — the reading that
+            # answers "which one has the highest X" — and traced live
+            # it answered "how long is the FIRST one?" with the longest
+            # course in the store, a document the conversation had
+            # never mentioned. When the turn carries a scope, the
+            # corpus for this reading is that scope.
+            sources = sorted(getattr(self, "_scope_now", None)
+                             or self.evidence.by_source)
+            for src in sources:
                 for _sid, text in self._record_rows(src, question_query, cap=12):
                     head, _sep, val = text.partition(":")
                     if not val.strip(" ."):
@@ -4307,16 +4317,13 @@ class Session:
             return []
         # THE CORPUS IS ASKED BEFORE THE ENGINE IS. Two words used for the
         # same thing keep the same company, and this store can measure
-        # that from counts it already holds — no call, no vendor, and a
-        # reason it can show ("these are the four contexts both keep").
-        # The engine's proposals remain the fallback for what the
-        # document never says in comparable company.
-        try:
-            local = store.affinity().nearest_words(question, most=4)
-        except Exception:                                    # noqa: BLE001
-            local = []
-        if local:
-            return local
+        # The engine proposes the words a document might have used; the
+        # STORE approves them — a word nobody wrote cannot enter a
+        # search. (A statistical thesaurus over the corpus's own
+        # contexts sat here until 2026-09-12: measured, it answered
+        # "lives" with "nearby" and "visitor" more often than with a
+        # true substitute, and a dense channel is the right instrument
+        # for that job. Removed rather than kept as decoration.)
         try:
             proposed = generate.phrasings(question)
         except Exception:                                    # noqa: BLE001
