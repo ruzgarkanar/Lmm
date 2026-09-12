@@ -618,7 +618,15 @@ class Session:
                 planned = self._plan_answer(message)
                 if planned:
                     said = planned
-            if shape == "count":
+            if shape == "count" and not self._names_a_field(message):
+                # THE RESCUE SEAT KEEPS THE DOOR'S RULE. A question that
+                # spells out one of the corpus's own record heads is a
+                # field question wearing counting grammar, and the
+                # counting organ answers it by counting DOCUMENTS —
+                # measured live, "X eğitiminin katılımcı sayısı nedir"
+                # came back "14: <a list of other courses>". Guarding
+                # only the door left this seat open, and it is the one
+                # that fires, because such a turn abstains first.
                 counted = (self._count_answer(message)
                            or self._plan_answer(message,
                                                 want=("count", "days")))
@@ -1264,7 +1272,7 @@ class Session:
                     # sum- and span-shaped turns are answered by their
                     # organs or refused — the chain is never gambled on
                     # a shape it measurably cannot hold.
-                    if shape == "count":
+                    if shape == "count" and not self._names_a_field(message):
                         counted = (self._count_answer(message)
                                    or self._plan_answer(
                                        message, want=("count", "days")))
@@ -4295,6 +4303,41 @@ class Session:
     def _fields(self):
         """The record heads this corpus repeats — its own vocabulary."""
         return {h for h, srcs in self._head_index().items() if len(srcs) >= 2}
+
+    def _names_a_field(self, question):
+        """Does the question SPELL OUT one of the corpus's own record
+        heads, contiguously?
+
+        A counting organ and a record head can want the same words. This
+        catalogue writes "KATILIMCI SAYISI: 16 - 20 kişi" on two hundred
+        lines, so "X eğitiminin katılımcı sayısı nedir" reads as a COUNT
+        to any shape reader — and the counting organ then counts the
+        documents that mention it and answers "21: <a list of courses>",
+        which is arithmetic over the wrong thing. The answer was never to
+        be counted; it is written down.
+
+        The discriminator is the store's, not a language rule: a word the
+        corpus uses inside a head ("eğitim") proves nothing, because
+        "katalogda kaç tane eğitim var" is a real count. A CONTIGUOUS RUN
+        of the question's words that equals a head the corpus repeats is
+        the corpus saying "this is one of my fields". No model call.
+        """
+        words = evidence._words(question or "")
+        if len(words) < 2:
+            return ""
+        try:
+            fields = {tuple(evidence._words(h)): h for h in self._fields()}
+        except Exception:                                    # noqa: BLE001
+            return ""
+        best = ""
+        for size in range(len(words), 1, -1):
+            for at in range(len(words) - size + 1):
+                head = fields.get(tuple(words[at:at + size]))
+                if head and len(head) > len(best):
+                    best = head
+            if best:
+                break
+        return best
 
     def _sample_value(self, head):
         """One value the corpus wrote under this head — the documents'

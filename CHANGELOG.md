@@ -4,6 +4,57 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] — 2026-09-13
+
+Found by asking a hundred real documents every kind of question a
+reader asks, with the gold answers extracted FROM the documents rather
+than written by hand. Field questions — the most basic thing this
+library does — were answered 8 times in 20. They are now answered 20
+in 20, and two of the three causes were ours for years.
+
+### Fixed
+
+- **A word folded from capitals now reaches the same key as from lower
+  case** (W131). `casefold` is not idempotent across case for every
+  script: 'I' folds to 'i' and 'ı' folds to 'ı', so a word written in
+  capitals and the same word in lower case became TWO index keys — and
+  documents write their field headings in capitals. Measured:
+  "KATILIMCI SAYISI: 14-18 kişi." was indexed under `katilimci`, a
+  reader asking "katılımcı sayısı" searched `katılımcı`, and the line
+  stating the answer could not be reached by the question that asked
+  for it. Every gate then behaved correctly, so it read as an honest
+  "I don't have that" about something the document plainly states.
+  Raising the letter before folding it makes the fold agree with
+  itself — same Unicode table, no language rule, length still
+  preserved; it also merges Greek final sigma.
+
+  **This changes index keys.** A store written by an earlier version
+  keeps answering, but to get the recall back, re-learn the documents.
+
+- **A question that names a document is answered from it** (W130).
+  Naming used only to clear the previous subject; the turn then read
+  the whole store. On a catalogue where every course states the same
+  fields, the named course ranked first and its own answering line was
+  not in the top forty. Naming now binds — and inside that binding the
+  name stops scoring, because every line in play is from that document
+  and the words that spelled it were pulling the masthead to the top.
+
+- **Lines inside a proposal are ranked by what a word is worth**, not by
+  how many matched. This was the one place in retrieval that ignored
+  rarity: a document about conflict writes "çatışma" on every line, so
+  the question's topic words outvoted the two that named the field.
+
+### Known, named rather than hidden
+
+- A compound value can lose a part: asked one course's duration, the
+  memory answered "2 Tam Gün" where the document says "4 Modül × 2 Tam
+  Gün". Everything said is written; the gate cannot see what was left
+  out.
+- A count-shaped question the corpus cannot answer can still be
+  answered by counting the wrong things: "how many people completed X"
+  came back with a list of other courses. Each item is written
+  somewhere, so the gates pass it.
+
 ## [0.6.1] — 2026-09-13
 
 Two defects found while testing 0.6.0 the way a user would — installed

@@ -585,7 +585,7 @@ def g1():
     assert "mah" in evidence._words("Akü 12.8 V / 4200 mAh")
     assert "v" in evidence._words("Akü 12.8 V / 4200 mAh")
     # the camel seam still cuts glued CELLS (the left side is a word there)
-    assert "kapağı" in evidence._words("GövdeKapağıKayış")
+    assert "kapaği" in evidence._words("GövdeKapağıKayış")   # fold: ı→i
     # a short token with no number next to it is still not content
     assert "ve" not in evidence._words("ekran ve klavye")
 
@@ -2432,11 +2432,11 @@ def o3():
         # BOTH readings succeed on the causal sentence; only the fact reading
         # succeeds on the declarative one.
         def is_causal(sent):
-            return ("yağmur", "bataklık") if "ağmur" in sent else None
+            return ("yağmur", "bataklik") if "ağmur" in sent else None
 
         def reextract(sent):
             if "ağmur" in sent:
-                return [("yağmur", "şart", "bataklık")]
+                return [("yağmur", "şart", "bataklik")]
             return [("zerbalit", "tür", "metal")]
 
         generate.is_causal = is_causal
@@ -2453,10 +2453,10 @@ def o3():
                 (link.label_of(s.memory, record.subject),
                  link.label_of(s.memory, record.value)))
         # the causal sentence is a CAUSAL edge, not the triple it also offered
-        assert ("yağmur", "bataklık") in by_predicate.get("#causes", set()), \
+        assert ("yağmur", "bataklik") in by_predicate.get("#causes", set()), \
             by_predicate
         # ... and it did NOT also enter the taxonomy under its triple
-        assert ("yağmur", "bataklık") not in by_predicate.get("tür", set()), \
+        assert ("yağmur", "bataklik") not in by_predicate.get("tür", set()), \
             by_predicate
         # the declarative sentence reaches the taxonomy
         assert ("zerbalit", "metal") in by_predicate.get("tür", set()), \
@@ -5935,6 +5935,87 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W131 a word folded from capitals reaches the same key as from lower case")
+def w131():
+    """The quietest defect this project has had, and it was in its own
+    language. `casefold` is not idempotent across case for every script:
+    'I' folds to 'i' and 'ı' folds to 'ı'. So a word written in capitals
+    and the same word in lower case became TWO index keys — and a
+    catalogue writes its field headings in capitals.
+
+    Measured on a 103-document catalogue: "KATILIMCI SAYISI: 14-18
+    kişi." was indexed under `katilimci`, a reader asking "katılımcı
+    sayısı" searched `katılımcı`, and the line stating the answer could
+    not be reached by the question that asked for it. Every gate behaved
+    correctly on the way out — the memory refused to attribute another
+    course's number — so it read as an honest "I don't have that" about
+    something the document plainly states. On twenty field questions
+    drawn from the documents themselves, eight were answered before and
+    twenty after.
+
+    Raising the letter before folding it makes the fold agree with
+    itself, using the same Unicode table and no language rule: it also
+    merges Greek final sigma, and leaves accented Latin untouched. The
+    length still never changes, which is what the span arithmetic
+    depends on."""
+    from lmm.core.dataset import fold
+
+    for pair in (("KATILIMCI", "Katılımcı"), ("İSTANBUL", "istanbul"),
+                 ("ΣΟΦΟΣ", "σοφος"), ("STRASSE", "strasse"),
+                 ("ÉCOLE", "école")):
+        upper, lower = pair
+        assert fold(upper) == fold(lower), (
+            "%r and %r fold apart: %r vs %r"
+            % (upper, lower, fold(upper), fold(lower)))
+    # the contract the span arithmetic rests on
+    for word in ("İstanbul", "KATILIMCI", "Straße", "ΣΟΦΟΣ", "çığır"):
+        assert len(fold(word)) == len(word), word
+    # and the fold is stable however the word arrives
+    for word in ("Katılımcı", "SAYISI", "Eğitim"):
+        assert fold(word) == fold(word.upper()) == fold(word.lower()), word
+
+
+@test("W130 a question that names a document is answered from it")
+def w130():
+    """Naming is the strongest thing a question can do, and it used only
+    to clear the previous subject — the turn then read the WHOLE store.
+    Measured on a 103-document catalogue where every course states the
+    same fields: asked one course's participant count, the named course
+    ranked first and its own answering line was not in the top forty,
+    because four other documents carry that field and carry it in lines
+    that also match the question. The gate then refused to attribute
+    another course's number, correctly, and the reader was told the
+    memory did not have something the document states.
+
+    So naming BINDS: the turn is answered from what it named. Asking a
+    named document about something it does not hold now abstains, which
+    is the honest answer to that question.
+
+    And inside that binding the name stops scoring — every line in play
+    is from that document, so the words that spelled it narrow nothing
+    and were pulling the masthead and the objectives to the top."""
+    from lmm.evidence import SentenceStore
+    from lmm.topic import Topic
+
+    store = SentenceStore()
+    store.add("ALPHA SALES. Objectives: sell more, sell better.",
+              "#docx:Alpha Sales")
+    store.add("KATILIMCI SAYISI: 14-18 kisi.", "#docx:Alpha Sales")
+    store.add("KATILIMCI SAYISI: 20-24 kisi.", "#docx:Beta Leadership")
+    topic = Topic(store)
+
+    bound = topic.scope_for("Alpha Sales egitiminin katilimci sayisi nedir")
+    assert bound == {"#docx:Alpha Sales"}, bound
+
+    got = store.find("Alpha Sales egitiminin katilimci sayisi nedir",
+                     most=2, floor_share=0.0, scope=bound)
+    assert got, got
+    assert all("20-24" not in line for line in got), (
+        "a line from another document was seated: %r" % got)
+    assert any("14-18" in line for line in got), (
+        "the named document's own answer was not seated: %r" % got)
+
+
 @test("W129 a request to produce opens its own subject")
 def w129():
     """The topic holds until another is named, which is right for a
@@ -6676,7 +6757,10 @@ def w115():
     assert s.topic.scope_for("and the seats?") == \
         {"#docx:Beta Sales.docx"}, "the topic was lost to an empty answer"
     # a question that names its own document owns the turn
-    assert s.topic.scope_for("how long is Gamma Leadership?") == set()
+    # naming binds the turn to what it named (W130), which is stronger
+    # than merely dropping the inheritance
+    assert s.topic.scope_for("how long is Gamma Leadership?") == \
+        {"#docx:Gamma Leadership.docx"}
     # and the recap reads the same state
     assert s.topic.names() == ["Beta Sales"], s.topic.names()
 
@@ -6711,9 +6795,15 @@ def w114():
     assert lines, lines
     assert not any("45" in line for line in lines), (
         "a reading gathered outside the turn's scope: %r" % lines)
-    # a turn that names its own document owns the turn
-    assert s.topic.scope_for(
-        "how many participants in Gamma Leadership?") == set()
+    # A TURN THAT NAMES ITS OWN DOCUMENT OWNS THE TURN — and owning it
+    # means being ANSWERED FROM IT, not merely being freed of the last
+    # subject. This returned nothing, which cleared the inheritance and
+    # left the turn reading the whole store; measured on a 103-document
+    # catalogue, the named course ranked first and its own answering line
+    # was not in the top forty, because four other documents carry the
+    # same field. Naming binds (W130).
+    own = s.topic.scope_for("how many participants in Gamma Leadership?")
+    assert own == {"#docx:Gamma Leadership.docx"}, own
 
 
 @test("W112 the rescue pass buys one candidate, not three")
