@@ -3785,6 +3785,23 @@ class Session:
     # defeats the reordering can set it back.
     CANDIDATES = 1
 
+    # HOW MANY VIEWS OF THE EVIDENCE A JUDGMENT MAY BUY. Both judges —
+    # the read-back and the relation check — could ask twice: a focused
+    # view of the lines the claim touches, then the whole block, on the
+    # reasoning that a claim the narrow view rejects may still be
+    # carried by the wide one. The second was bought only on a no
+    # (W113), so it fell on exactly the turns that were going to refuse.
+    #
+    # Measured on eleven field questions, counting which view decided:
+    # the first view confirmed six times, no view confirmed four times,
+    # and THE SECOND VIEW CONFIRMED NOTHING — not once, on either judge.
+    # No verdict in the run depended on it, so switching it off cannot
+    # change an answer there; it removes eight calls of a hundred and
+    # four. Like `CANDIDATES` it stays a number: the wide view is right
+    # wherever the focus reading is poor, and raising this brings it
+    # back.
+    VIEWS = 1
+
     def _subsets(self, records, proof, fact_block):
         """The distinct EVIDENCE SUBSETS to answer from — at most CANDIDATES.
 
@@ -4063,7 +4080,7 @@ class Session:
         """
         views = [v for v in (self._focus_view(raw, proof), block) if v]
         return any(generate.answers_asked(question, raw, view)
-                   for view in dict.fromkeys(views))
+                   for view in list(dict.fromkeys(views))[:self.VIEWS])
 
     def _focus_view(self, raw, proof, first=()):
         """The evidence a claim DRAWS ON: the retrieved sentences it shares
@@ -4694,7 +4711,7 @@ class Session:
         # turn and waste on both. The narrow view is measured to be
         # right more often, so it goes first; the wide one follows only
         # on a no. Verdict unchanged: ANY confirming view confirms.
-        for view in views:
+        for view in views[:self.VIEWS]:
             if generate.supported(raw, view):
                 return True
         return False
