@@ -4,6 +4,50 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] — 2026-09-13
+
+Found by tracing one failing turn end to end instead of guessing at it.
+Every step before the last was right, and the last one threw the answer
+away.
+
+### Fixed
+
+- **A field is its words, not its capitalisation** (W132). One document
+  writes "COURSE LENGTH:" and its neighbour "Course Length:". Keyed by
+  the literal spelling, each looked like a field ONE document uses — so
+  the reading that keeps what the corpus REPEATS threw both away. What
+  followed all pointed somewhere else: the bridge nominated a field
+  nobody held, the one-head rule saw a tie and declined, the record path
+  stood aside, the chain ran, and the field veto fell back to matching
+  heads by kinship, reached a DIFFERENT head that merely shared a stem
+  with the question's word, and vetoed a correct answer for not carrying
+  that field's digits. Measured on the live catalogue: the turn now
+  answers from the record in 2.7 s where it refused in 25.3 s.
+
+- **A greeting is not a failed question** (W133). The rescue seats read
+  `last_abstained`, which means "this turn asserted nothing" — true of
+  every greeting by construction. So "hello" opened the delivery bridge
+  and the composer's general door and paid for both. Seven engine calls
+  for a greeting, of which one wrote the reply; six now, 13.6 s to 8.7 s.
+
+- The second record door stamps the route like its twin (W110's third
+  case): a path that speaks says so.
+
+### Measured, and worth knowing before tuning anything
+
+Latency is round trips, not model size and not prompt size. On a hosted
+deployment a bare call costs about 1.13 s with a 2,000-character prompt
+and 1.55 s with a tiny one; 200 output tokens costs 2.87 s. A turn's
+wall time is very nearly its call count times that. Our own code is not
+in the picture: metered over a greeting, the library's share was
+NEGATIVE against the sum of its calls, because two of them run in
+parallel.
+
+An optimisation was tried and refuted: the door's three readings are
+independent and could be fired side by side, but a speculative prefetch
+puts a model call into the graph path, whose whole claim is that it has
+none. Four invariants said so. A second is not worth the property.
+
 ## [0.6.2] — 2026-09-13
 
 Found by asking a hundred real documents every kind of question a
@@ -19,10 +63,9 @@ in 20, and two of the three causes were ours for years.
   script: 'I' folds to 'i' and 'ı' folds to 'ı', so a word written in
   capitals and the same word in lower case became TWO index keys — and
   documents write their field headings in capitals. Measured:
-  "KATILIMCI SAYISI: 14-18 kişi." was indexed under `katilimci`, a
-  reader asking "katılımcı sayısı" searched `katılımcı`, and the line
-  stating the answer could not be reached by the question that asked
-  for it. Every gate then behaved correctly, so it read as an honest
+  a capitalised field heading was indexed under one key while the same
+  words typed in lower case searched another, so the line stating the
+  answer could not be reached by the question that asked for it. Every gate then behaved correctly, so it read as an honest
   "I don't have that" about something the document plainly states.
   Raising the letter before folding it makes the fold agree with
   itself — same Unicode table, no language rule, length still
@@ -41,14 +84,15 @@ in 20, and two of the three causes were ours for years.
 
 - **Lines inside a proposal are ranked by what a word is worth**, not by
   how many matched. This was the one place in retrieval that ignored
-  rarity: a document about conflict writes "çatışma" on every line, so
-  the question's topic words outvoted the two that named the field.
+  rarity: a document about one subject writes that subject's word on
+  every line, so the question's topic words outvoted the two that named
+  the field.
 
 ### Known, named rather than hidden
 
 - A compound value can lose a part: asked one course's duration, the
-  memory answered "2 Tam Gün" where the document says "4 Modül × 2 Tam
-  Gün". Everything said is written; the gate cannot see what was left
+  memory answered "2 full days" where the document says "4 modules x 2
+  full days". Everything said is written; the gate cannot see what was left
   out.
 - A count-shaped question the corpus cannot answer can still be
   answered by counting the wrong things: "how many people completed X"
@@ -84,7 +128,7 @@ from PyPI, against a hundred real documents.
 ### Measured, and named as a limit
 
 The bundled static matrix is weak at mapping a PROBLEM STATEMENT onto a
-training title — "ekipte dedikodu var" onto "Etkin Çatışma Yönetimi".
+training title — a stated problem onto the course that treats it.
 On eight such questions over a 103-document catalogue it placed the
 right course in the top three once; a torch multilingual encoder
 (`paraphrase-multilingual-MiniLM-L12-v2`) placed it four times. Known-item
