@@ -838,29 +838,43 @@ marketing; this one is part of the measurement.</p>
 <ul>
 <li><strong>Answer selection can still pick a true-but-off-target sentence.</strong> The
   gate guarantees non-fabrication, not perfect relevance.</li>
-<li><strong>Purely lexical retrieval has a synonym ceiling.</strong> "How many inches is
-  the screen", where the line reads <code>Screen 15.6" LCD</code> and never says
-  <em>inches</em>, is the open class. The offline expansion channel was built for
-  exactly this and <strong>measured not to close it</strong>: its filter can only keep
-  queries that copy a line — a genuine rephrasing shares no distinguishing
-  word with its own line, so there is nothing lexical to keep it by. The
-  code stays in the repository, off unless asked for, and closing the class
-  needs a relevance judgement rather than a lexical one.</li>
-<li><strong>Global, thematic questions are the competitor's home ground.</strong> "What are
+<li><strong>The synonym ceiling is lower than it was, and it is not gone.</strong> A word
+  search alone cannot reach a paraphrase, and two instruments were built
+  against that. The offline expansion channel was <strong>measured not to close it</strong>
+  — its filter can only keep queries that copy a line, and a genuine
+  rephrasing shares no distinguishing word with its own line — so it was
+  deleted rather than left as a switch nobody should turn on.</li>
+</ul>
+<p>The meaning channel that replaced it is measured to close much of the class:
+  the line that answers reaches the engine 32% → 79% of the time on a
+  115,913-line corpus. It does <strong>not</strong> close the example this page has always
+  carried. The line reads <em>"Memorized secrets SHALL be at least 8 characters
+  in length"</em>; asked <em>"what is the shortest password"</em>, the channel still
+  misses it, while <em>"minimum length for a memorised secret"</em> now lands first.
+  Vectors move the boundary; they do not abolish it.
+- <strong>Global, thematic questions are the competitor's home ground.</strong> "What are
   the main themes of this corpus" is answered well by community summaries;
   LMM has no equivalent, and the honest cost of building one the summary way
   is the fabrication channel it opens. The census (<code>where</code>) covers the
-  countable half — <em>which documents speak of X</em> — exactly, in milliseconds.</li>
-<li><strong>Per-question latency pays for verification.</strong> The exit gate's read-back
+  countable half — <em>which documents speak of X</em> — exactly, in milliseconds.
+- <strong>Per-question latency pays for verification.</strong> The exit gate's read-back
   is model calls; on a hosted engine a question runs seconds, not
   milliseconds. The floor is different: questions the graph can settle are
-  answered in microseconds with zero calls.</li>
-<li><strong>The judge can wobble.</strong> A model asked "does the evidence say this" does
+  answered in microseconds with zero calls.
+- <strong>The judge can wobble.</strong> A model asked "does the evidence say this" does
   not always answer the same way twice at temperature zero. Mutual-coverage
   claims skip the jury entirely; the partial band still rides on it, and one
-  conversational turn was measured flipping between runs.</li>
-<li><strong>LMM does not OCR.</strong> A PDF without a text layer teaches it nothing, and
-  <code>learn()</code> says so instead of reporting success.</li>
+  conversational turn was measured flipping between runs.
+- <strong>LMM does not OCR.</strong> A PDF without a text layer teaches it nothing, and
+  <code>learn()</code> says so instead of reporting success.
+- <strong>Two hedges were retired on measurements of eleven questions.</strong> The
+  candidate ladder (3 → 1) and the judges' second view (2 → 1) were each
+  removed because they won nothing in that run — the narrow candidates never
+  won, the second view never confirmed. Eleven questions is a small sample to
+  retire machinery on. Both are numbers rather than deletions
+  (<code>session.CANDIDATES</code>, <code>session.VIEWS</code>), so a corpus that proves us wrong
+  can put them back in one line.</p>
+<ul>
 <li><strong>The sample is small.</strong> The published comparisons rest on a handful of
   documents and a few dozen questions. Every question, answer and scoring
   decision is in the repository; widen it and tell us what breaks.</li>

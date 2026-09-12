@@ -757,6 +757,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#retrieval-06" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Retrieval, 0.6
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-retractions-06" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost retractions, 0.6
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#against-graphrag" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -897,6 +919,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#retrieval-06" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Retrieval, 0.6
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-retractions-06" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost retractions, 0.6
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#against-graphrag" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -971,6 +1015,172 @@ side-blind scorer, on the same engine for both sides. The corpora, the
 questions, every answer and every scoring decision are in the repository —
 re-run them, and if you find a scoring bug, open an issue: two have been
 found so far, and both were penalising the competitor.</p>
+<h2 id="retrieval-06">Retrieval, 0.6<a class="headerlink" href="#retrieval-06" title="Permanent link">&para;</a></h2>
+<p>Measured on this repository's own field corpus, engine-free. A known-item
+query is a line from the store with its most distinctive terms removed, so
+the words alone cannot find it — the protocol needs no hand-written gold and
+cannot be tuned to.</p>
+<p><strong>Which encoder</strong> — 20,000 lines, 180 queries, two terms removed:</p>
+<table>
+<thead>
+<tr>
+<th>encoder</th>
+<th>first hit</th>
+<th>MRR</th>
+<th>index build</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a distillation of our own</td>
+<td>27%</td>
+<td>0.306</td>
+<td>1.2 s</td>
+</tr>
+<tr>
+<td><code>paraphrase-multilingual-MiniLM-L12-v2</code> (torch)</td>
+<td>66%</td>
+<td>0.710</td>
+<td>36.1 s</td>
+</tr>
+<tr>
+<td><strong>the bundled static matrix</strong></td>
+<td><strong>84%</strong></td>
+<td><strong>0.883</strong></td>
+<td><strong>0.3 s</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Which layer</strong> — 103 documents, the store's own <code>find</code>:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>first-3 hit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>words alone</td>
+<td>92%</td>
+</tr>
+<tr>
+<td>+ meaning at the DOCUMENT layer</td>
+<td><strong>99%</strong></td>
+</tr>
+<tr>
+<td>+ meaning at the LINE layer</td>
+<td>no change</td>
+</tr>
+<tr>
+<td>lines chosen by meaning INSIDE a document</td>
+<td>78% → <strong>31%</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>End to end</strong> — 115,913 lines, 304 queries, by whether the ANSWERING line
+reaches the five the engine is shown:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>first</th>
+<th>in five</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>words alone</td>
+<td>31%</td>
+<td>32%</td>
+</tr>
+<tr>
+<td>+ meaning channel</td>
+<td>31%</td>
+<td>60%</td>
+</tr>
+<tr>
+<td>+ late-interaction reordering</td>
+<td>34%</td>
+<td><strong>79%</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>How much reordering is worth, by how vague the question is</strong> — the same
+corpus, by terms removed from the query:</p>
+<table>
+<thead>
+<tr>
+<th>terms removed</th>
+<th>single vector</th>
+<th>late interaction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2</td>
+<td>0.864</td>
+<td>0.884</td>
+</tr>
+<tr>
+<td>4</td>
+<td>0.779</td>
+<td>0.825</td>
+</tr>
+<tr>
+<td>6</td>
+<td>0.707</td>
+<td><strong>0.807</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="cost-retractions-06">Cost retractions, 0.6<a class="headerlink" href="#cost-retractions-06" title="Permanent link">&para;</a></h2>
+<p>Three hedges against weak retrieval were re-measured after it improved, and
+each had stopped earning. Eleven field questions with gold answers:</p>
+<table>
+<thead>
+<tr>
+<th>hedge</th>
+<th>measurement</th>
+<th>now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3 candidate subsets per question</td>
+<td>every admitted answer came from the WIDE block; the narrow ones won nothing</td>
+<td><code>CANDIDATES = 1</code> — 139 → 104 calls, 4/11 → 5/11</td>
+</tr>
+<tr>
+<td>2 views per judge</td>
+<td>the second view confirmed nothing, on either judge</td>
+<td><code>VIEWS = 1</code> — 8 fewer calls in 104</td>
+</tr>
+<tr>
+<td>the offline expansion index</td>
+<td>kept zero of a hand-written perfect query set</td>
+<td>deleted, −607 lines</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>first question on a 115k-line store</td>
+<td>10.6 s → <strong>0.13 s</strong> (the derived index is saved)</td>
+</tr>
+<tr>
+<td>a deterministic question asked twice in one turn</td>
+<td>asked once — one refusal turn, −2 calls, −11k tokens</td>
+</tr>
+</tbody>
+</table>
 <h2 id="against-graphrag">Against GraphRAG<a class="headerlink" href="#against-graphrag" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
