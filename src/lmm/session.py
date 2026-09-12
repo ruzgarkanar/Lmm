@@ -2599,51 +2599,6 @@ class Session:
             workers = 1
         return workers
 
-    def expand(self):
-        """OFFLINE DOCUMENT EXPANSION (doc2query--) — pay ONCE, at ingestion,
-        for the questions each line of the document answers, and index them
-        SEPARATELY so that a question asked in other words can still find the
-        line that answers it.
-
-        The measured weakness this is aimed at is the one a purely lexical
-        index has by construction: the document writes `15.6"` and the reader
-        asks "how many inches". No amount of inflection tolerance closes that —
-        the words are not forms of one another — and the alternative on offer is
-        an embedding index, which is the dependency stack and the similarity
-        gamble this layer exists to avoid.
-
-        WHAT IS PAID, PLAINLY: one model call per unit the document wrote,
-        once. That is why it is not on by default — `Memory.learn(...,
-        expand=True)` asks for it — and why the measurement of what it costs is
-        reported beside what it buys (`benchmarks/COST.md` §9).
-
-        WHAT IS NOT AT RISK: nothing generated here can be spoken. It goes to
-        `evidence.SentenceStore.expansions`, never to `.sentences`, so the
-        answer block — and therefore everything the gate audits and everything a
-        reader sees — is still the document. `LMM_EXPAND=0` skips the pass
-        entirely.
-
-        Returns (asked, kept): units expanded, generated queries indexed.
-        """
-        if not evidence._expansion_on():
-            return 0, 0
-        pending = self.evidence.pending_expansion()
-        if not pending:
-            return 0, 0
-        workers = self._workers()
-        if workers > 1:
-            from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=workers) as pool:
-                made = list(pool.map(lambda pair: generate.expansions(pair[1]),
-                                     pending))
-        else:
-            made = [generate.expansions(text) for _sid, text in pending]
-        generated = {sid: queries
-                     for (sid, _text), queries in zip(pending, made)}
-        kept = self.evidence.learn_expansions(generated)
-        return len(pending), kept
-
-    # --- long-form composition (evidence -> draft, gate per line) -------
     def compose(self, brief, seats=24, topics=None, on_line=None):
         """A structured draft built from the evidence — the long-form answer.
 

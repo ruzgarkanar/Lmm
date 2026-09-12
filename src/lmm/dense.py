@@ -24,8 +24,8 @@ explainable — and what makes a paraphrase invisible. A lease writes
 RESIDES and a reader asks where somebody LIVES; a catalogue offers
 CONFLICT MANAGEMENT and a team lead says there is GOSSIP. Three
 instruments were built against that gap and measured: the field bridge
-(which closes it per field, once), the offline expansion (which the
-README records as not working at scale) and the engine's second ask
+(which closes it per field, once), the offline expansion (measured not
+to work at scale, and since deleted) and the engine's second ask
 (one call per failing turn, filtered by the store). None of them
 closes the class. A vector channel closes it by construction, and the
 industry's own answer — hybrid lexical+dense with rank fusion — has
