@@ -5926,6 +5926,60 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W123 a derived index is written beside the store, not rebuilt per process")
+def w123():
+    """The first question was the slow one, and nothing about it was the
+    question's fault. The field-name index reads every sentence through
+    the record-shape test, and that test is corpus-relative, so it could
+    not be built while the corpus was still arriving — it was built on
+    first use instead, which meant once per PROCESS. Measured on a
+    115,913-line store: 10.6 seconds before the first answer, paid again
+    by every command-line run.
+
+    It is a pure function of the sentences and the bound read off them,
+    so it is written beside the memory like the other derived aids, with
+    the sentence count and the bound it was built under. A file that
+    does not match is not trusted at all — a stale one costs a rebuild
+    and can never cost a wrong answer. 0.7 MB, and the first question
+    went from 10.6 s to 0.13 s; eight questions answered identically
+    from the file and from a rebuild, same bound, same 2,805 keys."""
+    import json
+    import tempfile
+    from lmm.evidence import SentenceStore
+
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, "m.lmm")
+        store = SentenceStore()
+        for n in range(40):
+            store.add("FIELD %d: value %d for the record." % (n, n), "#doc:a")
+            store.add("A longer sentence that is plainly prose and carries "
+                      "no field name at all, number %d." % n, "#doc:a")
+        first = store.find("value 7", most=3, floor_share=0.0)
+        keys, bounds = dict(store.key_index), store._key_bounds
+        store.save(path)
+
+        blob = json.load(open(path + ".expansion", encoding="utf-8"))
+        assert "keys" in blob and blob.get("at") == len(store.sentences), (
+            "the derived index was not written: %s" % sorted(blob))
+
+        back = SentenceStore.load(path)
+        assert back._key_index is not None, "the index was not read back"
+        assert back._key_bounds == bounds, (back._key_bounds, bounds)
+        assert {w: set(v) for w, v in back.key_index.items()} == keys, (
+            "the index read back differs from the one that was built")
+        assert back.find("value 7", most=3, floor_share=0.0) == first
+
+        # a file written for OTHER sentences is not trusted
+        blob["at"] = blob["at"] + 1
+        json.dump(blob, open(path + ".expansion", "w", encoding="utf-8"),
+                  ensure_ascii=False)
+        stale = SentenceStore.load(path)
+        assert stale._key_index is None, (
+            "an index written for a different store was trusted")
+        assert stale.find("value 7", most=3, floor_share=0.0) == first, (
+            "the rebuild did not reproduce the same answer")
+
+
 @test("W122 the order inside a proposal is decided by late interaction")
 def w122():
     """A single vector averages a line into one point, and the averaging
