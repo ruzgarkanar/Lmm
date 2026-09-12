@@ -6036,6 +6036,48 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W117 a deterministic question is asked once; a warm one is asked every time")
+def w117():
+    """Read off a live refusal turn over the 103-document corpus:
+    sixteen engine calls, twenty-nine seconds, twenty-eight thousand
+    tokens — to say "I don't have that yet". Inside it, the amount
+    reader ran TWICE on the same 45,755-character evidence block (22k
+    of those tokens), the planner twice, the language naming twice.
+    Nothing in the turn's reasoning wanted a second reading; two paths
+    simply arrived at the same question without knowing about each
+    other, and every one of those calls costs a round trip — the turn's
+    latency is very nearly its call count times one and a half seconds.
+
+    At temperature 0 the engine IS a function, so a repeat is waste by
+    definition and pooling it changes no answer. The pooling is
+    byte-exact — prompt, system, length and which road (small or full)
+    must all agree — and warmth is never pooled: a call asked at
+    temperature is asked for its variation, and handing back a stored
+    answer would quietly delete it."""
+    from lmm import runtime
+    runtime._SEEN.clear()
+    calls = []
+    real = runtime._dispatch
+    runtime._dispatch = (lambda chosen, messages, max_tokens, temperature,
+                         system: calls.append(messages) or "answer")
+    try:
+        for _ in range(3):
+            runtime.generate("same question", temperature=0.0, system="s")
+        assert len(calls) == 1, (
+            "a deterministic question was asked %d times" % len(calls))
+        # a different system prompt is a different question
+        runtime.generate("same question", temperature=0.0, system="other")
+        assert len(calls) == 2, calls
+        # ...and warmth is never pooled: the variation is the point
+        for _ in range(3):
+            runtime.generate("warm question", temperature=0.7, system="s")
+        assert len(calls) == 5, (
+            "a warm call was pooled: %d dispatches" % len(calls))
+    finally:
+        runtime._dispatch = real
+        runtime._SEEN.clear()
+
+
 @test("W116 the meaning channel finds what the words miss, and cannot outvote them")
 def w116():
     """The gap two days of audit kept arriving at, and the reason the

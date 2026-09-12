@@ -7,7 +7,9 @@ model loads once (singleton).
 Device is automatic: MPS (Apple) · CUDA · else CPU. In deployment the GGUF/int4
 build will plug in here (speed on cheap hardware); transformers for now.
 """
+import collections
 import os
+import threading
 import time
 
 from lmm import paths
@@ -27,6 +29,13 @@ DEFAULT_BUDGET = 90.0
 _MODEL = None
 _TOK = None
 _DEVICE = None
+
+# The deterministic calls already answered. Bounded, so a long session
+# cannot grow it without limit, and least-recently-asked leaves first.
+# Only temperature-0 calls are ever put here (see `generate`).
+_SEEN = collections.OrderedDict()
+_SEEN_MOST = 256
+_SEEN_LOCK = threading.Lock()
 
 
 def _root():
@@ -198,13 +207,52 @@ def small_backend():
     return None if small == os.environ.get("LMM_BACKEND") else small
 
 
+def _asked_before(key):
+    """The answer this exact question already got, or None.
+
+    ONLY DETERMINISTIC CALLS. At temperature 0 the engine is a function:
+    the same prompt is the same answer, so asking twice buys nothing and
+    costs a round trip. It is not a guess about semantics — two calls
+    are pooled only when every byte of prompt, system, length and road
+    agrees.
+
+    Measured on one refusal turn over the 103-document corpus: sixteen
+    calls, of which the amount reader ran twice on a 45,755-character
+    block (22k of the turn's 28k tokens), the planner twice and the
+    language naming twice. Nothing about the turn's reasoning wanted a
+    second reading; the paths simply did not know about each other.
+    """
+    with _SEEN_LOCK:
+        if key in _SEEN:
+            _SEEN.move_to_end(key)
+            return _SEEN[key]
+    return None
+
+
+def _remember(key, said):
+    with _SEEN_LOCK:
+        _SEEN[key] = said
+        _SEEN.move_to_end(key)
+        while len(_SEEN) > _SEEN_MOST:
+            _SEEN.popitem(last=False)
+
+
 def generate(messages, max_tokens=256, temperature=0.7, system=None,
              small=False):
     # THE SMALL ROAD IS A NAME, NOT AN ENVIRONMENT MUTATION: half this
     # codebase runs its calls side by side (`parallel_map`), and a
     # thread that edits LMM_BACKEND edits every thread's engine.
     chosen = small_backend() if small else None
-    return _dispatch(chosen, messages, max_tokens, temperature, system)
+    key = None
+    if not temperature and isinstance(messages, str):
+        key = (chosen, max_tokens, system, messages)
+        said = _asked_before(key)
+        if said is not None:
+            return said
+    said = _dispatch(chosen, messages, max_tokens, temperature, system)
+    if key is not None and said:
+        _remember(key, said)
+    return said
 
 
 def _dispatch(backend_name, messages, max_tokens=256, temperature=0.7,
