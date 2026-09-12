@@ -99,9 +99,23 @@ class Topic:
         """The topic's documents, by name — what a recap answers with."""
         return sorted(evidence._source_name(src) for src in self.sources)
 
-    def scope_for(self, question):
+    def scope_for(self, question, shape=""):
         """The documents this turn inherits, or nothing when the
-        question names its own."""
+        question opens a subject of its own.
+
+        Two ways a turn refuses its inheritance. It NAMES a document, in
+        which case that document is the subject; or it ASKS FOR SOMETHING
+        TO BE PRODUCED, which is a new request rather than a follow-up.
+        The second was learned from a live consultation: asked how long
+        one course ran and then, next turn, what to give a sales team
+        that stalls on objections, the recommendation was answered from
+        inside the course just discussed — the need statement names no
+        document, so the topic held and the reader got the wrong subject
+        with the right grammar. A recap ("which ones, briefly") is a
+        follow-up and still inherits; a request to produce is not.
+        """
+        if shape == "material":
+            return set()
         if question and self.store.named_in(question):
             return set()
         return set(self.sources)

@@ -505,9 +505,9 @@ class Session:
         self._on_line = on_line
         self._conversational = conversational
         # THE TURN'S SCOPE IS DECIDED ONCE, BEFORE ANY READING (W114)
-        self._scope_now = (self.topic.scope_for(message)
-                           if self._no_teach and self._conversational
-                           else set())
+        self._scope_now = (
+            self.topic.scope_for(message, shape=self._turn_shape(message))
+            if self._no_teach and self._conversational else set())
         said = self._respond(message, fluent=fluent, teach=teach)
         if said and not self.last_abstained and not self.last_from_graph \
                 and not self._composed:

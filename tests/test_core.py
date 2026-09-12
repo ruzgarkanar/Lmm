@@ -5935,6 +5935,37 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W129 a request to produce opens its own subject")
+def w129():
+    """The topic holds until another is named, which is right for a
+    follow-up and wrong for a new request. Read off a live consultation:
+    asked how long one course ran, and then what to give a sales team
+    that stalls on objections, the recommendation was answered from
+    INSIDE the course just discussed — a need statement names no
+    document, so the topic held and the reader got the wrong subject
+    with the right grammar.
+
+    A turn that asks for something to be PRODUCED is not a follow-up.
+    Recap still inherits ("which ones, briefly" means the ones you just
+    listed); material does not."""
+    from lmm.topic import Topic
+    from lmm.evidence import SentenceStore
+
+    store = SentenceStore()
+    store.add("Empatik Liderlik lasts two days.", "#docx:Empatik Liderlik")
+    topic = Topic(store)
+    topic.sources = {"#docx:Empatik Liderlik"}
+
+    held = topic.scope_for("which ones exactly", shape="recap")
+    assert held == {"#docx:Empatik Liderlik"}, held
+    held = topic.scope_for("how many seats does it take", shape="none")
+    assert held == {"#docx:Empatik Liderlik"}, held
+    fresh = topic.scope_for("our sales team stalls on objections, "
+                            "what do you suggest", shape="material")
+    assert fresh == set(), (
+        "a request to produce inherited the previous subject: %s" % fresh)
+
+
 @test("W128 a line is credited to the document that offered it")
 def w128():
     """The stamp is the whole promise, and this broke it quietly. The
