@@ -299,7 +299,7 @@ class Memory:
     def __init__(self, path=None, who="#operator", mode="STRICT", cache=True,
                  persona="",
                  warmth=None, reply_tokens=None, style="", identity=None,
-                 encoder=None, dense=True):
+                 encoder=None, dense=True, reranker="bundled"):
         # `persona` colours the voice of every spoken turn — greeting style,
         # tone, when to ask a clarifying question — and can never loosen the
         # gates, which read the output rather than any prompt.
@@ -326,8 +326,14 @@ class Memory:
                 if encoder is None:
                     from lmm import static             # noqa: PLC0415
                     encoder = static.encode if static.available() else None
+                rerank = None
+                if reranker == "bundled":
+                    from lmm import static             # noqa: PLC0415
+                    rerank = static.maxsim if static.available() else None
+                elif callable(reranker):
+                    rerank = reranker
                 if encoder is not None:
-                    self.session.evidence.attach_dense(encoder)
+                    self.session.evidence.attach_dense(encoder, rerank)
             except Exception:                          # noqa: BLE001
                 pass
         # THE SAME QUESTION, ASKED AGAIN, OVER A MEMORY THAT HAS NOT MOVED. The
