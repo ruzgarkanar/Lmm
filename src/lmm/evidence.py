@@ -2207,15 +2207,28 @@ class SentenceStore:
         written beside the memory, never into it, and deleting the file
         leaves a store that answers exactly as it did before either was
         paid for."""
-        if not (self._derived or self.head_bridge):
+        keys = self._key_index if self._key_at == len(self.sentences) else None
+        if not (self._derived or self.head_bridge or keys):
             return
         path = memory_path + ".expansion"
         tmp = path + ".tmp"
+        blob = {"derived": sorted(self._derived),
+                "bridge": {w: sorted(heads) for w, heads
+                           in sorted(self.head_bridge.items())}}
+        # THE FIELD-NAME INDEX IS DERIVED, AND DERIVING IT IS THE FIRST
+        # QUESTION'S WHOLE COST. It reads every sentence through the
+        # record-shape test, which on a 115,913-line store took 10.6
+        # seconds — paid once per PROCESS, so a command-line tool paid it
+        # every run and a user's first question was the slow one. It is a
+        # pure function of the sentences and the corpus-relative bound,
+        # so both are written beside it and it is rebuilt from scratch
+        # whenever either has moved. 0.7 MB, and 0.01 s to read back.
+        if keys is not None:
+            blob["bounds"] = list(self._key_bounds or ())
+            blob["at"] = self._key_at
+            blob["keys"] = {w: sorted(sids) for w, sids in sorted(keys.items())}
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"derived": sorted(self._derived),
-                       "bridge": {w: sorted(heads) for w, heads
-                                  in sorted(self.head_bridge.items())}},
-                      f, ensure_ascii=False)
+            json.dump(blob, f, ensure_ascii=False)
         os.replace(tmp, path)
 
     def _load_aids(self, memory_path):
@@ -2231,6 +2244,16 @@ class SentenceStore:
         self._derived = set(blob.get("derived", ()))
         self.head_bridge = {w: set(heads) for w, heads
                             in blob.get("bridge", {}).items()}
+        # The field-name index, if it was written for THESE sentences.
+        # `key_index` checks the bound itself and rebuilds when it has
+        # moved, so a stale file costs a rebuild and never a wrong
+        # answer; a count that does not match is not trusted at all.
+        keys = blob.get("keys")
+        if keys is not None and blob.get("at") == len(self.sentences):
+            self._key_index = {w: set(sids) for w, sids in keys.items()}
+            self._key_at = blob["at"]
+            self._key_bounds = tuple(blob.get("bounds") or ()) or None
+            self._bounds = self._key_bounds
         # An older side-file also held generated queries; that channel is
         # gone and its key is ignored rather than migrated.
 
