@@ -835,10 +835,62 @@
 <p>All notable changes to this project are documented here. The format follows
 <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>, and this project
 follows <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<h2 id="062-2026-09-13">[0.6.2] — 2026-09-13<a class="headerlink" href="#062-2026-09-13" title="Permanent link">&para;</a></h2>
+<p>Found by asking a hundred real documents every kind of question a
+reader asks, with the gold answers extracted FROM the documents rather
+than written by hand. Field questions — the most basic thing this
+library does — were answered 8 times in 20. They are now answered 20
+in 20, and two of the three causes were ours for years.</p>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>A word folded from capitals now reaches the same key as from lower
+  case</strong> (W131). <code>casefold</code> is not idempotent across case for every
+  script: 'I' folds to 'i' and 'ı' folds to 'ı', so a word written in
+  capitals and the same word in lower case became TWO index keys — and
+  documents write their field headings in capitals. Measured:
+  "KATILIMCI SAYISI: 14-18 kişi." was indexed under <code>katilimci</code>, a
+  reader asking "katılımcı sayısı" searched <code>katılımcı</code>, and the line
+  stating the answer could not be reached by the question that asked
+  for it. Every gate then behaved correctly, so it read as an honest
+  "I don't have that" about something the document plainly states.
+  Raising the letter before folding it makes the fold agree with
+  itself — same Unicode table, no language rule, length still
+  preserved; it also merges Greek final sigma.</li>
+</ul>
+<p><strong>This changes index keys.</strong> A store written by an earlier version
+  keeps answering, but to get the recall back, re-learn the documents.</p>
+<ul>
+<li>
+<p><strong>A question that names a document is answered from it</strong> (W130).
+  Naming used only to clear the previous subject; the turn then read
+  the whole store. On a catalogue where every course states the same
+  fields, the named course ranked first and its own answering line was
+  not in the top forty. Naming now binds — and inside that binding the
+  name stops scoring, because every line in play is from that document
+  and the words that spelled it were pulling the masthead to the top.</p>
+</li>
+<li>
+<p><strong>Lines inside a proposal are ranked by what a word is worth</strong>, not by
+  how many matched. This was the one place in retrieval that ignored
+  rarity: a document about conflict writes "çatışma" on every line, so
+  the question's topic words outvoted the two that named the field.</p>
+</li>
+</ul>
+<h3 id="known-named-rather-than-hidden">Known, named rather than hidden<a class="headerlink" href="#known-named-rather-than-hidden" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A compound value can lose a part: asked one course's duration, the
+  memory answered "2 Tam Gün" where the document says "4 Modül × 2 Tam
+  Gün". Everything said is written; the gate cannot see what was left
+  out.</li>
+<li>A count-shaped question the corpus cannot answer can still be
+  answered by counting the wrong things: "how many people completed X"
+  came back with a list of other courses. Each item is written
+  somewhere, so the gates pass it.</li>
+</ul>
 <h2 id="061-2026-09-13">[0.6.1] — 2026-09-13<a class="headerlink" href="#061-2026-09-13" title="Permanent link">&para;</a></h2>
 <p>Two defects found while testing 0.6.0 the way a user would — installed
 from PyPI, against a hundred real documents.</p>
-<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>The reordering is given something to reorder</strong> (W127). The proposal
@@ -962,7 +1014,7 @@ repository; none of it is an estimate.</p>
 <p><code>learn()</code> lost its <code>expand=</code> argument, and <code>Learned</code> its <code>expanded</code> count.</p>
 </li>
 </ul>
-<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>The memory answers the identity question it was asked</strong> (W120). Asked
@@ -1090,7 +1142,7 @@ hand-written language rules) held through all of it.</p>
   classifier is not a licence to reroute sixteen.</p>
 </li>
 </ul>
-<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_3">Fixed<a class="headerlink" href="#fixed_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>No apparatus of ours can be spoken.</strong> Asked which documents state a
   field, the memory answered "K1, K2, K3, K4" — reciting the labels this
@@ -1188,7 +1240,7 @@ would have had to give up to buy the same abilities from an embedding.</p>
   can answer: a head that opens a hundredth of the units is a field, one
   that opens three lines of a novel is a colon.</li>
 </ul>
-<h3 id="fixed_3">Fixed<a class="headerlink" href="#fixed_3" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_4">Fixed<a class="headerlink" href="#fixed_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A row is reachable by the name a question uses.</strong> A spreadsheet
   writes people as "Taylor, Mr. Elmer Zebley" and a question arrives as
@@ -1252,7 +1304,7 @@ generated specifications (50 q): <strong>25/25 · 25/25</strong>. NIST 11/13, EN
   twelve — the cause was the naming underneath it, and a bullet being
   read as part of a head, both fixed here.</li>
 </ul>
-<h3 id="fixed_4">Fixed<a class="headerlink" href="#fixed_4" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_5">Fixed<a class="headerlink" href="#fixed_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A value belongs to the field it was written under.</strong> A
   specification carrying MEMORY: 128 GB and no STORAGE line was asked
@@ -1286,7 +1338,7 @@ hardware specifications the system had never seen (19 q): 8/8, 4/4, 3/3,
 4/4 — a complete card on a corpus with no adaptation. 1,000 generated
 specifications (50 q): factual 25/25, traps 23/25. NIST 11/13 and EN
 17/17 unchanged; 148 invariants.</p>
-<h3 id="fixed_5">Fixed<a class="headerlink" href="#fixed_5" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_6">Fixed<a class="headerlink" href="#fixed_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The extremes of a field are the corpus's, not the block's.</strong> The
   first measurement above sixty documents found the worst kind of bug
@@ -1383,7 +1435,7 @@ comparisons 12/15. NIST 11/13 and EN 17/17 unchanged; 142 invariants.</p>
   server and checks across the two languages that what one user teaches,
   another cannot read.</li>
 </ul>
-<h3 id="fixed_6">Fixed<a class="headerlink" href="#fixed_6" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_7">Fixed<a class="headerlink" href="#fixed_7" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A refusal is spoken in the language it was asked in.</strong> Hidden behind
   a Turkish corpus: six English questions with no answer in the store
@@ -1431,7 +1483,7 @@ grew up. Measured on a 73-question field set (40 factual, 15
 comparisons, 10 traps, 8 frontier), three runs, medians: comparisons
 8/15 → 13/15, factual 37/40 → 38/40, traps 10/10 throughout. NIST
 11/13 and EN 17/17 unchanged; 130 invariants.</p>
-<h3 id="fixed_7">Fixed<a class="headerlink" href="#fixed_7" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_8">Fixed<a class="headerlink" href="#fixed_8" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>In a comparison, two sources saying the same thing say it twice.</strong>
   Sibling documents share a template, so two items of equal value write
@@ -1469,7 +1521,7 @@ and a head-to-head benchmark against LangChain, LlamaIndex and Mem0 —
 with every finding, ours included, fixed architecturally or filed
 openly. Published numbers re-measured unchanged after every batch
 (NIST 11/13, EN 17/17; 124 invariants, W27-W42).</p>
-<h3 id="fixed_8">Fixed<a class="headerlink" href="#fixed_8" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_9">Fixed<a class="headerlink" href="#fixed_9" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>One-row Word tables are fact boxes, and fact boxes are prose.</strong> The
   docx reader dropped single-row grids whole (no header row to read),
@@ -1559,7 +1611,7 @@ invariants, W14–W26).</p>
   format, not a quantity — the digit gate no longer kills the engine's own
   section numbering.</li>
 </ul>
-<h3 id="fixed_9">Fixed<a class="headerlink" href="#fixed_9" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_10">Fixed<a class="headerlink" href="#fixed_10" title="Permanent link">&para;</a></h3>
 <ul>
 <li>A context statement in a no-teach conversation no longer falls through to
   the question treatment (it used to end in a refusal wearing the
@@ -1601,7 +1653,7 @@ EN corpus 17/17).</p>
   not a lesson, however imperative its grammar. Teaching stays on
   <code>Session.respond</code>, deliberately.</li>
 </ul>
-<h3 id="fixed_10">Fixed<a class="headerlink" href="#fixed_10" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_11">Fixed<a class="headerlink" href="#fixed_11" title="Permanent link">&para;</a></h3>
 <ul>
 <li>The abstention stamp is read off the evidence, not asked of a model — a
   full correct answer was being recorded as a refusal when the re-extractor
