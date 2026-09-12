@@ -5932,6 +5932,82 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W125 every shipped entry point imports what it runs")
+def w125():
+    """A cleanup retired `lmm/mind.py` as "an idle derivation loop on no
+    product path". It is on the product path: `lmm/chat.py` — the `lmm`
+    console command declared in pyproject — builds a Mind at startup and
+    calls it every turn, for `?wonder`, `?research` and the between-turn
+    derivation. The import sits INSIDE `main()`, so the module still
+    imported cleanly, every test still passed, and the command crashed
+    on launch. Nobody would have noticed until a user ran it.
+
+    A claim about what nothing uses is checkable. This checks it: every
+    console script pyproject declares must resolve, and every module the
+    package imports lazily — the imports hidden inside functions, which
+    are the ones no import-time check can see — must exist."""
+    import ast
+    import importlib
+    import os as _os
+    import re as _re
+
+    root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    conf = open(_os.path.join(root, "pyproject.toml"), encoding="utf-8").read()
+    scripts = _re.findall(r'^\s*[\w-]+\s*=\s*"([\w.]+):(\w+)"\s*$',
+                          conf, _re.M)
+    assert scripts, "no console script found to check"
+    for module, entry in scripts:
+        got = importlib.import_module(module)
+        assert callable(getattr(got, entry, None)), (
+            "%s:%s is declared and does not exist" % (module, entry))
+
+    # THE LAZY IMPORTS, which are the ones that hide a deletion. An
+    # import inside a function never runs at import time, so the module
+    # loads, the suite passes, and the command dies in the user's hands.
+    missing = []
+    package = _os.path.join(root, "src", "lmm")
+    for folder, _dirs, files in _os.walk(package):
+        if "__pycache__" in folder:
+            continue
+        for name in files:
+            if not name.endswith(".py"):
+                continue
+            path = _os.path.join(folder, name)
+            tree = ast.parse(open(path, encoding="utf-8").read())
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if not alias.name.startswith("lmm"):
+                            continue
+                        try:
+                            importlib.import_module(alias.name)
+                        except ModuleNotFoundError:
+                            missing.append("%s -> %s" % (name, alias.name))
+                        except Exception:                # noqa: BLE001
+                            pass
+                elif isinstance(node, ast.ImportFrom):
+                    if node.level or not (node.module or "").startswith("lmm"):
+                        continue
+                    try:
+                        got = importlib.import_module(node.module)
+                    except ModuleNotFoundError:
+                        missing.append("%s -> %s" % (name, node.module))
+                        continue
+                    except Exception:                    # noqa: BLE001
+                        continue
+                    for alias in node.names:
+                        if hasattr(got, alias.name):
+                            continue
+                        try:
+                            importlib.import_module(
+                                "%s.%s" % (node.module, alias.name))
+                        except Exception:                # noqa: BLE001
+                            missing.append("%s -> %s.%s"
+                                           % (name, node.module, alias.name))
+    assert not missing, "an entry point imports what is no longer there: %s" % (
+        sorted(set(missing)))
+
+
 @test("W124 the candidate ladder is one reading, and the measurement says so")
 def w124():
     """Three candidates were generated per question — the whole
