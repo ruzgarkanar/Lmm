@@ -6036,6 +6036,53 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W118 an organ does not pay to be told what its own arithmetic already knows")
+def w118():
+    """The sum organ's survivor rule is arithmetic: an amount lives
+    only if its value is WRITTEN, digit for digit, on a line the store
+    holds. So a line carrying no digit cannot produce an addend — and
+    where no retrieved line carries one, there is no sum to be had and
+    the engine call is pure cost.
+
+    It was not free. Measured on one refusal turn over the 103-document
+    corpus, this organ was handed a 45,755-character block — eleven
+    thousand tokens — and returned nothing, twice, on a question about
+    a price the documents never state. The turn then refused, as it
+    should have from the start.
+
+    The rule generalises past this organ: where a deterministic gate
+    downstream will reject every possible answer, asking is a purchase
+    of nothing."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None)
+    s.evidence.add("The course covers negotiation and rapport.", "#doc:a")
+    s.evidence.add("Participants practise in pairs.", "#doc:a")
+    asked = []
+    real = generate.amounts_of
+    generate.amounts_of = lambda q, b: asked.append(b) or []
+    try:
+        said = s._sum_answer("how much does all of this cost in total?")
+    finally:
+        generate.amounts_of = real
+    assert said is None, said
+    assert not asked, (
+        "the organ paid to read %d characters with no digit in them"
+        % len(asked[0]))
+    # ...and a store that DOES write numbers is still read
+    s.evidence.add("The workshop fee is 300 per seat.", "#doc:b")
+    s.evidence.add("The negotiation course fee is 200 per seat.", "#doc:a")
+    asked = []
+    generate.amounts_of = lambda q, b: asked.append(b) or []
+    try:
+        s._sum_answer("what is the total fee per seat?")
+    finally:
+        generate.amounts_of = real
+    assert asked and "300" in asked[0], asked
+    assert "rapport" not in asked[0], (
+        "digit-less lines were still sent: %r" % asked[0])
+
+
 @test("W117 a deterministic question is asked once; a warm one is asked every time")
 def w117():
     """Read off a live refusal turn over the 103-document corpus:

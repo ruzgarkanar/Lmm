@@ -2036,6 +2036,18 @@ class Session:
         lines = self._find(question, most=60, floor_share=0.0)
         if not lines:
             return None
+        # AN ORGAN THAT SUMS NUMBERS DOES NOT READ LINES WITHOUT ONE.
+        # The survivor rule below is already arithmetic: an amount lives
+        # only if its value is WRITTEN, digit for digit, on a line the
+        # store holds. A line carrying no digit can therefore never
+        # produce an addend, so sending it is paying to be told nothing
+        # — and where NO line carries a digit there is no sum to be had
+        # and the call itself is the waste. Measured on one refusal turn
+        # over 103 documents: this organ was handed a 45,755-character
+        # block, 11k tokens, and returned nothing, twice.
+        lines = [line for line in lines if any(c.isdigit() for c in line)]
+        if not lines:
+            return None
         block = "\n".join(lines)
         try:
             offered = generate.amounts_of(question, block)
