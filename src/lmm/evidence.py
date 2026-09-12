@@ -1239,6 +1239,26 @@ class SentenceStore:
         qwords = set(qwords_order)
         if not qwords:
             return []
+        # INSIDE A SCOPE, THE SCOPE'S OWN NAME SEPARATES NOTHING. A
+        # question that names a document binds the turn to it (W130), and
+        # the words that spelled that name are then true of every line in
+        # play — yet they still scored, and they pulled the document's
+        # masthead and objectives to the top. Measured on a 103-document
+        # catalogue: scoped to the right course, the six seats were its
+        # title and aims, and the line stating the field actually asked
+        # about never arrived. It is the same reasoning as every other
+        # weighting in this file — a word that narrows nothing is not
+        # evidence of anything — so the name goes out and what is left is
+        # the question. Never to nothing: a question that is ONLY the
+        # document's name still asks for that document.
+        if scope:
+            spelled = set()
+            for src in scope:
+                spelled |= set(_words(_source_name(src) or ""))
+            kept = [w for w in qwords_order if w not in spelled]
+            if kept:
+                qwords_order = kept
+                qwords = set(kept)
         scores, named = self._score_over(qwords, self.index, self.key_index)
         # THE EXPANSION CHANNEL, at its rung of the ladder (`CHANNEL`). It is
         # added AFTER the document's own channels and it cannot replace them:
@@ -1485,10 +1505,24 @@ class SentenceStore:
         # of it. Walking the posting lists once gives the same number —
         # how many of the query's words this line carries — for free,
         # because the index was built to answer exactly that.
+        # WEIGHTED BY WHAT THE WORD IS WORTH, not counted. The first cut
+        # added one per query word a line carried, and that is the one
+        # place in this file where a word's rarity was ignored. Measured
+        # live: asked "X eğitiminin katılımcı sayısı nedir", the channel
+        # proposed the right document and then seated its lines about X's
+        # SUBJECT — because a document about conflict writes "çatışma" on
+        # every line, so the question's topic words outvoted the two that
+        # actually named the field. The same statistic the rest of
+        # retrieval uses settles it: log(1 + N/df), rare words carry.
+        total = max(1, len(self.sentences))
         overlap = {}
         for word in set(qwords):
-            for sid in self.index.get(word, ()):
-                overlap[sid] = overlap.get(sid, 0) + 1
+            seats = self.index.get(word, ())
+            if not seats:
+                continue
+            worth = math.log(1.0 + total / float(len(seats)))
+            for sid in seats:
+                overlap[sid] = overlap.get(sid, 0.0) + worth
         # THE DOCUMENT IS CHOSEN BY MEANING; THE LINE IS CHOSEN BY
         # WORDS. That split was measured, and the other arrangement was
         # measured too: giving each proposed document's lines to the

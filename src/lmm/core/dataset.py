@@ -58,8 +58,24 @@ def fold(text):
     Unicode casefold. The length never changes, the indexes stay valid in the
     original text. This is not a language rule, it is Unicode's own table —
     it treats every script the same, German ß and Greek Σ included.
+
+    THE LETTER IS RAISED BEFORE IT IS FOLDED, and that one extra step is
+    not cosmetic. `casefold` alone is not idempotent across case for every
+    script: 'I' folds to 'i' and 'ı' folds to 'ı', so a word written in
+    capitals and the same word in lower case became TWO different index
+    keys. Measured on a 103-document catalogue whose field headings are
+    written in capitals: "KATILIMCI SAYISI: 14-18 kişi." was indexed under
+    `katilimci`, the reader's "katılımcı sayısı" searched `katılımcı`, and
+    the line stating the answer could not be found by the question that
+    asked for it — in the corpus's own language, silently, on every
+    capitalised heading.
+    
+    Raising first makes the fold agree with itself: I/ı/i/İ all reach 'i',
+    and the same step quietly fixes Greek final sigma (ς and σ both reach
+    σ) and leaves every accented Latin letter where it was. Still Unicode's
+    table, still one code point per letter, still length-preserving.
     """
-    return "".join(ch.casefold()[0] for ch in text)
+    return "".join(ch.upper().casefold()[0] for ch in text)
 
 OUT, SUBJECT, PREDICATE, VALUE = 0, 1, 2, 3
 PASS, ASK, WRITE = 0, 1, 2

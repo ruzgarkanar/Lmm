@@ -116,8 +116,23 @@ class Topic:
         """
         if shape == "material":
             return set()
-        if question and self.store.named_in(question):
-            return set()
+        named = self.store.named_in(question) if question else set()
+        if named:
+            # A QUESTION THAT NAMES A DOCUMENT IS ANSWERED FROM IT. This
+            # used to return nothing — which cleared the inheritance and
+            # left the turn reading the WHOLE store, so "X eğitiminin
+            # katılımcı sayısı nedir" was seated with that field's line
+            # from four other documents and the right one never arrived.
+            # Measured on a 103-document catalogue: the named document
+            # ranked first and its own answering line was not in the top
+            # forty. The gate then refused, correctly, and the reader got
+            # "I don't have that" about something the document states.
+            #
+            # Naming is the strongest thing a question can do, so it
+            # binds: the turn reads that document. Asking it about
+            # something the document does not hold now abstains, which is
+            # the honest answer to that question.
+            return set(named)
         return set(self.sources)
 
     def lines(self):
