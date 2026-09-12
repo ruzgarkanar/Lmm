@@ -6151,6 +6151,41 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W114 the conversation's scope belongs to the turn, not to one reading")
+def w114():
+    """W109 gave the follow-up its scope and gave it to ONE reading.
+    Traced live across fifteen turns: "how long is the first one?" ran
+    the scoped search — six lines from the two documents just
+    recommended — and still answered about a leadership course, because
+    the FIELD BRIDGE reads its field across the corpus before that
+    block is reached; and "how many participants?" never saw the scope
+    at all, because the counting organ gathers for itself and answered
+    with seven unrelated documents' seat counts.
+
+    A scope is a property of the TURN. It is computed once — this turn
+    names no source, the conversation named some — and every reading
+    that gathers in that turn honours it: the chain, the field
+    readings, the count, the sum. One computation, one rule, no reading
+    exempt."""
+    from lmm.session import Session
+    s = Session(None)
+    for name, seats in (("Alpha Sales", "18"), ("Beta Sales", "20"),
+                        ("Gamma Leadership", "45")):
+        s.learn_text("KATILIMCI SAYISI: %s kişi." % seats,
+                     source="#docx:%s.docx" % name, deep=False)
+    s._remember_said("I recommend Alpha Sales and Beta Sales.")
+    s._no_teach, s._conversational = True, True
+    s._open_scope("how many participants?")
+    assert len(s._scope_now) == 2, s._scope_now
+    lines = s._find("how many participants", most=6, floor_share=0.0)
+    assert lines, lines
+    assert not any("45" in line for line in lines), (
+        "a reading gathered outside the turn's scope: %r" % lines)
+    # a turn that names its own document owns the turn
+    s._open_scope("how many participants in Gamma Leadership?")
+    assert s._scope_now == set(), s._scope_now
+
+
 @test("W112 the rescue pass buys one candidate, not three")
 def w112():
     """Metered on a live consultation: a REFUSAL cost 23 model calls
