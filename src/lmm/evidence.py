@@ -1353,7 +1353,7 @@ class SentenceStore:
             # ...OR THE MEANING CHANNEL KNOWS (W116). A question whose
             # words the store never wrote is precisely what the vectors
             # are for; returning empty here would consult them never.
-            return self._fused(query, [], most, scope)
+            return self._fused(query, [], most, scope, qwords)
         # THE CENSUS RIDES ALONG. Scoring has already touched every sentence
         # this question reaches; grouping those hits by source costs one pass
         # and answers a question retrieval cannot: not "what is the best
@@ -1440,37 +1440,49 @@ class SentenceStore:
         # branch does not exist.
         if scope and not found:
             return self._scoped_only(qwords, scope, most)
-        return self._fused(query, found, most, scope)
+        return self._fused(query, found, most, scope, qwords)
 
-    def _fused(self, query, found, most, scope=None):
+    def _fused(self, query, found, most, scope=None, qwords=()):
         """The words' answer and the meaning channel's, fused by rank.
 
-        RRF reads ORDER, not score: the two channels cannot be put on
-        one scale honestly, and ranks are the one thing they share. A
-        line the words already seated keeps its place; a line only the
-        vectors know is offered a seat beneath it. With no channel
-        attached this returns what the words found, byte for byte.
+        The channel names DOCUMENTS, not lines: it answers "which of
+        these does she mean", which is the question a reader who cannot
+        quote the catalogue is really asking. The words then read inside
+        those documents exactly as they read anywhere else, and the two
+        line rankings are fused by RRF — which reads ORDER, not score,
+        because the two channels cannot be put on one scale honestly.
+        A line the words already seated keeps its place; a line from a
+        document only the vectors recognised is offered a seat beneath
+        it. With no channel attached this returns what the words found,
+        byte for byte.
         """
         if self._dense is None:
             return found
         from lmm import dense                              # noqa: PLC0415
         self._dense.catch_up(self)
-        near = self._dense.near(query, most=dense.NEIGHBOURS)
-        if scope:
-            near = [sid for sid in near
-                    if self.sentences[sid][1] in scope]
-        near = [sid for sid in near
-                if self.sentences[sid][1] != SAID_SOURCE]
+        near = [src for src in self._dense.near(query, most=dense.SOURCES)
+                if src != SAID_SOURCE and (not scope or src in scope)]
         if not near:
             return found
-        by_text = {}
-        for sid, (text, _src) in enumerate(self.sentences):
-            by_text.setdefault(text, sid)
-        lexical = [by_text.get(line) for line in found]
-        lexical = [sid for sid in lexical if sid is not None]
-        order = dense.fuse(lexical, near, most=most)
-        self.last_sources = [self.sentences[sid][1] for sid in order]
-        return [self.sentences[sid][0] for sid in order]
+        # The proposed documents' lines, IN THE ORDER THE CHANNEL PUT
+        # THE DOCUMENTS — that order is the measured thing (the right
+        # document first for 99 of 103 known-item queries), and reading
+        # the lines by word overlap alone would throw it away. Within a
+        # document the words choose, which is what they are good at.
+        qset = set(qwords)
+        proposed = []
+        for src in near:
+            lines = sorted(self.by_source.get(src, ()), key=lambda sid: (
+                -len(qset & set(_words(self.sentences[sid][0]))), sid))
+            proposed += [self.sentences[sid][0] for sid in lines[:most]]
+        if not proposed:
+            return found
+        order = dense.fuse(list(found), proposed, most=most)
+        where = {}
+        for text, source in self.sentences:
+            where.setdefault(text, source)
+        self.last_sources = [where.get(line) for line in order]
+        return order
 
 
     def _score_over(self, qwords, index, keys, weigh=None):
