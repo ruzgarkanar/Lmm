@@ -460,6 +460,7 @@ class Session:
         # list out. Bookkeeping only: no call, no behaviour.
         self.last_route = []
         self._shape_cache = None        # turn_shape, read once per turn
+        self._scope_now = set()         # this turn's scope, see _open_scope
         # WHO IS ASKING — the operator may say (W98); the event organs
         # seat that speaker's lines first, and None changes nothing
         self.asker = getattr(self, "asker", None)
@@ -469,6 +470,9 @@ class Session:
         self._widened = False
         self._on_line = on_line
         self._conversational = conversational
+        # THE TURN'S SCOPE IS DECIDED ONCE, BEFORE ANY READING (W114)
+        if self._no_teach and self._conversational:
+            self._open_scope(message)
         said = self._respond(message, fluent=fluent, teach=teach)
         if said and not self.last_abstained and not self.last_from_graph \
                 and not self._composed:
@@ -1379,6 +1383,29 @@ class Session:
                 taken += " " + key
         return found
 
+    def _open_scope(self, message):
+        """Decide this TURN's scope, once (W114).
+
+        W109 gave the follow-up its scope and gave it to one reading.
+        Traced live across fifteen turns: "how long is the first one?"
+        ran the scoped search and still answered about a leadership
+        course, because the field bridge reads its field across the
+        corpus before that block is reached; and "how many
+        participants?" never saw the scope at all, because the counting
+        organ gathers for itself. A scope is a property of the turn: it
+        is computed here, and every reading that gathers in this turn
+        honours it (`_find`)."""
+        named = self.evidence.named_in(message) if message else set()
+        self._scope_now = set() if named else self._carried_scope()
+        return self._scope_now
+
+    def _find(self, query, **kw):
+        """Gather, inside this turn's scope when it has one (W114)."""
+        scope = getattr(self, "_scope_now", None)
+        if scope and "scope" not in kw:
+            kw["scope"] = scope
+        return self.evidence.find(query, **kw)
+
     def _carried_scope(self):
         """The documents this turn inherits from the conversation (W109).
 
@@ -1761,7 +1788,7 @@ class Session:
             return self._spoken_row(
                 question, "%d: %s." % (len(names), ", ".join(names)))
 
-        lines = self.evidence.find(question, most=60, floor_share=0.0)
+        lines = self._find(question, most=60, floor_share=0.0)
         # A COUNT'S GATHERING GETS THE SECOND ASK TOO. Multi-session
         # events are told in whatever words each day brought — the
         # question says "clothing", the lines say boots and blazer —
@@ -2116,7 +2143,7 @@ class Session:
         is WRITTEN on a line that also carries the item's words; the
         total is our arithmetic over the survivors. Returns the
         sentence or None."""
-        lines = self.evidence.find(question, most=60, floor_share=0.0)
+        lines = self._find(question, most=60, floor_share=0.0)
         if not lines:
             return None
         block = "\n".join(lines)
@@ -3154,21 +3181,21 @@ class Session:
             # the question at least as well as the turn's own. Ties keep
             # the ride; the follow-up keeps its fix.
             own_query = f"{question_query} {consult}".strip()
-            own = self.evidence.find(own_query, most=seats)
+            own = self._find(own_query, most=seats)
             cov_own = (evidence.coverage(question, "\n".join(own))
                        if own else 0.0)
             ridden_query = f"{anchor_label} {question_query} {consult}".strip()
-            ridden = self.evidence.find(ridden_query, most=seats)
+            ridden = self._find(ridden_query, most=seats)
             cov_ridden = (evidence.coverage(question, "\n".join(ridden))
                           if ridden else 0.0)
             if cov_own > cov_ridden:
                 # re-run the winner LAST: last_sources / last_census must
                 # describe the proof everything downstream reads
-                proof = self.evidence.find(own_query, most=seats)
+                proof = self._find(own_query, most=seats)
             else:
                 proof = ridden
         else:
-            proof = self.evidence.find(
+            proof = self._find(
                 f"{anchor_label or ''} {question_query} {consult}".strip(),
                 most=seats)
         # THE CONVERSATION'S SCOPE, WHEN THIS TURN NAMED NOTHING (W109).
@@ -3181,15 +3208,6 @@ class Session:
         # source; a follow-up inherits it from what the memory just
         # said. A question that names its own source keeps it, and a
         # conversation that has said nothing carries nothing.
-        if self._no_teach and self._conversational \
-                and not self.evidence.named_in(question):
-            carried = self._carried_scope()
-            if carried:
-                scoped = self.evidence.find(
-                    f"{question_query} {consult}".strip(),
-                    most=seats, scope=carried)
-                if scoped:
-                    proof = scoped
         # which document each seat came from, aligned with `proof` — read off
         # the store's `last_sources`, which `find` leaves beside its result
         proof_origins = list(self.evidence.last_sources[:len(proof)])
