@@ -1062,21 +1062,6 @@ class SentenceStore:
                     break
         return called
 
-    def affinity(self):
-        """The corpus's own thesaurus, built once and kept.
-
-        Lazy for the same reason the entity graph is: it costs one pass
-        over the store and only a question the words failed on needs it.
-        """
-        from lmm import affinity                            # noqa: PLC0415
-        stamp = len(self.sentences)
-        got = getattr(self, "_affinity_cache", None)
-        if got is not None and got[0] == stamp:
-            return got[1]
-        built = affinity.Profiles.build(self)
-        self._affinity_cache = (stamp, built)
-        return built
-
     def graph(self):
         """The document's own entity graph, built once and kept.
 

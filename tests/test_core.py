@@ -27,7 +27,6 @@ from lmm.core import dynamics                                          # noqa: E
 from lmm.core.gate import Gate, SPEAK                                  # noqa: E402
 from lmm.core.memory import (CONTRA, DOCUMENT, INFERRED, Memory,       # noqa: E402
                        OPERATOR, STRANGER, SUSPECT)
-from lmm.core.session import Session as V3Session                      # noqa: E402
 from lmm.core.transitive import Transitivity                           # noqa: E402
 
 PASSED = []
@@ -369,15 +368,19 @@ def d2():
 
 @test("D3 the derivation loop does not feed on itself")
 def d3():
-    session = V3Session(None)
+    from lmm.session import Session as _S
+    from lmm import link as _link
+    session = _S(None)
     memory = session.memory
-    kind = session._identity("tur")
-    a, b, c = (session._identity(n) for n in ("kartal", "kus", "hayvan"))
+    def _id(label):
+        return _link.resolve(memory, label, {}, create=True)
+    kind = _id("tur")
+    a, b, c = (_id(n) for n in ("kartal", "kus", "hayvan"))
     for one, two in ((a, b), (b, c), (a, c)):
         session.gate.admit(one, kind, two, "#operator", OPERATOR)
         session._learn_transitive(kind, one, two)
     memory.transitive.add(kind)
-    d = session._identity("canli")
+    d = _id("canli")
     session.gate.admit(c, kind, d, "#operator", OPERATOR)
     session._derive(c, kind, d)
     grew = len(memory.records)
@@ -536,17 +539,21 @@ def f2():
             os.remove(path)
 
 
-@test("F3 the v3 session still learns and answers without any network")
+@test("F3 the session still learns and answers without any network")
 def f3():
-    session = V3Session(None)
-    kind = session._identity("tur")
-    eagle, bird = session._identity("kartal"), session._identity("kus")
+    from lmm.session import Session as _S
+    from lmm import link as _link
+    session = _S(None)
+    def _id(label):
+        return _link.resolve(session.memory, label, {}, create=True)
+    kind = _id("tur")
+    eagle, bird = _id("kartal"), _id("kus")
     record, why = session.gate.admit(eagle, kind, bird, "#operator", OPERATOR)
     assert record is not None and why == 0
     assert session.gate.behind(eagle, kind, bird) is not None
-    assert "kartal" in session._render([record])
+    assert _link.label_of(session.memory, record.subject) == "kartal"
     assert isinstance(session.sleep(), dict)
-    assert session.curious() is not None and session.tension() == []
+    assert session.curiosity() is not None and session.tension() == []
 
 
 @test("F4 the no-fabrication holes stay closed")
@@ -7908,59 +7915,6 @@ def w76():
     assert all("corner shop" in s.evidence.sentences[sid][0] for sid in both), \
         [s.evidence.sentences[sid][0][:60] for sid in both]
 
-
-
-@test("W77 the corpus is its own thesaurus, and can show its working")
-def w77():
-    """The second half of the paraphrase problem, answered from the
-    document rather than from a vendor.
-
-    A document says a tenant RESIDES somewhere and a reader asks where
-    she LIVES. Lexical retrieval cannot bridge that, and the engine can
-    (the second ask does), but it costs a call and its proposals have to
-    be checked against the store anyway. The document already knows: two
-    words that appear in the same COMPANY are used for the same thing —
-    "resides" and "lives" both turn up beside "tenant", "address",
-    "since", "flat". That is distributional similarity, it is arithmetic
-    over counts this store already holds, and unlike an embedding it can
-    be shown: THESE are the shared contexts, and this is their weight.
-
-    The words it offers are the store's own by construction, so the rule
-    the field bridge and the second ask both keep — a word nobody wrote
-    cannot enter a search — is satisfied without a check.
-
-    What it is not: a synonym list, a language rule, or a model. What it
-    cannot do: relate two words the document never uses in comparable
-    company, which is why the engine's second ask stays as the fallback."""
-    from lmm import affinity
-    from lmm.evidence import SentenceStore
-    store = SentenceStore()
-    for i in range(14):
-        store.add("The tenant resides at the flat since spring %d." % i,
-                  source="#doc")
-        store.add("The tenant lives at the flat since autumn %d." % i,
-                  source="#doc")
-        store.add("A visitor resides nearby and the tenant knows him %d." % i,
-                  source="#doc")
-        store.add("A visitor lives nearby and the tenant greets him %d." % i,
-                  source="#doc")
-        store.add("The ledger records the rent and the date %d." % i,
-                  source="#doc")
-    profiles = affinity.Profiles.build(store)
-
-    near = profiles.near("lives", most=4)
-    words = [word for word, _score, _shared in near]
-    assert "resides" in words, near
-    # ...and the working is visible: the shared company, not a number
-    # nobody can inspect
-    shared = dict((w, sh) for w, _s, sh in near)["resides"]
-    assert shared and all(isinstance(c, str) for c in shared), shared
-    assert "tenant" in shared or "flat" in shared or "nearby" in shared, shared
-
-    # a word with no comparable company gets nothing, rather than the
-    # nearest thing in a geometry
-    assert not profiles.near("ledger", most=3) or all(
-        score < 1.0 for _w, score, _sh in profiles.near("ledger", most=3))
 
 
 @test("W50 a field question that names no source reads that field across the corpus")

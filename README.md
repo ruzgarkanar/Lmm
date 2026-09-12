@@ -54,16 +54,15 @@ loads in milliseconds. And the engine is drawn smaller than the memory because
 it is smaller: it phrases, it does not know.
 
 
-### Three channels, all local, all explainable
+### Two channels, both local, both explainable
 
-Retrieval reads the same store three ways, and every one of them can say
-why a line arrived:
+Retrieval reads the same store two ways, and both can say why a line
+arrived:
 
 | channel | what it reads | the statistic |
 |---|---|---|
 | **lexical** | the words a line carries | information content: `log(1+N/df)`, and `log(S/s)` for a word's power to separate documents |
 | **structural** | records, fields, and the entities a document repeats | a field is a head the corpus repeats; an entity is a phrase whose words occur together beyond chance (PMI), keep varied company, and do not choose freely |
-| **distributional** | which words keep the same company | positive pointwise mutual information, cosine between profiles — the shared contexts come back with the answer |
 
 None of them calls a model, none of them needs a vendor, and none of them
 widens what may be SAID: they widen what can be FOUND, and the gate reads
@@ -147,7 +146,7 @@ the graph for free.
 | Ingestion | chunks + embeddings | facts into a **graph** + sentences into an **evidence index** |
 | Retrieval | similarity gamble | deterministic word/graph lookup, explainable |
 | Multi-hop | fails when chunks don't co-retrieve | **derives** new facts symbolically (µs, no model call) |
-| Paraphrase | the embedding's strength | the corpus's **own thesaurus** — words that keep the same company, with the shared company shown |
+| Paraphrase | the embedding's strength | **the open gap** — a bridge learned per field, and the engine's second ask; a dense channel is the instrument this wants and is not built yet |
 | Entity graph | built by an LLM (GraphRAG), a claim | built by the document: an entity is a **collocation**, an edge is a **witnessed co-mention** carrying its sentence |
 | Fabrication | a plea in the prompt | **structural gate**: unsupported claims cannot leave |
 | Provenance | none | every fact carries its source; uncertain answers are flagged |
