@@ -697,6 +697,7 @@ def g6():
     the size of the needle."""
     from lmm import generate, session as lmm_session
     s = lmm_session.Session.__new__(lmm_session.Session)
+    s.VIEWS = 2      # this test is about the SECOND view of the evidence
     proof = ["Ortam sıcaklığı 8 °C ~ +32 °C", "Barkod okuyucu isteğe bağlıdır",
              "Barkod yazıcı kurulumu için kılavuza bakın"]
     block = "\n".join(f"[K{i}] {s}" for i, s in enumerate(proof, 1))
@@ -5904,6 +5905,8 @@ def w113():
     from lmm import generate
     from lmm.session import Session
     s = Session(None)
+    s.VIEWS = 2      # the second view is what this test is about; the
+    #                  shipped default is one, measured (W126)
     s.learn_text("The hall seats 90 people.", source="#docx:Hall.docx",
                  deep=False)
     # a claim the proof does NOT carry verbatim — the verbatim shortcut
@@ -5930,6 +5933,35 @@ def w113():
     finally:
         generate.supported = real
     assert ok2 is True and len(asked) == 2, (ok2, asked)
+
+
+@test("W126 a judge buys one view of the evidence, because the second bought nothing")
+def w126():
+    """Both judges could ask twice: a focused view of the lines the
+    claim touches, then the whole block, on the reasoning that a claim
+    the narrow view rejects may still be carried by the wide one. The
+    second was bought only on a no (W113), so it landed on exactly the
+    turns that were going to refuse — the expensive half of a failing
+    turn.
+
+    Measured on eleven field questions, counting which view decided:
+    the first view confirmed six times, no view confirmed four times,
+    and THE SECOND VIEW CONFIRMED NOTHING — not once, on either judge.
+    No verdict in that run depended on it, so switching it off cannot
+    change an answer there, and it removes eight calls of a hundred and
+    four.
+
+    Like `CANDIDATES` it is a number, not a deletion: the wide view is
+    right wherever the focus reading is poor, and G6 and W113 still pin
+    the mechanism by asking for it."""
+    from lmm.session import Session
+    s = Session(None, dense=False)
+    assert s.VIEWS == 1, "the shipped default buys more than one view"
+    assert s.CANDIDATES == 1, "the shipped default generates more than once"
+    # both are per-session, so an operator with a weak corpus can raise
+    # them without touching the library
+    s.VIEWS, s.CANDIDATES = 2, 3
+    assert (s.VIEWS, s.CANDIDATES) == (2, 3)
 
 
 @test("W125 every shipped entry point imports what it runs")
@@ -6641,6 +6673,8 @@ def w110():
     from lmm import extract, generate
     from lmm.session import Session
     s = Session(None)
+    s.VIEWS = 2      # the second view is what this test is about; the
+    #                  shipped default is one, measured (W126)
     s.learn_text("The hall seats 90 people.", source="#docx:Hall.docx",
                  deep=False)
     real = (extract.extract, generate.chat, generate.turn_shape,
