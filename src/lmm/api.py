@@ -687,6 +687,20 @@ class Memory:
         return self.session.distil(text, source=source or "#document",
                                    speaker=speaker)
 
+    def attach_dense(self, encoder):
+        """Give this memory the MEANING channel (`lmm/dense.py`).
+
+        `encoder` maps a list of strings to a list of vectors — a local
+        sentence model, a static distilled embedding, an in-house
+        service, or a vendor's API. The library ships no opinion about
+        whose vectors are best; it ships the channel, fused with the
+        word channel by rank (RRF) so neither can outvote the other.
+
+        Returns how many lines were embedded. With no encoder the
+        memory answers exactly as it did before: the channel is absent,
+        not degraded."""
+        return self.session.evidence.attach_dense(encoder)
+
     def bridge(self):
         """Teach the store, once, what words readers ask its fields with.
 
