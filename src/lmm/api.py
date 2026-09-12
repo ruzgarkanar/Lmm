@@ -298,7 +298,8 @@ class Memory:
 
     def __init__(self, path=None, who="#operator", mode="STRICT", cache=True,
                  persona="",
-                 warmth=None, reply_tokens=None, style="", identity=None):
+                 warmth=None, reply_tokens=None, style="", identity=None,
+                 encoder=None, dense=True):
         # `persona` colours the voice of every spoken turn — greeting style,
         # tone, when to ask a clarifying question — and can never loosen the
         # gates, which read the output rather than any prompt.
@@ -306,6 +307,29 @@ class Memory:
                                identity=identity,
                                warmth=warmth, reply_tokens=reply_tokens,
                                style=style)
+        # THE MEANING CHANNEL IS ON, AND IT NEEDS NOTHING FROM YOU. A
+        # reader who paraphrases ("where does she live" against a lease
+        # that says RESIDES) is the failure the words cannot reach, and
+        # an optional extra is a feature most installations never turn
+        # on. So the vectors ship with the library and attach here:
+        # `pip install living-memory-model` and the channel is working,
+        # offline, with nothing to configure.
+        #
+        # `encoder=` takes any callable from a list of strings to a list
+        # of vectors — bge-m3, a vendor's API, an in-house model — and
+        # then nothing of ours is loaded. `dense=False` turns the
+        # channel off and the store answers exactly as it did before it
+        # existed. A checkout without the bundled matrix behaves the
+        # same way: absent, not degraded.
+        if dense:
+            try:
+                if encoder is None:
+                    from lmm import static             # noqa: PLC0415
+                    encoder = static.encode if static.available() else None
+                if encoder is not None:
+                    self.session.evidence.attach_dense(encoder)
+            except Exception:                          # noqa: BLE001
+                pass
         # THE SAME QUESTION, ASKED AGAIN, OVER A MEMORY THAT HAS NOT MOVED. The
         # answer cannot have changed, and re-deriving it costs the full 5.5
         # model calls a question costs (`benchmarks/COST.md` §2). `cache=False`

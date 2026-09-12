@@ -6050,6 +6050,52 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W121 the meaning channel ships with the library and is on")
+def w121():
+    """An optional extra is a feature most installations never turn on.
+    The gap the words cannot cross — a reader who paraphrases, a lease
+    that says RESIDES against a question that says LIVES — is not a
+    tuning option; it is the ordinary case. So the vectors are IN the
+    package and attached by default: `pip install living-memory-model`
+    and the channel is working, offline, with nothing to configure and
+    no account anywhere.
+
+    It is a matrix, not a model — one lookup per piece and a mean — so
+    there is no torch and no warm-up. Measured on this repository's own
+    field corpus, 20,000 lines and 180 known-item queries with each
+    query's two most distinctive terms removed:
+
+        a distillation of our own        MRR 0.306
+        paraphrase-multilingual-MiniLM   MRR 0.710   index 36.1 s
+        the bundled matrix               MRR 0.883   index  0.3 s
+
+    The ceiling stays open (`encoder=` takes any callable) and the
+    floor is safe (`dense=False`, or a checkout without the matrix:
+    absent, never degraded). The one dependency this buys — numpy — is
+    named in pyproject rather than hidden."""
+    from lmm import api, static
+    if not static.available():
+        return                      # a checkout without the package data
+    # it encodes, and what it returns is what the channel's contract asks
+    got = static.encode(["the tenant resides at 12 Mill Road",
+                         "kiracı 12 Mill Road adresinde oturuyor", ""])
+    assert len(got) == 3 and len({len(v) for v in got}) == 1, [len(v) for v in got]
+    assert abs(sum(x * x for x in got[0]) - 1.0) < 1e-3, "not a unit vector"
+    assert all(x == 0 for x in got[2]), "an empty string got a direction"
+    # ...and the two sentences above mean the same thing in two languages
+    near = sum(a * b for a, b in zip(got[0], got[1]))
+    assert near > 0.5, "the multilingual pairing is gone: %.2f" % near
+    # on by default, off on request
+    assert api.Memory(None).session.evidence._dense is not None, (
+        "the channel is not attached by default")
+    assert api.Memory(None, dense=False).session.evidence._dense is None, (
+        "dense=False did not turn it off")
+    # the operator's own encoder is used instead of ours
+    mine = api.Memory(None, encoder=lambda texts: [[1.0, 0.0]] * len(texts))
+    assert mine.session.evidence._dense.encode(["x"]) == [[1.0, 0.0]], (
+        "the operator's encoder was ignored")
+
+
 @test("W120 the memory answers the identity question it was asked")
 def w120():
     """Caught by a reader who found it funny, which is how this kind of

@@ -1459,8 +1459,18 @@ class SentenceStore:
         if self._dense is None:
             return found
         from lmm import dense                              # noqa: PLC0415
-        self._dense.catch_up(self)
-        near = [src for src in self._dense.near(query, most=dense.SOURCES)
+        # AN ENCODER THAT FAILS TAKES THE CHANNEL DOWN, NOT THE ANSWER.
+        # Somebody's own callable may raise, a vendor's endpoint may be
+        # unreachable, a checkout may be missing numpy — and none of
+        # those is a reason for a question to go unanswered. The channel
+        # detaches itself and the words carry the turn.
+        try:
+            self._dense.catch_up(self)
+            offered = self._dense.near(query, most=dense.SOURCES)
+        except Exception:                                 # noqa: BLE001
+            self._dense = None
+            return found
+        near = [src for src in offered
                 if src != SAID_SOURCE and (not scope or src in scope)]
         if not near:
             return found
@@ -1469,12 +1479,29 @@ class SentenceStore:
         # document first for 99 of 103 known-item queries), and reading
         # the lines by word overlap alone would throw it away. Within a
         # document the words choose, which is what they are good at.
+        #
+        # THE INDEX CHOOSES THE CANDIDATES, NOT A SCAN. Ranking every
+        # line of every proposed document meant tokenising them all:
+        # measured on an 115,913-line store it turned one question into
+        # seven and a half seconds. The inverted index already knows
+        # which lines carry a query word, which is the only thing the
+        # overlap ordering can distinguish anyway; a document none of
+        # them reach still offers its own opening lines, because the
+        # channel put it here for its meaning and not for its words.
         qset = set(qwords)
+        reached = set()
+        for word in qset:
+            reached |= set(self.index.get(word, ()))
         proposed = []
         for src in near:
-            lines = sorted(self.by_source.get(src, ()), key=lambda sid: (
-                -len(qset & set(_words(self.sentences[sid][0]))), sid))
-            proposed += [self.sentences[sid][0] for sid in lines[:most]]
+            owned = self.by_source.get(src, ())
+            hits = [sid for sid in owned if sid in reached]
+            if hits:
+                hits.sort(key=lambda sid: (
+                    -len(qset & set(_words(self.sentences[sid][0]))), sid))
+            else:
+                hits = list(owned)[:most]
+            proposed += [self.sentences[sid][0] for sid in hits[:most]]
         if not proposed:
             return found
         order = dense.fuse(list(found), proposed, most=most)
