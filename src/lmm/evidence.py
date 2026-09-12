@@ -1446,6 +1446,8 @@ class SentenceStore:
         """
         if self._dense is None:
             return found
+        lexical_at = {line: src for line, src
+                      in zip(found, list(self.last_sources or []))}
         from lmm import dense                              # noqa: PLC0415
         # AN ENCODER THAT FAILS TAKES THE CHANNEL DOWN, NOT THE ANSWER.
         # Somebody's own callable may raise, a vendor's endpoint may be
@@ -1499,7 +1501,7 @@ class SentenceStore:
         # question's own words are the sharper instrument.
         # the floor, shared out — at least the seats being filled
         share = max(most, -(-POOL_FLOOR // max(1, len(near))))
-        proposed = []
+        proposed, wrote = [], {}
         for src in near:
             owned = self.by_source.get(src, ())
             hits = [sid for sid in owned if sid in overlap]
@@ -1507,7 +1509,17 @@ class SentenceStore:
                 hits.sort(key=lambda sid: (-overlap[sid], sid))
             else:
                 hits = list(owned)[:share]
-            proposed += [self.sentences[sid][0] for sid in hits[:share]]
+            for sid in hits[:share]:
+                text = self.sentences[sid][0]
+                proposed.append(text)
+                # WHICH DOCUMENT ACTUALLY OFFERED THIS LINE. The first cut
+                # read the source back off the text afterwards, and a
+                # catalogue repeats lines across documents — so a shared
+                # line was credited to whichever document happened to be
+                # first in the store, and the stamp on the answer named
+                # the wrong training. Provenance is recorded where it is
+                # known, not reconstructed where it is not.
+                wrote.setdefault(text, src)
         # LATE INTERACTION DECIDES THE ORDER WITHIN THE PROPOSAL. The
         # words ranked these lines by how many query terms they carry,
         # which is exactly the reading that fails when the question does
@@ -1532,10 +1544,8 @@ class SentenceStore:
         # documents the channel proposed, so a second pass over the
         # fused list re-reads lines it has just read.
         order = dense.fuse(list(found), proposed, most=most)
-        where = {}
-        for text, source in self.sentences:
-            where.setdefault(text, source)
-        self.last_sources = [where.get(line) for line in order]
+        self.last_sources = [lexical_at.get(line, wrote.get(line))
+                             for line in order]
         return order
 
 
