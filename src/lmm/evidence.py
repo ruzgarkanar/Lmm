@@ -831,6 +831,9 @@ class SentenceStore:
         # beside the date (W98). A tag the operator supplies, like the
         # source name; None for every document that has no voices.
         self.speakers = {}                  # sid -> speaker tag
+        # THE MEANING CHANNEL, when an operator has given an encoder
+        # (`attach_dense`). Absent by default — not degraded, absent.
+        self._dense = None
         self._key_index = None              # lazy — see the `key_index` property
         self._key_bounds = None             # the bound it was built under
         self._key_at = 0                    # how many sentences are in it
@@ -1223,6 +1226,17 @@ class SentenceStore:
             called = {src for src in called if _covered(src) >= best - 1e-9}
         return called
 
+    def attach_dense(self, encode):
+        """Give this store a meaning channel (see `lmm/dense.py`).
+
+        `encode` maps a list of strings to a list of vectors — a local
+        model, a static embedding, an in-house service, a vendor's API.
+        The store embeds what it holds and keeps up as it learns."""
+        from lmm import dense                              # noqa: PLC0415
+        self._dense = dense.Dense(encode)
+        self._dense.catch_up(self)
+        return len(self._dense.vectors)
+
     def find(self, query, most=4, floor_share=0.5, scope=None):
         """Sentences whose content-words intersect the query the MOST.
         Prefix-tolerant (inflection: "doluluğu"~"doluluk"). Score = number of
@@ -1334,7 +1348,12 @@ class SentenceStore:
             # (W109): "how long is the first one?" reaches no line by
             # word overlap at all, which is exactly the turn a scope
             # exists for. Nothing outside the scope can enter.
-            return self._scoped_only(qwords, scope, most) if scope else []
+            if scope:
+                return self._scoped_only(qwords, scope, most)
+            # ...OR THE MEANING CHANNEL KNOWS (W116). A question whose
+            # words the store never wrote is precisely what the vectors
+            # are for; returning empty here would consult them never.
+            return self._fused(query, [], most, scope)
         # THE CENSUS RIDES ALONG. Scoring has already touched every sentence
         # this question reaches; grouping those hits by source costs one pass
         # and answers a question retrieval cannot: not "what is the best
@@ -1421,7 +1440,37 @@ class SentenceStore:
         # branch does not exist.
         if scope and not found:
             return self._scoped_only(qwords, scope, most)
-        return found
+        return self._fused(query, found, most, scope)
+
+    def _fused(self, query, found, most, scope=None):
+        """The words' answer and the meaning channel's, fused by rank.
+
+        RRF reads ORDER, not score: the two channels cannot be put on
+        one scale honestly, and ranks are the one thing they share. A
+        line the words already seated keeps its place; a line only the
+        vectors know is offered a seat beneath it. With no channel
+        attached this returns what the words found, byte for byte.
+        """
+        if self._dense is None:
+            return found
+        from lmm import dense                              # noqa: PLC0415
+        self._dense.catch_up(self)
+        near = self._dense.near(query, most=dense.NEIGHBOURS)
+        if scope:
+            near = [sid for sid in near
+                    if self.sentences[sid][1] in scope]
+        near = [sid for sid in near
+                if self.sentences[sid][1] != SAID_SOURCE]
+        if not near:
+            return found
+        by_text = {}
+        for sid, (text, _src) in enumerate(self.sentences):
+            by_text.setdefault(text, sid)
+        lexical = [by_text.get(line) for line in found]
+        lexical = [sid for sid in lexical if sid is not None]
+        order = dense.fuse(lexical, near, most=most)
+        self.last_sources = [self.sentences[sid][1] for sid in order]
+        return [self.sentences[sid][0] for sid in order]
 
 
     def _score_over(self, qwords, index, keys, weigh=None):

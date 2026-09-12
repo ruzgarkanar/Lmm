@@ -6036,6 +6036,58 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W116 the meaning channel finds what the words miss, and cannot outvote them")
+def w116():
+    """The gap two days of audit kept arriving at, and the reason the
+    architecture goes hybrid. A document writes RESIDES and a reader
+    asks where someone LIVES; a document offers CONFLICT MANAGEMENT and
+    a reader says there is GOSSIP in the team. Lexical retrieval cannot
+    cross that, and every lever tried against it — the field bridge,
+    the offline expansion, the engine's second ask — closed part of it
+    at best. A vector channel closes it by construction.
+
+    Three rules keep it ours. It is a CHANNEL, not a replacement: the
+    two rankings are fused by RRF, which is rank-based and has no
+    weight to tune, so a line the words already found cannot be pushed
+    out by a vector's opinion. It embeds the line WITH ITS CONTEXT —
+    the source's name and the record head above it — which is
+    contextual retrieval without a second model. And with no encoder
+    available the store behaves exactly as it did: the channel is
+    absent, not degraded."""
+    from lmm.evidence import SentenceStore
+
+    # a toy encoder: three topics, deterministic, no model anywhere
+    def encode(texts):
+        topics = (("reside", "live", "home", "address"),
+                  ("conflict", "gossip", "quarrel", "dispute"),
+                  ("budget", "cost", "price", "invoice"))
+        out = []
+        for text in texts:
+            words = set(text.lower().split())
+            out.append([float(sum(1 for w in group if w in words))
+                        for group in topics])
+        return out
+
+    store = SentenceStore()
+    store.add("The tenant resides at 12 Mill Road since 2019.", "#doc:lease")
+    store.add("Our invoice policy sets the price at cost plus ten.",
+              "#doc:finance")
+    store.add("The seminar covers dispute resolution.", "#doc:course")
+    # the question shares NO word with the line that answers it
+    before = store.find("gossip", most=2, floor_share=0.0)
+    assert not any("dispute" in line for line in before), (
+        "the premise is wrong: the words already reach it: %r" % before)
+
+    store.attach_dense(encode)
+    after = store.find("gossip", most=2, floor_share=0.0)
+    assert any("dispute resolution" in line for line in after), (
+        "the meaning channel did not reach the line: %r" % after)
+    # ...and the words still win where they are sure: a question naming
+    # the lease's own words keeps the lease line first
+    lease = store.find("tenant resides Mill Road", most=2, floor_share=0.0)
+    assert "12 Mill Road" in lease[0], lease
+
+
 @test("W115 one state holds the conversation, and the topic holds until another is named")
 def w115():
     """The consolidation the audit earned. Five patches grew over two
