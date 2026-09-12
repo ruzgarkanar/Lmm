@@ -6574,7 +6574,12 @@ def w110():
     organ claimed it — and the answer had come from the WAGERED CHAT,
     the speculative reply that speaks when the answering chain
     abstains. Three paths could speak without leaving a trace: that
-    wager, the second-ask retry, and the delivery rescue. A route that
+    wager, the second-ask retry, and the delivery rescue. A FOURTH was
+    found by a later audit, and it is the one nobody thinks to check:
+    the graph-direct answer, which spends no model call at all and so
+    left no trace either — a record question came back with an empty
+    route, and the tool could not tell a cheap correct answer from a
+    turn that never happened. A route that
     records only the paths somebody remembered to instrument is not an
     audit trail; it is a story with the inconvenient parts missing.
 
@@ -6601,6 +6606,20 @@ def w110():
          generate.refusal) = real
     assert said, said
     assert s.last_route, "a turn spoke and left no trace"
+    # the cheapest path of all: a record read straight from the graph,
+    # no model call in it, and it says so
+    from lmm import api, extract as extract_mod
+    plain = api.Memory(None, dense=False)
+    mem = plain.session.memory
+    mem.write(mem.identify("alpha module"),
+              mem.identify("training length"),
+              mem.identify("2 days"), "catalogue")
+    for rec in list(mem.records.values())[:1]:
+        spoke = plain.session._graph_answer(rec, "how long is it")
+        assert spoke, spoke
+        assert "record" in plain.session.last_route, (
+            "the graph path spoke and left no trace: %s"
+            % list(plain.session.last_route))
     # the chain was entered and said nothing, so the turn refused — and
     # the refusal is an organ like any other
     assert "refuse" in s.last_route, s.last_route
