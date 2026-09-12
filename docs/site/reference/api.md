@@ -12,7 +12,10 @@ m = Memory("mind.lmm",
            persona="You are Ada, a warm onboarding coach.",   # the VOICE
            style="One section per course: name, duration, outcomes.",  # the FORMAT
            warmth=0.6,          # temperature of the voice surfaces
-           reply_tokens=1200)   # length cap of the voice surfaces
+           reply_tokens=1200,   # length cap of the voice surfaces
+           encoder=None,        # the meaning channel's vectors
+           reranker="bundled",  # the ordering inside a proposal
+           dense=True)          # the meaning channel itself
 ```
 
 The operator's knobs, each travelling exactly where it belongs — and none of
@@ -27,6 +30,44 @@ turn is not a judge:
   every fact beneath them is still the material's.
 - **`warmth` / `reply_tokens`** — temperature and length of the same voice
   surfaces. Unset, every surface keeps its measured default.
+- **`encoder`** — the meaning channel's vectors. Unset, the 30 MB static
+  multilingual matrix that ships in the wheel. Any callable
+  `list[str] -> list[list[float]]` replaces it and then nothing of ours is
+  loaded.
+- **`reranker`** — the ordering inside a proposal. `"bundled"` is late
+  interaction over that same matrix; any callable
+  `(query, texts) -> list[int]` replaces it; `None` turns it off.
+- **`dense=False`** — no meaning channel at all. The store answers exactly as
+  it did before the channel existed, and numpy is not needed.
+
+```python
+# your own encoder, and a cross-encoder doing the reordering
+from sentence_transformers import SentenceTransformer, CrossEncoder
+bi, cross = SentenceTransformer("BAAI/bge-m3"), CrossEncoder("BAAI/bge-reranker-v2-m3")
+
+def order(query, texts):
+    scored = cross.predict([(query, t) for t in texts])
+    return sorted(range(len(texts)), key=lambda i: -scored[i])
+
+m = Memory("mind.lmm",
+           encoder=lambda texts: bi.encode(texts, normalize_embeddings=True).tolist(),
+           reranker=order)
+```
+
+### Two session numbers
+
+How hard a turn tries is a session attribute rather than a constructor
+argument, because it is about effort rather than voice. Both default to **1**,
+and both were measured down from higher numbers: the extra readings they
+bought stopped winning once retrieval improved.
+
+| attribute | default | what raising it buys |
+|---|---|---|
+| `m.session.CANDIDATES` | 1 | more evidence subsets answered from, and the gate picks among them. Was 3; across eleven field questions the narrow readings won nothing, and collapsing it went from 139 calls to 104 with one more answer correct. |
+| `m.session.VIEWS` | 1 | a second, wider view for each judge when the first declines. Was 2; the second view confirmed nothing on either judge in the same run. |
+
+Raise them on a corpus where retrieval is weak — they are insurance, and
+insurance is worth buying where the risk is real.
 
 | call | what it does | engine? |
 |---|---|---|

@@ -23,8 +23,39 @@ triangles witnessed twice teach a predicate transitivity, and derived facts
 are written with an `#inference` stamp **below the speaking threshold**.
 
 **The evidence index.** The document's own sentences, kept verbatim, indexed
-at several window scales. Retrieval is deterministic word/graph lookup —
-explainable, and the same answer every run.
+at several window scales. Retrieval by words is deterministic word/graph
+lookup — explainable, and the same answer every run.
+
+**The meaning channel.** A word search cannot cross a paraphrase: a lease
+writes RESIDES and a reader asks where somebody LIVES. So a 30 MB static
+multilingual matrix ships in the wheel and is attached by default — one
+lookup per word-piece and a mean, no transformer, no warm-up, no network.
+
+It sits at the **document** layer, and which layer was measured rather than
+assumed. Over lines it moved nothing; over document profiles it took the
+store's own retrieval from 92% to 99% on 103 known-item queries, because a
+catalogue line reads "Aidiyet ve Motivasyon." — four words carry no subject,
+so vectors over lines compare fragments while vectors over a profile compare
+subjects. The opposite was measured too: choosing the lines INSIDE a proposed
+document by meaning rather than by words took the answering line from 78% to
+31%. **Meaning says which document; inside it, the question's own words are
+sharper.**
+
+The two rankings are fused by reciprocal rank (RRF, K=60) — which reads
+order, not score, so there is no weight to tune and a line the words already
+found cannot be pushed out by a vector's opinion.
+
+**Late interaction.** A single vector averages a line into one point, and the
+averaging is where a vague question loses. So every piece of the question is
+scored against the piece of the line it fits best and the bests are summed —
+ColBERT's idea without ColBERT's model, since the piece vectors are already
+the table. It only ever REORDERS: no line enters by it and none leaves, so
+nothing it decides can reach the gates. Measured, it is worth more the vaguer
+the question gets (six terms removed from the query: MRR 0.707 → 0.807), and
+end to end it takes the answering line's chance of reaching the engine from
+60% to 79%.
+
+Both are parametric: `Memory(encoder=..., reranker=..., dense=False)`.
 
 **The entity graph.** The document's own, built with no model call. An
 entity is a phrase whose words occur together beyond chance (pointwise

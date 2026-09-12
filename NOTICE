@@ -45,6 +45,30 @@ Azure OpenAI (governed by the provider's own terms, not by this license).
 
 
 ================================================================================
+BUNDLED EMBEDDING MATRIX  (src/lmm/static/)
+================================================================================
+
+Unlike the engines above, this one IS redistributed, because the meaning
+channel ships switched on and a channel that needs a download is a channel
+most installations never get.
+
+potion-multilingual-128M
+    Copyright The Minish Lab. Licensed under the MIT License.
+    https://huggingface.co/minishlab/potion-multilingual-128M
+
+    A static embedding distilled by the model2vec method: a table of vectors,
+    with no transformer to run. What ships here is a REDUCTION of it —
+    108,000 of its word-pieces, projected to 128 dimensions by PCA and stored
+    as float16 (src/lmm/static/vectors.npy, src/lmm/static/pieces.txt, 30 MB).
+    Nothing was retrained; the reduction is arithmetic over the published
+    matrix, and the MIT licence travels with it.
+
+    The segmentation that reads a word into those pieces is this project's own
+    (src/lmm/static.py, ~30 lines), so no tokenizer library is redistributed
+    or required.
+
+
+================================================================================
 BENCHMARK MATERIAL
 ================================================================================
 

@@ -4,6 +4,125 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-09-13
+
+The release where retrieval stopped being only words, and where three
+hedges against weak retrieval were retired because measurement said they
+had stopped earning. Every number below was produced by a protocol in the
+repository; none of it is an estimate.
+
+### Added
+
+- **The meaning channel ships with the library and is on by default.** A
+  30 MB static multilingual matrix travels in the wheel, so a reader who
+  paraphrases — a lease that says RESIDES against a question that says
+  LIVES — is understood with no download, no account and no network. It is
+  a matrix, not a model: one lookup per word-piece and a mean, so there is
+  no torch and no warm-up. Measured on 20,000 lines and 180 known-item
+  queries it beats the transformer it would otherwise take (MRR **0.883**
+  against 0.710) and builds its index a hundred times faster (0.3 s against
+  36.1 s). Source: `minishlab/potion-multilingual-128M` (MIT, the model2vec
+  method), reduced to 108k pieces and 128 dimensions; the segmentation is
+  thirty lines of our own, so no tokenizer library is required. See NOTICE.
+
+- **Rank fusion, and late interaction over the same matrix.** The word
+  ranking and the meaning ranking are fused by reciprocal rank (RRF, K=60)
+  — order, not score, so there is no weight to tune. The lines inside a
+  proposal are then reordered by late interaction (ColBERT's idea without
+  ColBERT's model). End to end, by whether the ANSWERING line reaches the
+  five the engine is shown, on a 115,913-line corpus: **32% → 60% → 79%**.
+  Reordering is worth more the vaguer the question gets (six terms removed
+  from the query: MRR 0.707 → 0.807), which is the way round that matters.
+
+- **A parametric surface for all of it.** `Memory(encoder=...)` takes any
+  callable from strings to vectors; `reranker=` any callable from
+  `(query, texts)` to an order, or `None`; `dense=False` removes the
+  channel entirely. With no numpy, no bundled data, or an encoder that
+  raises, the channel is **absent, never degraded** — the words carry the
+  turn.
+
+- **W123**: the derived field-name index is written beside the store. It
+  was built on first use, once per PROCESS: 10.6 s before the first answer
+  on a 115,913-line store, paid again by every command-line run. Now
+  0.7 MB on disk and **0.13 s**, with the sentence count and the bound it
+  was built under, so a file that does not match is rebuilt rather than
+  trusted.
+
+- **W117**: a deterministic question is asked once. At temperature 0 the
+  engine is a function, and one refusal turn was asking the amount reader
+  twice on the same 45,755-character block. Byte-exact pooling, and warmth
+  is never pooled.
+
+- **W125**: every shipped entry point imports what it runs — including the
+  lazy imports inside functions, which is the class of breakage no
+  import-time check can see.
+
+### Changed
+
+- **The meaning channel sits at the DOCUMENT layer, and the layer was
+  measured.** Over lines it moved nothing; over document profiles the
+  store's own retrieval went **92% → 99%** on 103 known-item queries. The
+  opposite arrangement was measured too: choosing the lines INSIDE a
+  proposed document by meaning rather than by words took the answering line
+  from 78% to **31%**. Meaning says which document; inside it, the
+  question's own words are sharper.
+
+- **`CANDIDATES` 3 → 1** (W124). Three evidence subsets were answered per
+  question and the gate chose among them — insurance bought before the
+  meaning channel existed. Measured after it: across eleven field questions
+  every admitted answer came from the wide block and the narrow candidates
+  won **nothing**. Collapsed, the run went from 139 engine calls to 104 and
+  correctness from 4/11 to 5/11. It stays a number, not a deletion.
+
+- **`VIEWS` 2 → 1** (W126). Both judges could buy a second, wider view when
+  the first declined. In the same run the second view confirmed **nothing**,
+  on either judge — eight calls of a hundred and four.
+
+- **One dependency: numpy**, named in `pyproject.toml` with its reason.
+  "Zero dependencies" was true and is no longer; hiding that would be worse
+  than losing it.
+
+- `learn()` lost its `expand=` argument, and `Learned` its `expanded` count.
+
+### Fixed
+
+- **The memory answers the identity question it was asked** (W120). Asked
+  WHO WROTE IT, it answered with its own NAME — true, attested, past every
+  gate, and an answer to a different question. The name is one field among
+  the rows the operator declared, and the question is now mapped onto those
+  fields — including the fields we could hold but do not, because a mapping
+  shown only what it has can never discover that something is missing.
+
+- **The meaning channel is attached where the store is built** (Session,
+  not Memory). A caller using the older class got a store with no vectors
+  and no way to tell; the failure was silent.
+
+- **The graph-direct path records its route** (W110's fifth path). It spends
+  no model call, so it was never instrumented, and a record question came
+  back with an empty route — indistinguishable from a turn that never
+  happened.
+
+- **`lmm/mind.py` restored.** It was retired as "an idle derivation loop on
+  no product path" and is on the product path: the `lmm` console command
+  builds it at startup. The import sits inside `main()`, so the package
+  imported cleanly, every test passed, and the command crashed on launch.
+  W125 exists so that cannot recur.
+
+### Removed
+
+- **The offline expansion channel, entirely** (−607 lines). It generated
+  the questions each line answers and indexed them; measured on NIST
+  SP 800-63B its keep filter is inverted — a real rephrasing never reaches
+  its own line, so it kept only the queries that COPIED the line. Handed
+  perfect queries by hand, it kept zero. The README recorded that for
+  months while the channel stayed, off by default, costing a rung on the
+  channel ladder, a side-file key, a prompt, a session pass, an api
+  argument and five invariants. A switch nobody should turn on is a
+  liability, not an option.
+
+- `generate.wants_material` — it was `turn_shape`'s "material" asked a
+  second time with a second prompt on the same sentence.
+
 ## [0.5.0] — 2026-09-11
 
 The release where question shapes stopped being hand-written. Everything

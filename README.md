@@ -40,7 +40,7 @@ picks the adapter.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.svg">
-  <img alt="LMM architecture: documents, tables and messages pass an entry gate into a graph memory with an evidence index; a question retrieves from that memory, a small engine phrases the answer, and an exit gate either releases it with its sources or drops it." src="docs/architecture-light.svg">
+  <img alt="LMM architecture: documents, tables and messages pass an entry gate into a graph memory holding facts, evidence sentences and a bundled meaning channel; a question retrieves by words and by meaning, a small engine phrases the answer, and an exit gate either releases it with its sources or drops it." src="docs/architecture-light.svg">
 </picture>
 
 The gate is drawn twice on purpose. On the way in it decides what may become a
@@ -54,19 +54,61 @@ loads in milliseconds. And the engine is drawn smaller than the memory because
 it is smaller: it phrases, it does not know.
 
 
-### Two channels, both local, both explainable
+### Three channels, all local, all explainable
 
-Retrieval reads the same store two ways, and both can say why a line
+Retrieval reads the same store three ways, and each can say why a line
 arrived:
 
 | channel | what it reads | the statistic |
 |---|---|---|
 | **lexical** | the words a line carries | information content: `log(1+N/df)`, and `log(S/s)` for a word's power to separate documents |
 | **structural** | records, fields, and the entities a document repeats | a field is a head the corpus repeats; an entity is a phrase whose words occur together beyond chance (PMI), keep varied company, and do not choose freely |
+| **meaning** | which DOCUMENT a question is about, and then the order of the lines inside it | a bundled static multilingual embedding: one lookup per word-piece and a mean, fused with the words by reciprocal rank (RRF, K=60), then reordered by late interaction |
 
 None of them calls a model, none of them needs a vendor, and none of them
 widens what may be SAID: they widen what can be FOUND, and the gate reads
 the evidence exactly as before.
+
+**The meaning channel ships switched on.** A reader who paraphrases — a lease
+that says RESIDES against a question that says LIVES — is the case the words
+cannot reach, and an optional extra is a feature most installations never turn
+on. So the vectors are IN the package: `pip install living-memory-model`, and
+it works offline with nothing to configure. It is a matrix, not a model (one
+lookup per piece and a mean), so there is no torch and no warm-up. The one
+dependency this buys is **numpy**, and it is named in `pyproject.toml` rather
+than hidden.
+
+Measured on this repository's field corpus — 20,000 lines, 180 known-item
+queries with each query's two most distinctive terms removed:
+
+| encoder | first hit | MRR | index, 20k lines |
+|---|---|---|---|
+| a distillation of our own | 27% | 0.306 | 1.2 s |
+| `paraphrase-multilingual-MiniLM-L12-v2` | 66% | 0.710 | 36.1 s |
+| **the bundled matrix** | **84%** | **0.883** | **0.3 s** |
+
+And end to end, by whether the ANSWERING line reaches the five the engine is
+shown (115,913 lines, 304 queries):
+
+| | first | in five |
+|---|---|---|
+| words alone | 31% | 32% |
+| words + meaning channel | 31% | 60% |
+| ...and reordered by late interaction | 34% | **79%** |
+
+The ceiling stays open — `Memory(encoder=...)` takes any callable from strings
+to vectors, `reranker=` any callable from (query, texts) to an order — and the
+floor is safe: `dense=False`, a missing numpy, or an encoder that raises leaves
+the channel **absent, never degraded**, and the words carry the turn.
+
+**Which layer the meaning channel sits at was measured, not assumed.** Over
+lines it moved nothing; over DOCUMENTS it took the store's own retrieval from
+92% to 99% on 103 known-item queries. A catalogue line reads "Aidiyet ve
+Motivasyon." — four words carry no subject — so vectors over lines compare
+fragments while vectors over a document profile compare subjects. The opposite
+arrangement was measured too: choosing the lines INSIDE a proposed document by
+meaning rather than by words took the answering line from 78% to 31%. Meaning
+says which document; inside it, the question's own words are sharper.
 
 The entity channel is also the partition. Measured on a 36,472-line
 novel: asked what connects two entities, the lexical search finds a line
@@ -153,8 +195,11 @@ the graph for free.
 | Tables | flattened into text | **rows go straight into the graph** — zero model calls |
 | A 350-page manual | seconds of embedding, lossy retrieval | queryable in **~2 s** |
 
-The core install has **no dependencies at all**. The graph, the gate, the trust
-ordering and the derivation are pure python — no model, no network, no GPU.
+The core install has **one dependency, numpy**. The graph, the gate, the trust
+ordering and the derivation are pure python — no model, no network, no GPU —
+and numpy is there for one thing: the meaning channel, a 30 MB multilingual
+matrix that ships in the wheel so a paraphrased question is understood out of
+the box. `Memory(dense=False)` runs without either.
 
 ## Measured
 
@@ -504,7 +549,7 @@ Full description: [`docs/architecture.md`](docs/architecture.md).
 ## Install
 
 ```bash
-pip install living-memory-model                      # core: pure python, zero dependencies
+pip install living-memory-model                      # core: one dependency, numpy
 pip install 'living-memory-model[pdf]'               # pdfplumber + pypdf
 pip install 'living-memory-model[xlsx]'              # pandas + openpyxl
 pip install 'living-memory-model[docx]'              # python-docx
@@ -517,6 +562,20 @@ pip install 'living-memory-model[azure]'             # Azure OpenAI
 Extras are opt-in and lazy: nothing is imported until you hand LMM a file of
 that kind, and a missing reader reports the exact install line rather than a
 traceback.
+
+**One dependency, and it is named rather than hidden.** The core used to be
+pure python with nothing under it. It now requires **numpy**, and what that
+buys is the meaning channel: a 30 MB static multilingual matrix travels in the
+wheel and is attached by default, so a paraphrased question is understood out
+of the box with no download, no account and no network. Measured, it retrieves
+better than the transformer it would otherwise take (MRR 0.88 against 0.71) and
+builds its index a hundred times faster. `Memory(dense=False)` runs without it;
+with numpy missing the channel is absent rather than broken.
+
+The bundled matrix is derived from `minishlab/potion-multilingual-128M` (MIT,
+the model2vec method), reduced to 108k word-pieces and 128 dimensions; the
+segmentation is thirty lines of our own, so there is no tokenizer dependency
+either. See `NOTICE`.
 
 ### Bring your own engine
 
@@ -592,7 +651,10 @@ m = Memory("mind.lmm",
            persona="You are Ada, a warm onboarding coach. Ask before you advise.",
            style="One section per course: name, duration, audience, outcomes.",
            warmth=0.6,          # temperature of the VOICE surfaces only
-           reply_tokens=1200)   # length cap of the voice surfaces only
+           reply_tokens=1200,   # length cap of the voice surfaces only
+           encoder=None,        # the bundled matrix; or any callable
+           reranker="bundled",  # late interaction; or a callable, or None
+           dense=True)          # the meaning channel, on by default
 ```
 
 - **`persona`** is the voice. It rides in front of the phrasing prompts —
@@ -606,6 +668,34 @@ m = Memory("mind.lmm",
 - **`warmth` / `reply_tokens`** tune temperature and length of the same
   voice surfaces. Unset, every surface keeps its measured default. The
   classifiers and the gate keep their pinned settings regardless.
+- **`encoder`** is the meaning channel's vectors. Unset, the matrix that
+  ships in the wheel. Any callable `list[str] -> list[list[float]]` replaces
+  it — sentence-transformers, bge-m3, a vendor's embedding endpoint, an
+  in-house service — and then nothing of ours is loaded.
+- **`reranker`** is the ordering inside a proposal. `"bundled"` is the late
+  interaction over the same matrix; any callable `(query, texts) -> order`
+  replaces it (a cross-encoder, an LLM reranker); `None` turns it off.
+- **`dense=False`** removes the channel entirely. The store then answers
+  exactly as it did before the channel existed, and numpy is not needed.
+
+```python
+# an operator who wants their own encoder, and no reordering
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("BAAI/bge-m3")
+m = Memory("mind.lmm",
+           encoder=lambda texts: model.encode(texts, normalize_embeddings=True).tolist(),
+           reranker=None)
+```
+
+Two more are session attributes rather than constructor arguments, because
+they are about how hard a turn tries rather than how it sounds. Both default
+to **1**, and both were measured down from higher numbers — the readings they
+bought stopped winning once retrieval improved (see **Measured**):
+
+```python
+m.session.CANDIDATES = 3   # evidence subsets generated per question
+m.session.VIEWS = 2        # views of the evidence a judge may buy
+```
 
 ### Serving it to more than one person
 
@@ -716,6 +806,30 @@ spreadsheet loads in milliseconds and why the reasoning half of this system
 costs nothing to run.
 
 See [`examples/`](examples/) — including one that runs with no engine at all.
+
+## What 0.6 changed, and what it cost
+
+Every line here was measured, and three of the changes are RETRACTIONS of
+insurance this project had been paying for.
+
+| change | measurement |
+|---|---|
+| the meaning channel ships and is on | answering line reaches the engine **32% → 79%** |
+| it sits at the DOCUMENT layer, not the line | store retrieval **92% → 99%** (103 known-item queries) |
+| late-interaction reordering | worth more the vaguer the question: 6 terms removed, MRR **0.707 → 0.807** |
+| the candidate ladder, 3 → 1 | eleven field questions: **139 → 104 calls**, correctness 4/11 → 5/11; the narrow candidates won **nothing** |
+| a judge's second view, 2 → 1 | the second view confirmed **nothing**, on either judge; −8 calls in 104 |
+| the derived index is written beside the store | first question **10.6 s → 0.13 s** |
+| a deterministic question is asked once | one refusal turn: −2 calls, −11k tokens |
+| the offline expansion channel | deleted, **−607 lines** |
+
+The three retractions share a shape. Each was a hedge against weak retrieval —
+generate three readings and pick, judge against two views, index the questions
+a line might answer — and each stopped earning the moment retrieval got better.
+None was deleted outright: `CANDIDATES` and `VIEWS` are numbers, and an
+operator whose corpus defeats the reordering raises them.
+
+---
 
 ## Honest limits
 
