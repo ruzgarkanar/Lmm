@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "living-memory-model"
-version = "0.6.2"
+version = "0.6.3"
 description = "A verifiable memory layer for language models: facts in a graph, sources on every claim, and a gate unsupported answers cannot pass."
 readme = "README.md"
 license = "Apache-2.0"

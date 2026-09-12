@@ -4321,7 +4321,7 @@ class Session:
             cap = max(80, limit_chars // 2)
             for text, _origin in store.sentences:
                 for h, v in evidence.record_pairs(text, cap):
-                    if h == head and v:
+                    if evidence._words(h) == evidence._words(head) and v:
                         value = v
                         break
                 if value:
@@ -4383,7 +4383,7 @@ class Session:
         cap = max(80, limit_chars // 2)
         for text, _origin in self.evidence.sentences:
             for h, value in evidence.record_pairs(text, cap):
-                if h == head and value:
+                if evidence._words(h) == evidence._words(head) and value:
                     return value[:40]
         return ""
 
@@ -4583,7 +4583,8 @@ class Session:
         for sid in sorted(store.by_source.get(src, ())):
             for h, value in evidence.record_pairs(
                     store.sentences[sid][0], cap):
-                if h == head and value not in rows:
+                if evidence._words(h) == evidence._words(head) \
+                        and value not in rows:
                     rows.append(value)
         if len(rows) == 1:
             return "%s: %s." % (head, rows[0]), src
