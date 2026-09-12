@@ -5935,6 +5935,46 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W133 a greeting is not a failed question")
+def w133():
+    """The rescue seats read `last_abstained`, which means "this turn
+    asserted nothing" — and that is TRUE OF EVERY GREETING by
+    construction (K5). So "hello" opened the delivery bridge and the
+    composer's general door, and paid a shape reading and a plan
+    proposal for a turn that had already succeeded at being chat.
+    Measured on a live catalogue: seven engine calls for a greeting, of
+    which ONE wrote the reply; six after this, and the turn went from
+    13.6 s to 8.7 s.
+
+    Abstention and failure are two different facts. The rescue belongs
+    to a question that could not be answered, not to a turn that was
+    never a question."""
+    from lmm import extract as extract_mod, generate
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    seen = []
+    real = (extract_mod.extract, extract_mod.reextract, generate.chat,
+            generate.plan_of, generate.turn_shape,
+            generate.is_identity_question)
+    extract_mod.extract = lambda m: {"kind": extract_mod.CHAT, "triples": []}
+    extract_mod.reextract = lambda text: []          # a greeting claims nothing
+    generate.chat = lambda message, *a, **kw: "Selam!"
+    generate.is_identity_question = lambda m: False
+    generate.plan_of = lambda q: seen.append("plan") or []
+    generate.turn_shape = lambda m: seen.append("shape") or "none"
+    try:
+        said = s.respond("selam", teach=False)
+        assert said, said
+        assert s.last_abstained, "a greeting asserts nothing (K5)"
+        assert "plan" not in seen, (
+            "a greeting opened the composer's door: %s" % seen)
+    finally:
+        (extract_mod.extract, extract_mod.reextract, generate.chat,
+         generate.plan_of, generate.turn_shape,
+         generate.is_identity_question) = real
+
+
 @test("W132 a field is its words, not its capitalisation")
 def w132():
     """Traced end to end on a live turn, and every step before the last

@@ -607,7 +607,16 @@ class Session:
         # asks whether a count was wanted, and the count itself is a
         # verified list (`_count_answer`), never a number the engine
         # chose. An answered turn costs nothing extra.
-        if said and self.last_abstained and message and message.strip():
+        # A GREETING IS NOT A FAILED QUESTION. The rescue seats read
+        # `last_abstained`, which means "this turn asserted nothing" —
+        # and that is TRUE OF EVERY GREETING by construction (K5), so a
+        # "hello" opened the composer's general door and paid a plan
+        # proposal for a turn that had already succeeded at being chat.
+        # Measured on the live catalogue: seven engine calls for "selam",
+        # of which one wrote the reply. Abstention and failure are two
+        # different facts and only one of them belongs here.
+        if (said and self.last_abstained and message and message.strip()
+                and self.last_kind != extract.CHAT):
             shape = self._turn_shape(message)
             if shape not in ("count", "order", "sum"):
                 # THE COMPOSER'S GENERAL DOOR: shapes nobody classified
