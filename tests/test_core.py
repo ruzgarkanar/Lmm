@@ -6050,6 +6050,79 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W122 the order inside a proposal is decided by late interaction")
+def w122():
+    """A single vector averages a line into one point, and the averaging
+    is where a vague question loses: the word that mattered is diluted
+    by nine that did not. Late interaction keeps the pieces apart —
+    every piece of the QUESTION scores against the piece of the line it
+    fits best, and the bests are summed. It is ColBERT's idea without
+    ColBERT's model, and it needs nothing extra in the package, because
+    the piece vectors ARE the table.
+
+    Measured on this repository's field corpus (115,913 lines, 304
+    queries) by whether the answering LINE reaches the five the engine
+    is shown:
+
+        words alone                first 31%   in five 32%
+        words + meaning channel    first 31%   in five 60%
+        ...and reordered           first 34%   in five 79%
+
+    Its worth grows as the question gets vaguer, which is the way round
+    that matters — a reader describing a problem does not use the
+    document's words. On the same corpus by terms removed from the
+    query: two terms 0.864 -> 0.884, four 0.779 -> 0.825, six 0.707 ->
+    0.807.
+
+    IT ONLY EVER REORDERS. No line enters by it and none leaves, so
+    nothing it decides can reach the gates; and a reranker that raises
+    detaches itself rather than costing the turn."""
+    from lmm import api, static
+    from lmm.evidence import SentenceStore
+
+    # the reordering is applied, and it is applied to the LINES
+    seen = {}
+    store = SentenceStore()
+    for line in ("The tenant pays on the first of the month.",
+                 "The tenant resides at 12 Mill Road.",
+                 "The tenant may not sublet without consent."):
+        store.add(line, "#doc:one")
+    def watch(query, texts):
+        seen["at"] = (query, list(texts))
+        return list(range(len(texts)))
+    store.attach_dense(lambda texts: [[1.0, 0.0]] * len(texts), rerank=watch)
+    store.find("where does the tenant live", most=3, floor_share=0.0)
+    assert seen, "the reordering was never consulted"
+    asked, lines = seen["at"]
+    assert asked == "where does the tenant live", asked
+    assert any("Mill Road" in line for line in lines), lines
+
+    # a reranker that raises takes itself out, and the turn still answers
+    store2 = SentenceStore()
+    for line in ("The tenant resides at 12 Mill Road.",
+                 "The tenant pays monthly."):
+        store2.add(line, "#doc:one")
+    def angry(query, texts):
+        raise RuntimeError("no")
+    store2.attach_dense(lambda texts: [[1.0, 0.0]] * len(texts), rerank=angry)
+    got = store2.find("tenant", most=2, floor_share=0.0)
+    assert got, "a failing reranker took the answer down with it"
+
+    # bundled by default, off on request, and the operator's own is used
+    if static.available():
+        assert api.Memory(None).session.evidence._rerank is static.maxsim
+        assert api.Memory(None, reranker=None).session.evidence._rerank is None
+        mine = (lambda q, texts: list(range(len(texts))))
+        assert api.Memory(None, reranker=mine).session.evidence._rerank is mine
+        # and it really is late interaction: the question's own words
+        # rank the line that holds them above a longer, blander one
+        order = static.maxsim("where does the tenant live", [
+            "Opening hours are nine to five and the office is closed at "
+            "weekends and on public holidays.",
+            "The tenant resides at 12 Mill Road."])
+        assert order[0] == 1, order
+
+
 @test("W121 the meaning channel ships with the library and is on")
 def w121():
     """An optional extra is a feature most installations never turn on.
