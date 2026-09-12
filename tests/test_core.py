@@ -5935,6 +5935,58 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W127 the reordering is given something to reorder")
+def w127():
+    """A reranker that sees exactly the seats being filled cannot lift a
+    line the words ranked seventh — it can only shuffle what they already
+    chose. The proposal was cut to the answer's width and THEN reordered,
+    which is the wrong order of operations and is invisible whenever
+    several documents are proposed: five documents giving up three lines
+    each is fifteen candidates, and the pool looks adequate by accident.
+
+    On a ONE-document store it is not an accident. Measured on a single
+    12,396-line document, asked for three seats: the answering line was
+    missed entirely; with a pool it comes first. Widening the per-document
+    share instead was measured too and was slightly worse on a five-
+    document store (78% -> 75-77% in five), because a longer proposal
+    dilutes the words' own ranking in the fusion.
+
+    So the pool is a FLOOR on the whole proposal, shared across the
+    documents proposed, never fewer than the seats being filled."""
+    from lmm.evidence import SentenceStore, POOL_FLOOR
+
+    store = SentenceStore()
+    for n in range(60):
+        store.add("Clause %d. The tenant shall keep the premises in repair "
+                  "and shall not sublet without consent, number %d."
+                  % (n, n), "#doc:lease")
+    store.add("Memorized secrets shall be at least 8 characters in length.",
+              "#doc:lease")
+    seen = {}
+    def watch(query, texts):
+        seen["n"] = len(texts)
+        return list(range(len(texts)))
+    store.attach_dense(lambda texts: [[1.0, 0.0]] * len(texts), rerank=watch)
+    store.find("shall the tenant keep the premises", most=3, floor_share=0.0)
+    assert seen.get("n", 0) >= POOL_FLOOR, (
+        "one document proposed %s candidates for three seats"
+        % seen.get("n"))
+
+    # ...and with several documents the floor is SHARED, not multiplied:
+    # nobody gives up twenty-four each.
+    store2 = SentenceStore()
+    for doc in range(6):
+        for n in range(40):
+            store2.add("Doc %d clause %d: the tenant shall keep the premises."
+                       % (doc, n), "#doc:%d" % doc)
+    seen.clear()
+    store2.attach_dense(lambda texts: [[1.0, 0.0]] * len(texts), rerank=watch)
+    store2.find("shall the tenant keep the premises", most=3, floor_share=0.0)
+    got = seen.get("n", 0)
+    assert POOL_FLOOR <= got <= POOL_FLOOR * 2, (
+        "the floor was multiplied rather than shared: %d candidates" % got)
+
+
 @test("W126 a judge buys one view of the evidence, because the second bought nothing")
 def w126():
     """Both judges could ask twice: a focused view of the lines the

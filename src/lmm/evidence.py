@@ -37,6 +37,22 @@ CONTENT = 3
 SCALES = (3, 6, 12)
 WINDOW = SCALES[1]
 
+# HOW MANY CANDIDATES THE REORDERING MUST SEE, IN TOTAL. It used to see
+# exactly the seats being filled, one document's worth each — which is
+# plenty when five documents are proposed and nothing at all when one is.
+# Measured on a single-document store: asked for three seats the answering
+# line was missed entirely; given a pool it came first. Measured on a
+# five-document store, widening the per-document share instead made things
+# slightly worse (78% -> 75-77% in five), because a longer proposal dilutes
+# the words' own ranking in the fusion.
+#
+# So it is a FLOOR on the whole proposal, divided across the documents
+# proposed, rather than a multiplier on the seats: one document gives up
+# twenty-four candidates, five give up five each, and in both cases the
+# reordering has something to reorder.
+POOL_FLOOR = 24
+
+
 # THE CHANNEL LADDER — how much a match is worth depending on WHAT matched.
 #
 # There are two channels in `find`: a query word occurring in a sentence, and
@@ -1481,6 +1497,8 @@ class SentenceStore:
         # separate them, and the near-misses push out the line the words
         # had already found. Meaning says WHICH DOCUMENT; inside it, the
         # question's own words are the sharper instrument.
+        # the floor, shared out — at least the seats being filled
+        share = max(most, -(-POOL_FLOOR // max(1, len(near))))
         proposed = []
         for src in near:
             owned = self.by_source.get(src, ())
@@ -1488,8 +1506,8 @@ class SentenceStore:
             if hits:
                 hits.sort(key=lambda sid: (-overlap[sid], sid))
             else:
-                hits = list(owned)[:most]
-            proposed += [self.sentences[sid][0] for sid in hits[:most]]
+                hits = list(owned)[:share]
+            proposed += [self.sentences[sid][0] for sid in hits[:share]]
         # LATE INTERACTION DECIDES THE ORDER WITHIN THE PROPOSAL. The
         # words ranked these lines by how many query terms they carry,
         # which is exactly the reading that fails when the question does
