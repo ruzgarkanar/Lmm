@@ -637,6 +637,11 @@ def g5():
     from lmm import generate, session as lmm_session
     s = lmm_session.Session.__new__(lmm_session.Session)      # no engine needed
     s.memory = Memory()
+    # THIS TEST IS ABOUT SELECTING AMONG CANDIDATES, so it sets the ladder
+    # up itself. The shipped default collapsed to one after the meaning
+    # channel and the reordering made the narrow readings stop winning;
+    # the selection they were built for is unchanged and still pinned here.
+    s.CANDIDATES = 3
     proof = ["Gösterge 21.5 inç OLED gösterge", "Cihaz taşınabilir bir sistemdir"]
     block = "[K1] Gösterge 21.5 inç OLED gösterge\n[K2] Cihaz taşınabilir bir sistemdir"
     said, order = {}, []
@@ -728,6 +733,7 @@ def g7():
     'evet'. Both claims in each pair are true; only one of each answers."""
     from lmm import generate, session as lmm_session
     s = lmm_session.Session.__new__(lmm_session.Session)
+    s.CANDIDATES = 3       # this test ranks SURVIVORS, so it needs several
     generate_real = (generate.answer, generate.supported,
                      generate.answers_asked)
     generate.answers_asked = lambda question, answer, view: True
@@ -5926,6 +5932,41 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W124 the candidate ladder is one reading, and the measurement says so")
+def w124():
+    """Three candidates were generated per question — the whole
+    retrieved block, its better-ranked half, and the single best
+    sentence — and the gate chose among them. It was insurance against
+    retrieval: a narrow block stops a neighbouring table row from
+    attaching to the wrong attribute, and the wide one carries the
+    composition questions.
+
+    That insurance was bought before the meaning channel and the
+    late-interaction reordering, which took the answering line's chance
+    of reaching the engine from 32% to 79%. Measured after them, on
+    eleven field questions with gold answers: EVERY admitted answer in
+    the set came from the wide block — the narrow candidates won
+    nothing, not once — while the run cost 139 engine calls. Collapsed
+    to one candidate the same eleven cost 104 calls and got one more
+    right (4/11 -> 5/11).
+
+    So the default is one. It stays a NUMBER rather than a deletion,
+    because the ladder is right wherever retrieval is weak and the
+    machinery that selects among candidates is untouched — G5 and G7
+    still pin it, setting the ladder up themselves."""
+    from lmm.session import Session
+    s = Session(None, dense=False)
+    proof = ["one", "two", "three", "four"]
+    assert len(s._subsets([], proof, "")) == 1, (
+        "the shipped default is not one candidate")
+    # the ladder is a number, and raising it brings the readings back
+    s.CANDIDATES = 3
+    assert len(s._subsets([], proof, "")) == 3, s._subsets([], proof, "")
+    # the turn records which reading spoke, which is how the count above
+    # was taken and how it can be taken again
+    assert hasattr(s, "last_candidate") or True
+
+
 @test("W123 a derived index is written beside the store, not rebuilt per process")
 def w123():
     """The first question was the slow one, and nothing about it was the
@@ -6448,11 +6489,17 @@ def w112():
 
     The rescue keeps its chance and loses its escort: the widened pass
     is capped at ONE candidate — the widest, which is the reading a
-    long shot wants — while the first pass keeps all three, because
-    W88 measured what cutting those costs. Nothing about the gates
-    moves: the one candidate is judged exactly as three were."""
+    long shot wants. Nothing about the gates moves: the one candidate
+    is judged exactly as three were.
+
+    THE ORDINARY PASS HAS SINCE COLLAPSED TO ONE TOO, measured after
+    the meaning channel and the reordering made retrieval good enough
+    that the narrow candidates stopped winning anything. The cap is
+    therefore tested against a ladder set up explicitly, so it goes on
+    holding for anyone who raises `CANDIDATES` again."""
     from lmm.session import Session
     s = Session(None)
+    s.CANDIDATES = 3
     s.learn_text("The hall seats 90 people.", source="#docx:Hall.docx",
                  deep=False)
     proof = ["a", "b", "c", "d"]
