@@ -413,7 +413,7 @@ def phrasings(message, sample=()):
     return [w for w in words if w and len(w) > 1][:6]
 
 
-def field_for(message, heads):
+def field_for(message, heads, about=""):
     """Which of the documents' OWN field names does this question ask
     about? One of them, written exactly, or NONE.
 
@@ -422,12 +422,19 @@ def field_for(message, heads):
     general; it is shown the heads the corpus repeats and asked which one
     the question is reaching for. A wrong pick costs a retrieval, never a
     claim: the gates read the evidence, not this."""
+    # WHOSE FIELDS THESE ARE IS PART OF THE QUESTION. The framing said
+    # "a collection of documents", and the identity route asks the same
+    # thing about the memory's OWN rows — where "who are you" reaching
+    # for the field called `name` is obvious to a reader and was NONE to
+    # this call, because nothing in the prompt said the fields describe
+    # the responder. One optional word of framing, no new classifier.
     listing = "\n".join(heads)
-    system = ("Below are the FIELD NAMES used in a collection of documents. "
+    whose = about or "a collection of documents"
+    system = ("Below are the FIELD NAMES used in %s. "
               "Decide which single field the question is asking about. Reply "
               "with that field name copied EXACTLY as written, or with NONE "
               "if no field fits. Output nothing else.\n\nFIELDS:\n"
-              + listing)
+              % whose + listing)
     out = runtime.generate(message, system=system, max_tokens=16,
                            temperature=0.0, small=True)
     return (out or "").strip().strip('".')
@@ -812,11 +819,20 @@ def identity_answer(question, name, id_block):
     made you'→creator. No need to resolve the 'sen/seni' pronoun. The output is
     from Qwen (no hand-written template, condition-5); it cannot stray from the
     facts."""
+    # ANSWER THE QUESTION ASKED, DO NOT INTRODUCE YOURSELF. Measured:
+    # with the maker sitting in the rows, "who wrote you" and "who are
+    # you" both came back "I am <name>" — the guard below, which is
+    # conditional, was being applied by a small engine to every turn, so
+    # the instruction now leads with the question and the guard follows
+    # it. A true sentence that answers a different question is the
+    # failure this whole route exists to avoid.
     system = (f"You are the assistant, and your name is '{name}'. Facts about "
-              f"yourself:\n{id_block}\n\nThe user is asking about you. Reply in the "
-              "SAME LANGUAGE as the question, in ONE short natural sentence: use "
-              "your name for who/what you are, and these facts for who made you. "
-              "Write a real, natural sentence — NEVER copy the raw fact rows or "
+              f"yourself:\n{id_block}\n\nANSWER THE USER'S QUESTION from these "
+              "facts — if they ask who MADE or WROTE you, name the maker from "
+              "the facts; if they ask who or what you are, give your name. "
+              "Reply in the SAME LANGUAGE as the question, in ONE short "
+              "natural sentence. "
+              "NEVER copy the raw fact rows or "
               "the → arrow. Use ONLY this; if something isn't covered, say you "
               "don't know. Never invent, never switch language.\n\n"
               # A MAKER NOBODY LISTED IS A FABRICATION, and it costs the
@@ -825,16 +841,32 @@ def identity_answer(question, name, id_block):
               # and the name went down with it — the operator's own
               # declaration lost to an invented one. If the rows name no
               # maker, the answer is the name alone.
-              "If the facts above do not name who made you, DO NOT NAME "
-              "ANYONE — not a company, not a person, not a model. Say who "
-              "you are and stop there.")
+              # THE GUARD MUST NOT CONTAIN A STANDALONE ORDER. It ended
+              # "Say who you are and stop there", and both the small and
+              # the full engine obeyed that sentence on EVERY turn — so
+              # "who wrote you" was answered with the memory's own name
+              # even while the maker sat in the rows above. The
+              # condition is now inside every clause, and the fallback
+              # names the missing fact instead of redirecting to a
+              # different one.
+              "ONLY IF the facts above list no maker: do not name any "
+              "maker — not a company, not a person, not a model — and "
+              "say instead that you do not know who made you.")
     # IDENTITY IS A FACT, NOT A PLACE FOR SAMPLING. At 0.2 the same
     # question answered "I am Vale Coach" once and something the gate had to
     # drop the next time — and a dropped identity falls through to the
     # chat voice, which says something pleasant and nameless. The rows are
     # fixed; the sentence should be too.
+    # NOT THE SMALL ROAD. An identity turn is rare and it is the most
+    # visible sentence the memory ever speaks — it is about US, and a
+    # user who catches it wrong stops trusting everything after it.
+    # Measured with the maker sitting in the rows: the small engine
+    # answered "who wrote you" with the memory's own NAME, ignoring the
+    # creator row entirely, on both the old instruction and a rewritten
+    # one. The cascade's saving is one call on a turn that happens once
+    # a conversation; the cost was answering a different question.
     return runtime.generate(question, system=system, max_tokens=60,
-                            temperature=0.0, small=True)
+                            temperature=0.0)
 
 
 def is_affirmative(message):

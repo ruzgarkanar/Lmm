@@ -5944,6 +5944,13 @@ def w72():
     from lmm import generate, verify
     tries = []
     real_answer, real_verify = generate.identity_answer, verify.verify
+    # The route also asks WHICH OF OUR OWN FIELDS the question reaches
+    # for (W120). That is a reading, and readings are scenery here for
+    # the same reason the exit gate is — leaving it live made this test
+    # depend on whichever engine the machine happened to have. "who are
+    # you?" reaches for the name.
+    real_fits = generate.field_for
+    generate.field_for = lambda message, heads: "name"
     generate.identity_answer = (lambda q, name, block:
                                 tries.append(1) or
                                 ("I am here to help!"
@@ -5955,6 +5962,7 @@ def w72():
     finally:
         verify.verify = real_verify
         generate.identity_answer = real_answer
+        generate.field_for = real_fits
     assert "Ledger Companion" in out, out
     assert len(tries) == 2, ("the nameless answer was spoken as-is or "
                              "retried more than once: %d" % len(tries))
@@ -6040,6 +6048,71 @@ def w113():
     finally:
         generate.supported = real
     assert ok2 is True and len(asked) == 2, (ok2, asked)
+
+
+@test("W120 the memory answers the identity question it was asked")
+def w120():
+    """Caught by a reader who found it funny, which is how this kind of
+    bug is usually caught. Asked WHO WROTE IT, the memory answered with
+    its own NAME — true, attested, past every gate, and an answer to a
+    different question. The route had one rule for every identity turn:
+    if the sentence does not carry the name, put the name in it. That
+    rule was measured for "who are you", and it was applied to
+    everything.
+
+    The name is not a special case; it is one FIELD among the rows the
+    operator declared. So the question is mapped onto those fields with
+    the instrument this codebase already uses for documents — and onto
+    the fields we COULD hold, not only the ones we do, because a mapping
+    shown only what it has can never discover that the question reaches
+    for something missing. A field we hold: its value must be in the
+    answer. A field we do not: the memory says it does not know, and
+    never answers from the field it happens to have. No field in
+    particular: the route's own default, which is what we are.
+
+    Measured across seven turns in two languages, told and untold: told
+    a maker, "who wrote you" is answered with the maker and "who are
+    you" with the name; told only a name, the maker question is refused
+    in the language it was asked in and the name question still answers.
+    """
+    from lmm import generate, verify
+    from lmm.session import Session
+
+    def route(identity, question, picks):
+        s = Session(None, identity=identity)
+        real = (generate.field_for, generate.identity_answer, verify.verify,
+                generate.refusal)
+        generate.field_for = lambda m, heads, about="": picks
+        # the refusal SENTENCE is the engine's, and this suite runs
+        # without one — the route is what is under test, not the wording
+        generate.refusal = lambda m, **kw: "I don't know that."
+        # the engine writes a true sentence about us that answers
+        # something else — the whole point of the test
+        generate.identity_answer = lambda q, n, b: "I am here to help!"
+        verify.verify = lambda memory, text, *a, **kw: text
+        try:
+            return s._identity_reply(question), s.last_abstained
+        finally:
+            (generate.field_for, generate.identity_answer,
+             verify.verify, generate.refusal) = real
+
+    told = {"name": "Ledger Companion", "maker": "Valemark"}
+    said, abstained = route(told, "who wrote you?", "creator")
+    assert "valemark" in said.lower() and not abstained, (said, abstained)
+    said, abstained = route(told, "who are you?", "name")
+    assert "ledger companion" in said.lower() and not abstained, (
+        said, abstained)
+    # a field the operator never declared: nothing is answered from the
+    # field we happen to have
+    said, abstained = route({"name": "Ledger Companion"},
+                            "who wrote you?", "creator")
+    assert "ledger companion" not in said.lower(), (
+        "the memory answered a maker question with its own name: %r" % said)
+    assert abstained, said
+    # no field in particular: the route's default is what we are
+    said, abstained = route(told, "tell me about yourself", "NONE")
+    assert "ledger companion" in said.lower() and not abstained, (
+        said, abstained)
 
 
 @test("W119 the same question is not asked twice with two prompts")
@@ -8372,8 +8445,12 @@ def x5():
 
 
 def main():
+    # One test at a time while a fix is being iterated: pass any part of
+    # the name (`python3 tests/test_core.py W72`). No argument runs all.
+    only = sys.argv[1] if len(sys.argv) > 1 else ""
     failed = 0
-    for name, function in PASSED:
+    chosen = [(n, f) for n, f in PASSED if not only or only.lower() in n.lower()]
+    for name, function in chosen:
         try:
             function()
         except AssertionError as broke:
@@ -8384,7 +8461,7 @@ def main():
             print("ERROR %s\n      %r" % (name, broke))
         else:
             print("ok    %s" % name)
-    print("\n%d/%d passed" % (len(PASSED) - failed, len(PASSED)))
+    print("\n%d/%d passed" % (len(chosen) - failed, len(chosen)))
     return 1 if failed else 0
 
 

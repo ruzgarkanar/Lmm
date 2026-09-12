@@ -2199,6 +2199,16 @@ class Session:
         raw = generate.identity_answer(message, name, id_block)
         safe = verify.verify(self.memory, raw, self._identity, self.mode,
                              anchor="value")
+        # AN IDENTITY ANSWER MUST ANSWER THE IDENTITY QUESTION ASKED.
+        # Read off a live turn: asked WHO WROTE US, the memory answered
+        # with its own NAME. Every gate passed it, because it is true
+        # and it is attested; it simply answers a
+        # different question, and the memory holds no maker to answer
+        # this one with. That is the exact hole `answers_asked` was
+        # built to close on the factual path (asked who SIGNED, the
+        # answer gave the PREPARER) — the identity route was the one
+        # road that never consulted it, and it is the road where being
+        # wrong is most visible, because the user is asking about US.
         # AN IDENTITY ANSWER THAT DOES NOT NAME THE MEMORY HAS NOT
         # ANSWERED. Measured live: asked who it was three times, the
         # engine wrote the name once and a nameless pleasantry twice —
@@ -2219,15 +2229,75 @@ class Session:
         # Three fixes upstream of this one were chasing that symptom.
         self.last_abstained = False
         self.last_from_graph = True
-        if name and safe and name.lower() not in safe.lower():
+        # WHICH OF OUR OWN FIELDS IS BEING ASKED FOR. The route used to
+        # force the NAME into any identity answer that lacked it — right
+        # for "who are you", and the reason "who wrote you" was answered
+        # with the memory's name while the graph held a maker (or held
+        # none, and should have said so). The name is not a special
+        # case; it is one field among the rows the operator declared, so
+        # the question is mapped onto those fields with the instrument
+        # this codebase already uses for documents (`field_for`), and
+        # the answer must carry THAT field's value.
+        rows = self._identity_rows()
+        # THE FIELDS ARE DESCRIBED, NOT LISTED. Asked to map "who are
+        # you" onto the bare head `name`, the reading returned NONE —
+        # the head is our schema's word, not a reader's. A one-line
+        # description of each field we OWN (the memory's own schema, not
+        # anybody's data) makes the mapping land: name, creator, and
+        # whatever else an operator declared, passed through as written.
+        SAID = {"name": "name — who or what you are, what you are called",
+                "creator": "creator — who made, wrote or built you"}
+        held = {f.lower(): v for f, v in rows}
+        # THE FIELDS WE COULD HOLD ARE OFFERED, NOT ONLY THE ONES WE DO.
+        # Shown only what it has, the mapping can never discover that a
+        # question reaches for something MISSING — asked who wrote us
+        # with no maker declared, it fell back to the name, which is the
+        # defect this whole reading exists to fix. So the schema is
+        # offered whole and the holding is checked afterwards.
+        offered = list(SAID) + [f for f, _v in rows if f.lower() not in SAID]
+        asked = ""
+        try:
+            picked = (generate.field_for(
+                message, [SAID.get(f, f) for f in offered],
+                about="what the assistant knows about ITSELF") or "").strip()
+            picked = picked.split("—")[0].strip().lower()
+            asked = picked if picked in [f.lower() for f in offered] else ""
+        except Exception:                               # noqa: BLE001
+            asked = ""
+        if asked:
+            wanted = held.get(asked, "")
+            if not wanted:
+                # A field was reached for and the operator never declared
+                # it. A memory that was not told does not answer from the
+                # field it happens to have.
+                self.last_abstained = True
+                self.last_from_graph = False
+                return self._refuse(message)
+        else:
+            # NO PARTICULAR FIELD. The question is the route's default —
+            # the user is asking about us, and what we are is the name
+            # the operator declared. With none declared, nothing to say.
+            wanted = name
+            if not wanted:
+                self.last_abstained = True
+                self.last_from_graph = False
+                return self._refuse(message)
+        if safe and wanted.lower() not in safe.lower():
             again = generate.identity_answer(message, name, id_block)
             checked = verify.verify(self.memory, again, self._identity,
                                     self.mode, anchor="value")
-            if checked and name.lower() in checked.lower():
+            if checked and wanted.lower() in checked.lower():
                 return checked
-            return name if not checked else (
-                checked if name.lower() in checked.lower() else name)
-        return safe or self._refuse(message)
+            # Two readings and neither carried it: say the declared
+            # value plainly rather than something pleasant.
+            return wanted
+        if safe:
+            return safe
+        # Nothing about us answers it — and a memory that abstains says
+        # so on this road like every other.
+        self.last_abstained = True
+        self.last_from_graph = False
+        return self._refuse(message)
 
     # --- writing -------------------------------------------------------
     def _write(self, triples, message):
@@ -4665,6 +4735,22 @@ class Session:
         if isinstance(told, dict) and told.get("name"):
             return str(told["name"]).strip()
         return link.label_of(self.memory, self._lmm_key) or ""
+
+    def _identity_rows(self):
+        """What the memory may say about itself, as (field, value).
+
+        The same rows `_chat_id_block` renders, read as DATA rather than
+        as a block — so the route can ask which of these fields a
+        question is reaching for, and abstain when it is reaching for
+        one the operator never declared."""
+        rows = []
+        name = self._spoken_name()
+        if name:
+            rows.append(("name", name))
+        rows += [(link.label_of(self.memory, r.predicate) or "",
+                  link.label_of(self.memory, r.value) or "")
+                 for r in retrieve.gather(self.memory, self._lmm_key)]
+        return [(f, v) for f, v in rows if f and v]
 
     def _chat_id_block(self):
         """The identity rows the chat voice may speak from — one builder,
