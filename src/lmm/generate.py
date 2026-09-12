@@ -496,9 +496,19 @@ def turn_shape(message):
               "material - asks to PRODUCE or RECOMMEND content now "
               "(a plan, programme, draft, catalogue, proposal; states a "
               "need and asks what fits it)\n"
-              "count - asks HOW MANY of something\n"
+              "count - asks HOW MANY things there are, to be counted one "
+              "by one\n"
               "sum - asks HOW MUCH IN TOTAL of an amount (money, hours, "
-              "distance) accumulated over time\n"
+              "distance) ADDED UP ACROSS several things or occasions\n"
+              # THE BOUNDARY BOTH OF THEM SHARE, and the one this
+              # classifier kept crossing: asking what ONE thing's amount
+              # IS — its price, its length, its size — is a plain fact
+              # question and belongs to none. Counting and totalling
+              # need several things to work over; with one, there is
+              # nothing to add up and the record already holds the
+              # answer.
+              "an amount that is simply WRITTEN somewhere (one thing's "
+              "price, duration or size) is not count and not sum -> none\n"
               "order - asks which of two things came FIRST or LATER in "
               "time\n"
               "when - asks WHEN something happened, or the first/last "
@@ -530,6 +540,9 @@ def turn_shape(message):
               "en son ne zaman y\u00fcr\u00fcy\u00fc\u015fe \u00e7\u0131kt\u0131m -> when\n"
               "wann war ich zuletzt wandern -> when\n"
               "what is the duration of the Alpha module -> none\n"
+              "what does this one cost -> none\n"
+              "bunun ücreti ne kadar -> none\n"
+              "was kostet das -> none\n"
               "Empatik Liderlik ka\u00e7 g\u00fcn -> none\n"
               "wie lange dauert das Training -> none\n"
               "dur biraz, hemen \u00f6nerme -> none\n"
@@ -779,50 +792,18 @@ def wants_count(message):
 
 
 def wants_material(message):
-    """Is the message asking the responder to PRODUCE a deliverable NOW — a
-    plan, programme, draft, catalogue, recommendation — rather than sharing
-    context, asking about a fact, or making small talk? Language-independent,
-    few-shot on both sides of the boundary (the is_identity_question
-    pattern). Called only on abstained consultation turns — one tiny call,
-    exactly where the conversation would otherwise end in a shrug."""
-    system = ("Classify if the message asks the responder to PRODUCE or "
-              "DELIVER content now (a plan, programme, draft, catalogue, "
-              "proposal, recommendation). Sharing context, factual "
-              "questions, greetings and thanks are NO. Output ONLY yes/no.\n"
-              "give me your best three-hour plan -> yes\n"
-              "put together a programme for my team -> yes\n"
-              "you decide everything, I don't know -> yes\n"
-              "stell mir bitte einen Katalog zusammen -> yes\n"
-              "prepara una propuesta para nosotros -> yes\n"
-              "propose-moi une formation adapt\u00e9e -> yes\n"
-              # A NEED WITH "WHAT SHOULD WE...?" IS AN ORDER TO PRODUCE,
-              # measured live: a team's situation plus "what do we give
-              # them?" was read as a factual question, so the delivery
-              # seat never opened and the factual chain answered with
-              # whichever row shared the question's words. Stating a need
-              # and asking what fits it IS asking for a recommendation.
-              "my new hires struggle with clients, what should we give them -> yes\n"
-              "yeni terfi edenler i\u00e7in ne verelim -> yes\n"
-              "was empfiehlst du f\u00fcr unser Vertriebsteam -> yes\n"
-              "\u00bfqu\u00e9 nos recomiendas para los gerentes nuevos -> yes\n"
-              # the boundary, measured live: an OFFER OF HELP and a BRAKE
-              # both wear request grammar and are not orders to produce —
-              # "can you help us" opened a catalogue, and "wait, you
-              # suggested too fast" opened ANOTHER one.
-              "we want to run trainings, can you help us -> no\n"
-              "kannst du uns dabei helfen -> no\n"
-              "wait, hold on \u2014 I did not ask for anything yet -> no\n"
-              "dur biraz, hemen önerme -> no\n"
-              "un momento, espera un poco \u2014 a\u00fan no ped\u00ed nada -> no\n"
-              "we are in banking, my team is ten people -> no\n"
-              "what is the duration of the Alpha module -> no\n"
-              "wie lange dauert das Training -> no\n"
-              "risk is our main focus -> no\n"
-              "thanks, that helps -> no\nmerhaba -> no\nhola -> no")
-    out = runtime.generate(message, system=system, max_tokens=3,
-                           temperature=0.0, small=True)
-    return "yes" in out.strip().lower()
+    """Is the message asking the responder to PRODUCE a deliverable NOW —
+    a plan, programme, draft, catalogue, recommendation?
 
+    ONE READING AT THE DOOR, and here it was not even a second axis:
+    "material" was ALREADY one of `turn_shape`'s words, so this was the
+    same question asked a second time with a second prompt on the same
+    sentence. Its measured boundary cases — a need with "what should we
+    give them" is an order to produce, while an offer of help and a
+    brake are not — moved into the shape's own few-shot set, where they
+    serve every caller instead of one.
+    """
+    return turn_shape(message) == "material"
 
 def identity_answer(question, name, id_block):
     """Answers the identity question FROM THE GRAPH. The bridge is built in

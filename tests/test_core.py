@@ -1554,11 +1554,13 @@ def k4():
         "en": ("what is", "who are you", "an eagle", "You're welcome",
                "operating temperature", "Prepared by", "smoking causes"),
         "de": ("ist ein", "was ist", "führt zu", "Aufnahmedauer", "weiß ich",
-               "wer hat dich", "wie geht es", "Kilogramm", "verkürzt"),
+               "wer hat dich", "wie geht es", "Kilogramm", "verkürzt",
+               "empfiehlst", "kannst du", "habe ich insgesamt"),
         "es": ("¿", "es un", "provoca", "Tiempo de instalación", "órgano",
                "gracias", "bisagra"),
         "tr": ("nedir", "bir kuştur", "merhaba", "selam", "yol açar",
-               "kırmızı", "menteşesi", "bilmiyorum"),
+               "kırmızı", "menteşesi", "bilmiyorum", "ne verelim",
+               "hemen önerme", "ücreti"),
     }
 
     def languages(text):
@@ -1577,8 +1579,12 @@ def k4():
         assert len(languages(body)) >= 3, (name, languages(body))
     # The classifiers whose few-shots live inside generate.py, taken from the
     # source so that no model call is needed to see them.
+    # `turn_shape` is on this list because `wants_material`'s few-shot
+    # set moved into it: the rule follows the EXAMPLES, not the function
+    # name — whoever holds them must hold them in several languages.
     for name in ("def is_causal(", "def is_causal_question(",
-                 "def is_identity_question(", "def are_rivals("):
+                 "def is_identity_question(", "def turn_shape(",
+                 "def are_rivals("):
         body = source.split(name)[1].split("\ndef ")[0]
         assert len(languages(body)) >= 3, (name, languages(body))
 
@@ -6034,6 +6040,47 @@ def w113():
     finally:
         generate.supported = real
     assert ok2 is True and len(asked) == 2, (ok2, asked)
+
+
+@test("W119 the same question is not asked twice with two prompts")
+def w119():
+    """Two classifiers were reading the SAME SENTENCE in the same turn
+    for the same decision: `wants_material` asked whether the message
+    orders a deliverable, and `turn_shape` already answered that —
+    "material" was one of its words. One of them was simply the same
+    question asked again with a second prompt and a second round trip,
+    and on a turn whose latency is very nearly its call count that is
+    the cost too. Its measured boundary cases moved into the shape's
+    own few-shot set, where they serve every caller instead of one.
+
+    WHAT WAS TRIED AND REFUTED, so it is not tried again: the identity
+    reading was merged in as well, first as an eighth shape and then as
+    a second field of the same reply. As a shape it competed with
+    "none" and cost both readings; as a second field the small local
+    engine could not hold the format, and a plain "hello" came back
+    marked as a question about the assistant itself and went down the
+    identity route. Identity keeps its own call. The classifiers that
+    may share a journey are the ones that are the same KIND of question
+    — not merely the ones that arrive together."""
+    from lmm import generate
+    real = generate.turn_shape
+    try:
+        generate.turn_shape = lambda m: "material"
+        assert generate.wants_material("anything")
+        generate.turn_shape = lambda m: "none"
+        assert not generate.wants_material("anything")
+        generate.turn_shape = lambda m: "count"
+        assert not generate.wants_material("anything")
+    finally:
+        generate.turn_shape = real
+    source = open(generate.__file__, encoding="utf-8").read()
+    body = source.split("def wants_material(")[1].split("\ndef ")[0]
+    assert "runtime.generate" not in body, (
+        "wants_material still asks the engine on its own")
+    # ...and identity, which was measured to need its own, still has one
+    body = source.split("def is_identity_question(")[1].split("\ndef ")[0]
+    assert "runtime.generate" in body, (
+        "the identity reading was merged again; it was refuted twice")
 
 
 @test("W118 an organ does not pay to be told what its own arithmetic already knows")
