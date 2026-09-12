@@ -3764,7 +3764,26 @@ class Session:
 
     # How many answers the answer step may generate. A BUDGET (model calls),
     # not a threshold.
-    CANDIDATES = 3
+    # HOW MANY EVIDENCE SUBSETS ARE ANSWERED FROM. It was three — the
+    # whole retrieved block, its better-ranked half, and the single best
+    # sentence — because retrieval was not trusted to put the answering
+    # line near the top, and a narrow block stops a neighbouring table
+    # row from attaching to the wrong attribute. That insurance was
+    # bought before the meaning channel and the late-interaction
+    # reordering, which took the answering line's chance of reaching the
+    # engine from 32% to 79%.
+    #
+    # Measured after them, on eleven field questions with gold answers:
+    # every admitted answer in the whole set came from the WIDE block —
+    # the narrow candidates won nothing, once — and collapsing the
+    # ladder took the run from 139 calls to 104 while correctness went
+    # 4/11 to 5/11. Two generations and up to four gate calls a turn,
+    # for nothing.
+    #
+    # It stays a number rather than a deletion: the ladder is right
+    # wherever retrieval is weak, and an operator with a corpus that
+    # defeats the reordering can set it back.
+    CANDIDATES = 1
 
     def _subsets(self, records, proof, fact_block):
         """The distinct EVIDENCE SUBSETS to answer from — at most CANDIDATES.
@@ -3974,6 +3993,7 @@ class Session:
         # survives the order is: answers the question · more grounded · read
         # more of the evidence.
         graded = [e for e in graded if e[0] > 0]
+        self.last_candidate = None
         # `supported` is a model call, so ask in that order: it can only
         # multiply by 1 or 0, so the first candidate it confirms is the choice
         # and the rest need not be asked.
@@ -3992,6 +4012,12 @@ class Session:
             if proof and not self._judge(question, raw, proof, block):
                 self._refused.add(fold(raw))
                 continue
+            # WHICH SUBSET ACTUALLY SPOKE. The ladder exists because
+            # narrow evidence sometimes answers what wide evidence
+            # cannot; whether it still earns three generations is a
+            # question only a count can settle, so the turn records the
+            # rank of the candidate it admitted.
+            self.last_candidate = _rank
             return raw, tried
         return None, tried
 
