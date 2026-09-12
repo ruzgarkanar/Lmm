@@ -1438,8 +1438,8 @@ class SentenceStore:
         else:
             self.last_census = []
         # A SCOPE ANSWERS EVEN WHEN THE WORDS DO NOT REACH IT (W109).
-        # "How long is the first one?" shares no word with "EĞİTİM
-        # SÜRESİ: 2 Tam Gün", so word overlap seats nothing at all and
+        # "How long is the first one?" shares no word with "COURSE
+        # LENGTH: 2 full days", so word overlap seats nothing at all and
         # a scope that only FILTERS filters an empty list. When the
         # conversation has handed this turn its documents, their lines
         # are eligible on scope alone — best word overlap first, which
@@ -1508,10 +1508,11 @@ class SentenceStore:
         # WEIGHTED BY WHAT THE WORD IS WORTH, not counted. The first cut
         # added one per query word a line carried, and that is the one
         # place in this file where a word's rarity was ignored. Measured
-        # live: asked "X eğitiminin katılımcı sayısı nedir", the channel
+        # live: asked "what is X's seat count", the channel
         # proposed the right document and then seated its lines about X's
-        # SUBJECT — because a document about conflict writes "çatışma" on
-        # every line, so the question's topic words outvoted the two that
+        # SUBJECT — because a document about one thing writes that thing's
+        # word on every line, so the question's topic words outvoted the
+        # two that
         # actually named the field. The same statistic the rest of
         # retrieval uses settles it: log(1 + N/df), rare words carry.
         total = max(1, len(self.sentences))

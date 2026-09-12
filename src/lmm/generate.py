@@ -550,7 +550,7 @@ def turn_shape(message):
               "what does this one cost -> none\n"
               "bunun ücreti ne kadar -> none\n"
               "was kostet das -> none\n"
-              "Empatik Liderlik ka\u00e7 g\u00fcn -> none\n"
+              "Vale Kursu ka\u00e7 g\u00fcn -> none\n"
               "wie lange dauert das Training -> none\n"
               "dur biraz, hemen \u00f6nerme -> none\n"
               "we are in banking, my team is ten people -> none\n"

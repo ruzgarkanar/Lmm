@@ -6,7 +6,7 @@ the documents those sentences named, the scope a follow-up inherits,
 the scope one retrieval honoured, the topic a turn belongs to. Each was
 right on its own and none of them agreed, and the last one exposed the
 flaw in all: the topic was REBUILT every turn from the names in the last
-sentence, so an answer whose words named no document — "EĞİTİM SÜRESİ: 1
+sentence, so an answer whose words named no document — "COURSE LENGTH: 1
 gün", with the document in its stamp — reset the conversation to the
 whole corpus, and the next question was answered from anywhere.
 
@@ -120,8 +120,9 @@ class Topic:
         if named:
             # A QUESTION THAT NAMES A DOCUMENT IS ANSWERED FROM IT. This
             # used to return nothing — which cleared the inheritance and
-            # left the turn reading the WHOLE store, so "X eğitiminin
-            # katılımcı sayısı nedir" was seated with that field's line
+            # left the turn reading the WHOLE store, so a question
+            # asking one document's seat count was seated with that
+            # field's line
             # from four other documents and the right one never arrived.
             # Measured on a 103-document catalogue: the named document
             # ranked first and its own answering line was not in the top
