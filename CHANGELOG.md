@@ -4,6 +4,43 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] — 2026-09-13
+
+Two defects found while testing 0.6.0 the way a user would — installed
+from PyPI, against a hundred real documents.
+
+### Fixed
+
+- **The reordering is given something to reorder** (W127). The proposal
+  was cut to the seats being filled and THEN reordered, so the reranker
+  could only shuffle what the words had already chosen. It hid behind
+  the multi-document case (five documents giving up three lines each is
+  fifteen candidates); on a ONE-document store, asked for three seats,
+  the answering line was missed entirely and with a pool it comes first.
+  The pool is now a floor on the whole proposal, shared across the
+  documents proposed — widening the per-document share instead was
+  measured and was worse (78% → 75-77% in five).
+
+- **A line is credited to the document that offered it** (W128). The
+  fused reading recovered each line's source by looking the TEXT back up
+  in the store, first match wins — and a catalogue repeats lines across
+  documents, so a line was credited to whichever document sat first.
+  Read off a live 103-document corpus, four different questions came
+  back stamped with the same alphabetically-first training. Provenance
+  is now recorded as the line is proposed, and the lexical channel's own
+  sources are carried through the fusion.
+
+### Measured, and named as a limit
+
+The bundled static matrix is weak at mapping a PROBLEM STATEMENT onto a
+training title — "ekipte dedikodu var" onto "Etkin Çatışma Yönetimi".
+On eight such questions over a 103-document catalogue it placed the
+right course in the top three once; a torch multilingual encoder
+(`paraphrase-multilingual-MiniLM-L12-v2`) placed it four times. Known-item
+retrieval on the same corpus is 100% either way, so this is a property of
+the class, not of the wiring: content matching is solved, need-statement
+matching is not. Where that class matters, pass `encoder=`.
+
 ## [0.6.0] — 2026-09-13
 
 The release where retrieval stopped being only words, and where three

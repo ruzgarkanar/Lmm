@@ -5935,6 +5935,54 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W128 a line is credited to the document that offered it")
+def w128():
+    """The stamp is the whole promise, and this broke it quietly. The
+    fused reading recovered each line's source by looking the TEXT back
+    up in the store — first match wins — and a catalogue repeats lines
+    across documents ("Katılımcı Sayısı: 16-20 kişi" sits in eighty of
+    them). So a line proposed by one document was credited to whichever
+    document happened to sit first in the store. Read off a live corpus
+    of 103 trainings: four different questions came back stamped with
+    the same alphabetically-first course.
+
+    Provenance is RECORDED where it is known, never reconstructed where
+    it is not. The document that offered a line is remembered as the
+    line is proposed, and the lexical channel's own sources are carried
+    through the fusion — so each seat is stamped by the channel that
+    actually filled it."""
+    from lmm.evidence import SentenceStore
+
+    store = SentenceStore()
+    shared = "Katilimci sayisi 16 - 20 kisi."
+    # alpha holds the shared line and nothing the question can reach
+    store.add(shared, "#doc:alpha")
+    store.add("Alpha covers unrelated matters entirely.", "#doc:alpha")
+    # beta holds it too, and IS the document the channel proposes
+    store.add("Beta teaches negotiation under pressure.", "#doc:beta")
+    store.add(shared, "#doc:beta")
+
+    store.attach_dense(lambda texts: [[1.0, 0.0]] * len(texts),
+                       rerank=lambda q, texts: list(range(len(texts))))
+    store._dense.near = lambda query, most=5: ["#doc:beta"]
+
+    # a question whose words the store never wrote: the lexical channel
+    # seats nothing, so every seat here was filled by the proposal and
+    # the stamp can only come from it
+    got = store.find("zorlu bir muzakere", most=4, floor_share=0.0)
+    seats = list(store.last_sources or [])
+    assert shared in got, ("the shared line never arrived: %r" % got)
+    where = dict(zip(got, seats))
+    assert where[shared] == "#doc:beta", (
+        "a line offered by beta was credited to %r" % where[shared])
+    # ...and every seat is stamped by a document that really holds it
+    for line, src in zip(got, seats):
+        assert src is not None, line
+        assert any(store.sentences[sid][0] == line
+                   for sid in store.by_source.get(src, ())), (
+            "%r is stamped %r, which does not hold it" % (line[:40], src))
+
+
 @test("W127 the reordering is given something to reorder")
 def w127():
     """A reranker that sees exactly the seats being filled cannot lift a
