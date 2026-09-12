@@ -111,10 +111,14 @@ class Dense:
         lines. The name because a catalogue's subject is usually written
         there; the longest lines because they are the ones that say
         something this document says and its neighbours do not."""
+        import heapq                                      # noqa: PLC0415
         from lmm import evidence                          # noqa: PLC0415
-        lines = sorted((store.sentences[sid][0]
-                        for sid in store.by_source.get(source, ())),
-                       key=len, reverse=True)[:PROFILE_LINES]
+        # nlargest, not a full sort: a document here can hold tens of
+        # thousands of lines, and only twelve of them are wanted.
+        lines = heapq.nlargest(
+            PROFILE_LINES,
+            (store.sentences[sid][0]
+             for sid in store.by_source.get(source, ())), key=len)
         name = evidence._source_name(source) if source else ""
         body = " ".join(lines)[:PROFILE_CHARS]
         return ("%s. %s" % (name, body)).strip()
