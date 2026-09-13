@@ -4,6 +4,107 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-09-13
+
+Conversation memory learns what "living" means: a told fact can END, a
+question is asked ON a day, a thing HAS a kind, and a small telling can
+be read whole. Six mechanisms, each generic (no word of any language in
+code), each behind a failing test first. Measured on the same
+30-question chat-memory slice throughout: **43% → 57-60%**, wrong
+claims 7 → 5-6, no category below its start — while the 31-question
+document exam stayed at **30/31, byte for byte** the same behaviour on
+undated stores. Invariants 211 → **218**.
+
+### Added
+
+- **The graph count asks which facts still stand** (W141). "I canceled
+  my Forbes subscription" distils into a record whose own value says it
+  ended; the deterministic walk cannot read an ending in any language,
+  counted a cancelled thing, and the number flipped run to run with the
+  extraction's mood. Now the walk GATHERS, the candidates are laid out
+  by day in their records' own words, and the engine — the one
+  instrument that reads language — is asked which still stand. An offer
+  no candidate wrote is discarded; an empty or failed reading falls
+  back to the full gather; the count never exceeds what the graph
+  gathered.
+
+- **A count's block reads in time order when the stamps are dated**
+  (W140), laid down before the asker's stable priority seat so W98
+  holds — and `items_of` is told it may trust that order only when it
+  is real. An undated corpus builds its block byte for byte as before.
+
+- **The plan knows the day the question is asked** (W142). `now` is a
+  primitive beside `anchor`; the operator may set `session.asked_at` (a
+  benchmark replays last year's questions, a letter is answered a week
+  late), and with none set it is the calendar's today. Verified by
+  construction — the clock is not a claim. A span that covers whole
+  months says so in months too. "How many days ago did I harvest" went
+  from an abstention to the exact answer.
+
+- **A distilled thing carries its KIND as an index key, never a claim**
+  (W143). "I'm also getting Architectural Digest" holds no word of
+  'magazine' or 'subscription'; the kind the distiller files
+  ("magazine subscription") lets the question reach the record. It
+  lives in the evidence aids beside the bridges — a side-file, never
+  the graph — widens what the gather can FIND, and no gate, label or
+  spoken word reads it. Deliberately unverified against the passage,
+  for the same reason a bridge can be: it licenses retrieval, never
+  speech. The distiller also lists ONGOING facts the speaker reports
+  about themselves — a subscription told in the present tense never
+  reached the graph before.
+
+- **A small dated telling is read whole when every organ dies** (W147).
+  Measured on twelve missed chat questions: handed the same lines whole
+  and in time order, the bare engine answered six the selective gather
+  threw away — dispersed clues connect only when they sit in one view.
+  A new organ in the rescue seat, NOT the chain: it runs only on an ASK
+  that still asserted nothing, only when every line is dated, only
+  under a measured reading budget, and its output passes the chain's
+  own two-tier gate — digits non-negotiable (an invented "14 years"
+  dies structurally), word residue by read-back. "Which mode of
+  transport did I use most recently" and "what are the two hobbies" now
+  answer correctly, stamped.
+
+### Fixed
+
+- **A list is not the name of one thing** (W144). The distiller offered
+  "A, B, and C" as ONE thing and the count answered "1:" while listing
+  three. The guard is punctuation, not language: comma-split parts, two
+  or more of them each carrying two or more content words, are a list —
+  skipped, never rewritten; the evidence line stays.
+
+- **Membership by name or kind, never by story.** "Using Mendeley to
+  organize my project sources" carries 'project', and the tool was
+  measured entering a count of projects; a kind is matched as a UNIT
+  ("project management tool" cannot vote on 'project' alone). The
+  projects count went 8 → 2.
+
+- **An enumeration neither outvotes a stated tally nor counts one
+  breath** (W145). The widened distiller filled the graph and the graph
+  count began preempting every "how many" — four stated-tally answers
+  ("20 playlists", "32 species", "15 videos", "10-12 hours") broke at
+  once and came back with three structural guards: candidates wearing
+  one stamp are one telling; a gathered line carrying a number beside
+  met question-words outranks the enumeration; and that tally must live
+  in the ASKER's line — an assistant's chatty digit silences nothing.
+
+- **A leading ordinal is layout, not a name** — the engine's "1. " no
+  longer leaks into an item's name.
+
+### Recorded
+
+- A seventh mechanism was built, measured, and REVERTED before release:
+  handing the organ-dead turn to the factual chain contradicted W93's
+  own measured basis (the chain's 23 confident wrong claims were
+  measured on chat, not documents). The telling organ above is the
+  corrected design — a new organ with its own gates, not a loosened
+  chain. The conflict and the reasoning are in the tests.
+
+- Scoring fidelity, harness-side: LongMemEval's insufficiency questions
+  (gold text says the information is not enough) are abstention
+  questions; an explicit abstention now scores as the correct
+  behaviour it is.
+
 ## [0.6.5] — 2026-09-13
 
 Three defects reported by somebody testing a bot built on this library,
