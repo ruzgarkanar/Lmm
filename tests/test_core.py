@@ -6117,6 +6117,99 @@ def w136():
                                  % group["sources"])
 
 
+@test("W147 a small dated telling is read whole when every organ dies")
+def w147():
+    """Measured on 12 missed chat questions: handed the SAME lines
+    whole and in time order, the bare engine answered six — 'what are
+    the two hobbies' — that our selective gather-and-refuse threw
+    away. The store knew; the reading was too narrow. Not W93's
+    repeal: the chain (free prose over a rank-gathered block) stays
+    banned on count shapes; this is a new ORGAN with its own gate.
+
+    The organ fires only where today we refuse — count- and sum-shaped
+    turns whose organs and plan all died — and only on a telling it
+    can actually read whole: every line dated, total size under a
+    structural bound. The lines go to the engine in TIME order, and
+    the answer passes the coverage gate: every content word must come
+    from the lines or the question, so a claim the telling never
+    wrote is structurally impossible. Undated stores refuse exactly
+    as before; so does anything too large to read whole."""
+    from lmm import generate
+    from lmm.session import Session
+
+    real = (generate.turn_shape, generate.items_of, generate.plan_of,
+            generate.telling_answer, generate.supported)
+
+    def dead_organs():
+        generate.turn_shape = lambda message: "count"
+        generate.items_of = lambda q, b, **kw: []
+        generate.plan_of = lambda q: []
+        generate.supported = lambda answer, block: True
+
+    # the telling is read whole, in time order, and the answer speaks
+    s = Session(None, dense=False)
+    s.asker = "user"
+    s.evidence.add("User: cooking led me to the recipe community.",
+                   "chat 2023/04/09 · user", speaker="user")
+    s.evidence.add("User: photography got me into the photo forum.",
+                   "chat 2023/03/02 · user", speaker="user")
+    seen = {}
+
+    def teller(question, block):
+        seen["block"] = block
+        return "Photography and cooking."
+    try:
+        dead_organs()
+        generate.telling_answer = teller
+        said = s.respond("how many hobbies led me to join online "
+                         "communities?", teach=False)
+    finally:
+        (generate.turn_shape, generate.items_of, generate.plan_of,
+         generate.telling_answer, generate.supported) = real
+    assert "Photography and cooking" in said, said
+    assert "telling" in s.last_route, s.last_route
+    # time order: the March line sits above the April line
+    assert (seen["block"].find("photo forum")
+            < seen["block"].find("recipe community")), seen["block"]
+
+    # the digit gate: a number the telling never wrote dies, no
+    # engine opinion asked
+    s2 = Session(None, dense=False)
+    s2.evidence.add("User: cooking led me to the recipe community.",
+                    "chat 2023/04/09 · user", speaker="user")
+    s2.evidence.add("User: photography got me into the photo forum.",
+                    "chat 2023/03/02 · user", speaker="user")
+    try:
+        dead_organs()
+        generate.telling_answer = lambda q, b: "You have 7 hobbies."
+        said2 = s2.respond("how many hobbies led me to join online "
+                           "communities?", teach=False)
+    finally:
+        (generate.turn_shape, generate.items_of, generate.plan_of,
+         generate.telling_answer, generate.supported) = real
+    assert "7" not in (said2 or ""), said2
+    assert s2.last_abstained, said2
+
+    # an undated store never reaches the organ (W88's room)
+    s3 = Session(None, dense=False)
+    s3.evidence.add("PROGRAMME: Harbour Atlas leadership track.",
+                    "#doc:harbour")
+    called = {"n": 0}
+
+    def spy(question, block):
+        called["n"] += 1
+        return "anything"
+    try:
+        dead_organs()
+        generate.telling_answer = spy
+        s3.respond("how many leadership programmes are there?",
+                   teach=False)
+    finally:
+        (generate.turn_shape, generate.items_of, generate.plan_of,
+         generate.telling_answer, generate.supported) = real
+    assert called["n"] == 0, "an undated store was read whole"
+
+
 @test("W145 an enumeration neither outvotes a stated tally nor counts "
       "one breath")
 def w145():
