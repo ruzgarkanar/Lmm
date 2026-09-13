@@ -5935,17 +5935,62 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W139 a document that does not write a field can still answer")
+def w139():
+    """The cost of making naming BIND, found by re-running the exam
+    after it. The record path owns a turn that names a document, and
+    when its field reading came back empty the turn REFUSED — on the
+    reasoning that a second search could only find somebody else's line.
+    That was true before the binding; afterwards the scope IS the named
+    document, so the ordinary path reads that document and nobody
+    else's.
+
+    It matters because the field reading can miss. Measured live: a
+    corpus writes its duration in days, a reader asked how many HOURS,
+    the bridge nominated a different head, the row came back empty, and
+    a question the document answers in its own first line was refused.
+    "The document does not write THIS FIELD" is not "the document cannot
+    answer" — and the abstention that follows is indistinguishable from
+    honest ignorance, which makes it the worse kind of wrong.
+
+    Falling through costs the ordinary path. Refusing cost the answer."""
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    s._no_teach, s._conversational = True, False
+    # SEAT COUNT is a field the corpus REPEATS — two documents write it
+    s.evidence.add("SEAT COUNT: 18 people.", "#docx:Beta Conflict")
+    s.evidence.add("SEAT COUNT: 24 people.", "#docx:Gamma Leadership")
+    s.evidence.add("COURSE LENGTH: 2 full days.", "#docx:Beta Conflict")
+    # ...and the document the question names writes only one of them
+    s.evidence.add("COURSE LENGTH: 1 full day.", "#docx:Alpha Sales")
+    s.evidence.add("Alpha Sales covers objection handling end to end.",
+                   "#docx:Alpha Sales")
+
+    got = s._record_answer("what is Alpha Sales course length")
+    assert got and got[0], got              # the field it does write
+    empty = s._record_answer("what is Alpha Sales seat count")
+    assert empty is not None and not empty[0], (
+        "the reading should report an empty row, not nothing at all")
+    # the source code must not turn that empty row into a refusal
+    import inspect
+    body = inspect.getsource(Session._respond)
+    assert "return self._refuse(message)" not in body.split(
+        "direct = self._record_answer(message)")[1].split("\n\n")[0], (
+        "an empty field row still refuses outright")
+
+
 @test("W138 an underscore is a space that survived a filename")
 def w138():
     """Reported from a bot somebody else built here, and the symptom was
     not the defect. Asked about a course whose file is named
-    `Bankacilik_101`, the memory answered from a DIFFERENT course, with
+    `Alpha_Sales_101`, the memory answered from a DIFFERENT course, with
     confidence: naming binds the turn (W130), so a name that fails to
     match does not merely miss — it lets a neighbouring name win and the
     answer is stamped with the wrong document.
 
     `\\w` counts an underscore as a letter, so the whole filename was ONE
-    token and a reader asking about "Bankacilik 101" — two tokens — could
+    token and a reader asking about "Alpha Sales 101" — two tokens — could
     never name that document. On a 103-document catalogue six documents
     were unreachable that way. An underscore in a filename is a space
     that survived; `[^\\W_]` is `\\w` without it, and every script keeps
@@ -5953,23 +5998,23 @@ def w138():
     from lmm import evidence as ev
     from lmm.evidence import SentenceStore
 
-    assert ev._words("Bankacilik_101") == ["bankacilik", "101"]
+    assert ev._words("Alpha_Sales_101") == ["alpha", "sales", "101"]
     assert ev._words("Satis_Performans_Koclugu") == [
         "satis", "performans", "koclugu"]
 
     store = SentenceStore()
-    store.add("SEAT COUNT: 18 people.", "#docx:Bankacilik_101")
+    store.add("SEAT COUNT: 18 people.", "#docx:Alpha_Sales_101")
     store.add("SEAT COUNT: 24 people.", "#docx:Hedef Karti ve Portfoy")
-    named = store.named_in("Bankacilik 101 seat count")
-    assert named == {"#docx:Bankacilik_101"}, named
+    named = store.named_in("Alpha Sales 101 seat count")
+    assert named == {"#docx:Alpha_Sales_101"}, named
 
 
 @test("W137 the graph speaks the spelling it was given, not its index key")
 def w137():
     """Reported from a bot somebody else built on this library, which is
     the only place this kind of defect is ever found. The document says
-    "Bankacılığa yeni başlayan müşteri temsilcileri"; the answer came
-    back "bankaciliğa yeni başlayan…" — right, and misspelt in the
+    "Başlayanlar İçin Rehber"; the answer came
+    back "başlayanlar i̇çin rehber" — right, and misspelt in the
     reader's own language.
 
     Folding is how two spellings become one concept and it is
@@ -5987,18 +6032,18 @@ def w137():
     from lmm.core.memory import Memory as Graph
 
     # extraction cleans marks and does NOT fold
-    assert extract._unmark("Bankacılığa Yeni") == "Bankacılığa Yeni"
+    assert extract._unmark("Başlayanlar İçin") == "Başlayanlar İçin"
     assert "\u0307" not in extract._unmark("i\u0307çecek")
 
     mem = Graph()
-    key = link.resolve(mem, "Bankacılığa Yeni Başlayan", create=True)
+    key = link.resolve(mem, "Başlayanlar İçin Rehber", create=True)
     assert key is not None
     shown = link.label_of(mem, key)
-    assert shown == "Bankacılığa Yeni Başlayan", shown
+    assert shown == "Başlayanlar İçin Rehber", shown
     # ...and the identity is still reached by any spelling, because the
     # key is the fold
-    assert link.resolve(mem, "BANKACILIĞA YENİ BAŞLAYAN") == key
-    assert link.resolve(mem, fold("Bankacılığa Yeni Başlayan")) == key
+    assert link.resolve(mem, "BAŞLAYANLAR İÇİN REHBER") == key
+    assert link.resolve(mem, fold("Başlayanlar İçin Rehber")) == key
 
 
 @test("W136 a corpus says which subjects it falls into, with no engine")

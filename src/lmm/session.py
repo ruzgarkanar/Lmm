@@ -1074,14 +1074,24 @@ class Session:
                     self._step("record")
                     line, src = direct
                     self.last_kind = extract.ASK
-                    if not line:        # the document does not speak of it
-                        # ...AND THERE IS NOTHING TO ASK AGAIN. The store
-                        # already answered structurally: this document
-                        # never uses these words, and the scope rule
-                        # forbids answering from another. A second search
-                        # could only find somebody else's line.
-                        self._widened = True
-                        return self._refuse(message)
+                    if not line:
+                        # THE DOCUMENT DOES NOT WRITE THIS FIELD — WHICH
+                        # IS NOT THE SAME AS CANNOT ANSWER. This refused
+                        # outright, on the reasoning that a second search
+                        # could only find somebody else's line. That was
+                        # true before naming BOUND the turn (W130); now
+                        # the scope is the named document, so the chain
+                        # reads THAT document and nobody else's.
+                        #
+                        # It matters because the field reading can miss.
+                        # Measured live: "how many HOURS does X run"
+                        # bridged to the wrong head on a corpus that
+                        # writes its duration in days, the row came back
+                        # empty, and a question the document answers in
+                        # its own first line was refused. Falling through
+                        # costs the ordinary path; refusing cost the
+                        # answer.
+                        self.last_kind = extract.ASK
                     self._mark = src
                     self.last_abstained = False
                     self.last_from_graph = True
@@ -1217,13 +1227,15 @@ class Session:
                     # ran.
                     self._step("record")
                     line, src = direct
-                    if not line:        # the document does not speak of it
-                        self._widened = True
-                        return self._refuse(message)
-                    self._mark = src
-                    self.last_abstained = False
-                    self.last_from_graph = True
-                    return line
+                    if line:
+                        self._mark = src
+                        self.last_abstained = False
+                        self.last_from_graph = True
+                        return line
+                    # An empty row means the document does not write THIS
+                    # FIELD, not that it cannot answer — see the door
+                    # above. The scope is the named document, so falling
+                    # through reads that document and nobody else's.
 
             # IDENTITY ROUTE (architectural bridge): if the subject CANNOT BE
             # RESOLVED (CHAT, or "who made you" where extract can't resolve

@@ -21,8 +21,8 @@ from lmm.core.dataset import fold
 from lmm import inflect
 
 # AN UNDERSCORE IS A SPACE THAT SURVIVED A FILENAME. `\w` counts it as a
-# letter, so "Bankacilik_101" was ONE token and a reader asking about
-# "Bankacilik 101" — two tokens — could never name that document. Measured
+# letter, so "Alpha_Sales_101" was ONE token and a reader asking about
+# "Alpha Sales 101" — two tokens — could never name that document. Measured
 # on a 103-document catalogue: six documents were unreachable by name that
 # way, and because naming BINDS the turn (W130), the question then bound to
 # a different course and answered from it with confidence. `[^\W_]` is
