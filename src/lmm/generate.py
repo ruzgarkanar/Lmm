@@ -499,7 +499,38 @@ def items_of(question, block, dated=False):
     out = (out or "").strip()
     if not out or out.upper().startswith("NONE"):
         return []
-    return [x.strip() for x in out.replace("\n", ",").split(",") if x.strip()]
+    items = [x.strip() for x in out.replace("\n", ",").split(",") if x.strip()]
+    # A LEADING ORDINAL IS LAYOUT, NOT A NAME (W17's rule at this
+    # door): the engine numbers its list, "1. " leaks into the first
+    # item's name, and the spoken row then carries two digits ("2: 1.
+    # subscription…"). Format, not language — a bare number with no
+    # separator ("1984") is untouched.
+    items = [re.sub(r"^\d+[.)]\s+", "", x) for x in items]
+    return [x for x in items if x]
+
+
+def telling_answer(question, block):
+    """One reading over a SMALL dated telling, whole and in time order
+    — the telling organ's one call (`Session._telling_answer`, W147).
+
+    Measured on 12 missed chat questions: the bare engine, handed the
+    same lines whole, answered six that the selective gather threw
+    away — dispersed clues ('photography got me into the photo forum'
+    … three sessions later … 'cooking led me to the recipe community')
+    connect only when both sit in one view. The engine reads; the
+    CALLER gates: every content word of what comes back must be
+    written in the lines or the question (evidence.covered), so this
+    call can propose and never assert."""
+    system = ("Read the dated conversation lines and answer the "
+              "question directly, in one short sentence, using only "
+              "what the lines say. If the lines do not contain the "
+              "answer, output NONE.")
+    out = runtime.generate("LINES:\n%s\n\nQUESTION: %s" % (block, question),
+                           system=system, max_tokens=120, temperature=0.0)
+    out = (out or "").strip()
+    if not out or out.upper().startswith("NONE"):
+        return ""
+    return out
 
 
 def turn_shape(message):

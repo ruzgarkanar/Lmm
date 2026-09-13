@@ -569,6 +569,22 @@ class Session:
                     if spoken and self._asserted_a_fact(again):
                         said = again
                         self.last_abstained = False
+        # THE TELLING SEAT (W147) — the last honest reading before the
+        # shrug stands. An ASK that still asserted nothing, on a store
+        # whose every line is dated and small enough to read whole, is
+        # read whole and in time order: measured on 12 missed chat
+        # questions, this reading answered six the selective gather
+        # threw away, because dispersed clues connect only when they
+        # sit in one view. The organ carries its own two-tier gate
+        # (digits non-negotiable, word residue by read-back), so a
+        # claim the telling never wrote still dies; an undated store
+        # or an answered turn pays nothing at all.
+        if (said and self.last_abstained and not teach
+                and self.last_kind == extract.ASK):
+            told = self._telling_answer(message)
+            if told:
+                said = told
+                self.last_abstained = False
         # THE INFORMED REFUSAL. A turn that declines while the census is
         # rich is refusing with its hands full: the memory could not answer
         # WHAT WAS ASKED, but it holds an attested tally of documents that
@@ -1386,6 +1402,72 @@ class Session:
         if scope and "scope" not in kw:
             kw["scope"] = scope
         return self.evidence.find(query, **kw)
+
+    # How much telling can be read WHOLE — a reading-window budget in
+    # characters, not a memory limit: the store itself is unbounded,
+    # this is one question's window. The figure is measured, not
+    # chosen: the experiment this organ answers to fed 56k-character
+    # tellings whole (~14k tokens, comfortable in a 128k-token
+    # engine) and the engine held; the budget sits at twice that.
+    # Past it the organ is silent and the turn refuses as before —
+    # the first draft said 24000 and was measured refusing the very
+    # tellings the experiment had answered.
+    TELLING_CHARS = 120000
+
+    def _telling_answer(self, question):
+        """A small dated telling, read whole, when every organ died
+        (W147). Measured on 12 missed chat questions: the bare engine,
+        handed the SAME lines whole and in time order, answered six
+        that the selective gather threw away — dispersed clues connect
+        only when both sit in one view. NOT the chain (free prose over
+        a rank-gathered block, banned on count shapes since W93): a
+        new organ with its own gate — every content word of the answer
+        must be written in the lines or the question, so a claim the
+        telling never wrote is structurally impossible. One undated
+        line (the memory's own speech aside) and the organ is silent:
+        a shelf of manuals stays W88's room."""
+        rows, total = [], 0
+        for sid, (text, src) in enumerate(self.evidence.sentences):
+            if src == self.SAID:
+                continue            # our own speech is not the telling
+            day = evidence.stamp_day(src)
+            if day is None:
+                return None
+            rows.append((day, sid, text, src))
+            total += len(text)
+        if not rows or total > self.TELLING_CHARS:
+            return None
+        rows.sort(key=lambda r: (r[0], r[1]))
+        block = "\n".join("[%s] %s" % (src, text)
+                          for _day, _sid, text, src in rows)
+        try:
+            raw = generate.telling_answer(question, block)
+        except Exception:                               # noqa: BLE001
+            return None
+        if not raw:
+            return None
+        # THE CHAIN'S OWN TWO-TIER GATE, unchanged in strictness
+        # (session._answer's law): full coverage passes outright;
+        # below it, only the read-back's confirmation does — the
+        # connectives any language sprinkles through a sentence
+        # ("and", "you") are judged by `generate.supported`, and when
+        # in doubt the answer drops. Digits stay non-negotiable:
+        # digits_ok runs in both tiers.
+        if not evidence.digits_ok(raw, block):
+            return None
+        if evidence.coverage(raw, block, question) < 1.0:
+            try:
+                if not generate.supported(raw, block):
+                    return None
+            except Exception:                           # noqa: BLE001
+                return None
+        said_words = set(evidence._words(raw))
+        best = max(rows, key=lambda r:
+                   len(said_words & set(evidence._words(r[2]))))
+        self._step("telling")
+        self.last_abstained = False
+        self._mark = best[3]
+        return raw
 
     def _recap_answer(self, question):
         """A question about the answer is answered from the answer (W108).
