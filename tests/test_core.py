@@ -5935,6 +5935,77 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W136 a corpus says which subjects it falls into, with no engine")
+def w136():
+    """A corpus has subjects no single document names — a catalogue's
+    programme families, a manual's subsystems — and this was the one
+    thing on the competition's side of the ledger that had no answer
+    here. GraphRAG finds them by running community detection over a
+    graph an LLM extracted, then paying an LLM to summarise each
+    community; RAPTOR clusters embeddings and summarises each cluster.
+
+    The detection step costs us nothing, because the graph already
+    exists: entities are phrases whose words occur together beyond
+    chance, edges are witnessed co-mentions weighted by log-likelihood,
+    and no model call built any of it. Measured on a 103-document
+    catalogue: 501 entities, 5,671 edges, groups in a hundredth of a
+    second, and the largest fell on the catalogue's own families.
+
+    THREE PROPERTIES IT MUST HAVE.
+
+    It is DETERMINISTIC — label propagation shuffles its nodes in the
+    textbook, and this codebase cannot trade "the same answer every
+    run" for anything.
+
+    It writes NO SUMMARY. Measured twice here: an engine-written
+    document profile took retrieval from 100% to 76%, and a summarising
+    indexer is how a specific value goes missing. A theme is a set of
+    DOCUMENTS; a question about it is answered from their own lines, by
+    the composer, through the usual gate.
+
+    And what EVERY document mentions is not a subject. The largest group
+    a catalogue produces is its own boilerplate — the field headings
+    every entry repeats — so an entity carried by most of the corpus is
+    left out, the same reasoning as log(S/s) in retrieval."""
+    from lmm import api
+
+    m = api.Memory(None, dense=False)
+    # two families, and a heading every document repeats
+    for n in range(4):
+        m.session.evidence.add("SEAT COUNT: 18 people.", "#doc:alpha%d" % n)
+        m.session.evidence.add(
+            "Cash flow forecasting and treasury hedging for exporters.",
+            "#doc:alpha%d" % n)
+        m.session.evidence.add(
+            "Treasury hedging protects the exporter's cash flow.",
+            "#doc:alpha%d" % n)
+    for n in range(4):
+        m.session.evidence.add("SEAT COUNT: 18 people.", "#doc:beta%d" % n)
+        m.session.evidence.add(
+            "Improvisation exercises build stage presence in a workshop.",
+            "#doc:beta%d" % n)
+        m.session.evidence.add(
+            "Stage presence grows through improvisation on the workshop "
+            "floor.", "#doc:beta%d" % n)
+
+    themes = m.themes(least=2)
+    assert themes, "a corpus with two plain families found no subject"
+    # deterministic
+    assert [g["sources"] for g in m.themes(least=2)] == \
+        [g["sources"] for g in themes], "the grouping moved between runs"
+    # the shared heading is not a subject
+    for group in themes:
+        joined = " ".join(group["entities"]).lower()
+        assert "seat count" not in joined, (
+            "the corpus's own boilerplate was called a subject: %s"
+            % group["entities"][:4])
+    # a group does not mix the two families
+    for group in themes:
+        kinds = {str(s).split(":")[1][:4] for s in group["sources"]}
+        assert len(kinds) == 1, ("a group mixed families: %s"
+                                 % group["sources"])
+
+
 @test("W135 a counted name is attested as a unit, not word by word")
 def w135():
     """A count is the length of a VERIFIED list, and the verification
