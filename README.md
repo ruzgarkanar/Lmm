@@ -782,6 +782,7 @@ listed here because a feature with no documented entry point is not a feature.
 | `m.save(path)` | graph and evidence, both | no engine |
 | `m.compose(brief, topics=, on_line=)` | a structured draft from the evidence — per-topic gathering, gated line by line, streamed to `on_line` as lines survive, returned with its sources | engine |
 | `m.where(term)` | which documents mention this — names and counts, the census | no engine |
+| `m.themes()` | which documents belong together, and on what entities — community detection over the store's own graph | no engine |
 | `m.distil(text, source=, speaker=)` | write the EVENTS a passage reports into the graph — the engine lists them, the passage's own words admit them, each survivor is one gated dated record | one call per passage |
 | `m.bridge()` | teach the store, once, what words readers ask its fields with — afterwards those questions are answered by the record itself | one call per field, once |
 | `m.session.respond(msg, teach=False, on_line=)` | a conversational turn — `teach=False` is the consultation surface (context, brief, delivery; cannot write memory) | engine |
