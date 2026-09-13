@@ -49,7 +49,8 @@ def resolve(memory, label, vectors=None, create=False):
     """
     if not label:
         return None
-    label = fold(str(label).strip())
+    surface = str(label).strip()
+    label = fold(surface)
     if not label:
         return None
     vec = (vectors or {}).get(label)
@@ -95,7 +96,19 @@ def resolve(memory, label, vectors=None, create=False):
                 _index_add(index, label, key)   # alias: count unchanged, index now
                 return key
     if create:
-        return memory.identify(label, vector=vec)
+        key = memory.identify(label, vector=vec)
+        # THE KEY IS FOLDED; WHAT A READER SEES SHOULD NOT BE. Folding is
+        # how two spellings become one concept and it is load-bearing —
+        # but the folded string is an INDEX KEY, and the graph path spoke
+        # it. Reported from a live bot: the document says "Bankacılığa
+        # yeni başlayan müşteri temsilcileri" and the answer came back
+        # "bankaciliğa yeni başlayan…", correct and misspelt. The surface
+        # the writer used is kept beside the key as an alias, and
+        # `label_of` prefers it; every lookup still folds first, so
+        # nothing about identity moves.
+        if surface != label:
+            memory.identify(surface, same_as=key)
+        return key
     return None
 
 
@@ -105,5 +118,11 @@ def label_of(memory, key):
         return ""
     held = memory.identities.get(key) if isinstance(key, int) else None
     if held is not None and held.labels:
+        # A SURFACE ALIAS IS WHAT A READER SHOULD SEE. The first label is
+        # the folded key; a label that does not equal its own fold is the
+        # spelling the document used, and that is the one to show.
+        for candidate in held.labels:
+            if candidate and fold(candidate) != candidate:
+                return candidate
         return held.labels[0]
     return str(key)
