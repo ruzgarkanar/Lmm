@@ -1775,6 +1775,7 @@ class Session:
             offered = generate.items_of(question, block)
         except Exception:                               # noqa: BLE001
             return None
+        line_word_sets = [set(evidence._words(line)) for line in lines]
         kept, seen = [], set()
         for item in offered:
             words = evidence._words(item)
@@ -1787,8 +1788,23 @@ class Session:
             # carries a letter is not naming anything.
             if all(not any(c.isalpha() for c in w) for w in words):
                 continue
-            if not all(any(inflect.same_stem(w, h) for h in held)
-                       for w in words):
+            # A NAME IS ATTESTED AS A UNIT, NOT WORD BY WORD. The check
+            # was "every word appears SOMEWHERE in the block", and the
+            # block is many lines — so a whole clause passed whenever its
+            # words happened to be scattered across them. Measured on 101
+            # chat-memory questions, the worst count failure was exactly
+            # that: the engine offered "which are your Data Mining
+            # project and your Database Systems project" as ONE item, it
+            # verified, and the turn answered "1:" while listing two
+            # things — a count contradicting its own list.
+            #
+            # It is the rule the sum organ already keeps, where an amount
+            # must sit on a line that also carries the item's words. One
+            # line must carry the whole name, or the name was never
+            # written.
+            if not any(all(any(inflect.same_stem(w, h) for h in line_words)
+                           for w in words)
+                       for line_words in line_word_sets):
                 continue                # a name the evidence never wrote
             key = " ".join(words)
             if key in seen:

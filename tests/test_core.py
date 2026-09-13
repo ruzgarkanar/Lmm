@@ -5935,6 +5935,49 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W135 a counted name is attested as a unit, not word by word")
+def w135():
+    """A count is the length of a VERIFIED list, and the verification
+    asked whether every word of an item appears SOMEWHERE in the block.
+    The block is many lines, so a whole clause passed whenever its words
+    happened to be scattered across them. Measured on 101 chat-memory
+    questions, the worst count failure was exactly that: the engine
+    offered "which are your Data Mining project and your Database
+    Systems project" as ONE item, it verified, and the turn answered
+    "1:" while listing two things — a count contradicting its own list.
+
+    It is the rule the sum organ already keeps, where an amount must sit
+    on a line carrying the item's words. One line must carry the whole
+    name, or the name was never written. Re-measured on the sixteen
+    count-routed questions: the contradiction became an abstention and
+    the four it answered correctly stayed answered."""
+    from lmm import generate
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    for line in ("User: I am working on my Data Mining project this week.",
+                 "User: The Database Systems project is due Friday.",
+                 "User: My thesis is separate from both."):
+        s.evidence.add(line, "chat 2023/05/20 (Sat) 10:00")
+
+    real = generate.items_of
+    try:
+        # ONE item whose words are scattered across three lines
+        generate.items_of = lambda q, block: [
+            "which are your Data Mining project and your Database Systems "
+            "project"]
+        said = s._count_answer("how many projects am I working on?")
+        assert said is None, (
+            "a clause was counted as one item: %r" % said)
+        # ...and real names, each written on a line, still count
+        generate.items_of = lambda q, block: ["Data Mining project",
+                                              "Database Systems project"]
+        said = s._count_answer("how many projects am I working on?")
+        assert said and "2" in said, said        # the row is phrased (W101)
+    finally:
+        generate.items_of = real
+
+
 @test("W134 two events told the same day are not ordered by the clock")
 def w134():
     """The ordering organ already declined a tie — "a tie is not a guess"
