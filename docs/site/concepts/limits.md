@@ -48,6 +48,22 @@ marketing; this one is part of the measurement.
   (`session.CANDIDATES`, `session.VIEWS`), so a corpus that proves us wrong
   can put them back in one line.
 
+- **Chat memory is measured mid-climb, not conquered.** On a fixed
+  30-question LongMemEval slice (gpt-4o-mini as engine) 0.7 measures
+  57-60%, from 43% at the cycle's start; published chat-memory products
+  claim ~71% under stronger engines and different protocols. The
+  remainder is named, not mysterious: summing durations across records,
+  ordering THREE events, reflecting a stored preference in a
+  recommendation, a ±1-day anchor — and roughly half of what is still
+  missed, the bare engine handed the same lines also misses, confidently,
+  where this memory abstains.
+- **Extraction is not byte-stable across processes.** At temperature
+  zero, the same passage can distil into slightly different record sets
+  run to run, and a 30-question score moves ±2 with it. The 0.7 guards
+  make the ANSWERS stable against this mood (a cancelled thing is never
+  counted, a stated tally outranks an enumeration); the variance itself
+  is the engine's, not the store's.
+
 - **The sample is small.** The published comparisons rest on a handful of
   documents and a few dozen questions. Every question, answer and scoring
   decision is in the repository; widen it and tell us what breaks.

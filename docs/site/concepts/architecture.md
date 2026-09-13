@@ -94,6 +94,20 @@ the asker's own lines seat first. `Memory.distil()` writes the events a
 chatty passage reports into the graph — listed by the engine, admitted by
 the passage's own words, gated like any other fact.
 
+**A living fact (0.7).** A told fact can END — "I canceled my
+subscription" is a record whose own value says so — and the counting
+walk hands its candidates, laid out by day, to the engine for a currency
+reading: the store still disposes, the count never exceeds what the
+graph gathered. Each distilled thing carries its KIND ("magazine
+subscription") as an index key beside the bridges — it widens what a
+question can FIND and no gate or spoken word reads it. The asking day
+itself is metadata (`session.asked_at`, the plan's `now`), so "how many
+days ago" is arithmetic, not prose. And when every organ dies on a
+store whose every line is dated and small enough to read whole, a last
+organ reads the telling in time order — through the chain's own
+two-tier gate, digits non-negotiable — so dispersed clues can connect
+without loosening anything.
+
 **The trust ladder.**
 
 | level | source | trust | |

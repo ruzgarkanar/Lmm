@@ -76,7 +76,7 @@ insurance is worth buying where the risk is real.
 | `m.compose(brief, topics=, on_line=)` | a structured draft from the evidence — per-topic gathering, gated line by line, streamed to `on_line` as lines survive, returned with its sources | engine |
 | `m.where(term)` | which documents mention this — names and counts, the census | no engine |
 | `m.themes()` | which documents belong together, and on what entities — community detection over the store's own graph, deterministic | no engine |
-| `m.distil(text, source=, speaker=)` | write the EVENTS a passage reports into the graph — the engine lists them, the passage's own words admit them, each survivor is one gated dated record | one call per passage |
+| `m.distil(text, source=, speaker=)` | write the events AND ongoing facts a passage reports into the graph — the engine lists each as thing/what-happened/KIND, the passage's own words admit the thing, each survivor is one gated dated record; the KIND is an index key beside the bridges, never a claim (0.7) | one call per passage |
 | `m.bridge()` | teach the store, once, what words readers ask its fields with — afterwards those questions are answered by the record itself, in milliseconds | one call per field, once |
 | `m.about(label)` | the records held on a concept | no engine |
 | `m.facts` | how many records exist | no engine |
@@ -96,6 +96,13 @@ insurance is worth buying where the risk is real.
 | `m.session.curiosity()` | what it has been asked and cannot answer | no engine |
 | `m.session.sleep()` | fade, reinforce, settle episodic into semantic | no engine |
 | `m.session.verdict(old, new)` | arbitrate two rival values | engine |
+
+Two operator-set facts about the conversation itself (both optional):
+
+| attribute | what it says |
+|---|---|
+| `m.session.asker = "user"` | WHO is asking — that speaker's lines seat first in the event organs; the tally that outranks an enumeration must live in this speaker's line |
+| `m.session.asked_at = date(2023, 4, 18)` | WHEN the question is asked — the plan's `now` primitive reads it, so "how many days ago…" is arithmetic against this day; unset, it is the calendar's today (0.7) |
 
 A record is a `core.memory.Record`: `.subject`, `.predicate`, `.value` are
 concept **keys**, not strings — one spelling can be two entities, one entity

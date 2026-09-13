@@ -172,12 +172,21 @@ and the envelope speaks, as before. No month table, no date grammar.
 it per line, `session.asker` says who is asking, and the event organs seat
 that speaker's lines first — nothing excluded, priority alone moves.
 
+**When the question is asked** is metadata too (0.7): `session.asked_at`
+takes a `datetime.date`, the plan's `now` primitive reads it, and "how
+many days ago…" becomes arithmetic between a line's stamp and the asking
+day. With none set, `now` is the calendar's today — a benchmark replays
+last year's questions, a letter is answered a week late.
+
 **`m.distil(text)`** is the write-time reading for passages where events
-melt into talk: the engine LISTS each event as thing/what-happened, the
-passage's own words admit it, and each survivor becomes one gated dated
-record — while the passage is kept as evidence, so nothing is lost.
-Documents that state their own structure need none of it; their rows reach
-the graph for free.
+melt into talk: the engine LISTS each thing as thing/what-happened/KIND —
+ongoing facts included, "I'm also getting X" is no less a fact than "I
+bought X" — the passage's own words admit the thing, and each survivor
+becomes one gated dated record. The KIND ("magazine subscription") is an
+index key beside the bridges, never a claim: it widens what a later
+question can FIND and no gate or spoken word ever reads it. The passage
+is kept as evidence, so nothing is lost. Documents that state their own
+structure need none of it; their rows reach the graph for free.
 
 ---
 
@@ -808,6 +817,32 @@ costs nothing to run.
 
 See [`examples/`](examples/) — including one that runs with no engine at all.
 
+## What 0.7 changed — conversation memory learns what "living" means
+
+A told fact can END, a question is asked ON a day, a thing HAS a kind,
+and a small telling can be read whole. Six mechanisms, all generic (no
+word of any language in code), each behind a failing test first —
+measured on one fixed 30-question chat-memory slice throughout, with
+the document exam re-run after as the control.
+
+| change | measurement |
+|---|---|
+| the graph count asks the engine which facts still stand | "how many subscriptions" flipped between a fabricated 3 and a short 1; now the right two entities, cancelled one pruned, stamped |
+| the plan knows the asking day (`session.asked_at`, the `now` primitive) | "how many days ago…" abstention → the exact answer |
+| a distilled thing carries its KIND — an index key, never a claim | "I'm also getting Architectural Digest" reachable by "magazine subscriptions" |
+| a list is not a name; membership by name or kind, never by story | a projects count that swallowed tools and clauses: 8 → 2 |
+| a stated tally outranks an enumeration; one breath is not a series | four stated-tally answers ("20 playlists", "32 species"…) restored |
+| a small dated telling is read whole when every organ dies (its own gates) | "which did I use most recently", "what are the two hobbies": refusal → stamped answers |
+| **the slice, before → after** | **43% → 57-60%** · wrong claims 7 → 5-6 · document exam **30/31, unchanged** · invariants 211 → **218** |
+
+A seventh mechanism was built, measured and **reverted before release**:
+handing these turns to the factual chain contradicted a measured law
+(the chain's 23 confident wrong claims were measured on chat). The
+whole-telling organ is the corrected design — a new reading with its
+own gates, not a loosened chain. Undated stores — every document
+corpus — build their blocks byte for byte as before, and the tests
+assert it.
+
 ## What 0.6 changed, and what it cost
 
 Every line here was measured, and three of the changes are RETRACTIONS of
@@ -836,23 +871,29 @@ operator whose corpus defeats the reordering raises them.
 
 Kept current, and deliberately specific.
 
-- **Cross-session counting over chatty dialogue is not solved.** Asked how many
-  of something a long conversation reports, the memory is systematically one or
-  two short when the items are named differently each time a speaker mentions
-  them ("finished the Mustang build" is a fifth model kit no word search
-  recognises). Five levers were measured against this wall — wider gathering,
-  the offline expansion (since deleted), speaker priority, whole-turn
-  extraction, and the
-  event distiller — and none of them moved a twenty-question sample beyond
-  noise. The distiller is the right shape and ships (`m.distil`); the reading
-  that makes it complete is not written.
-- On LongMemEval's 500-question chat-memory benchmark, with gpt-4o-mini as the
-  engine, this memory scores **37.6%** — against published figures of 63.8%
-  (Zep) and 49.0% (Mem0), both measured with a far stronger answering model.
-  That benchmark is a long-personal-conversation exam, not a document exam;
-  the same code answers 40/40 on the field set above. Both numbers are true
-  and neither is the whole picture. The slices this release moved are named in
-  the changelog; the ones it did not are named here.
+- **Cross-session recall over chatty dialogue is partly closed, and the
+  remainder is named.** 0.7's kind keys and whole-telling reading answer the
+  cases that were the face of this wall ("getting Architectural Digest" now
+  counts as a magazine subscription; "what are the two hobbies" answers,
+  stamped). Still open, each a missing derivation rather than a mystery:
+  summing durations across records ("how many years in total"), ordering
+  THREE events (the order organ compares two), reflecting a stored
+  preference inside a recommendation, and a ±1-day anchor when the event's
+  date is written in the text but the envelope's stamp wins. One more is
+  variance, not architecture: extraction at temperature 0 is not
+  byte-stable across processes, and a 30-question score moves ±2 with it.
+- On a fixed 30-question LongMemEval slice (5 per category, gpt-4o-mini as
+  the engine), 0.7 measures **57-60%**, from 43% at the start of the cycle;
+  the full 500-question run has not been repeated since. Published
+  chat-memory figures (Zep's current claim is ~71% under a GPT-4o judge)
+  use different engines and protocols. That benchmark is a
+  long-personal-conversation exam, not a document exam; the same code
+  answers 40/40 on the field set above and its document exam did not move
+  during any of this. Both numbers are true and neither is the whole
+  picture. What each release moved is named in the changelog; what it did
+  not is named here — including that roughly half of what we still miss,
+  the bare engine handed the same lines also misses, and misses
+  confidently where this memory abstains.
 
 - Answer *selection* can still pick a true-but-off-target sentence. The gate
   guarantees non-fabrication, not perfect relevance.

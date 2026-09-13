@@ -53,6 +53,13 @@ line that answers actually reaches the engine:
 
 No model call in any of it.
 
+And 0.7 taught the conversation side what "living" means — a told fact
+can end, a question is asked on a day, a thing has a kind, a small
+telling can be read whole: a fixed 30-question chat-memory slice went
+**43% → 57-60%** while the document exam stayed exactly where it was.
+The remainder, and what the bare engine also cannot do, is on
+[Honest limits](concepts/limits.md).
+
 Every number on this site carries the commit it was measured at, and the
 [two bugs found in our own scorer — both penalising the competitor —
 were published with the corrected numbers](reference/measurements.md).
