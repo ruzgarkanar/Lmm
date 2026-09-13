@@ -1738,13 +1738,52 @@ class Session:
                         or (inflect.kin(q, w) and inflect.kin(w, q)))
             if not any(_meets(q, w) for w in words for q in qw):
                 continue
-            told.setdefault(subject or value, src)
+            told.setdefault(subject or value, (src, value))
         if len(told) >= 2:
+            # THE GRAPH GATHERS, THE ENGINE READS ENDINGS, THE STORE
+            # DISPOSES (W141). A told fact can END — "canceled my
+            # Forbes subscription" distils into a record whose own
+            # value says so — and the deterministic walk cannot read an
+            # ending in any language (a word list is the hard-coding
+            # this codebase forbids). Counting one was measured: 3
+            # where the store's own text says 2, flipping run to run
+            # with the extraction's mood. So the walk still GATHERS,
+            # the candidates are laid out by day in their records' own
+            # words, and the engine — the one instrument that reads
+            # language — is asked which still stand. An offer no
+            # candidate wrote is discarded, an empty or failed reading
+            # falls back to the full gather, and the count never
+            # exceeds what the graph gathered. One small call, only on
+            # graph-counted turns.
+            names = sorted(told)
+            rows = sorted(told.items(),
+                          key=lambda kv: evidence.stamp_day(kv[1][0]) or ())
+            block = "\n".join("[%s] %s — %s" % (src, name, value)
+                              for name, (src, value) in rows)
+            try:
+                offered = generate.items_of(question, block, dated=True)
+            except Exception:                           # noqa: BLE001
+                offered = None
+            if offered:
+                held = [set(evidence._words(n + " " + told[n][1]))
+                        for n in names]
+                kept = []
+                for item in offered:
+                    words = evidence._words(item)
+                    if not words:
+                        continue
+                    hit = next(
+                        (names[i] for i, hw in enumerate(held)
+                         if all(any(inflect.same_stem(w, h) for h in hw)
+                                for w in words)), None)
+                    if hit and hit not in kept:
+                        kept.append(hit)
+                if kept:
+                    names = sorted(kept)
             self._step("count")
             self.last_abstained = False
             self.last_from_graph = True
-            self._mark = next(iter(told.values()), "")
-            names = sorted(told)
+            self._mark = told[names[0]][0] if names else ""
             return self._spoken_row(
                 question, "%d: %s." % (len(names), ", ".join(names)))
 
@@ -1774,6 +1813,27 @@ class Session:
             sources = sources + [s for _l, s in extra]
         if not lines:
             return None
+        sources = sources + [""] * (len(lines) - len(sources))
+        # THE BLOCK READS IN TIME ORDER WHEN THE STORE KNOWS TIME (W140).
+        # Retrieval order is word-overlap order, and it put the line that
+        # ENDED an item below the line that began it — the engine read
+        # two standing facts and counted a cancelled thing. When every
+        # gathered stamp parses as dated, the lines are laid out by day
+        # (stable: same-day lines keep their seats, W134's grain), and
+        # `items_of` is told it may trust that order. One undated stamp
+        # and nothing moves — a shelf of manuals builds its block byte
+        # for byte as before, the promise `_supersede` already keeps.
+        # The chronology is laid down BEFORE the asker's priority seat
+        # (W98): that reorder is stable, so the asker's lines still come
+        # first and EACH voice's lines stay oldest-to-newest — the
+        # update-reading needs time order within a voice, and a
+        # cancellation is told by the voice that subscribed.
+        days = [evidence.stamp_day(src) for src in sources]
+        chrono = bool(days) and all(day is not None for day in days)
+        if chrono:
+            order = sorted(range(len(lines)), key=lambda i: days[i])
+            lines = [lines[i] for i in order]
+            sources = [sources[i] for i in order]
         lines, sources = self._asker_first(lines, sources)
         # each line under its dated stamp: two tellings of one event
         # carry one date, and the engine can see that they are one
@@ -1784,7 +1844,7 @@ class Session:
         for line in lines:
             held |= set(evidence._words(line))
         try:
-            offered = generate.items_of(question, block)
+            offered = generate.items_of(question, block, dated=chrono)
         except Exception:                               # noqa: BLE001
             return None
         line_word_sets = [set(evidence._words(line)) for line in lines]

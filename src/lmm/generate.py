@@ -465,7 +465,7 @@ def asked_words(head, value=""):
             if w.strip()]
 
 
-def items_of(question, block):
+def items_of(question, block, dated=False):
     """The distinct items in this evidence that answer the question — a
     LIST, never a number. The counting organ's one engine call
     (`Session._count_answer`): the engine reads the seated lines and
@@ -480,6 +480,17 @@ def items_of(question, block):
               "of those items, exactly as the evidence writes them, "
               "comma-separated. Name nothing the evidence does not "
               "contain. If there are none, output NONE.")
+    if dated:
+        # Only promised when the caller LAID the block out by date
+        # (W140) — an unordered block told "later overrides earlier"
+        # would be handed a licence to guess. Calibration, not rules:
+        # what "ended" looks like is the engine's reading, in whatever
+        # language the evidence speaks; no word is matched in code.
+        system += (" Each speaker's lines are in time order, oldest "
+                   "first: a later line updates what that speaker said "
+                   "earlier. If the question asks about the current "
+                   "state, leave out items whose latest mention says "
+                   "they ended, were cancelled or were replaced.")
     out = runtime.generate("EVIDENCE:\n%s\n\nQUESTION: %s" % (block, question),
                            system=system, max_tokens=120, temperature=0.0)
     out = (out or "").strip()
