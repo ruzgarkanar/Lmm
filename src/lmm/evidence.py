@@ -837,6 +837,14 @@ class SentenceStore:
         # the one-head rule and every gate stand unchanged. Deleting the
         # .bridge side-file restores the memory exactly as it was.
         self.head_bridge = {}               # folded word -> set(head)
+        # WHAT SORT OF THING a distilled subject is (W143): folded
+        # label -> the engine's kind reading ("Architectural Digest"
+        # -> "magazine subscription"). An INDEX KEY, never a claim:
+        # it widens what the counting gather can FIND, no gate or
+        # spoken word reads it, and it lives in the aids side-file
+        # beside the bridges — deleting that file leaves a store that
+        # answers exactly as before.
+        self.kinds = {}                     # folded label -> kind text
         # WHO SPOKE, per line — dialogue's second piece of real metadata
         # beside the date (W98). A tag the operator supplies, like the
         # source name; None for every document that has no voices.
@@ -2292,13 +2300,14 @@ class SentenceStore:
         leaves a store that answers exactly as it did before either was
         paid for."""
         keys = self._key_index if self._key_at == len(self.sentences) else None
-        if not (self._derived or self.head_bridge or keys):
+        if not (self._derived or self.head_bridge or keys or self.kinds):
             return
         path = memory_path + ".expansion"
         tmp = path + ".tmp"
         blob = {"derived": sorted(self._derived),
                 "bridge": {w: sorted(heads) for w, heads
-                           in sorted(self.head_bridge.items())}}
+                           in sorted(self.head_bridge.items())},
+                "kinds": dict(sorted(self.kinds.items()))}
         # THE FIELD-NAME INDEX IS DERIVED, AND DERIVING IT IS THE FIRST
         # QUESTION'S WHOLE COST. It reads every sentence through the
         # record-shape test, which on a 115,913-line store took 10.6
@@ -2328,6 +2337,8 @@ class SentenceStore:
         self._derived = set(blob.get("derived", ()))
         self.head_bridge = {w: set(heads) for w, heads
                             in blob.get("bridge", {}).items()}
+        self.kinds = {str(k): str(v)
+                      for k, v in blob.get("kinds", {}).items()}
         # The field-name index, if it was written for THESE sentences.
         # `key_index` checks the bound itself and rebuilds when it has
         # moved, so a stale file costs a rebuild and never a wrong

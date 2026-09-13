@@ -6117,6 +6117,88 @@ def w136():
                                  % group["sources"])
 
 
+@test("W143 a distilled thing carries its KIND as an index key, never a claim")
+def w143():
+    """"How many magazine subscriptions do I have?" — and the store's
+    own line says "I'm also getting Architectural Digest", no word of
+    which is 'magazine' or 'subscription'. Measured: the counting
+    organ's gather requires a question word to MEET a record word, so
+    the record sat unmatched and the count was wrong — the whole
+    multi-session wall (0/5) is this one class. Competitors close it
+    by typing entities at write time with the engine; the engine is
+    ALREADY at our chat door (distil), so the same reading costs no
+    new call.
+
+    The kind is an INDEX KEY, not a claim: it lives in the evidence
+    layer's aids beside the bridges (a side-file, never the graph), it
+    widens what the gather can FIND, and no gate, label or spoken word
+    reads it — the answer still names the record's own label. It is
+    deliberately unverified against the passage: 'magazine' is exactly
+    the word the passage did NOT write, and it can afford to be, for
+    the same reason a bridge can — it licenses retrieval, never
+    speech. Deleting the side-file leaves a store that answers as it
+    did before, byte for byte."""
+    from lmm import generate
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    s.asker = "user"
+    real = generate.events_of
+    try:
+        generate.events_of = lambda text: [
+            ("Alpha Review", "started getting it monthly",
+             "magazine subscription")]
+        n1 = s.distil("User: I'm also getting Alpha Review, love it.",
+                      source="chat 2023/04/01 · user", speaker="user")
+        generate.events_of = lambda text: [
+            ("Beta Gazette", "subscribed in February",
+             "magazine subscription")]
+        n2 = s.distil("User: I subscribed to Beta Gazette in February.",
+                      source="chat 2023/02/03 · user", speaker="user")
+    finally:
+        generate.events_of = real
+    assert (n1, n2) == (1, 1), (n1, n2)
+
+    real_items = generate.items_of
+    generate.items_of = lambda q, b, **kw: [
+        item.split(" — ")[0].split("] ", 1)[-1] for item in b.splitlines()]
+    try:
+        said = s._count_answer("how many magazine subscriptions do I have?")
+    finally:
+        generate.items_of = real_items
+    assert said and "2" in said, (
+        "the kind did not widen the gather: %r" % said)
+    low = said.lower()
+    # the KIND is never spoken: the answer names the records' own labels
+    assert "alpha review" in low and "beta gazette" in low, said
+    assert "magazine" not in low.replace(
+        "how many magazine", ""), (
+        "the index key leaked into speech: %r" % said)
+
+    # an old-style engine that lists no kind still distils (2-tuples)
+    real = generate.events_of
+    try:
+        generate.events_of = lambda text: [("Gamma Weekly", "renewed")]
+        n3 = s.distil("User: I renewed Gamma Weekly today.",
+                      source="chat 2023/05/05 · user", speaker="user")
+    finally:
+        generate.events_of = real
+    assert n3 == 1, n3
+
+    # the key survives a save/load round trip, in the aids side-file
+    import os, tempfile
+    from lmm.session import Session as S2
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "mind.lmm")
+        s.path = path
+        s.save()
+        assert os.path.exists(path + ".expansion"), "no aids side-file"
+        s2 = S2(path, dense=False)
+        assert s2.evidence.kinds, "the kinds did not survive the round trip"
+        assert any("magazine" in v for v in s2.evidence.kinds.values()), (
+            s2.evidence.kinds)
+
+
 @test("W142 the plan knows the day the question is asked")
 def w142():
     """"How many days AGO did I harvest the herbs?" needs two dates,
