@@ -1582,6 +1582,20 @@ class Session:
                      if any(c.isalpha() for c in w)]
             if not words:
                 continue
+            # A LIST IS NOT THE NAME OF ONE THING (W144). The engine
+            # offered "A, B, and C" as one thing, every word sat in the
+            # turn, and the count answered "1:" while listing three —
+            # W135's crime moved to write time. The guard is
+            # punctuation, not language: a thing that splits at
+            # comma-class marks into two or more parts, each carrying
+            # two or more content words, is a list. It is skipped, not
+            # rewritten — the evidence line stays, no compound record
+            # is born. "Alpha Court, Westbay" (one-word tail) passes.
+            parts = [p for p in re.split(r"[,;]", thing)
+                     if len([w for w in evidence._words(p)
+                             if any(c.isalpha() for c in w)]) >= 2]
+            if len(parts) >= 2:
+                continue
             if not all(any(inflect.same_stem(w, h) for h in held)
                        for w in words):
                 continue                # the passage never said it
@@ -1741,16 +1755,30 @@ class Session:
                 continue
             subject = link.label_of(self.memory, record.subject) or ""
             value = link.label_of(self.memory, record.value) or ""
-            words = set(evidence._words(subject + " " + value))
+            # A THING BELONGS TO A COUNT BY ITS NAME OR ITS KIND, NOT
+            # BY ITS STORY. Membership once read subject AND value, and
+            # the value is the event's narrative — "using Mendeley to
+            # organize my project sources" carries 'project', and the
+            # tool was measured entering a count of projects. The NAME
+            # is what the told key already is (subject, or the value
+            # where a record has no subject); the value's words still
+            # attest items later, they just cast no membership vote.
+            words = set(evidence._words(subject or value))
             # THE KIND WIDENS THE MEET, NEVER THE NAME (W143). A store
             # that says "I'm also getting Architectural Digest" holds a
             # record no word of which is 'magazine' — the kind key the
             # distiller filed ("magazine subscription") lets the
             # question reach it. The SPOKEN name below stays the
             # record's own label; the kind is never voiced.
+            # AND THE KIND IS MATCHED AS A UNIT — W135's doctrine on
+            # the index side. One shared word was measured pulling a
+            # tool into a project count: the kind "project management
+            # tool" met the question "how many projects" on 'project'
+            # alone. A kind casts its vote only when EVERY content
+            # word of it is met by the question; a name still meets
+            # on any word, exactly as before.
             kind = (self.evidence.kinds.get(fold(subject.strip()))
                     or self.evidence.kinds.get(fold(value.strip())) or "")
-            words |= set(evidence._words(kind))
             # THE QUESTION'S WORD MUST MEET THE RECORD'S — and a plural
             # is the same word ("kits"/"kit", the measured miss). Short-
             # stem kinship is the retrieval side's tool and it is
@@ -1762,7 +1790,12 @@ class Session:
             def _meets(q, w):
                 return (inflect.same_stem(q, w)
                         or (inflect.kin(q, w) and inflect.kin(w, q)))
-            if not any(_meets(q, w) for w in words for q in qw):
+            kind_words = [w for w in evidence._words(kind)
+                          if any(c.isalpha() for c in w)]
+            kind_met = bool(kind_words) and all(
+                any(_meets(q, w) for q in qw) for w in kind_words)
+            if not (kind_met
+                    or any(_meets(q, w) for w in words for q in qw)):
                 continue
             told.setdefault(subject or value, (src, value))
         if len(told) >= 2:
