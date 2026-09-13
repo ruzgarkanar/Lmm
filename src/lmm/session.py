@@ -1798,7 +1798,50 @@ class Session:
                     or any(_meets(q, w) for w in words for q in qw)):
                 continue
             told.setdefault(subject or value, (src, value))
-        if len(told) >= 2:
+        # THE GRAPH COUNT EARNS ITS SEAT, OR STANDS DOWN (W145). The
+        # widened distiller (W143) filled the graph, and this path
+        # began preempting every "how many" — four stated-tally
+        # answers broke at once on the same slice. Two guards, both
+        # structural: (1) ONE BREATH IS NOT A SERIES — candidates that
+        # all wear one stamp are one telling, and a line is the prose
+        # reading's to read. (2) A STATED TALLY OUTRANKS AN
+        # ENUMERATION — the store SAYS "20 playlists"; counting the
+        # three the graph happens to hold answers 3 with a straight
+        # face. When a gathered line carries a number whose
+        # neighbouring words the question meets, this path yields to
+        # the readings that can cite that number (measured correct on
+        # all four). Neither guard reads a word of any language: one
+        # counts distinct stamps, the other reads digit adjacency.
+        spread = len({src for src, _v in told.values()}) >= 2
+        tallied = False
+        if len(told) >= 2 and spread:
+            # THE TALLY THAT OUTRANKS LIVES IN THE ASKER'S LINE —
+            # W98's doctrine, read here as a filter: an assistant's
+            # chatty digit beside a question-word ("...its current mix
+            # and 1...") was measured silencing a correct two-entity
+            # count. With no asker or no voices, every line may carry
+            # the tally, exactly as before.
+            speaker_of = {}
+            if self.asker and self.evidence.speakers:
+                for sid, (text, _src) in enumerate(self.evidence.sentences):
+                    speaker_of.setdefault(text, self.evidence.speakers.get(sid))
+            for line in self.evidence.find(question, most=60,
+                                           floor_share=0.0):
+                if speaker_of and speaker_of.get(line) != self.asker:
+                    continue
+                lw = list(evidence._words(line))
+                for pos, w in enumerate(lw):
+                    if not any(c.isdigit() for c in w):
+                        continue
+                    near = [x for x in lw[max(0, pos - 2):pos + 3]
+                            if x != w and not any(c.isdigit() for c in x)]
+                    if any(inflect.same_stem(q, x)
+                           for q in qw for x in near):
+                        tallied = True
+                        break
+                if tallied:
+                    break
+        if len(told) >= 2 and spread and not tallied:
             # THE GRAPH GATHERS, THE ENGINE READS ENDINGS, THE STORE
             # DISPOSES (W141). A told fact can END — "canceled my
             # Forbes subscription" distils into a record whose own

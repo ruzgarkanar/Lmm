@@ -6117,6 +6117,101 @@ def w136():
                                  % group["sources"])
 
 
+@test("W145 an enumeration neither outvotes a stated tally nor counts "
+      "one breath")
+def w145():
+    """The widened distiller (W143) filled the graph, and the graph
+    count began preempting every 'how many' — measured on the same 30
+    questions: four stated-tally answers broke at once. The store SAYS
+    '20 playlists'; the graph enumerated the three playlists it
+    happened to hold and answered 3. And 'how many days ago did I
+    harvest' — both its records came from ONE line, the graph counted
+    the line's two phrasings, and the plan that knew the real answer
+    never ran.
+
+    Two guards, both structural: (1) A STATED TALLY OUTRANKS AN
+    ENUMERATION — when a gathered line carries a number whose
+    neighbouring words the question meets, the graph count stands
+    down and the readings that can cite that number speak (they were
+    measured correct on all four). (2) ONE BREATH IS NOT A SERIES —
+    graph candidates that all wear one stamp are one telling, and a
+    line is the prose reading's to read. Neither guard reads a word
+    of any language: one reads digit adjacency, the other counts
+    distinct stamps."""
+    from lmm import generate
+    from lmm.session import Session
+
+    # (1) a stated tally in evidence: the graph count stands down
+    s = Session(None, dense=False)
+    s.asker = "user"
+    s.memory.write("Focus Flow playlist", "event", "made it",
+                   source="chat 2023/03/02 · user")
+    s.memory.write("Morning Boost playlist", "event", "made it",
+                   source="chat 2023/04/09 · user")
+    s.evidence.add("User: I have 20 playlists on my account in total.",
+                   "chat 2023/05/20 · user", speaker="user")
+    seen = {}
+    real = generate.items_of
+
+    def spy(question, block, **kw):
+        seen["block"] = block
+        return ["20 playlists"]
+
+    generate.items_of = spy
+    try:
+        said = s._count_answer("how many playlists do I have?")
+    finally:
+        generate.items_of = real
+    assert said and "20" in said, (
+        "the enumeration outvoted the stated tally: %r" % said)
+    assert "Focus Flow" not in (said or ""), said
+    # the prose reading got the tally line
+    assert "20 playlists" in seen.get("block", ""), seen.get("block")
+
+    # (2) two records wearing one stamp are one telling, not a series
+    s2 = Session(None, dense=False)
+    s2.asker = "user"
+    for thing in ("herb garden", "fresh herbs"):
+        s2.memory.write(thing, "event", "harvested the first batch",
+                        source="chat 2023/04/15 · user")
+    s2.evidence.add("User: I harvested my first batch of fresh herbs "
+                    "from the herb garden.", "chat 2023/04/15 · user",
+                    speaker="user")
+    generate.items_of = lambda q, b, **kw: []
+    try:
+        said = s2._count_answer("how many days ago did I harvest my "
+                                "first batch of fresh herbs?")
+    finally:
+        generate.items_of = real
+    assert not said or "HERB" not in said.upper() or "2:" not in said, (
+        "one breath was counted as a series: %r" % said)
+
+    # (3) the tally that outranks lives in the ASKER's line (W98's
+    # doctrine): an assistant's chatty digit beside a question-word
+    # cannot stand the graph down. Measured: "its current mix and 1..."
+    # in an advice line silenced a correct two-entity count.
+    s3 = Session(None, dense=False)
+    s3.asker = "user"
+    s3.memory.write("Alpha Review", "event", "getting it monthly",
+                    source="chat 2023/03/02 · user")
+    s3.memory.write("Beta Gazette", "event", "subscribed in February",
+                    source="chat 2023/04/09 · user")
+    from lmm.core.dataset import fold as _fold
+    s3.evidence.kinds[_fold("Alpha Review")] = "magazine subscription"
+    s3.evidence.kinds[_fold("Beta Gazette")] = "magazine subscription"
+    s3.evidence.add("Assistant: a great magazine gives 1 fresh idea "
+                    "per issue.", "chat 2023/04/10", speaker="assistant")
+    generate.items_of = lambda q, b, **kw: [
+        item.split(" — ")[0].split("] ", 1)[-1] for item in b.splitlines()]
+    try:
+        said = s3._count_answer("how many magazine subscriptions do "
+                                "I have?")
+    finally:
+        generate.items_of = real
+    assert said and "2" in said, (
+        "an assistant's digit stood the graph down: %r" % said)
+
+
 @test("W144 a list is not the name of one thing")
 def w144():
     """Measured on the multi-session slice: the distiller offered
@@ -7948,16 +8043,13 @@ def w100():
     joined = " ".join(written).lower()
     assert "mustang" in joined and "spitfire" in joined, written
     assert "ferrari" not in joined, "an invented event reached the graph"
-    # ...and the counting organ finds them in the GRAPH: the engine is
-    # consulted once, over the records' own rows (W141), never over a
-    # prose gather
-    def graph_rows_only(question, block, **kw):
-        assert " — " in block.splitlines()[0], (
-            "prose listing ran though the graph could count:\n%s" % block)
-        return [item.split(" — ")[0].split("] ", 1)[-1]
-                for item in block.splitlines()]
+    # ...and the counting organ still counts them — through the PROSE
+    # reading: both records wear ONE stamp, and one breath is not a
+    # series (W145), so the graph stands down and the line itself is
+    # read. The multi-stamp graph mode keeps its record rows in W99.
     real_items = generate.items_of
-    generate.items_of = graph_rows_only
+    generate.items_of = lambda q, block, **kw: ["Mustang build",
+                                                "Tamiya Spitfire kit"]
     try:
         said = s._count_answer("how many model builds and kits do I have?")
     finally:
