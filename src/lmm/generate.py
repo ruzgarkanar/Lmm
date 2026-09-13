@@ -478,8 +478,10 @@ def items_of(question, block, dated=False):
     system = ("The EVIDENCE lines below mention zero or more distinct "
               "items of the kind the question asks about. List the NAMES "
               "of those items, exactly as the evidence writes them, "
-              "comma-separated. Name nothing the evidence does not "
-              "contain. If there are none, output NONE.")
+              "comma-separated. Two lines that name the SAME thing in "
+              "different words report one item — list it once. Name "
+              "nothing the evidence does not contain. If there are "
+              "none, output NONE.")
     if dated:
         # Only promised when the caller LAID the block out by date
         # (W140) — an unordered block told "later overrides earlier"
@@ -745,26 +747,41 @@ def events_of(text):
     admits — every content word of a thing must be written there — so
     an invented event never reaches the graph. Same law as items_of,
     moved to write time."""
-    system = ("List the concrete events, acquisitions or commitments "
-              "the passage reports — one per line, as "
-              "THING :: WHAT HAPPENED, the thing named in the "
-              "passage's OWN words. One line per distinct thing; no "
-              "summaries, no counts, no advice or general tips. If the "
-              "passage reports none, output NONE.")
+    # The third field is the thing's KIND — one or two common words for
+    # what sort of thing it is, which the passage need NOT contain
+    # ("Architectural Digest" -> "magazine subscription"). It becomes an
+    # index key in the evidence aids (W143), never a spoken word: it
+    # widens what the counting gather can find across sessions that
+    # named the thing in other words. Same engine call, no new cost.
+    # "Ongoing facts" sits beside events deliberately (W143): a
+    # subscription stated as "I'm also getting X" is no less a fact of
+    # the speaker's life than "I bought X" — the first reading listed
+    # only completed happenings, and a standing subscription told in
+    # the present tense never reached the graph (measured: the line
+    # was stored, the record was never written, the count was short).
+    system = ("List the concrete events, acquisitions, commitments or "
+              "ongoing facts the speaker reports about themselves — "
+              "things they did, got, have, use or keep doing — one per "
+              "line, as THING :: WHAT HAPPENED :: KIND, the thing "
+              "named in the passage's OWN words, the kind being one or "
+              "two common words for what sort of thing it is (these "
+              "need not appear in the passage). One line per distinct "
+              "thing; no summaries, no counts, no advice or general "
+              "tips. If the passage reports none, output NONE.")
     out = runtime.generate("PASSAGE:\n%s" % text, system=system,
-                           max_tokens=200, temperature=0.0)
+                           max_tokens=240, temperature=0.0)
     out = (out or "").strip()
     if not out or out.upper().startswith("NONE"):
         return []
-    pairs = []
+    rows = []
     for line in out.splitlines():
         if "::" not in line:
             continue
-        thing, _sep, happened = line.partition("::")
-        thing, happened = thing.strip(" -*\t"), happened.strip()
-        if thing and happened:
-            pairs.append((thing, happened))
-    return pairs[:12]
+        parts = [p.strip(" -*\t") for p in line.split("::")]
+        if len(parts) >= 2 and parts[0] and parts[1]:
+            rows.append((parts[0], parts[1],
+                         parts[2] if len(parts) > 2 else ""))
+    return rows[:12]
 
 
 def amounts_of(question, block):

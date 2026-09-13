@@ -1573,7 +1573,11 @@ class Session:
             return 0
         held = set(evidence._words(text))
         kept = 0
-        for thing, happened in offered:
+        for row in offered:
+            if len(row) < 2:
+                continue
+            thing, happened = row[0], row[1]
+            kind = str(row[2]).strip() if len(row) > 2 else ""
             words = [w for w in evidence._words(thing)
                      if any(c.isalpha() for c in w)]
             if not words:
@@ -1587,6 +1591,14 @@ class Session:
                 kept += 1
             except Exception:                           # noqa: BLE001
                 continue
+            # THE KIND IS AN INDEX KEY, NOT A CLAIM (W143) — and it is
+            # deliberately NOT verified against the passage: 'magazine'
+            # is exactly the word the passage did not write, and it can
+            # afford to be unverified for the same reason a bridge can
+            # — it licenses retrieval, never speech. It lives in the
+            # evidence aids beside the bridges, never in the graph.
+            if kind:
+                self.evidence.kinds[fold(thing.strip())] = kind
         return kept
 
     def _asker_first(self, lines, sources):
@@ -1730,6 +1742,15 @@ class Session:
             subject = link.label_of(self.memory, record.subject) or ""
             value = link.label_of(self.memory, record.value) or ""
             words = set(evidence._words(subject + " " + value))
+            # THE KIND WIDENS THE MEET, NEVER THE NAME (W143). A store
+            # that says "I'm also getting Architectural Digest" holds a
+            # record no word of which is 'magazine' — the kind key the
+            # distiller filed ("magazine subscription") lets the
+            # question reach it. The SPOKEN name below stays the
+            # record's own label; the kind is never voiced.
+            kind = (self.evidence.kinds.get(fold(subject.strip()))
+                    or self.evidence.kinds.get(fold(value.strip())) or "")
+            words |= set(evidence._words(kind))
             # THE QUESTION'S WORD MUST MEET THE RECORD'S — and a plural
             # is the same word ("kits"/"kit", the measured miss). Short-
             # stem kinship is the retrieval side's tool and it is
