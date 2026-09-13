@@ -128,6 +128,11 @@ class Session:
         self.gate.rival = self._are_rivals
         self._pending = None    # subject offered for research (ask-first flow)
         self.asker = None       # who is asking, if the operator says (W98)
+        # WHEN the question is asked, if the operator says (W142): a
+        # `datetime.date`, read by the plan's `now` primitive. A
+        # benchmark replays last year's questions, a letter is answered
+        # a week late; with none set, `now` is the calendar's today.
+        self.asked_at = None
         self._mark = ""         # this turn's provenance mark (see UNCERTAIN):
         #                         recorded while answering, attached in
         #                         `respond` and ONLY to a turn that asserted
@@ -2038,11 +2043,20 @@ class Session:
 
         env, out = {}, None
         for step in steps:
-            if len(step) < 3:
+            if len(step) < 2:
                 return None
             name, op, args = step[0], step[1], list(step[2:])
             value = None
-            if op == "anchor" and len(args) == 1:
+            if op == "now" and not args:
+                # THE DAY THE QUESTION IS ASKED (W142). "How many days
+                # ago" needs a second date that is nowhere in the store:
+                # the telling's own day. The operator may set it
+                # (`asked_at`); otherwise it is the calendar's today.
+                # Verified by construction — the clock is not a claim —
+                # so W103's arithmetic rule holds unchanged.
+                when = self.asked_at or _dt.date.today()
+                value = ("date", when, "", "today", True)
+            elif op == "anchor" and len(args) == 1:
                 # the event's date, the sentence's word first (W95)
                 got = self._event_anchor(args[0], question=question)
                 if got is None:
@@ -2141,8 +2155,16 @@ class Session:
             return date.strftime("%Y/%m/%d")
         if out[0] == "days":
             _k, days, left, right = out
-            said = ("%d days (%d including the last day) — %s (%s) → %s (%s)."
-                    % (days, days + 1, left[3], _shown(left[1]),
+            # A SPAN THAT COVERS WHOLE MONTHS SAYS SO IN MONTHS TOO
+            # (W142) — our arithmetic on the two dates' calendar
+            # positions, so a question asked in months is not answered
+            # in a unit it has to convert. Days stay first: they are
+            # the exact figure, the months a reading of the same dates.
+            months = abs((right[1].year - left[1].year) * 12
+                         + (right[1].month - left[1].month))
+            about = " (about %d months)" % months if months >= 1 else ""
+            said = ("%d days%s (%d including the last day) — %s (%s) → %s (%s)."
+                    % (days, about, days + 1, left[3], _shown(left[1]),
                        right[3], _shown(right[1])))
             mark = right[2]
         elif out[0] == "bool":

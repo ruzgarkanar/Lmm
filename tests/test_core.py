@@ -6117,6 +6117,48 @@ def w136():
                                  % group["sources"])
 
 
+@test("W142 the plan knows the day the question is asked")
+def w142():
+    """"How many days AGO did I harvest the herbs?" needs two dates,
+    and the second one is nowhere in the store: it is the day the
+    question is ASKED. The plan language had anchors for everything
+    told and nothing for the telling's own day, so every span-to-now
+    question died at the interpreter — measured as five temporal
+    abstentions on 30 chat-memory questions.
+
+    `now` is a primitive like `anchor`: the operator may set the
+    asking day (`session.asked_at` — a benchmark replays last year's
+    questions, a letter is answered a week late), and with none set it
+    is the calendar's own today. It is verified by construction — the
+    clock is not a claim — so W103's arithmetic rule holds unchanged.
+    And a span that covers whole months says so in months too, our
+    arithmetic on the two dates, so a question asked in months is not
+    answered in a unit it has to convert."""
+    import datetime as _dt
+    from lmm import generate
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    s.asked_at = _dt.date(2023, 5, 12)
+    s.evidence.add("User: I harvested my first batch of fresh herbs "
+                   "from the balcony garden.", "chat 2023/03/10 · user")
+    real_plan, real_event = generate.plan_of, generate.event_date
+    try:
+        generate.plan_of = lambda q: [("a", "anchor", "harvested the herbs"),
+                                      ("b", "now"),
+                                      ("out", "span", "a", "b")]
+        # the anchor's date is the envelope's own stamp, verified
+        generate.event_date = lambda phrase, rows, question="": "2023/03/10"
+        said = s._plan_answer("how many months ago did I harvest the "
+                              "herbs?", want=("count", "days"))
+    finally:
+        generate.plan_of, generate.event_date = real_plan, real_event
+    assert said, "the span to the asking day did not speak"
+    assert "63 days" in said, said
+    assert "2 months" in said, said
+    assert "2023/05/12" in said, said
+
+
 @test("W141 the graph gathers a count; the engine reads endings; "
       "the store disposes")
 def w141():
