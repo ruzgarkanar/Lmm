@@ -23,8 +23,8 @@ def _unmark(text):
     one concept — but it also keeps the surface it was handed, and the
     graph path SPEAKS what it keeps. Folding here meant the surface was
     already gone: reported from a live bot, a document saying
-    "Bankacılığa yeni başlayan müşteri temsilcileri" came back as
-    "bankaciliğa yeni başlayan…", right and misspelt. Cleaning is this
+    "Başlayanlar İçin Rehber" came back as
+    "başlayanlar i̇çin rehber", right and misspelt. Cleaning is this
     function's job; folding belongs to `link.resolve`."""
     text = unicodedata.normalize("NFC", str(text))
     return "".join(ch for ch in text if not unicodedata.combining(ch))

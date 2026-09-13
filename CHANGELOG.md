@@ -4,6 +4,57 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.5] — 2026-09-13
+
+Three defects reported by somebody testing a bot built on this library,
+which is the only place this kind of thing is ever found. Two reproduce
+and one was worse than described; the third does not reproduce. A
+fourth was found by re-running the exam afterwards and is a cost of
+0.6.3's own change.
+
+### Fixed
+
+- **An underscore is a space that survived a filename** (W138). `\w`
+  counts it as a letter, so a document named `Alpha_Sales_101` was ONE
+  token and a reader asking about "Alpha Sales 101" — two tokens — could
+  never name it. Six of a 103-document catalogue were unreachable that
+  way. The report said such a question went unanswered; it is worse,
+  because naming BINDS the turn (W130): the name failed, a neighbouring
+  document's name won, and the answer came back confident and stamped
+  with the wrong document.
+
+- **The graph speaks the spelling it was given, not its index key**
+  (W137). Folding is how two spellings become one concept and it is
+  load-bearing, but it was applied at EXTRACTION, before identity was
+  ever consulted, so the surface a document used was gone before
+  anything could keep it — and the graph path speaks what it keeps. A
+  document written with its reader's own accented letters came back with
+  them flattened: correct, and misspelt in that reader's language.
+  Extraction now only cleans invisible combining marks, which is its
+  actual job, and the identity layer keeps the surface beside the folded
+  key with `label_of` preferring it. Every lookup still folds first.
+
+- **A document that does not write a field can still answer** (W139).
+  The record path owns a turn that names a document, and when its field
+  reading came back empty the turn REFUSED — right before naming bound
+  the turn, wrong after, because the scope IS that document now and the
+  ordinary path reads it and nobody else's. Measured: a corpus writing
+  its duration in days, asked for HOURS, bridged to a different head,
+  came back empty, and refused a question the document answers in its
+  own first line.
+
+### Did not reproduce
+
+A refusal arriving in English against a Turkish setting. Refusals come
+back in the question's language.
+
+### Note for existing stores
+
+Both index-key changes here — and the case-folding change in 0.6.2 —
+mean a store written by an earlier version searches under keys the
+current one no longer produces. Re-learn the documents and re-run
+`bridge()` to get the recall back.
+
 ## [0.6.4] — 2026-09-13
 
 Measured against a 101-question slice of LongMemEval and a 31-question

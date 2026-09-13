@@ -100,9 +100,9 @@ def resolve(memory, label, vectors=None, create=False):
         # THE KEY IS FOLDED; WHAT A READER SEES SHOULD NOT BE. Folding is
         # how two spellings become one concept and it is load-bearing —
         # but the folded string is an INDEX KEY, and the graph path spoke
-        # it. Reported from a live bot: the document says "Bankacılığa
-        # yeni başlayan müşteri temsilcileri" and the answer came back
-        # "bankaciliğa yeni başlayan…", correct and misspelt. The surface
+        # it. Reported from a live bot: a document written with the
+        # reader's own accented letters came back with them flattened,
+        # correct and misspelt in that reader's language. The surface
         # the writer used is kept beside the key as an alias, and
         # `label_of` prefers it; every lookup still folds first, so
         # nothing about identity moves.
