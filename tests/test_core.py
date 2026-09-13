@@ -5935,6 +5935,49 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W134 two events told the same day are not ordered by the clock")
+def w134():
+    """The ordering organ already declined a tie — "a tie is not a guess"
+    — and the guard never fired, because the comparison took EVERY digit
+    in the stamp. A dateline carries the time the message was SENT
+    ("chat 2023/05/22 (Mon) 14:03"), so two events reported on the same
+    day differed by minutes and were ordered by which message was typed
+    first. That is not when they happened.
+
+    Measured on 101 chat-memory questions: four wrong claims were
+    exactly this, and each printed BOTH events with the same date beside
+    them — the answer contradicting itself in its own citation.
+
+    A day is the finest grain a dateline attests. Below it the store
+    knows nothing, and the tie guard is what knowing nothing looks
+    like."""
+    from lmm import generate
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    s.evidence.add("User: I trimmed the goats' hooves today.",
+                   "chat 2023/05/22 (Mon) 09:12")
+    s.evidence.add("User: I fixed the fence today.",
+                   "chat 2023/05/22 (Mon) 14:03")
+    s.evidence.add("User: I set up the new router.",
+                   "chat 2023/01/15 (Sun) 10:00")
+
+    real = generate.things_of
+    try:
+        generate.things_of = lambda q: ["trimmed the goats hooves",
+                                        "fixed the fence"]
+        same = s._order_answer("which did I do first?")
+        assert same is None, (
+            "two events told on one day were ordered by the clock: %r" % same)
+        # ...and two events told on DIFFERENT days still order
+        generate.things_of = lambda q: ["set up the new router",
+                                        "fixed the fence"]
+        apart = s._order_answer("which did I do first?")
+        assert apart and "router" in apart, apart
+    finally:
+        generate.things_of = real
+
+
 @test("W133 a greeting is not a failed question")
 def w133():
     """The rescue seats read `last_abstained`, which means "this turn

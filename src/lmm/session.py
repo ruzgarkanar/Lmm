@@ -2179,8 +2179,21 @@ class Session:
             return None
 
         def _date_of(src):
+            # THE DAY, AND ONLY THE DAY. A stamp carries the time the
+            # message was SENT — "chat 2023/05/22 (Mon) 14:03" — and
+            # taking every digit put that clock into the comparison. Two
+            # events reported on the SAME DAY were then ordered by which
+            # message was typed first, which is not when they happened,
+            # and the tie guard below never fired because the stamps
+            # differed by minutes. Measured on 101 chat-memory questions:
+            # four of the wrong claims were exactly this, both events
+            # printed with the same date beside them.
+            #
+            # A day is the finest grain a dateline attests. Below it the
+            # store knows nothing, and the tie guard is what "knows
+            # nothing" looks like.
             digits = re.findall(r"\d+", src or "")
-            return tuple(int(d) for d in digits) if digits else None
+            return tuple(int(d) for d in digits[:3]) if digits else None
 
         anchors = []
         for thing in things:
