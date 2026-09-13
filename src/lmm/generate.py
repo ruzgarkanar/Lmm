@@ -479,9 +479,10 @@ def items_of(question, block, dated=False):
               "items of the kind the question asks about. List the NAMES "
               "of those items, exactly as the evidence writes them, "
               "comma-separated. Two lines that name the SAME thing in "
-              "different words report one item — list it once. Name "
-              "nothing the evidence does not contain. If there are "
-              "none, output NONE.")
+              "different words report one item — list it once. Respect "
+              "the question's own exclusions: an item the question "
+              "rules out is not listed. Name nothing the evidence does "
+              "not contain. If there are none, output NONE.")
     if dated:
         # Only promised when the caller LAID the block out by date
         # (W140) — an unordered block told "later overrides earlier"

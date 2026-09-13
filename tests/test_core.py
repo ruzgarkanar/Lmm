@@ -6117,6 +6117,50 @@ def w136():
                                  % group["sources"])
 
 
+@test("W144 a list is not the name of one thing")
+def w144():
+    """Measured on the multi-session slice: the distiller offered
+    "boards for my thesis, Data Mining project, and Database Systems
+    project" as ONE thing, every word of it sat in the turn, the
+    attestation passed, and the counting organ answered "1:" while
+    listing three things — a count contradicting its own list, W135's
+    crime moved to write time.
+
+    The guard is punctuation, not language: a THING whose text splits
+    at comma-class marks into two or more parts, each carrying two or
+    more content words, is a LIST — and a list is not the name of one
+    thing. It is skipped, never rewritten: the evidence line stays, so
+    nothing is lost, and no compound record is born. A name that
+    merely contains a comma before a single word ("Alpha Court,
+    Westbay") still passes."""
+    from lmm import generate, link
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    s.asker = "user"
+    turn = ("User: this term I am working on boards for my thesis, the "
+            "Data Mining project, and the Database Systems project at "
+            "Alpha Court, Westbay.")
+    real = generate.events_of
+    try:
+        generate.events_of = lambda text: [
+            ("boards for my thesis, Data Mining project, and Database "
+             "Systems project", "working on them", "projects"),
+            ("Data Mining project", "working on it", "project"),
+            ("Alpha Court, Westbay", "working there", "place")]
+        kept = s.distil(turn, source="chat 2023/05/02 · user",
+                        speaker="user")
+    finally:
+        generate.events_of = real
+    assert kept == 2, "the list was written as one thing: %r" % kept
+    written = {link.label_of(s.memory, r.subject) or ""
+               for r in s.memory.records.values()}
+    joined = " | ".join(sorted(written)).lower()
+    assert "thesis" not in joined, joined       # the compound never landed
+    assert "data mining" in joined, joined      # the real names did
+    assert "alpha court" in joined, joined      # one-word tail: a name
+
+
 @test("W143 a distilled thing carries its KIND as an index key, never a claim")
 def w143():
     """"How many magazine subscriptions do I have?" — and the store's
