@@ -4,6 +4,69 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] — 2026-09-13
+
+Measured against a 101-question slice of LongMemEval and a 31-question
+document exam whose gold is extracted FROM the documents. The document
+exam holds at 30/31 (field questions 20/20); the chat-memory slice
+scores 34.7%, and the reason it did not move is written below because
+it is the most useful thing this release found.
+
+### Added
+
+- **`Memory.themes()`** (W136) — the subjects a corpus falls into,
+  with NO engine. A corpus has subjects no single document names: a
+  catalogue's programme families, a manual's subsystems. GraphRAG finds
+  them by running community detection over an LLM-extracted graph and
+  then paying an LLM per community summary; RAPTOR clusters embeddings
+  and summarises each cluster. Detection costs nothing here because the
+  graph already existed — entities are phrases whose words co-occur
+  beyond chance, edges are witnessed co-mentions weighted by
+  log-likelihood. Measured on 103 documents: 501 entities, 5,671 edges,
+  groups in a hundredth of a second, zero calls, and the largest fell on
+  the catalogue's own families.
+
+  It is deterministic (the textbook shuffles its nodes; this cannot),
+  it writes no summary, and an entity carried by most of the corpus is
+  left out — without that filter the top group was the field headings
+  every document repeats.
+
+  **It does not answer "what is this family about", and was measured
+  trying.** Scoping the composer to a community's documents returned one
+  course's outline, not the shared subject. `themes()` is a structural
+  reading and claims nothing more.
+
+### Fixed
+
+- **Two events told the same day are not ordered by the clock** (W134).
+  The ordering organ already declined a tie, and the guard never fired
+  because the comparison took every digit in the stamp — including the
+  time the message was SENT. Two events reported on one day were ordered
+  by which message was typed first. Three wrong claims became
+  abstentions, each of which had been printing both events with the same
+  date beside it.
+
+- **A counted name is attested as a unit, not word by word** (W135).
+  Verification asked whether every word of an item appears SOMEWHERE in
+  the block, and the block is many lines — so a whole clause passed when
+  its words were scattered across them. The engine offered "which are
+  your Data Mining project and your Database Systems project" as ONE
+  item and the turn answered "1:" while listing two things. One line
+  must now carry the whole name, which is the rule the sum organ already
+  kept.
+
+### Why the chat-memory score did not move
+
+The retrieval work in 0.6 took the answering line's chance of reaching
+the engine from 32% to 79% — on a corpus of 103 documents. This
+benchmark gives each question a median of TWO sessions and 24 messages.
+There is no "which document" problem in it to solve. Its failures are
+aggregation and arithmetic: of 32 wrong claims, 22 came from the
+counting, planning and ordering organs and none from retrieval. Two of
+those classes are fixed above; the largest remaining one is the class
+the README already names — a long conversation reports the same thing
+in different words each time, and the list comes back short.
+
 ## [0.6.3] — 2026-09-13
 
 Found by tracing one failing turn end to end instead of guessing at it.

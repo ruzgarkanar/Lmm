@@ -19,6 +19,12 @@ marketing; this one is part of the measurement.
   in length"*; asked *"what is the shortest password"*, the channel still
   misses it, while *"minimum length for a memorised secret"* now lands first.
   Vectors move the boundary; they do not abolish it.
+- **A corpus's subjects are readable, and still not answerable.**
+  `m.themes()` groups the documents that belong together — community
+  detection over the entity graph, deterministic, zero model calls. It
+  does not say what a group is ABOUT: scoping the composer to a
+  community's documents was measured and returned one document's
+  outline, because nothing in the material states a theme.
 - **Global, thematic questions are the competitor's home ground.** "What are
   the main themes of this corpus" is answered well by community summaries;
   LMM has no equivalent, and the honest cost of building one the summary way
