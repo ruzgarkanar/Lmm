@@ -661,6 +661,49 @@ class Memory:
         return self.session.compose(brief, seats=seats, topics=topics,
                                     on_line=on_line)
 
+    def themes(self, least=3, most=12):
+        """The subjects this corpus falls into — documents that belong
+        together, and the entities that hold them together. No engine.
+
+        A corpus has subjects no single document names: a catalogue's
+        programme families, a manual's subsystems. The instrument is the
+        one the competition uses — community detection over a graph —
+        with the difference that the graph here was built without a model
+        (co-mentions weighted by log-likelihood) and no summary is
+        written for any community. Measured on a 103-document catalogue:
+        under a hundredth of a second, zero calls, and the largest groups
+        fell on the catalogue's own families.
+
+        Returns [{"sources": [...], "entities": [...]}], largest first.
+        `least` is the smallest group worth calling a subject.
+
+        WHY NO SUMMARY. Twice measured in this project: an engine-written
+        document profile took retrieval from 100% to 76%, and a
+        summarising indexer is how specific values go missing. A theme
+        here is EVIDENCE — a set of documents — not prose about them.
+
+        WHAT THIS DOES NOT DO, MEASURED. It does not answer "what is this
+        family about". Scoping the composer to a community's documents
+        was tried and came back with ONE course's outline rather than the
+        family's shared subject, because the composer organises material
+        and nothing in the material states a theme. The grouping is a
+        structural reading — which documents belong together, and on what
+        entities — and that is all it claims.
+        """
+        from lmm import mentions                        # noqa: PLC0415
+        store = self.session.evidence
+        if not store.sentences:
+            return []
+        graph = mentions.Graph.build(store)
+        out = []
+        for group in graph.communities(least=least)[:most]:
+            out.append({
+                "sources": list(group["sources"]),
+                "entities": [" ".join(e) if isinstance(e, tuple) else str(e)
+                             for e in group["entities"][:12]],
+            })
+        return out
+
     def distil(self, text, source=None, speaker=None):
         """Write the EVENTS a passage reports into the graph.
 
