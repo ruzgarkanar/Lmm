@@ -1134,7 +1134,7 @@ insurance is worth buying where the risk is real.</p>
 </tr>
 <tr>
 <td><code>m.distil(text, source=, speaker=)</code></td>
-<td>write the EVENTS a passage reports into the graph — the engine lists them, the passage's own words admit them, each survivor is one gated dated record</td>
+<td>write the events AND ongoing facts a passage reports into the graph — the engine lists each as thing/what-happened/KIND, the passage's own words admit the thing, each survivor is one gated dated record; the KIND is an index key beside the bridges, never a claim (0.7)</td>
 <td>one call per passage</td>
 </tr>
 <tr>
@@ -1218,6 +1218,25 @@ insurance is worth buying where the risk is real.</p>
 <td><code>m.session.verdict(old, new)</code></td>
 <td>arbitrate two rival values</td>
 <td>engine</td>
+</tr>
+</tbody>
+</table>
+<p>Two operator-set facts about the conversation itself (both optional):</p>
+<table>
+<thead>
+<tr>
+<th>attribute</th>
+<th>what it says</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>m.session.asker = "user"</code></td>
+<td>WHO is asking — that speaker's lines seat first in the event organs; the tally that outranks an enumeration must live in this speaker's line</td>
+</tr>
+<tr>
+<td><code>m.session.asked_at = date(2023, 4, 18)</code></td>
+<td>WHEN the question is asked — the plan's <code>now</code> primitive reads it, so "how many days ago…" is arithmetic against this day; unset, it is the calendar's today (0.7)</td>
 </tr>
 </tbody>
 </table>
