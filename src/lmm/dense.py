@@ -42,6 +42,16 @@ WHAT KEEPS IT OURS.
     carry a subject, rather than the headings and one-word rows that
     every document shares. Nothing is summarised and nothing is
     invented: the profile is the document's own text, cut.
+
+    ASKING THE ENGINE TO WRITE THE PROFILE WAS MEASURED AND IS WORSE.
+    One call per document, 2-3 sentences on what problem it addresses
+    and who it is for, in the document's own language — and on 103
+    documents it went 2/8 to 1/8 on stated-need questions and 100% to
+    76% on known-item retrieval. A summary abstracts away a document's
+    own distinctive words, which are exactly what retrieval matches on;
+    it is the same mechanism that makes a summarising indexer lose a
+    specific value. The longest lines are not a cheap stand-in for a
+    summary. They are the better instrument for this job.
   * IT WIDENS WHAT CAN BE FOUND, NEVER WHAT MAY BE SAID. The gates read
     the evidence exactly as before; a line that arrives by vector is
     judged by the same jury as a line that arrives by word.
