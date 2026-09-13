@@ -10,16 +10,24 @@ from lmm.core.dataset import fold
 from lmm import prompts, runtime
 
 
-def _fold(text):
-    """fold + invisible-combining-mark cleanup. Qwen CAN produce sequences like
-    'i̇çecek' (i + U+0307) in its JSON — the invisible dot opens a separate graph
-    node, chains silently break. First NFC (real accents merge into one code
-    point: ç/ö/ü/é preserved), then the REMAINING combining marks are dropped
-    (those that couldn't merge are this kind of garbage). Not a language rule —
-    Unicode's own tables."""
+def _unmark(text):
+    """Invisible-combining-mark cleanup, and NOTHING ELSE. An engine CAN
+    produce sequences like 'i̇çecek' (i + U+0307) in its JSON — the
+    invisible dot opens a separate graph node and chains silently break.
+    First NFC (real accents merge into one code point: ç/ö/ü/é
+    preserved), then the REMAINING combining marks are dropped. Not a
+    language rule — Unicode's own tables.
+
+    CASE FOLDING USED TO HAPPEN HERE TOO, AND THAT LOST THE SPELLING.
+    The identity layer folds anyway — it must, so that two spellings are
+    one concept — but it also keeps the surface it was handed, and the
+    graph path SPEAKS what it keeps. Folding here meant the surface was
+    already gone: reported from a live bot, a document saying
+    "Bankacılığa yeni başlayan müşteri temsilcileri" came back as
+    "bankaciliğa yeni başlayan…", right and misspelt. Cleaning is this
+    function's job; folding belongs to `link.resolve`."""
     text = unicodedata.normalize("NFC", str(text))
-    text = "".join(ch for ch in text if not unicodedata.combining(ch))
-    return fold(text)
+    return "".join(ch for ch in text if not unicodedata.combining(ch))
 
 WRITE, ASK, CHAT = "WRITE", "ASK", "CHAT"
 
@@ -78,10 +86,10 @@ def _clean(triples):
             continue
         subject, predicate, value = parts
         if subject:
-            # _fold, NOT .lower(): 'İçecek'.lower() → 'i̇çecek' (invisible
-            # U+0307) was opening a separate node and breaking chains; _fold
-            # cleans both this and the combining marks Qwen produces ready-made.
-            out.append((_fold(subject), _fold(predicate), _fold(value)))
+            # _unmark, NOT .lower(): 'İçecek'.lower() → 'i̇çecek' (invisible
+            # U+0307) was opening a separate node and breaking chains.
+            # The case fold happens where identity is decided.
+            out.append((_unmark(subject), _unmark(predicate), _unmark(value)))
     return out
 
 

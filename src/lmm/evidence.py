@@ -20,7 +20,15 @@ import unicodedata
 from lmm.core.dataset import fold
 from lmm import inflect
 
-_WORD = re.compile(r"\w+", re.UNICODE)
+# AN UNDERSCORE IS A SPACE THAT SURVIVED A FILENAME. `\w` counts it as a
+# letter, so "Bankacilik_101" was ONE token and a reader asking about
+# "Bankacilik 101" — two tokens — could never name that document. Measured
+# on a 103-document catalogue: six documents were unreachable by name that
+# way, and because naming BINDS the turn (W130), the question then bound to
+# a different course and answered from it with confidence. `[^\W_]` is
+# `\w` without the underscore, so every script keeps its own letters and
+# the separator goes back to being a separator.
+_WORD = re.compile(r"[^\W_]+", re.UNICODE)
 
 # The length at which a token is a content word on its own. Everything shorter
 # has to EARN its place (see `_words`).

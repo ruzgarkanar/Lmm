@@ -5935,6 +5935,72 @@ def w113():
     assert ok2 is True and len(asked) == 2, (ok2, asked)
 
 
+@test("W138 an underscore is a space that survived a filename")
+def w138():
+    """Reported from a bot somebody else built here, and the symptom was
+    not the defect. Asked about a course whose file is named
+    `Bankacilik_101`, the memory answered from a DIFFERENT course, with
+    confidence: naming binds the turn (W130), so a name that fails to
+    match does not merely miss — it lets a neighbouring name win and the
+    answer is stamped with the wrong document.
+
+    `\\w` counts an underscore as a letter, so the whole filename was ONE
+    token and a reader asking about "Bankacilik 101" — two tokens — could
+    never name that document. On a 103-document catalogue six documents
+    were unreachable that way. An underscore in a filename is a space
+    that survived; `[^\\W_]` is `\\w` without it, and every script keeps
+    its own letters."""
+    from lmm import evidence as ev
+    from lmm.evidence import SentenceStore
+
+    assert ev._words("Bankacilik_101") == ["bankacilik", "101"]
+    assert ev._words("Satis_Performans_Koclugu") == [
+        "satis", "performans", "koclugu"]
+
+    store = SentenceStore()
+    store.add("SEAT COUNT: 18 people.", "#docx:Bankacilik_101")
+    store.add("SEAT COUNT: 24 people.", "#docx:Hedef Karti ve Portfoy")
+    named = store.named_in("Bankacilik 101 seat count")
+    assert named == {"#docx:Bankacilik_101"}, named
+
+
+@test("W137 the graph speaks the spelling it was given, not its index key")
+def w137():
+    """Reported from a bot somebody else built on this library, which is
+    the only place this kind of defect is ever found. The document says
+    "Bankacılığa yeni başlayan müşteri temsilcileri"; the answer came
+    back "bankaciliğa yeni başlayan…" — right, and misspelt in the
+    reader's own language.
+
+    Folding is how two spellings become one concept and it is
+    load-bearing, but the folded string is an INDEX KEY. It was applied
+    at EXTRACTION, before identity was ever consulted, so the surface the
+    document used was gone by the time anything could keep it — and the
+    graph path speaks what it keeps.
+
+    Two changes, neither touching how identity is decided: extraction
+    now only cleans invisible combining marks (its actual job), and the
+    identity layer keeps the surface it was handed beside the folded key,
+    with `label_of` preferring it. Every lookup still folds first."""
+    from lmm import extract, link
+    from lmm.core.dataset import fold
+    from lmm.core.memory import Memory as Graph
+
+    # extraction cleans marks and does NOT fold
+    assert extract._unmark("Bankacılığa Yeni") == "Bankacılığa Yeni"
+    assert "\u0307" not in extract._unmark("i\u0307çecek")
+
+    mem = Graph()
+    key = link.resolve(mem, "Bankacılığa Yeni Başlayan", create=True)
+    assert key is not None
+    shown = link.label_of(mem, key)
+    assert shown == "Bankacılığa Yeni Başlayan", shown
+    # ...and the identity is still reached by any spelling, because the
+    # key is the fold
+    assert link.resolve(mem, "BANKACILIĞA YENİ BAŞLAYAN") == key
+    assert link.resolve(mem, fold("Bankacılığa Yeni Başlayan")) == key
+
+
 @test("W136 a corpus says which subjects it falls into, with no engine")
 def w136():
     """A corpus has subjects no single document names — a catalogue's
