@@ -6117,6 +6117,131 @@ def w136():
                                  % group["sources"])
 
 
+@test("W141 the graph gathers a count; the engine reads endings; "
+      "the store disposes")
+def w141():
+    """The graph mode counted told records AS FACTS (W99) — and a fact
+    can END. Measured on a chat store: 'I canceled my Forbes
+    subscription' was distilled into a record whose own value says it
+    ended, the deterministic walk cannot read 'ended' in any language
+    (a word list is the hard-coding this codebase forbids), and the
+    organ counted a cancelled thing — 3 where the store's own text says
+    2, flipping run to run with the extraction's mood.
+
+    So the graph keeps what it does best and stops doing what it
+    cannot: it GATHERS the candidates (a deterministic walk, as
+    before), lays them out by day, and the engine — the one instrument
+    that reads language — is asked which still stand. The store still
+    disposes: an item the engine offers that no candidate wrote does
+    not count, an empty or failed reading falls back to the full
+    gathered list, and the count can never exceed what the graph
+    gathered. One small call, only on graph-counted turns."""
+    from lmm import generate
+    from lmm.session import Session
+    s = Session(None, dense=False)
+    s.asker = "user"
+    for subj, val, day in (
+            ("Alpha Review subscription", "subscribed in February",
+             "2023/02/03"),
+            ("Beta Gazette subscription", "started last month",
+             "2023/03/14"),
+            ("Gamma Weekly subscription", "canceled it in March",
+             "2023/04/01")):
+        s.memory.write(subj, "event", val, source="chat %s · user" % day)
+    seen = {}
+    real = generate.items_of
+
+    def prune(question, block, **kw):
+        seen["block"] = block
+        seen["kw"] = kw
+        return ["Alpha Review subscription", "Beta Gazette subscription"]
+
+    generate.items_of = prune
+    try:
+        said = s._count_answer("how many subscriptions do I have now?")
+    finally:
+        generate.items_of = real
+    assert said and "2" in said, said
+    assert "gamma" not in said.lower(), (
+        "an ended item was counted: %r" % said)
+    assert seen["kw"].get("dated"), "the record block was not dated"
+    # the block hands the engine the records' OWN tellings, by day
+    assert "canceled it in March" in seen["block"], seen["block"]
+    assert (seen["block"].find("subscribed in February")
+            < seen["block"].find("canceled it in March")), seen["block"]
+
+    # the engine cannot shrink the count below what it can NAME from
+    # the graph: an invented survivor list falls back to the gather
+    generate.items_of = lambda q, b, **kw: ["Delta Digest"]
+    try:
+        said = s._count_answer("how many subscriptions do I have now?")
+    finally:
+        generate.items_of = real
+    assert said and "3" in said, (
+        "an unattested pruning did not fall back: %r" % said)
+
+
+@test("W140 a count's block reads in time order when the stamps are dated")
+def w140():
+    """The counting organ hands the engine its lines in RETRIEVAL order —
+    whichever line shares the most words with the question speaks first.
+    Measured on 30 chat-memory questions: a line that ENDED an item sat
+    below the line that began it, the engine read them as two standing
+    facts, and the turn counted an item its own evidence had cancelled.
+
+    Time order is already in the store — every conversational stamp
+    carries its date — and "a later line updates an earlier one" is only
+    readable when later lines come later. So when EVERY gathered source
+    parses as dated, the block is laid out by date, and `items_of` is
+    told it may trust that order. An undated corpus (a shelf of manuals)
+    builds its block byte for byte as before — the same promise
+    `_supersede` keeps (W83)."""
+    from lmm import generate
+    from lmm.session import Session
+
+    seen = {}
+    real = generate.items_of
+
+    def spy(question, block, **kw):
+        seen["block"] = block
+        seen["kw"] = kw
+        return ["Beta Gazette", "Alpha Review"]
+
+    # dated stamps: the March line ranks BELOW the April line by word
+    # overlap, and must still be laid out first
+    s = Session(None, dense=False)
+    s.evidence.add("User: the Beta Gazette magazine subscription plan "
+                   "is one I pay for.", "chat 2023/04/09 (Sun) 09:00")
+    s.evidence.add("User: I read the Alpha Review magazine.",
+                   "chat 2023/03/05 (Sun) 09:00")
+    try:
+        generate.items_of = spy
+        s._count_answer("how many magazine subscription plans do I have?")
+        block = seen["block"]
+        march = block.find("Alpha Review")
+        april = block.find("Beta Gazette")
+        assert 0 <= march < april, (
+            "dated lines were not laid out in time order:\n%s" % block)
+        assert seen["kw"].get("dated"), (
+            "items_of was not told the block is in time order")
+
+        # undated stamps: the block keeps retrieval order, byte for byte
+        s2 = Session(None, dense=False)
+        s2.evidence.add("User: the Beta Gazette magazine subscription "
+                        "plan is one I pay for.", "#doc:manual-a")
+        s2.evidence.add("User: I read the Alpha Review magazine.",
+                        "#doc:manual-b")
+        seen.clear()
+        s2._count_answer("how many magazine subscription plans do I have?")
+        block = seen["block"]
+        assert block.find("Beta Gazette") < block.find("Alpha Review"), (
+            "an undated corpus's block order moved:\n%s" % block)
+        assert not seen["kw"].get("dated"), (
+            "an undated block was promised as time-ordered")
+    finally:
+        generate.items_of = real
+
+
 @test("W135 a counted name is attested as a unit, not word by word")
 def w135():
     """A count is the length of a VERIFIED list, and the verification
@@ -6145,14 +6270,14 @@ def w135():
     real = generate.items_of
     try:
         # ONE item whose words are scattered across three lines
-        generate.items_of = lambda q, block: [
+        generate.items_of = lambda q, block, **kw: [
             "which are your Data Mining project and your Database Systems "
             "project"]
         said = s._count_answer("how many projects am I working on?")
         assert said is None, (
             "a clause was counted as one item: %r" % said)
         # ...and real names, each written on a line, still count
-        generate.items_of = lambda q, block: ["Data Mining project",
+        generate.items_of = lambda q, block, **kw: ["Data Mining project",
                                               "Database Systems project"]
         said = s._count_answer("how many projects am I working on?")
         assert said and "2" in said, said        # the row is phrased (W101)
@@ -7655,11 +7780,16 @@ def w100():
     joined = " ".join(written).lower()
     assert "mustang" in joined and "spitfire" in joined, written
     assert "ferrari" not in joined, "an invented event reached the graph"
-    # ...and the counting organ finds them, no prose, no engine
-    def no_items(question, block):
-        raise AssertionError("prose listing ran though the graph could count")
+    # ...and the counting organ finds them in the GRAPH: the engine is
+    # consulted once, over the records' own rows (W141), never over a
+    # prose gather
+    def graph_rows_only(question, block, **kw):
+        assert " — " in block.splitlines()[0], (
+            "prose listing ran though the graph could count:\n%s" % block)
+        return [item.split(" — ")[0].split("] ", 1)[-1]
+                for item in block.splitlines()]
     real_items = generate.items_of
-    generate.items_of = no_items
+    generate.items_of = graph_rows_only
     try:
         said = s._count_answer("how many model builds and kits do I have?")
     finally:
@@ -7692,11 +7822,16 @@ def w99():
         s.memory.write(subj, "event", val,
                        source="chat %s · user" % day)
     seen = {}
-    def no_items(question, block):
-        raise AssertionError("prose listing ran though the graph could count")
+    # the engine is consulted over the records' OWN rows (W141), never
+    # over a prose gather — and offering every row back keeps all three
+    def graph_rows_only(question, block, **kw):
+        assert " — " in block.splitlines()[0], (
+            "prose listing ran though the graph could count:\n%s" % block)
+        return [item.split(" — ")[0].split("] ", 1)[-1]
+                for item in block.splitlines()]
     from lmm import generate
     real = generate.items_of
-    generate.items_of = no_items
+    generate.items_of = graph_rows_only
     try:
         said = s._count_answer("how many model kits and builds have I "
                                "worked on?")
@@ -7735,7 +7870,7 @@ def w98():
                    "chat 2023/02/16", speaker="member")
     seen = {}
     real = generate.items_of
-    def spy(question, block):
+    def spy(question, block, **kw):
         seen["block"] = block
         return ["boots", "blazer"]
     generate.items_of = spy
@@ -7971,7 +8106,7 @@ def w93():
     real_shape, real_items = generate.turn_shape, generate.items_of
     real_things = generate.things_of
     generate.turn_shape = lambda message: "count"
-    generate.items_of = lambda q, b: []
+    generate.items_of = lambda q, b, **kw: []
     generate.things_of = lambda q: []
     real_answer = s._answer
     def chain_spy(message, subject="", **kw):
@@ -8020,7 +8155,7 @@ def w88():
     real_say = s._spoken_row
     s._spoken_row = lambda question, row: row      # phrasing is W101's
     generate.turn_shape = lambda message: "count"
-    generate.items_of = (lambda question, block:
+    generate.items_of = (lambda question, block, **kw:
                          ["Harbour Atlas", "Quiet Lantern", "Copper Vale"])
     def chain_spy(message, subject="", **kw):
         called["chain"] += 1
@@ -8050,7 +8185,7 @@ def w88():
         t.evidence.add("SUMMARY: a %s course outline." % name.lower(),
                        "#docx:%s.docx" % name)
     generate.turn_shape = lambda message: "count"
-    generate.items_of = lambda question, block: ["WRONG THING"]
+    generate.items_of = lambda question, block, **kw: ["WRONG THING"]
     try:
         said2 = t.respond("how many leadership trainings do you have?",
                           teach=False)
@@ -8131,7 +8266,7 @@ def w90():
     real_things = generate.things_of
     real_items = generate.items_of
     generate.things_of = (lambda q: ["Walk for Hunger", "Coastal Cleanup"])
-    generate.items_of = (lambda q, b: (_ for _ in ()).throw(
+    generate.items_of = (lambda q, b, **kw: (_ for _ in ()).throw(
         AssertionError("a span question fell into item counting")))
     try:
         said = s._count_answer(
@@ -8360,7 +8495,7 @@ def w84():
     s.evidence.add("User: the weather was lovely today.", "chat 2024/03/04")
     # the engine's list arrives with a FABRICATED fourth item
     real_items = generate.items_of
-    generate.items_of = (lambda question, block:
+    generate.items_of = (lambda question, block, **kw:
                          ["Harbour Atlas", "Quiet Lantern",
                           "Copper Vale", "Golden Meridian"])
     try:
@@ -8376,7 +8511,7 @@ def w84():
     # nothing seated -> no count, no invention
     empty = Session(None)
     empty.evidence.add("A quiet unrelated line.", "#doc:x")
-    generate.items_of = lambda question, block: ["Ghost Item"]
+    generate.items_of = lambda question, block, **kw: ["Ghost Item"]
     try:
         none = empty._count_answer("how many projects do I lead?")
     finally:

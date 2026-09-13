@@ -210,6 +210,19 @@ def _source_name(source):
     return os.path.splitext(name)[0]
 
 
+def stamp_day(source):
+    """The DAY a source stamp attests, as its first three numbers — or
+    None when the stamp carries none. 'chat 2023/04/09 (Sun) 09:00' →
+    (2023, 4, 9); '#docx:manual' → None. A day is the finest grain a
+    dateline attests (W134) — the send-time digits after it are the
+    clock of the typing, not of the event, and never enter the key.
+    Readers: the counting organ's time-ordered block (W140)."""
+    digits = re.findall(r"\d+", source or "")
+    if len(digits) < 3:
+        return None
+    return tuple(int(d) for d in digits[:3])
+
+
 def _words(text, known=()):
     """Content words: folded, combining-mark-free, >=3 letters OR a digit — OR
     a short token that a NUMBER vouches for.
