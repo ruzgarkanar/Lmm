@@ -396,6 +396,13 @@ def carried(answer, question):
     return (len(wanted) - len(missing)) / len(wanted), missing
 
 
+# A CLITIC IS WHAT HANGS AFTER AN APOSTROPHE INSIDE A TOKEN: the
+# host on the left, the fragment on the right. Typography, not
+# language — every script that writes clitics this way is read the
+# same, and nothing here knows what any of them mean.
+_CLITIC = re.compile(r"([^\W_]+)['\u2019]([^\W\d_]{2,})")
+
+
 def coverage(answer, block, question=""):
     """WHAT FRACTION of the answer's content-words comes from the given block
     (+question) — the ratio form of `covered`, digits aside.
@@ -413,6 +420,24 @@ def coverage(answer, block, question=""):
     given_text = block + " " + question
     given = set(_words(given_text))
     words = set(_words(answer))
+    # AN INFLECTION IS NOT A CLAIM, AND ITS HOST SAYS SO (W167). An
+    # apostrophe cuts a suffix loose into a word of its own — a
+    # document writing "(II-17.1)" and an answer writing "II-17.1'dir"
+    # say the same thing — and three of fifteen questions were refused
+    # for exactly those fragments. The fragment is grammar when the
+    # token it HANGS ON is itself carried by the given text: nothing
+    # new was said by inflecting a word the evidence already holds.
+    # No language is read and no list is kept; the apostrophe is
+    # typography, the way the camel seam and the digit-letter seam
+    # already are. A fragment whose host is NOT carried stays a word
+    # and must be supported like any other.
+    for host, tail in _CLITIC.findall(answer):
+        tail = fold(tail)
+        if tail not in words:
+            continue
+        host = fold(host)
+        if host in given or any(inflect.same_stem(host, g) for g in given):
+            words.discard(tail)
     if not words:
         return 0.0
     here = there = None
