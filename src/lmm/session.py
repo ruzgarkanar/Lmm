@@ -1249,6 +1249,25 @@ class Session:
                     self.last_abstained = False
                     self.last_from_graph = True
                     return line
+
+            # THE QUOTED TURN DOES NOT PAY THE ROUTER IT NEVER USES
+            # (W163). The reading below needs retrieval and nothing
+            # else; the router exists to choose between the paths that
+            # come AFTER it, and a turn that has already chosen the
+            # quoted path uses none of them. It sits here rather than
+            # higher up because everything above is FREE — the graph's
+            # own lookup, the record door — and those answer better:
+            # this is the cheapest ENGINE path, not the cheapest path.
+            # When the reading cannot be trusted the router runs below
+            # and the ordinary turn proceeds exactly as before.
+            if self.quoted_only:
+                quoted = self._quoted_answer(message)
+                if quoted:
+                    self.last_kind = extract.ASK
+                    return quoted
+                if self.quoted_strict and self.quoted_refused:
+                    self.last_kind = extract.ASK
+                    return self._refuse(message)
             op = extract.extract(message)
             self.last_kind = op.get("kind") or ""
             if self._no_teach and op.get("triples"):
@@ -1301,7 +1320,17 @@ class Session:
                 # e.g. "X nedir" wrongly came as WRITE): instead of
                 # fabricating, treat it like a QUESTION → retrieve/refuse.
                 # Falls through.
-            if not teach and op["kind"] == extract.WRITE:
+            # ...AND THAT RULE BELONGS TO THE CONVERSATION (W164). It
+            # was measured on `respond(teach=False)`, the surface that
+            # carries the history and the persona, where a statement
+            # really is context. `ask()` is the QUESTION DOOR: it
+            # cannot write memory, and a declarative handed to it is a
+            # caller naming a subject in the words they have — which an
+            # integration measured retrieving better than its own
+            # paraphrase (15 of 20 against 11). Sending it to the chat
+            # voice answers a question nobody asked and pays for it.
+            if not teach and self._conversational \
+                    and op["kind"] == extract.WRITE:
                 # AND THE MIRROR RULE, measured in the field: in a
                 # conversation that may NOT teach, a statement is neither a
                 # lesson nor a query — it is CONTEXT. "I am in banking and my
@@ -1493,22 +1522,11 @@ class Session:
                 # the ordinary chain below then runs exactly as it
                 # always did, which is why the worst case is one extra
                 # call rather than a worse answer.
-                if self.quoted_only:
-                    quoted = self._quoted_answer(message)
-                    if quoted:
-                        return quoted
-                    # THE STORE'S REFUSAL MAY STAND (W161). Measured on
-                    # fifteen questions with gold read off the document
-                    # itself: falling back rescued one correct answer
-                    # and spoke one false one (a table of contents PAGE
-                    # number offered as a regulation's number), while
-                    # letting the refusal stand asserted nothing false
-                    # and missed three. Same score, a different KIND of
-                    # error, 40% fewer calls — so neither is the
-                    # default and the caller says which error is the
-                    # expensive one where they work.
-                    if self.quoted_strict and self.quoted_refused:
-                        return self._refuse(message)
+                # THE QUOTED READING HAS ALREADY HAD ITS TURN, above
+                # the router (W163) — asking again here would buy the
+                # same call twice. W161's choice (does the store's
+                # refusal stand, or does the ordinary path run) is made
+                # there, at the one door that knows it.
                 self._step("chain")
                 return self._answer(message, subject)
             if self._no_teach and self._conversational:

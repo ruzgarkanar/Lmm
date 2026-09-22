@@ -6211,6 +6211,135 @@ def w150():
             % (reported, declared))
 
 
+@test("W164 on the question door, a statement is the question")
+def w164():
+    """Reported with a measurement: an integration asked its cells in
+    the catalogue's OWN wording, because a requirement's own sentence
+    retrieves far better than a paraphrase of it (15 of 20 against 11,
+    and 17 with both). Handed to `ask()`, that sentence is classified
+    WRITE — correctly, it is a statement — and the turn goes to the
+    chat voice, which answers a question nobody asked and spends calls
+    doing it.
+
+    The rule it lands on is right where it was written: in a
+    CONVERSATION that may not teach, a statement is neither a lesson
+    nor a query but context, and the chat surface carries it (W14).
+    That surface is `respond(teach=False)`, which keeps the history and
+    the persona. `ask()` is not that surface — it is the question door,
+    it cannot write memory, and a declarative handed to it is a caller
+    naming a subject in the words they have. The verb on the tin is
+    ask.
+
+    So the rule keeps the surface it was measured on and lets go of the
+    one it was never about."""
+    from lmm import api, extract, generate
+    from lmm.session import Session
+
+    spoke = {"chat": 0}
+    real_chat = Session._chat
+    real_extract = extract.extract
+
+    def chat_spy(self, message, spec=None, spec_queue=None):
+        spoke["chat"] += 1
+        return "Danke fuer die Beschreibung!"
+
+    statement = ("Die Loesung soll steuerlich relevante Vorgaenge "
+                 "automatisiert erkennen.")
+    m = api.Memory(None, dense=False, cache=False)
+    m.learn("Die Loesung erkennt steuerlich relevante Vorgaenge "
+            "automatisiert und sicher.", source="#doc:v", deep=False)
+    extract.extract = lambda message: {"kind": extract.WRITE,
+                                       "triples": [], "subject": ""}
+    Session._chat = chat_spy
+    try:
+        said = m.ask(statement, explain=True, shape="none")
+    finally:
+        Session._chat = real_chat
+        extract.extract = real_extract
+    assert spoke["chat"] == 0, (
+        "the question door sent a statement to the chat voice")
+    assert "quoted" in said.route or "chain" in said.route, said.route
+
+    # ...and the CONVERSATION surface keeps the behaviour it was
+    # measured on: there a statement is context, not a query (W14)
+    s = Session(None, dense=False)
+    s.evidence.add("Die Loesung erkennt Vorgaenge automatisiert.",
+                   "#doc:v")
+    extract.extract = lambda message: {"kind": extract.WRITE,
+                                       "triples": [], "subject": ""}
+    Session._chat = chat_spy
+    try:
+        s.respond(statement, teach=False, conversational=True)
+    finally:
+        Session._chat = real_chat
+        extract.extract = real_extract
+    assert spoke["chat"] == 1, (
+        "the conversation surface stopped treating a statement as context")
+
+
+@test("W163 a quoted turn does not pay the router it never uses")
+def w163():
+    """The quoted reading needs retrieval and nothing else: it hands the
+    engine the lines and asks which one answers. The ROUTER — the call
+    that reads the message for its kind and subject — exists to choose
+    between the paths that come after, and a turn that has already
+    chosen the quoted path uses none of them.
+
+    Measured from the field, one cell of a batch: six calls, of which
+    the router is the largest single prompt (614 tokens). `shape=`
+    already retired two of the six; this retires the third when the
+    quoted reading carries the turn, leaving retrieval (free), the
+    graph's own doors (free) and ONE engine call. That is a RAG's call
+    count, with a stamp on the answer and the store checking it.
+
+    Order matters and is kept: the graph-first lookup and the record
+    door run BEFORE this, because they are free and they answer better
+    — the quoted reading is the cheapest ENGINE path, not the cheapest
+    path. And when it cannot be trusted, the router runs and the
+    ordinary turn proceeds exactly as it always did, which is why the
+    worst case is unchanged."""
+    from lmm import api, extract, generate
+    from lmm.session import Session
+
+    asked = "Welches Verfahren sichert die Freigabe?"
+    line = "Das Freigabeverfahren sichert die Freigabe im Haus."
+    real_extract = extract.extract
+    real_quoted = generate.quoted_answer
+    read = {"n": 0}
+
+    def counted(message):
+        read["n"] += 1
+        return real_extract(message)
+
+    m = api.Memory(None, dense=False, cache=False)
+    m.learn(line + "\nDer Support ist werktags erreichbar.",
+            source="#doc:v", deep=False)
+    extract.extract = counted
+    generate.quoted_answer = lambda q, b: (
+        "Das Freigabeverfahren sichert die Freigabe.",
+        next(i for i, x in enumerate(b.splitlines()) if "Freigabe" in x))
+    try:
+        said = m.ask(asked, explain=True, quoted=True, shape="none")
+    finally:
+        extract.extract = real_extract
+        generate.quoted_answer = real_quoted
+    assert "quoted" in said.route, said.route
+    assert read["n"] == 0, (
+        "the router was paid for a turn that never used it: %d" % read["n"])
+
+    # ...and when the quoted reading cannot be trusted, the router runs
+    extract.extract = counted
+    generate.quoted_answer = lambda q, b: ("Es kostet 5000 Euro.", 0)
+    read["n"] = 0
+    try:
+        m.ask(asked, explain=True, quoted=True, shape="none")
+    finally:
+        extract.extract = real_extract
+        generate.quoted_answer = real_quoted
+    assert read["n"] == 1, (
+        "the ordinary turn did not run after a refused quote")
+
+
 @test("W162 the meaning channel's fusion obeys the region cap too")
 def w162():
     """Found while diagnosing cost: asked a regulation's number over a
