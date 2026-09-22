@@ -173,6 +173,10 @@ class Session:
         # over by a caller that already knows it (`declared_shape`, W157).
         self._shape_cache = None
         self.declared_shape = None
+        # ANSWER FROM ONE QUOTED LINE, CHECKED BY THE STORE (W159) —
+        # the caller's choice of which mechanism keeps the promise, not
+        # of the promise itself. Off by default.
+        self.quoted_only = False
         self._identity = self._seed_identity()
         # CAUSALITY predicate — a causal fact (cause→effect) is stored as a
         # NORMAL Record under this reserved predicate; it inherits the entire
@@ -1469,6 +1473,18 @@ class Session:
                         delivered = self._delivery(message)
                         if delivered:
                             return delivered
+                # THE QUOTED READING FIRST, WHEN THE CALLER ASKED FOR
+                # IT (W159): one call that answers and names its line,
+                # checked by the store for nothing. It returns None
+                # whenever it cannot be trusted — no line, a line
+                # nobody offered, a sentence stepping outside it — and
+                # the ordinary chain below then runs exactly as it
+                # always did, which is why the worst case is one extra
+                # call rather than a worse answer.
+                if self.quoted_only:
+                    quoted = self._quoted_answer(message)
+                    if quoted:
+                        return quoted
                 self._step("chain")
                 return self._answer(message, subject)
             if self._no_teach and self._conversational:
@@ -3460,6 +3476,64 @@ class Session:
                 self.gate.inferred(who, predicate, what, because)
 
     # --- answering -----------------------------------------------------
+    def _quoted_answer(self, question):
+        """Answer from ONE line the store holds, checked by the store
+        itself — one engine call, and verification for nothing (W159).
+
+        Measured from the field: against the same retrieval this
+        library uses, a single ungated call answered 44 cells in 28k
+        tokens where LMM spent 313k, and 46% of a turn's calls is the
+        verification that judges free prose after it exists. Every
+        other answering path here already avoids that — a record, a
+        count, a span are spoken from the store's own value through our
+        template, and need no checking because nothing new was said.
+        This is that discipline applied to prose.
+
+        The engine returns the answer AND the line it used. Then the
+        store checks, with no model and no network:
+
+          * IS THAT LINE ONE THE STORE OFFERED? The line is named by
+            its NUMBER, so there is nothing to match and nothing to
+            misspell, and a number outside what was offered is refused
+            by construction. The first cut asked for the line copied
+            character for character and measured it matching ONCE in
+            fifteen questions — copying a long line exactly is a task
+            engines are bad at and nothing needs them to do, since the
+            store already holds the line. An unusable reading returns
+            None and the caller's ordinary path runs, so the worst case
+            is one extra call and today's behaviour.
+          * DOES THE ANSWER STAY INSIDE IT? Every content word must
+            come from that line or from the question (W152: restating
+            what was asked is not a claim). A sentence that steps
+            outside its own quote is exactly the fabrication the
+            read-back was paying to catch — caught here for nothing.
+
+        What survives is assembled out of the store's own line, which
+        is why it needs no read-back: fabrication is structurally
+        impossible rather than judged unlikely.
+        """
+        lines = self._find(question, most=6)
+        if not lines:
+            return None
+        sources = list(self.evidence.last_sources[:len(lines)])
+        block = "\n".join(lines)
+        try:
+            said, held = generate.quoted_answer(question, block)
+        except Exception:                                   # noqa: BLE001
+            return None
+        if not said or not (0 <= held < len(lines)):
+            return None                 # no line, or one nobody offered
+        if evidence.coverage(said, lines[held], question) < 1.0:
+            return None                 # a claim beyond its own quote
+        if not evidence.digits_ok(said, lines[held]):
+            return None                 # a number the line does not carry
+        self._step("quoted")
+        self.last_abstained = False
+        self._mark = sources[held] if held < len(sources) else ""
+        self._last_proof = [lines[held]]
+        self._origin_of = {lines[held]: self._mark}
+        return said
+
     def _answer(self, question, subject_label, widen=()):
         """Answer the question by fetching from the graph + Qwen; the gate
         drops any claim stepping outside the INJECTED facts."""

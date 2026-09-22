@@ -4,6 +4,54 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.9] — 2026-09-22
+
+### Added
+
+- **`ask(..., quoted=True)`** — an answer that quotes the store verifies
+  itself for nothing (W159). Verification is 46% of a turn's engine
+  calls because it judges free prose AFTER it exists: a read-back
+  re-extracts the claims, a relation check reads the edges. Every other
+  answering path here already avoids that — a record, a count, a span
+  are spoken from the store's own value through our template, and need
+  no checking because nothing new was said. This is that discipline
+  applied to prose.
+
+  One call returns the answer AND the number of the evidence line it
+  used. The store then checks, with no model and no network: is that a
+  line it offered, does the answer's every content word come from that
+  line or from the question (W152), and does every digit appear in it.
+  What survives is assembled out of a line the store holds, so the
+  fabrication the gates exist to catch is structurally impossible
+  rather than judged unlikely.
+
+  **Measured, two runs of fifteen questions over a 355-line document:**
+  calls 90/84 → 54/69, prompt 368k/349k → 224k/273k, seconds 105/105 →
+  76/100. About **30% fewer calls and tokens**, 16% less wall clock; the
+  quoted reading carried 8–9 of 15 turns and the rest fell back. Both
+  arms abstained on the same absence questions.
+
+  The cost is named rather than hidden: an answer spread over several
+  lines gets the one line it quoted. Asked which exams a study guide
+  serves, the ordinary path lists four and the quoted path names one.
+  So this is a caller's choice, not a default — the promise is
+  unchanged, only the mechanism keeping it and its price.
+
+### Refuted on the way
+
+- The first cut asked the engine to reproduce the evidence line
+  character for character and matched it against the store. Measured on
+  the same fifteen questions, it matched ONCE: copying a long line
+  exactly is a task engines are bad at and nothing needs them to do,
+  since the store already holds the line. Naming it by NUMBER cannot be
+  misspelled and a number nobody offered is refused by construction.
+
+- The first A/B ran both arms in one process and reported a 99 → 34
+  second "improvement". That was the deterministic call pool this
+  release's predecessor documented — the arms must each have their own
+  process. Written down here because the author of that warning fell
+  into it one release later.
+
 ## [0.7.8] — 2026-09-22
 
 Documentation only, and it revises this project's central claim.

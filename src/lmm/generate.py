@@ -509,6 +509,57 @@ def items_of(question, block, dated=False):
     return [x for x in items if x]
 
 
+def quoted_answer(question, block):
+    """One call that answers AND names the line it rests on — the cheap
+    corner of the gate (W159).
+
+    Verification is 46% of a turn's engine calls because it judges free
+    prose after it exists: a read-back re-extracts the claims, a
+    relation check reads the edges. Asked instead for the EVIDENCE LINE
+    together with the answer, the store can do both checks itself for
+    nothing — is this a line the store holds, and does the answer stay
+    inside it — which are word comparisons rather than opinions.
+
+    Returns `(answer, line_number)`, or `("", -1)` when the engine
+    declines. Nothing here is trusted: the caller checks that the
+    number is one it offered and that the answer stays inside that
+    line, and discards anything else."""
+    # THE LINE IS NAMED BY ITS NUMBER, NOT COPIED. The first cut asked
+    # the engine to reproduce the line character for character and
+    # matched it against the store: measured on 15 questions over a
+    # 355-line document, it matched ONCE. Copying a long line exactly
+    # is a task engines are bad at and nothing needs them to do — the
+    # store already has the line, so all that must cross is WHICH one.
+    # An index cannot be misspelled, and an index the store did not
+    # offer is refused by construction.
+    numbered = "\n".join("[%d] %s" % (i, line)
+                         for i, line in enumerate(block.splitlines()))
+    system = ("Answer the question using ONE numbered line of the "
+              "evidence.\n"
+              "Reply in exactly two lines and nothing else:\n"
+              "LINE: <the number of the line you used>\n"
+              "ANSWER: <one short sentence, in the question's language, "
+              "using only words from that line or from the question>\n"
+              "If no single line answers the question, reply NONE.")
+    out = runtime.generate("EVIDENCE:\n%s\n\nQUESTION: %s" % (numbered,
+                                                               question),
+                           system=system, max_tokens=300, temperature=0.0)
+    out = (out or "").strip()
+    if not out or out.upper().startswith("NONE"):
+        return "", -1
+    answer, held = "", -1
+    for line in out.splitlines():
+        head, _sep, rest = line.partition(":")
+        head = head.strip().upper()
+        if head == "LINE" and held < 0:
+            digits = re.findall(r"\d+", rest)
+            if digits:
+                held = int(digits[0])
+        elif head == "ANSWER" and not answer:
+            answer = rest.strip()
+    return answer, held
+
+
 def telling_answer(question, block):
     """One reading over a SMALL dated telling, whole and in time order
     — the telling organ's one call (`Session._telling_answer`, W147).
