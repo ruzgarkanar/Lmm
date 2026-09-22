@@ -249,6 +249,11 @@ a.missing      # ('transport', 'responsibility')
     Read it for what it is: which of the things you asked about are
     named in the reply, and which to ask about next.
 
+    To compare two cells anyway, compare within a route: `.route` rides
+    the same `Answer` object as `.covered`, so a caller that has one
+    always has the other — there is no reading in which the scale is
+    available and its route is not.
+
 ### Which mechanism keeps the promise
 
 The promise never changes: an answer the memory does not support cannot
