@@ -880,8 +880,16 @@ def table_windows(text):
     (`delimited_rows`), and its lines are then withheld from the shattered
     reader: a row that has already been read whole must not go back in as
     part of a window that spans its neighbours.
+
+    EACH LINE SAYS WHETHER THIS LAYER ASSEMBLED IT (W174). A row is what
+    the document put in one row and is the document's own; a fallback
+    window is OURS, and claims only that its lines follow one another. The
+    two were going into the store indistinguishable, so a run of numbered
+    prose paragraphs joined end to end passed for a sentence somebody
+    wrote — and the quoted reading then quoted it. Returns
+    `[(text, assembled), ...]`.
     """
-    out = list(delimited_rows(text))
+    out = [(row, False) for row in delimited_rows(text)]
     kept = ["" if _cells_of(line) is not None else line
             for line in text.split("\n")]
     text = "\n".join(kept)
@@ -901,7 +909,7 @@ def table_windows(text):
                 window = cells[max(0, i - 1):i + WINDOW]
                 if len(window) >= 2:
                     row = " · ".join(window)
-                    out.append(f"{header} — {row}" if i else row)
+                    out.append((f"{header} — {row}" if i else row, True))
             continue
         # With the rows known, the header is exactly the cells that come BEFORE
         # the first row — a column name is a cell no row claims. (Without the
@@ -910,7 +918,7 @@ def table_windows(text):
         header = " · ".join(cells[:rows[0][0]])
         for nth, (i, j) in enumerate(rows):
             row = " · ".join(cells[i:j])
-            out.append(f"{header} — {row}" if header else row)
+            out.append((f"{header} — {row}" if header else row, False))
     return out
 
 

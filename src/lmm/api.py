@@ -704,7 +704,23 @@ class Memory:
         """What this turn knows about itself, read off the session."""
         from lmm import evidence as _ev                   # noqa: PLC0415
         session = self.session
-        covered, missing = _ev.carried(said, asked) if asked else (0.0, ())
+        # AN ABSTENTION CARRIED NOTHING, AND SAYS SO (W173). Reported
+        # from the field: a refusal came back `covered=1.0, missing=()`,
+        # full coverage for an answer that answered nothing. It happens
+        # when the refusal RESTATES the question — every demand is then
+        # present in the refusal's own words and the count has nothing
+        # left to miss. Measured on that sentence: 1.00 restating, 0.00
+        # not restating, 0.25 for a correct verbatim answer out of the
+        # document, 0.88 for a fluent restatement. The number was
+        # rewarding saying the question back, which W152 established is
+        # not a claim at all. The count stays a count; the session's own
+        # structural stamp decides whether there is anything to count.
+        if session.last_abstained:
+            covered, missing = 0.0, _ev.demands(asked) if asked else ()
+        elif asked:
+            covered, missing = _ev.carried(said, asked)
+        else:
+            covered, missing = 0.0, ()
         return Answer(
             said,
             abstained=session.last_abstained,
