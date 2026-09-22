@@ -103,7 +103,7 @@ insurance is worth buying where the risk is real.
 | call | what it does | engine? |
 |---|---|---|
 | `m.learn(what, source=, deep=)` | teach it a file or a string. **`source="#Vendor"`** is the stamp everything from this reading carries — it is what makes a multi-document store answerable per document, and what `scope=` later selects on. `deep` mines each sentence for triples with the engine: `None` (the default) means **False for a file, True for text handed in directly**, so a document costs nothing and a typed fact costs one call per sentence. The returned `Learned` reports `.calls` | no engine for files |
-| `m.ask(q, explain=True, fluent=, shape=)` | answer. `explain=True` returns an `Answer` carrying `.sources`, `.abstained`, `.engine_error`, `.route`; without it you get a plain string. `fluent=True` skips the router for a turn that is known to be conversation. **`shape=`** declares the turn's kind (`"none"`, `"count"`, `"sum"`, `"order"`, `"when"`, `"material"`) for a caller that already knows it: the engine is then asked neither what shape the message is nor whether it is about the memory itself — two calls of six, on every turn of a batch. A wrong declaration costs the organ it would have reached. **`standalone=True`** answers the question alone: the turn neither inherits the conversation's subject nor leaves one behind — what a matrix of independent cells needs, and what building a second `Memory` per cell was standing in for. **Cannot write memory** | engine |
+| `m.ask(q, explain=True, fluent=, shape=)` | answer. `explain=True` returns an `Answer` carrying `.sources`, `.abstained`, `.engine_error`, `.route`; without it you get a plain string. `fluent=True` skips the router for a turn that is known to be conversation. **`shape=`** declares the turn's kind (`"none"`, `"count"`, `"sum"`, `"order"`, `"when"`, `"material"`) for a caller that already knows it: the engine is then asked neither what shape the message is nor whether it is about the memory itself — two calls of six, on every turn of a batch. A wrong declaration costs the organ it would have reached. **`standalone=True`** answers the question alone: the turn neither inherits the conversation's subject nor leaves one behind — what a matrix of independent cells needs, and what building a second `Memory` per cell was standing in for. **`quoted=True`** answers from ONE line the store holds and lets the store check it: ~30% fewer calls and tokens, at the cost of answers that span several lines (measured, two runs of 15 questions). **Cannot write memory** | engine |
 | `m.compose(brief, seats=24, topics=, on_line=)` | a structured draft from the evidence — per-topic gathering, gated line by line, streamed to `on_line` as lines survive, returned with its sources. `seats` is how many evidence lines each topic may draw on | engine |
 | `m.reset()` | end the CONVERSATION — the recent turns, the subject the last turn was about, the brief, and the documents the topic had come to be about. Nothing learned is forgotten: the graph, the evidence and the aids are untouched. A batch of independent questions wants this between cells, or `ask(..., standalone=True)` | no engine |
 | `m.where(term)` | which documents mention this — names and counts, the census | no engine |
@@ -208,6 +208,23 @@ a = m.ask("Does it consider country of departure, destination, VAT ID "
 a.covered      # 0.78
 a.missing      # ('transport', 'responsibility')
 ```
+
+### Which mechanism keeps the promise
+
+The promise never changes: an answer the memory does not support cannot
+leave. What a caller may choose is **which mechanism enforces it**, and
+what that costs.
+
+| | how | measured cost | what it gives up |
+|---|---|---|---|
+| default | the engine phrases freely; a read-back and a relation check audit the claims afterwards | 4 calls a turn | — |
+| `ask(..., quoted=True)` | one call answers AND names the evidence line; the STORE checks that the line is one it offered and that the answer stays inside it — word comparisons, no model | **~30% fewer calls and tokens**, −16% wall clock | answers that span several lines: a question whose answer is spread over four lines gets the one line it quoted |
+
+In quoted mode fabrication is not judged unlikely, it is structurally
+impossible: what is spoken is assembled out of a line the store holds.
+When the reading cannot be trusted — no line, a line nobody offered, a
+sentence stepping outside it — the turn falls back to the ordinary path,
+so the worst case is one extra call and today's behaviour.
 
 ```python
 a = m.ask("which interfaces does the validator use?", explain=True)

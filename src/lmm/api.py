@@ -569,7 +569,7 @@ class Memory:
     # ------------------------------------------------------------------ ask
 
     def ask(self, question, explain=False, fluent=False, shape=None,
-            standalone=False):
+            standalone=False, quoted=False):
         """Ask a question. Returns the answer — or an honest refusal.
 
         With `explain=True` the return additionally carries what the turn knows
@@ -620,6 +620,14 @@ class Memory:
         # ONLY (W157) — seated before the door, cleared after it, so a
         # batch's declaration cannot leak into a later ordinary turn.
         session.declared_shape = shape
+        # WHICH MECHANISM KEEPS THE PROMISE (W159) — not whether it is
+        # kept. `quoted=True` answers from ONE line the store holds and
+        # checks it with word comparisons instead of a read-back and a
+        # relation call; measured over two runs of fifteen questions,
+        # about 30% fewer calls and tokens, at the cost of answers that
+        # span several lines. The turn falls back to the ordinary path
+        # whenever the quoted reading cannot be trusted.
+        session.quoted_only = quoted
         # A TURN THAT DECLINES THE CONVERSATION IT DID NOT HAVE (W158).
         # `standalone` ends the conversation before the turn and again
         # after it, so an independent question neither inherits a
@@ -633,6 +641,7 @@ class Memory:
                                    conversational=False) or ""
         finally:
             session.declared_shape = None
+            session.quoted_only = False
             if standalone:
                 self.reset()
         # WHICH TURNS MAY BE KEPT, and it is the narrow set. A turn that WROTE

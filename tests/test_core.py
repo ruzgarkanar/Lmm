@@ -6211,6 +6211,103 @@ def w150():
             % (reported, declared))
 
 
+@test("W159 an answer that quotes the store verifies itself for nothing")
+def w159():
+    """Measured from the field: against the SAME retrieval this library
+    uses, a single ungated engine call answered 44 cells in 28k tokens
+    and 88 seconds, where LMM spent 313k and 491. Of one turn's six
+    calls, 46% is verification — a read-back and a relation check, both
+    asking the engine whether the evidence really says what the answer
+    said.
+
+    That is expensive because it judges free prose AFTER it exists. The
+    cheap corner is the one this codebase already lives in everywhere
+    else: a record answer, a count, a span are spoken from the store's
+    own value through our template, and nothing has to be checked
+    because nothing new was said. This extends that to prose.
+
+    The engine is asked for the answer AND the evidence line it rests
+    on, in one call. Then the STORE checks, for nothing: is that line
+    one the store actually holds (fold-exact), and does the answer's
+    every content word come from it, or from the question (W152)? Both
+    are word comparisons — no model, no network, microseconds. What
+    survives is a sentence assembled out of the store's own line, which
+    is why it needs no read-back: the fabrication the gates exist to
+    catch is structurally impossible rather than judged unlikely.
+
+    A quote the store does not hold is not an answer: the reading
+    returns nothing and the caller's ordinary path runs, so the worst
+    case is one extra call and today's behaviour. That is the trade
+    being measured, and it is measured before this is given a name in
+    the API."""
+    from lmm import generate
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    line = ("Der Lieferant bietet ein Freigabeverfahren zur Einhaltung "
+            "des 4-Augenprinzips.")
+    s.evidence.add(line, "#doc:vendor")
+    s.evidence.add("Der Support ist werktags erreichbar.", "#doc:vendor")
+    # the question reaches the line by its own words: this invariant
+    # is about the QUOTING, and retrieval has its own tests
+    asked = "Welches Freigabeverfahren bietet der Lieferant?"
+
+    real = generate.quoted_answer
+    calls = {"n": 0}
+
+    def one_call(question, block):
+        calls["n"] += 1
+        held = block.splitlines().index(line)
+        return ("Der Lieferant bietet ein Freigabeverfahren zur "
+                "Einhaltung des 4-Augenprinzips.", held)
+
+    generate.quoted_answer = one_call
+    try:
+        said = s._quoted_answer(asked)
+    finally:
+        generate.quoted_answer = real
+    assert said, "a quoted answer that the store holds was refused"
+    assert calls["n"] == 1, ("verification cost a call: %d" % calls["n"])
+    assert "#doc:vendor" in (s._mark or ""), s._mark
+
+    # a line nobody offered is not an answer
+    generate.quoted_answer = lambda q, b: (
+        "The supplier offers a four-eyes release process.", 99)
+    try:
+        assert s._quoted_answer(asked) is None, (
+            "an invented quote was spoken")
+    finally:
+        generate.quoted_answer = real
+
+    # the caller reaches it through `ask(..., quoted=True)`, and the
+    # answer carries the line's own source stamp
+    from lmm import api
+    m = api.Memory(None, dense=False)
+    m.learn(line + "\nDer Support ist werktags erreichbar.",
+            source="#doc:vendor", deep=False)
+    generate.quoted_answer = lambda q, b: (
+        "Der Lieferant bietet ein Freigabeverfahren zur Einhaltung des "
+        "4-Augenprinzips.",
+        next(i for i, x in enumerate(b.splitlines()) if "4-Augen" in x))
+    try:
+        got = m.ask(asked, explain=True, quoted=True, shape="none")
+    finally:
+        generate.quoted_answer = real
+    assert "quoted" in got.route, got.route
+    assert got.sources == ("#doc:vendor",), got.sources
+    assert not got.abstained, got
+
+    # ...and a sentence that steps outside its own quote is not an answer
+    generate.quoted_answer = lambda q, b: (
+        "Das Freigabeverfahren kostet 5000 Euro.",
+        b.splitlines().index(line))
+    try:
+        assert s._quoted_answer(asked) is None, (
+            "a claim beyond the quote was spoken")
+    finally:
+        generate.quoted_answer = real
+
+
 @test("W158 a turn may decline the conversation it did not have")
 def w158():
     """Measured from outside, both directions, same question and
