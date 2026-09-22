@@ -326,7 +326,8 @@ class Memory:
     def __init__(self, path=None, who="#operator", mode="STRICT", cache=True,
                  persona="",
                  warmth=None, reply_tokens=None, style="", identity=None,
-                 encoder=None, dense=True, reranker="bundled"):
+                 encoder=None, dense=True, reranker="bundled",
+                 judge=None):
         # `persona` colours the voice of every spoken turn — greeting style,
         # tone, when to ask a clarifying question — and can never loosen the
         # gates, which read the output rather than any prompt.
@@ -338,6 +339,21 @@ class Memory:
                                warmth=warmth, reply_tokens=reply_tokens,
                                style=style, encoder=encoder, dense=dense,
                                reranker=reranker)
+        # WHO JUDGES (W176). Both gates ask one shape of question — does
+        # the evidence say this, does this answer what was asked — and
+        # both pay a frontier engine to write "yes" in prose that is then
+        # parsed. `judge` is the seam a typed-decision model could sit
+        # behind, beside `encoder=` and `reranker=`. Pass nothing and the
+        # engine is asked exactly as every measurement here was made:
+        #
+        #     judge(kind, question, answer, evidence) -> probability|None
+        #
+        # `kind` is "says" or "answers". None DECLINES — the engine is
+        # asked — and so does an exception, because an outage is not a
+        # verdict. The boundary the probability is read at is this
+        # memory's (`Session.JUDGE_BOUNDARY`), so a supplier cannot move
+        # a gate by changing what it calls confident.
+        self.session.judge = judge
         # THE SAME QUESTION, ASKED AGAIN, OVER A MEMORY THAT HAS NOT MOVED. The
         # answer cannot have changed, and re-deriving it costs the full 5.5
         # model calls a question costs (`benchmarks/COST.md` §2). `cache=False`

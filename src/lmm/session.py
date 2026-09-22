@@ -176,6 +176,9 @@ class Session:
         # ANSWER FROM ONE QUOTED LINE, CHECKED BY THE STORE (W159) —
         # the caller's choice of which mechanism keeps the promise, not
         # of the promise itself. Off by default.
+        # WHO JUDGES (W176) — None means this memory's own engine, which
+        # is what every measurement in this repository was made with.
+        self.judge = None
         self.quoted_only = False
         # WHICH FAILURE IT WAS (W160): True when the STORE refused what
         # came back — a line nobody offered, a sentence stepping outside
@@ -3690,6 +3693,31 @@ class Session:
         if not evidence.digits_ok(said, quoted):
             self.quoted_refused = True
             return None                 # a number the lines do not carry
+        # QUOTING REPLACES THE READ-BACK; IT DOES NOT REPLACE THE
+        # RELATION (W175). This reading dropped BOTH judges and only ever
+        # replaced one. Whether the evidence SAYS this, the store now
+        # answers for nothing — every word is checked against lines it
+        # offered. Whether the claim answers what was ASKED is a
+        # different question, and nothing about quoting a line makes it
+        # relevant: reported from the field, and verified, that a single
+        # whole true sentence about the wrong subject passes every check
+        # above. One region, containment 1.0, and wrong.
+        #
+        # So the judge the ordinary path runs runs here too, over the
+        # lines the answer rests on. A carried turn costs two engine
+        # calls rather than one — the honest price of the guarantee, and
+        # only on turns that are about to commit. A caller who measured
+        # the cheaper trade to be profitable turns it off by the session
+        # number, beside CANDIDATES and VIEWS.
+        if self.QUOTED_RELATION:
+            proof = [lines[at] for at in held]
+            try:
+                held_up = self._relation_held(question, said, proof, quoted)
+            except Exception:                               # noqa: BLE001
+                held_up = True          # an engine that fell is not a verdict
+            if not held_up:
+                self.quoted_refused = True
+                return None             # true, and about something else
         self._step("quoted")
         self.last_abstained = False
         marks = [sources[at] for at in held if at < len(sources)]
@@ -4527,6 +4555,22 @@ class Session:
     # back.
     VIEWS = 1
 
+    # DOES A QUOTED TURN STILL ANSWER FOR ITS RELATION (W175). The
+    # quoted reading replaced the read-back — the store checks the
+    # answer against lines it offered, word by word, for nothing — and
+    # dropped the relation check with it, which nothing replaced. A
+    # quotation is not made relevant by being a quotation, and the path
+    # was measured speaking a single whole true sentence about the wrong
+    # subject.
+    #
+    # So the judge runs, on the turns that are about to commit, and a
+    # carried turn costs two engine calls instead of one. It stays a
+    # NUMBER rather than a law because the trade is a caller's to make
+    # and one integrator measured the cheaper side profitable on their
+    # own corpus (four empty answers became one wrong one, which suited
+    # them). Turning it off restores 0.8.1's behaviour exactly.
+    QUOTED_RELATION = True
+
     def _subsets(self, records, proof, fact_block):
         """The distinct EVIDENCE SUBSETS to answer from — at most CANDIDATES.
 
@@ -4804,8 +4848,56 @@ class Session:
         first, everything retrieved only if that fails.
         """
         views = [v for v in (self._focus_view(raw, proof), block) if v]
-        return any(generate.answers_asked(question, raw, view)
-                   for view in list(dict.fromkeys(views))[:self.VIEWS])
+        return any(
+            self._judged("answers", question, raw, view,
+                         lambda view=view: generate.answers_asked(
+                             question, raw, view))
+            for view in list(dict.fromkeys(views))[:self.VIEWS])
+
+    # THE BOUNDARY A JUDGMENT IS READ AT — the majority, which is the
+    # only boundary on a ratio in this file that is not a dial. It is a
+    # number rather than a law for operators who have MEASURED their own
+    # judge's calibration and want it stricter; it means nothing at all
+    # with a judge that only ever answers 0 or 1, which is what a prose
+    # engine is.
+    JUDGE_BOUNDARY = 0.5
+
+    def _judged(self, kind, question, answer, view, ask_engine):
+        """One judgment, through the seam if a caller supplied one.
+
+        Both gates ask the same SHAPE of question — does the evidence say
+        this (`says`), does this answer what was asked (`answers`) — and
+        both pay a frontier engine to write "yes" in prose that is then
+        parsed. A model class exists that answers exactly this shape as a
+        typed decision with a calibrated probability, for a fraction of
+        the latency and the price. Nothing here adopts one. This is the
+        seam such a judge could sit behind, beside `encoder=` and
+        `reranker=`, and with no judge supplied the engine is asked
+        exactly as before.
+
+        Three properties make it safe to hand to a stranger. A judge that
+        returns None has DECLINED, and the engine is asked as it always
+        was — a provider that cannot answer must not be able to refuse an
+        answer silently. A judge that RAISES is the same: an outage is
+        not a verdict. And the BOUNDARY IS THIS MEMORY'S, so a supplier
+        cannot move a gate by changing what it calls confident.
+
+        Where such a judge is worth putting is not "wherever there is a
+        call". Its declared failure mode is confident wrongness inside
+        its schema, which on a gate is a fabrication that passed the
+        audit. It belongs where a miss costs RECALL — and above all
+        where this memory has no judge at all today, because there it
+        can only add.
+        """
+        judge = getattr(self, "judge", None)
+        if judge is not None:
+            try:
+                said = judge(kind, question, answer, view)
+            except Exception:                               # noqa: BLE001
+                said = None             # an outage is not a verdict
+            if said is not None:
+                return float(said) > self.JUDGE_BOUNDARY
+        return bool(ask_engine())
 
     def _focus_view(self, raw, proof, first=()):
         """The evidence a claim DRAWS ON: the retrieved sentences it shares
@@ -5495,7 +5587,8 @@ class Session:
         # right more often, so it goes first; the wide one follows only
         # on a no. Verdict unchanged: ANY confirming view confirms.
         for view in views[:self.VIEWS]:
-            if generate.supported(raw, view):
+            if self._judged("says", question, raw, view,
+                            lambda: generate.supported(raw, view)):
                 return True
         return False
 

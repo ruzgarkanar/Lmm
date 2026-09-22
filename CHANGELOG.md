@@ -4,6 +4,75 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-09-22
+
+### Fixed
+
+- **Quoting replaces the read-back; it does not replace the relation**
+  (W175). The quoted reading dropped BOTH gates and only ever replaced
+  one. Whether the evidence *says* this, the store answers for nothing —
+  every word is checked against lines it offered. Whether the claim
+  *answers what was asked* is a different question, and **nothing about
+  quoting a line makes it relevant**. That judge was dropped with no
+  replacement, which is why the path could speak a single, whole, true
+  sentence about the wrong subject: reported from the field as the
+  failure remaining after 0.8.1's W172, and verified here — such a
+  sentence passes the region reading (one sentence is one region) and
+  containment at 1.0, and was spoken.
+
+  The judge the ordinary path runs now runs here too, over the lines the
+  answer rests on, and only on turns about to commit.
+
+  **What it cost, and what it bought.** On the fifteen-question slice the
+  quoted reading carries 7 turns where it carried 9, and the turn costs
+  86 calls against 58 — most of that not the judge but the full ordinary
+  cascade the two refused turns then pay. Against the ordinary path's 84
+  that is parity, so on this corpus the quoted reading's call advantage
+  was substantially the cost of being less careful. What the 28 calls
+  bought: a genuinely wrong answer became an honest abstention (asked
+  what capital market *instruments* do, the memory had been answering
+  about *institutions* — the reported class, on a real question), and a
+  second answer that had named one of several items now names them.
+  Gold 6/6 and unsourced assertions 0 both hold.
+
+  An integrator measuring 44 cells on another corpus and another engine
+  found the cheaper trade profitable — four empty answers became one
+  wrong one, which suited them. It stays theirs to make:
+  `m.session.QUOTED_RELATION = False` restores 0.8.1 exactly, beside
+  `CANDIDATES` and `VIEWS`.
+
+### Added
+
+- **A judgment is a seam** (W176). Both gates ask one shape of question —
+  does the evidence say this (`says`), does this answer what was asked
+  (`answers`) — and both pay a frontier engine to write "yes" in prose
+  that is then parsed. A model class now exists that answers exactly this
+  shape as a typed decision with a calibrated probability, for a fraction
+  of the latency and the price.
+
+  **This adopts none of them.** What is added is the seam one could sit
+  behind, beside `encoder=` and `reranker=`, which are the slots this
+  library already parameterises:
+
+  ```python
+  Memory(judge=lambda kind, question, answer, evidence: 0.93)
+  ```
+
+  Pass nothing and the engine is asked exactly as every measurement in
+  this repository was made. Three properties make it safe to hand to a
+  stranger. A judge returning `None` has **declined** and the engine is
+  asked — a provider that cannot answer must not be able to refuse an
+  answer silently. One that **raises** is the same: an outage is not a
+  verdict. And the boundary the probability is read at is this memory's
+  (`Session.JUDGE_BOUNDARY`, the majority), so a supplier cannot move a
+  gate by changing what it calls confident.
+
+  Where such a judge belongs is not "wherever there is a call". Its
+  declared failure mode is confident wrongness inside its schema, which
+  **on a gate is a fabrication that passed the audit**. It belongs where
+  a miss costs recall rather than the promise — and above all where this
+  memory has no judge at all today, because there it can only add.
+
 ## [0.8.1] — 2026-09-22
 
 Three findings from an integrator's 0.8.0 report, each verified before it
