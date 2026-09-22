@@ -6217,6 +6217,49 @@ def w150():
             % (reported, declared))
 
 
+@test("W167 an inflection is not a claim, and its host says so")
+def w167():
+    """Measured while diagnosing the quoted reading: three of fifteen
+    questions were refused for saying something "beyond the quote",
+    and the words they were refused for were `dir`, `tir` and `nin` —
+    suffixes that an apostrophe had cut loose into words of their own.
+    A document writing `(II-17.1)` and an answer writing `II-17.1'dir`
+    say the same thing; the reading saw a word the evidence lacked.
+
+    An apostrophe inside a token is TYPOGRAPHY, which this file
+    already reads structurally (the camel seam, the digit-letter
+    seam). What it must not do is keep a list of suffixes — `dir` is
+    grammar in one language and a word in another. The host answers
+    it: a fragment is an inflection when the token it hangs on is
+    itself carried by the evidence or the question, because inflecting
+    a word the evidence already holds says nothing new. A fragment
+    whose host is NOT carried stays a word and must be supported like
+    any other.
+
+    A first version learned this from the corpus instead — a fragment
+    that never stands alone anywhere in the store — and was measured
+    firing almost never: the suffix that refused these answers lives in
+    the ANSWER, and the document never wrote that form. Recorded so
+    the narrower reading is not tried again."""
+    from lmm import evidence
+
+    line = "Kurumsal Yonetim Tebligi (II-17.1) yayimlanmistir."
+    asked = "Kurumsal Yonetim Tebligi'nin numarasi nedir?"
+    said = "Kurumsal Yonetim Tebligi'nin numarasi II-17.1'dir."
+    assert evidence.coverage(said, line, asked) == 1.0, (
+        "an answer was refused for its own grammar")
+
+    # the host must be carried: a suffix on a word nobody wrote is a
+    # word, and it is not covered
+    stranger = "Sermaye Piyasasi Kurulu'nun karari boyledir."
+    assert evidence.coverage(stranger, line, asked) < 1.0, stranger
+
+    # ...and a number the evidence does not carry is still refused,
+    # grammar or no grammar
+    page = "Kurumsal Yonetim Tebligi'nin numarasi 96'dir."
+    assert not evidence.digits_ok(page, line), page
+
+
 @test("W166 an answer may rest on more than one line, and on no more "
       "than it names")
 def w166():

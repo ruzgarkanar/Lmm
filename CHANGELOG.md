@@ -4,6 +4,41 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.15] — 2026-09-22
+
+### Fixed
+
+- **An inflection is not a claim, and its host says so** (W167). Three
+  of fifteen questions were refused by the quoted reading for saying
+  something "beyond the quote", and the words they were refused for
+  were `dir`, `tir` and `nin` — suffixes an apostrophe had cut loose
+  into words of their own. A document writing `(II-17.1)` and an
+  answer writing `II-17.1'dir` say the same thing; the reading saw a
+  word the evidence lacked. Our own splitter made the defect.
+
+  An apostrophe inside a token is TYPOGRAPHY, which this layer already
+  reads structurally (the camel seam, the digit-letter seam). What it
+  must not do is keep a list of suffixes — `dir` is grammar in one
+  language and a word in another. **The host answers it:** a fragment
+  is an inflection when the token it hangs on is itself carried by the
+  evidence or the question, because inflecting a word the evidence
+  already holds says nothing new. A fragment whose host is not carried
+  stays a word and must be supported like any other, and a number the
+  evidence does not carry is still refused — measured both ways.
+
+  The quoted reading now carries **10 of 15** turns, up from 9. The
+  other two refusals in that family stay refused, and correctly: the
+  engine had answered with a table of contents PAGE number.
+
+### Refuted on the way, and removed
+
+- A first version learned the rule from the CORPUS — a fragment that
+  never stands alone anywhere in the store is an inflection — which is
+  sound, tested, and measured firing almost never: the suffix that
+  refuses these answers lives in the ANSWER, and the document never
+  wrote that form. It was built, measured, and taken back out rather
+  than left in the codebase beside the rule that replaced it.
+
 ## [0.7.14] — 2026-09-22
 
 ### Changed
