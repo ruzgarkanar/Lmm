@@ -1888,11 +1888,11 @@ def m1():
         return refusal
 
     s._respond = spoke
-    s._asserted_a_fact = lambda said: False        # the turn claimed nothing
+    s._asserted_a_fact = lambda said, asked="": False   # claimed nothing
     assert s.respond("RFC 2119 kaç sayfadır") == refusal, "text after a refusal"
     assert s.last_abstained is True
 
-    s._asserted_a_fact = lambda said: True         # the turn made a claim
+    s._asserted_a_fact = lambda said, asked="": True    # made a claim
     said = s.respond("RFC 2119 kaç sayfadır")
     assert said.startswith(refusal) and said != refusal
     added = said[len(refusal):]
@@ -6189,6 +6189,55 @@ def w150():
         assert reported == declared, (
             "the installed package reports %r, the build declares %r"
             % (reported, declared))
+
+
+@test("W152 repeating the question is not a claim of its own")
+def w152():
+    """Field report, 3/3 reproducible, and it is the gate BEFORE the one
+    W148 fixed. A document writes `4-Augenprinzips`; the engine answers
+    with the same term spelled `Vier-Augen-Prinzips`. Three tokens then
+    look unsupported — a numeral against its written-out twin, one
+    compound against its split halves — and coverage lands at 0.44,
+    just under the majority. A correct, sourced answer was stamped
+    `abstained=True` over a spelling variant of the question's own
+    subject.
+
+    The reading already knows that some of an answer's words are not
+    claims: it strips the engine's parentheses and its `#stamps` first,
+    because those are the answer's footnote. Restating what was ASKED
+    belongs in that class — an answer that says the question back has
+    not asserted anything new by doing so, and what it asserts is what
+    it says BEYOND the question. `evidence.coverage` has taken a
+    `question` argument all along for exactly this reason; the
+    abstention reading simply never passed it.
+
+    Nothing is loosened by this: the gates that decide what may be
+    SPOKEN are elsewhere and untouched. This reading only decides the
+    stamp."""
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    proof = ["Der Lieferant setzt ein Freigabeverfahren zur Einhaltung "
+             "des 4-Augenprinzips ein.",
+             "Jede Buchung wird protokolliert und archiviert.",
+             "Der Zugriff ist auf benannte Personen beschränkt."]
+    s._last_proof = proof
+    s._origin_of = {line: "#doc:vendor" for line in proof}
+    asked = "Welches Verfahren dient der Einhaltung des Vier-Augen-Prinzips?"
+    said = ("Das Freigabeverfahren dient zur Einhaltung des "
+            "Vier-Augen-Prinzips.")
+    assert s._asserted_a_fact(said, asked), (
+        "a correct answer was stamped an abstention over a spelling "
+        "variant of the question's own subject")
+    # a refusal is still not an assertion, question or no question
+    assert not s._asserted_a_fact(
+        "Ich habe dazu keine Information.", asked), (
+        "a refusal was read as an assertion")
+    # and a caller that hands in no question reads exactly as before:
+    # an answer whose own words the proof carries still asserts
+    assert s._asserted_a_fact(
+        "Jede Buchung wird protokolliert und archiviert."), (
+        "the no-question reading changed")
 
 
 @test("W148 overlapping windows are one region, not a register")

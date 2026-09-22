@@ -4,6 +4,46 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] — 2026-09-22
+
+### Fixed
+
+- **Repeating the question is not a claim of its own** (W152). The
+  gate before the one 0.7.2 fixed, and the same reporter's corpus
+  found it: a document writes `4-Augenprinzips`, the engine answers
+  with the same term spelled `Vier-Augen-Prinzips`. A numeral against
+  its written-out twin, a compound against its split halves — three
+  tokens read as unsupported, coverage lands at 0.44, and a correct,
+  sourced answer is stamped `abstained=True` over a spelling variant
+  of the question's own subject. 3/3 reproducible, and reproduced here
+  before it was touched.
+
+  The reading already strips what is not a claim: the engine's
+  parentheses, its `#stamps`. Restating what was ASKED belongs in that
+  class — an answer that says the subject back has asserted nothing by
+  doing so, and what it asserts is what it says BEYOND the question.
+  `evidence.coverage` has taken a `question` argument all along for
+  exactly this; the abstention reading simply never passed it, and now
+  both of its callers do. Nothing is loosened: the gates that decide
+  what may be SPOKEN are elsewhere and untouched. This reading only
+  decides the stamp.
+
+### Reported, not reproduced
+
+- **"A second document destroys the correct answer."** Reported as
+  3/3 stable: one vendor's answer is correct alone and refused once a
+  second vendor's document shares the store. It matters more than
+  anything else on this list — a tender store holds eight vendors —
+  and it is not shipped as a guess. Three synthetic reproductions were
+  built (word channel alone, meaning channel on, target ranked low
+  inside its own document) and the target line survived every one, so
+  the mechanism is not yet in hand. Changing the seating rules on a
+  hypothesis would risk the monopoly behaviour measured on 62 sibling
+  documents. A reduced case, or the two documents, closes this.
+
+- A refusal came back in mixed language ("Ich do not know."). No
+  reproduction yet; the turn's `.route` would say which path spoke.
+
 ## [0.7.2] — 2026-09-22
 
 The same reporter, measuring 0.7.1 against the same two tender
