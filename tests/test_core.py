@@ -6211,6 +6211,79 @@ def w150():
             % (reported, declared))
 
 
+@test("W157 a caller who knows the turn's kind is not asked to prove it")
+def w157():
+    """Traced from outside, one cell of a batch: six engine calls and
+    5 015 prompt tokens, of which routing is 26% — one call reading the
+    message's shape, another asking whether the message is about the
+    responder ITSELF. In a conversation both are necessary. In a batch
+    they are a constant: 44 questions of one known kind, and the second
+    question asked 44 times whether the caller is asking the assistant
+    about itself.
+
+    So a caller who has already made that reading may hand it over.
+    `ask(..., shape=...)` seats the turn's kind before the door, and
+    the two readings of the MESSAGE are then not paid for — the engine
+    is not asked to re-derive what it has been told. Everything after
+    the door is untouched: the organs, the gates, the read-back, the
+    46% of the trace that buys the ability to say no.
+
+    It is a declaration, not a hint: a wrong shape costs the organ that
+    shape would have reached, exactly as a wrong shape read by the
+    engine would. Left unset, every turn reads as it always did."""
+    from lmm import api, generate
+    from lmm.session import Session
+
+    asked = {"shape": 0, "identity": 0}
+    real_shape = generate.turn_shape
+    real_id = generate.is_identity_question
+    real_respond = Session._respond
+
+    def count_shape(message):
+        asked["shape"] += 1
+        return "none"
+
+    def count_identity(message):
+        asked["identity"] += 1
+        return False
+
+    m = api.Memory(None, dense=False)
+    m.learn("The tax registration is validated for every transaction.",
+            source="#vendor", deep=False)
+    generate.turn_shape = count_shape
+    generate.is_identity_question = count_identity
+    Session._respond = lambda self, message, **kw: "The tax registration is validated."
+    try:
+        m.ask("Is the tax registration validated?", shape="none")
+        spent = dict(asked)
+    finally:
+        generate.turn_shape = real_shape
+        generate.is_identity_question = real_id
+        Session._respond = real_respond
+    assert spent == {"shape": 0, "identity": 0}, (
+        "a declared kind was re-derived by the engine: %s" % spent)
+
+    # ...and the declaration reaches the organs: a count-shaped turn
+    # routes to the counting organ without the engine being asked
+    s = Session(None, dense=False)
+    generate.turn_shape = count_shape
+    try:
+        s.declared_shape = "count"
+        assert s._turn_shape("wieviele Verfahren gibt es?") == "count"
+        assert asked["shape"] == 0, "the engine was asked anyway"
+    finally:
+        generate.turn_shape = real_shape
+
+    # unset, the turn reads as it always did
+    s2 = Session(None, dense=False)
+    generate.turn_shape = count_shape
+    try:
+        assert s2._turn_shape("how many are there?") == "none"
+        assert asked["shape"] == 1, "the reading was skipped without a declaration"
+    finally:
+        generate.turn_shape = real_shape
+
+
 @test("W156 an answer says how much of the question it carried")
 def w156():
     """`abstained` is binary — the memory has something, or nothing —

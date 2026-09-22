@@ -4,6 +4,41 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.6] — 2026-09-22
+
+### Added
+
+- **`ask(..., shape=...)`** — a caller who knows the turn's kind is not
+  asked to prove it (W157). Traced from outside, one cell of a batch:
+  six engine calls and 5 015 prompt tokens, of which routing is 26% —
+  one call reading the message's shape, another asking whether the
+  message is about the responder ITSELF. In a conversation both are
+  necessary. In a batch they are a constant: 44 questions of one known
+  kind, and the second question asked 44 times whether the caller is
+  asking the assistant about itself.
+
+  A declared kind seats both readings: **6 calls → 4**, on every cell
+  of a batch. Everything after the door is untouched — the organs, the
+  gates, the read-back, the 46% of that trace which buys the ability
+  to say no.
+
+  It is a declaration, not a hint: a wrong shape costs the organ that
+  shape would have reached, exactly as a wrong shape read by the
+  engine would. It is read in ONE place (`Session._turn_shape`), it
+  lives for the turn and is cleared after it, so a batch's declaration
+  cannot leak into a later ordinary turn. Left unset, every turn reads
+  as it always did.
+
+### Held deliberately
+
+- The third proposal from the same report — `ask()` on a declarative
+  sentence should ask rather than chat — is not in this release, and
+  not because it is wrong: the reporter measured the catalogue's own
+  wording retrieving better than a paraphrase (15/20 against 11/20,
+  17/20 with both). It changes retrieval behaviour, and the run that
+  would judge it is in flight. Shipping it now would make those
+  numbers incomparable.
+
 ## [0.7.5] — 2026-09-22
 
 ### Added
