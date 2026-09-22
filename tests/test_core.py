@@ -10998,6 +10998,69 @@ def w169():
     assert not evidence.table_windows(prose)
 
 
+@test("W170 a sentence that carries no evidence is not an answer")
+def w170():
+    """Reported from the field twice and diagnosed here: a refusal spoken
+    by the ANSWER path, stamped `abstained=False` with no sources, and in
+    the wrong language — the engine's own "I don't have that information"
+    returned as a claim. Reproduced with no engine at all: four questions,
+    including one the document plainly answers, all four spoken as shrugs.
+
+    The gates were not loose. `_select` graded the shrug at zero — it
+    carries none of the evidence's words, which is exactly what the
+    coverage score is for — and returned None, refusing to speak it. The
+    fallback beneath then resurrected it: its `spare` list excluded only
+    what the RELATION gate had refused, so a candidate eliminated by the
+    grounding score came back through the back door, and `verify` had
+    nothing to contradict it with because a shrug asserts nothing.
+
+    An empty claim is the blind spot every audit of this kind has: a gate
+    that asks "is what this says in the evidence" cannot fail a sentence
+    that says nothing. The session already owns the other reading —
+    `_asserted_a_fact`, a word intersection with the proof, no model call
+    and no word of any language in it — and the fallback must pass it too,
+    both for a candidate it revives and for one it generates fresh."""
+    from lmm import generate, runtime, session as lmm_session
+
+    shrug = "I do not have that information in the document."
+    s = lmm_session.Session(None)
+    s.learn_text("Bu rapor Hat B kalite denetimi için düzenlenmiştir.\n"
+                 "Hazırlayan: Nordheim Kayıt Bürosu\n"
+                 "Denetim sırasında ölçülen sıcaklık 42 santigrat derece "
+                 "olarak kaydedilmiştir.\n", source="#rapor", deep=False)
+    real = (generate.answer, generate.supported, generate.answers_asked,
+            generate.refusal, generate.telling_answer, runtime.generate)
+    # The judges are stood in for at their MOST GENEROUS — a shrug gives
+    # them nothing to disagree with, which is the measured situation.
+    generate.answer = lambda q, facts, warmth=0.2, persona="", **kw: shrug
+    generate.supported = lambda answer, view: True
+    generate.answers_asked = lambda question, answer, view: True
+    generate.telling_answer = lambda question, block: shrug
+    generate.refusal = lambda question, persona="": "REDDEDİLDİ"
+    runtime.generate = lambda *a, **k: shrug
+    try:
+        for question in ("Raporu kim imzalamıştır",
+                         "Denetimin maliyeti kaç liradır",
+                         "Bu raporun numarası nedir",
+                         "Ölçülen sıcaklık kaçtır"):
+            said = s._answer(question, None)
+            assert shrug not in str(said or ""), (
+                "the engine's own shrug was spoken as an answer: %r"
+                % (said,))
+            assert s.last_abstained, (
+                "a turn that said nothing was stamped an assertion: %r"
+                % (said,))
+        # AND THE PATH STILL ANSWERS when the engine says something the
+        # evidence carries — the witness that this refuses shrugs, not work.
+        generate.answer = (lambda q, facts, warmth=0.2, persona="", **kw:
+                           "Hazırlayan: Nordheim Kayıt Bürosu")
+        said = s._answer("Raporun hazırlayanı kimdir", None)
+        assert "Nordheim" in str(said or ""), said
+    finally:
+        (generate.answer, generate.supported, generate.answers_asked,
+         generate.refusal, generate.telling_answer, runtime.generate) = real
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
