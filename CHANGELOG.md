@@ -4,6 +4,57 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.12] — 2026-09-22
+
+Three changes, measured together and released together.
+
+### Added
+
+- **A quoted turn does not pay the router it never uses** (W163). The
+  quoted reading needs retrieval and nothing else; the router — the
+  call that reads a message for its kind and subject — exists to
+  choose between the paths that come AFTER it, and a turn that has
+  already chosen the quoted path uses none of them. It now runs above
+  the router and below everything free: the graph's own lookup and the
+  record door still answer first, because they cost nothing and answer
+  better.
+
+  **When the quoted reading carries a turn, that turn is ONE engine
+  call** — a RAG's call count, with a stamp on the answer and the
+  store checking it for nothing.
+
+  Measured over fifteen questions: it carried eight, and the seven
+  that fell back paid for the attempt too, so the average was **4.6
+  calls against the ordinary path's 6.3** — −27% calls, −28% tokens,
+  −18% wall clock — and one question came back answered that the
+  ordinary path had abstained on. **Parity per carried turn, not on
+  the average**, and the remaining gap is entirely the turns the
+  reading does not carry.
+
+- **On the question door, a statement is the question** (W164). An
+  integration asks its cells in the catalogue's OWN wording, because a
+  requirement's own sentence retrieves better than a paraphrase (15 of
+  20 against 11, 17 with both). Handed to `ask()`, that sentence is
+  classified WRITE — correctly — and went to the chat voice, which
+  answers a question nobody asked and pays for it. That rule was
+  measured on `respond(teach=False)`, the surface that carries the
+  history and the persona, and it keeps it; `ask()` is the question
+  door, cannot write memory, and a declarative handed to it names a
+  subject.
+
+### Fixed
+
+- **The meaning channel's fusion obeys the region cap too** (W162) —
+  see 0.7.11 for the measurement and for what it is not.
+
+### Not done, with the reason
+
+- Running the two verification calls side by side was NOT tried again.
+  This codebase measured it once (W113): paying both always was "the
+  biggest line on a refusal — ten calls and twenty thousand prompt
+  tokens", because the first view is usually enough. Repeating a
+  refuted experiment is not diligence.
+
 ## [0.7.11] — 2026-09-22
 
 ### Fixed

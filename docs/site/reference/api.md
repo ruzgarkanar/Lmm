@@ -218,8 +218,16 @@ what that costs.
 | | how | measured cost | what it gives up |
 |---|---|---|---|
 | default | the engine phrases freely; a read-back and a relation check audit the claims afterwards | 4 calls a turn | — |
-| `ask(..., quoted=True)` | one call answers AND names the evidence line; the STORE checks that the line is one it offered and that the answer stays inside it — word comparisons, no model. When a check fails, the ordinary path runs | **~30% fewer calls and tokens**, −16% wall clock | answers that span several lines: a question whose answer is spread over four lines gets the one line it quoted |
+| `ask(..., quoted=True)` | ONE call answers AND names the evidence line — the router is not paid either, since the reading it routes for is already chosen; the STORE checks that the line is one it offered and that the answer stays inside it — word comparisons, no model. When a check fails, the ordinary path runs | **~30% fewer calls and tokens**, −16% wall clock | answers that span several lines: a question whose answer is spread over four lines gets the one line it quoted |
 | `ask(..., quoted="only")` | the same, except the STORE's refusal stands instead of falling back — an engine that declined outright still falls back, having offered nothing to refuse | **40% fewer calls again** (54 → 32 over fifteen questions) | answers the ordinary path would have rescued: measured, it asserted nothing false where falling back spoke one wrong number, and missed three answers where falling back found one |
+
+When the quoted reading carries a turn, that turn costs **one engine
+call** — a RAG's call count, with a stamp on the answer and the store
+checking it. Across fifteen questions it carried eight, and the seven
+that fell back paid for the attempt as well, so the AVERAGE was 4.6
+calls against the ordinary path's 6.3: −27% calls, −28% tokens, −18%
+wall clock, and one question answered that the ordinary path had
+abstained on. Parity per carried turn; not parity on the average.
 
 In quoted mode fabrication is not judged unlikely, it is structurally
 impossible: what is spoken is assembled out of a line the store holds.
