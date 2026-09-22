@@ -547,7 +547,7 @@ class Session:
             # what was spoken = nothing was asserted = an abstention, in
             # whatever language it was written. One short model call per
             # answering turn, and only on turns that did not already refuse.
-            self.last_abstained = not self._asserted_a_fact(said)
+            self.last_abstained = not self._asserted_a_fact(said, message)
         # A SECOND CHANCE AT FINDING, NEVER AT CLAIMING — and it is asked
         # HERE, where the abstention is finally known. A turn can end up
         # saying nothing through several doors (the refusal, an empty
@@ -573,7 +573,7 @@ class Session:
                 if again:
                     self._step("widened")
                     spoken = self._strip_marks(again)
-                    if spoken and self._asserted_a_fact(again):
+                    if spoken and self._asserted_a_fact(again, message):
                         said = again
                         self.last_abstained = False
         # THE TELLING SEAT (W147) — the last honest reading before the
@@ -885,7 +885,7 @@ class Session:
                 regions.setdefault(_root(i), set()).update(words)
         return list(regions.values())
 
-    def _asserted_a_fact(self, said):
+    def _asserted_a_fact(self, said, asked=""):
         """Did the spoken answer CLAIM anything — the language-free half of the
         abstention reading.
 
@@ -962,7 +962,23 @@ class Session:
                 return False
 
             held = "\n".join(proof)
-            return any(evidence.coverage(sentence, held) > 0.5
+            # RESTATING THE QUESTION IS NOT A CLAIM OF ITS OWN (W152).
+            # This reading already strips what is not a claim — the
+            # engine's parentheses, its `#stamps` — and the question's
+            # own words belong in that class: an answer that says the
+            # subject back has asserted nothing by doing so, and what
+            # it asserts is what it says BEYOND what was asked.
+            # Measured from the field: a document writes
+            # `4-Augenprinzips`, the engine answers `Vier-Augen-Prinzips`
+            # — a numeral against its written-out twin and a compound
+            # against its split halves — coverage lands at 0.44 and a
+            # correct, sourced answer is stamped an abstention over a
+            # spelling variant of the question's own subject.
+            # `evidence.coverage` has taken the question all along; the
+            # stamp simply never handed it over. Nothing is loosened:
+            # the gates that decide what may be SPOKEN are elsewhere,
+            # and this reading only decides the stamp.
+            return any(evidence.coverage(sentence, held, asked) > 0.5
                        and _load_bearing_words(sentence)
                        for sentence in re.split(r"(?<=[.!?])\s+",
                                                 text.strip())
