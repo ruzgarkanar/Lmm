@@ -812,6 +812,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-the-gate-is-actually-for-a-correction-from-the-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the gate is actually for — a correction from the field
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-scorers-own-bugs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -967,6 +978,17 @@
     <span class="md-ellipsis">
       
         Language independence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-gate-is-actually-for-a-correction-from-the-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the gate is actually for — a correction from the field
       
     </span>
   </a>
@@ -1265,6 +1287,105 @@ questions, same gold keys, same invented names:</p>
 </tr>
 </tbody>
 </table>
+<h2 id="what-the-gate-is-actually-for-a-correction-from-the-field">What the gate is actually for — a correction from the field<a class="headerlink" href="#what-the-gate-is-actually-for-a-correction-from-the-field" title="Permanent link">&para;</a></h2>
+<p>An integration measuring 44 supplier/requirement cells against two real
+tender documents published a correction to its own earlier report, and it
+corrects ours too. Its first comparison put the whole document in the
+prompt — <strong>no retrieval at all</strong> — and the gate looked like it was buying
+two fewer fabrications. That was the wrong control.</p>
+<p>The right one is the same retrieval LMM uses (<code>evidence.find</code>, zero model
+calls) with a single engine call after it instead of the gate. Same engine,
+same questions, 44 cells:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>calls</th>
+<th>prompt tokens</th>
+<th>seconds</th>
+<th>false-covered</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>document in the prompt</td>
+<td>44</td>
+<td>292,749</td>
+<td>125</td>
+<td>5</td>
+</tr>
+<tr>
+<td><strong>the same retrieval, one call, no gate</strong></td>
+<td>44</td>
+<td><strong>28,083</strong></td>
+<td><strong>88</strong></td>
+<td><strong>3</strong></td>
+</tr>
+<tr>
+<td>LMM</td>
+<td>378</td>
+<td>313,173</td>
+<td>491</td>
+<td><strong>2</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Read that column in two steps. Giving the model six retrieved lines instead
+of the whole document removes two invented coverages; <strong>adding the gate on
+top of those same lines removes one more</strong> — inside a run-to-run variance
+the reporter measured at about two cells. So on that corpus the gate's
+contribution to non-fabrication sits at the noise floor, for a reason worth
+stating plainly: <strong>once retrieval is good, the fabrication the gate exists
+to stop was mostly not happening.</strong> Naive RAG over the same retriever was
+11× cheaper in tokens and 5.6× faster.</p>
+<p>What the same run shows the gate DOES buy is something neither side had
+measured. Counting what each approach was willing to say across the 44
+cells:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>"partly"</th>
+<th>"fully"</th>
+<th>"not covered"</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>same retrieval, no gate</td>
+<td><strong>31</strong></td>
+<td>7</td>
+<td>6</td>
+</tr>
+<tr>
+<td>document in the prompt</td>
+<td>14</td>
+<td>29</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>LMM</td>
+<td>0</td>
+<td>34</td>
+<td>10</td>
+</tr>
+</tbody>
+</table>
+<p>Unverified answering <strong>hedges</strong>: 31 of 44 cells came back "partly covered",
+and the whole-document variant did not once say "not covered" in 44 tries.
+LMM commits — 34 to 10, and 8 of those 10 refusals are correct. A matrix
+where 31 rows of 44 say "partly" tells its reader nothing.</p>
+<p>That is the property verification sells, and it is not accuracy: <strong>the
+answers do not drift to the middle.</strong> A system that never commits is never
+wrong and never useful. The shape of the number, for anyone repeating this:
+over a fixed question set, how often does the system return the
+non-committal option. It costs nothing to compute and separates verified
+from unverified answering far more sharply than accuracy does.</p>
+<p>The same run also reports <strong>zero fabrications in 44 cells</strong> — the promise
+held exactly as written. Both of LMM's false-covered cells were checked
+against the document by hand: one is the open abstention-stamp defect, and
+the other is a true, sourced sentence answering a <em>different</em> question than
+the one asked. Which points at the limit that actually bites, below.</p>
 <h2 id="the-scorers-own-bugs">The scorer's own bugs<a class="headerlink" href="#the-scorers-own-bugs" title="Permanent link">&para;</a></h2>
 <p>A benchmark whose author only ever finds errors that flatter him is not
 evidence. Two defects were found in this project's scorer, both moving

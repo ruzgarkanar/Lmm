@@ -836,15 +836,34 @@
 <p>Kept current, and deliberately specific. A limits page that only flatters is
 marketing; this one is part of the measurement.</p>
 <ul>
-<li><strong>Answer selection can still pick a true-but-off-target sentence.</strong> The
-  gate guarantees non-fabrication, not perfect relevance.</li>
-<li><strong>The synonym ceiling is lower than it was, and it is not gone.</strong> A word
+<li><strong>Relevance is the dominant failure mode, and the gate does not touch
+  it.</strong> The gate guarantees non-fabrication, not perfect relevance — that
+  sentence has always been here, and a field integration measuring 44
+  supplier/requirement cells showed it is not one limit among several but
+  <em>the</em> one. Zero fabrications in 44 cells; both of its wrong answers were
+  relevance failures, and one of them is instructive: every content word
+  verbatim in the document, a real source stamp, a true sentence — the
+  requirement asked for a simulation feature in the product and the
+  document described unit testing during the project. The gate had nothing
+  to object to, because there was nothing false in it.</li>
+</ul>
+<p><em>"The memory has something to say about X"</em> is not <em>"the supplier offers
+  X"</em>, and an integration doing coverage rather than question-answering
+  carries that distance itself. Nothing here judges it.
+- <strong>An assertion with no stamp is worth suspecting.</strong> While the
+  abstention-stamp defect stays open (<code>abstained=False</code> on a sentence that
+  is itself a refusal), the same field run found that every instance
+  carried the same signature: <code>abstained=False</code> <strong>and</strong> <code>sources == ()</code>.
+  Requiring a source is measured as a poor <em>rule</em> — it removed two wrong
+  answers and cost two right ones — but as a <em>diagnostic</em> it caught every
+  occurrence. A careful caller treats an answer that asserts without
+  provenance as suspect.
+- <strong>The synonym ceiling is lower than it was, and it is not gone.</strong> A word
   search alone cannot reach a paraphrase, and two instruments were built
   against that. The offline expansion channel was <strong>measured not to close it</strong>
   — its filter can only keep queries that copy a line, and a genuine
   rephrasing shares no distinguishing word with its own line — so it was
-  deleted rather than left as a switch nobody should turn on.</li>
-</ul>
+  deleted rather than left as a switch nobody should turn on.</p>
 <p>The meaning channel that replaced it is measured to close much of the class:
   the line that answers reaches the engine 32% → 79% of the time on a
   115,913-line corpus. It does <strong>not</strong> close the example this page has always

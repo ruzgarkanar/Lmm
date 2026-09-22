@@ -835,6 +835,60 @@
 <p>All notable changes to this project are documented here. The format follows
 <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>, and this project
 follows <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<h2 id="078-2026-09-22">[0.7.8] — 2026-09-22<a class="headerlink" href="#078-2026-09-22" title="Permanent link">&para;</a></h2>
+<p>Documentation only, and it revises this project's central claim.</p>
+<h3 id="corrected">Corrected<a class="headerlink" href="#corrected" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>What the gate is for.</strong> A team integrating this library published a
+  correction to their own report, and it corrects the argument this
+  README had been making. Their first comparison put the whole document
+  in the prompt — no retrieval at all — which made the gate look like it
+  was buying two fewer invented answers.</li>
+</ul>
+<p>Against the right control (the same retrieval LMM uses, one engine
+  call after it instead of the gate), across 44 cells on two real tender
+  documents: stuffing the document produced 5 false coverages, the same
+  retrieval with one ungated call produced 3, and LMM produced 2 —
+  inside a run-to-run variance of about two cells. <strong>Retrieval buys two;
+  the gate buys the third, at the noise floor</strong>, because once retrieval
+  is good the fabrication the gate exists to stop was mostly not
+  happening. Naive RAG over the same retriever was 11× cheaper in tokens
+  and 5.6× faster, and anyone choosing between them deserves to read
+  that here.</p>
+<h3 id="added-to-the-record">Added to the record<a class="headerlink" href="#added-to-the-record" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>What the gate does buy, which neither side had measured.</strong> Across
+  the same 44 cells: unverified answering returned "partly covered" 31
+  times out of 44, and the whole-document variant never once said "not
+  covered". LMM committed 34 to 10, and 8 of those 10 refusals are
+  correct. A matrix where 31 rows of 44 say "partly" tells its reader
+  nothing.</li>
+</ul>
+<p>So the claim is not "the gate stops the model inventing things". It is
+  that <strong>the gate stops a system from refusing to answer while appearing
+  to</strong> — the answers do not drift to the middle. A system that never
+  commits is never wrong and never useful. The shape of the number, for
+  anyone repeating it: over a fixed question set, how often the system
+  returns the non-committal option. It costs nothing and separates
+  verified from unverified answering far more sharply than accuracy.</p>
+<ul>
+<li>
+<p><strong>Relevance is the dominant failure mode</strong>, promoted on the limits
+  page from one item among several to the first. The same run reports
+  zero fabrications in 44 cells; both wrong answers were relevance
+  failures, one of them with every content word verbatim in the document
+  and a real source stamp — a true sentence answering a different
+  question than the one asked. The gate had nothing to object to.</p>
+</li>
+<li>
+<p><strong>An assertion with no stamp is worth suspecting.</strong> While the
+  abstention-stamp defect stays open, every instance in that run carried
+  one signature: <code>abstained=False</code> and <code>sources == ()</code>. Measured as a
+  rule it is poor (it removes two wrong answers and costs two right
+  ones); as a diagnostic it caught every occurrence, and it is now
+  documented as one.</p>
+</li>
+</ul>
 <h2 id="077-2026-09-22">[0.7.7] — 2026-09-22<a class="headerlink" href="#077-2026-09-22" title="Permanent link">&para;</a></h2>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
