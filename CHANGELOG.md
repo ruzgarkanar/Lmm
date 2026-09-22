@@ -4,6 +4,59 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.14] — 2026-09-22
+
+### Changed
+
+- **An answer may rest on more than one line, and on no more than it
+  names** (W166). The quoted reading carried eight turns of fifteen,
+  and the diagnosis said why it did not carry the rest: three
+  questions the store genuinely cannot answer, two where the engine
+  named the wrong line — and the documented cost, an answer spread
+  over several lines getting only the one it quoted.
+
+  Both are one limit, and it contradicted this system's own rule: the
+  fact checker's prompt has said for as long as it has existed that
+  "COMBINING EVIDENCE IS ALLOWED — the attribute and its value may sit
+  in DIFFERENT evidence items". The engine may now name up to three
+  lines and the answer is checked against THOSE lines and nothing
+  else, so a word from a line it did not name is still a refusal. What
+  changed is that the frame may be two lines wide when the evidence
+  is.
+
+### Measured
+
+Fifteen questions, quoted mode, same harness and corpus — W165's
+conditional prompts and W166 together:
+
+| | before | after |
+|---|---|---|
+| calls | 69 (4.6/turn) | **47 (3.1/turn)** |
+| prompt characters | 269,615 | **182,122** |
+| seconds | 97 | **68** |
+| carried by the quoted reading | 8/15 | **9/15** |
+| abstentions | 4 | **3** |
+
+−32% on all three, and the three abstentions left are exactly the
+three questions the document does not answer. No wrong claim appeared
+and no answer was lost.
+
+**Where that leaves the comparison:** the day opened at 10.7× a naive
+RAG's call count on the field integration's corpus. A quoted turn now
+costs 3.1 calls on average and one when the reading carries it. The
+gap that remains is the turns it does not carry, and it is no longer
+the gap it was.
+
+### Still true
+
+- Asked which exams a study guide serves, the quoted reading still
+  names one of four. Three lines were not enough for that cell, and it
+  stays on the record rather than being rounded away.
+
+- Output length is NOT a cost: measured, this system's answers average
+  110 characters — about thirty tokens against four thousand of
+  prompt. The instinct to shorten them was checked and dropped.
+
 ## [0.7.13] — 2026-09-22
 
 ### Changed
