@@ -3,8 +3,28 @@
 Kept current, and deliberately specific. A limits page that only flatters is
 marketing; this one is part of the measurement.
 
-- **Answer selection can still pick a true-but-off-target sentence.** The
-  gate guarantees non-fabrication, not perfect relevance.
+- **Relevance is the dominant failure mode, and the gate does not touch
+  it.** The gate guarantees non-fabrication, not perfect relevance — that
+  sentence has always been here, and a field integration measuring 44
+  supplier/requirement cells showed it is not one limit among several but
+  *the* one. Zero fabrications in 44 cells; both of its wrong answers were
+  relevance failures, and one of them is instructive: every content word
+  verbatim in the document, a real source stamp, a true sentence — the
+  requirement asked for a simulation feature in the product and the
+  document described unit testing during the project. The gate had nothing
+  to object to, because there was nothing false in it.
+
+  *"The memory has something to say about X"* is not *"the supplier offers
+  X"*, and an integration doing coverage rather than question-answering
+  carries that distance itself. Nothing here judges it.
+- **An assertion with no stamp is worth suspecting.** While the
+  abstention-stamp defect stays open (`abstained=False` on a sentence that
+  is itself a refusal), the same field run found that every instance
+  carried the same signature: `abstained=False` **and** `sources == ()`.
+  Requiring a source is measured as a poor *rule* — it removed two wrong
+  answers and cost two right ones — but as a *diagnostic* it caught every
+  occurrence. A careful caller treats an answer that asserts without
+  provenance as suspect.
 - **The synonym ceiling is lower than it was, and it is not gone.** A word
   search alone cannot reach a paraphrase, and two instruments were built
   against that. The offline expansion channel was **measured not to close it**

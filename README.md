@@ -867,6 +867,53 @@ operator whose corpus defeats the reordering raises them.
 
 ---
 
+## What the gate is for — corrected by a field measurement
+
+A team integrating this library published a correction to their own report,
+and it corrects the argument this README had been making. Their first
+comparison put the whole document in the prompt — **no retrieval at all** —
+which made the gate look like it was buying two fewer invented answers.
+
+Run against the right control (**the same retrieval LMM uses**, one engine
+call after it instead of the gate), across 44 supplier/requirement cells on
+two real tender documents:
+
+| | tokens | seconds | false-covered |
+|---|---|---|---|
+| document in the prompt | 292,749 | 125 | 5 |
+| **the same retrieval, one call, no gate** | **28,083** | **88** | **3** |
+| LMM | 313,173 | 491 | **2** |
+
+Retrieval removes two invented coverages; the gate on top of those same
+lines removes one more — inside a variance of about two cells. On that
+corpus **the gate's contribution to non-fabrication is at the noise
+floor**, because once retrieval is good the fabrication it exists to stop
+was mostly not happening. Naive RAG over the same retriever was 11×
+cheaper in tokens and 5.6× faster, and anyone choosing between them
+deserves to know that.
+
+What the gate does buy showed up in the same run, and neither side had
+measured it. Counting what each system was **willing to say**:
+
+| | "partly" | "fully" | "not covered" |
+|---|---|---|---|
+| same retrieval, no gate | **31** | 7 | 6 |
+| document in the prompt | 14 | 29 | **0** |
+| LMM | 0 | 34 | 10 |
+
+Unverified answering hedges: 31 of 44 cells came back "partly", and the
+whole-document variant never once said "not covered". LMM commits, 34 to
+10, and 8 of those 10 refusals are right. A matrix where 31 rows of 44 say
+"partly" tells its reader nothing.
+
+So the claim is not "the gate stops the model inventing things". With good
+retrieval, it mostly was not. The claim is: **the gate stops a system from
+refusing to answer while appearing to.** A system that never commits is
+never wrong and never useful.
+
+(The same run reports **zero fabrications in 44 cells**. Both of its wrong
+answers were relevance failures — see [Honest limits](#honest-limits).)
+
 ## Honest limits
 
 Kept current, and deliberately specific.
@@ -895,8 +942,16 @@ Kept current, and deliberately specific.
   the bare engine handed the same lines also misses, and misses
   confidently where this memory abstains.
 
-- Answer *selection* can still pick a true-but-off-target sentence. The gate
-  guarantees non-fabrication, not perfect relevance.
+- **Relevance is the dominant failure mode, and the gate does not touch it.**
+  The gate guarantees non-fabrication, not perfect relevance — and a field
+  integration measured that this is not one limit among several but *the* one:
+  zero fabrications in 44 cells, both wrong answers relevance failures. One is
+  instructive: every content word verbatim in the document, a real source
+  stamp, a true sentence — the requirement asked for a simulation feature in
+  the product, the document described unit testing during the project. The
+  gate had nothing to object to, because nothing in it was false. *"The memory
+  has something to say about X"* is not *"the supplier offers X"*, and nothing
+  here judges that distance.
 - Spec lines reachable only through very common words ("how many inches is the
   screen", where the line reads `Screen 15.6" LCD` and never says *inches*) are
   a lexical-retrieval ceiling. One such case is rescued by an append-only
