@@ -835,6 +835,49 @@
 <p>All notable changes to this project are documented here. The format follows
 <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>, and this project
 follows <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<h2 id="091-2026-09-22">[0.9.1] — 2026-09-22<a class="headerlink" href="#091-2026-09-22" title="Permanent link">&para;</a></h2>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Two questions about one view are one engine call</strong> (W177). Borrowed
+  from the typed-decision model class and implemented with our own
+  engine rather than theirs: a state travels once, and every question
+  about it rides along. The two gates were sending the SAME evidence
+  separately — run concurrently, which hid the latency and paid for the
+  tokens twice.</li>
+</ul>
+<p>Everything the structure settles still settles first, for nothing
+  (<code>_read_back_plan</code>), so the fusion only ever replaces two <em>remaining</em>
+  questions with one. And it happens only where both organs would read
+  the same view: the read-back narrows to the lines a claim NAMES and
+  the relation check does not, so fusing there would judge one of them
+  on evidence it was never meant to see. The reply is typed by contract
+  — two lines, fixed order — and a reply that is not that shape is
+  refused rather than guessed at, the caller asking the two questions
+  separately instead.</p>
+<p>Measured on the fifteen-question slice: <strong>79 calls against 86</strong>,
+  prompt 239k against 247k, with gold 6/6, unsourced assertions 0 and
+  the same abstentions. It recovers a quarter of what W175 cost.</p>
+<h3 id="measured-and-worth-saying-plainly">Measured, and worth saying plainly<a class="headerlink" href="#measured-and-worth-saying-plainly" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The borrowed economics did not transfer; the borrowed shape did.</strong>
+  For a model priced so that the state is expensive and extra questions
+  are nearly free, fusing is a large win. Here the SYSTEM PROMPT
+  dominates, not the state: two full disciplines travelling together
+  come to 5,574 characters against 5,925 for the same two questions
+  asked separately — <strong>6%</strong>, not half. What was actually saved is a
+  round trip per judged turn, not the tokens.</li>
+</ul>
+<h3 id="refuted-on-the-way-and-recorded">Refuted on the way, and recorded<a class="headerlink" href="#refuted-on-the-way-and-recorded" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The first cut capped the fused reply at 8 tokens, the cap a one-word
+  verdict uses. Two labelled lines do not fit in one line's budget: the
+  live engine returned <code>SUPPORTED: yes  \nANSWERS:</code> with the second
+  verdict truncated away, every fused call was refused as malformed, and
+  the turn paid <strong>three</strong> calls where it used to pay two — measured at
+  90 calls, worse than the 86 it was meant to improve. Recorded because
+  the failure is silent by design: a malformed judgment is refused, not
+  guessed at, so the only symptom is a bill.</li>
+</ul>
 <h2 id="090-2026-09-22">[0.9.0] — 2026-09-22<a class="headerlink" href="#090-2026-09-22" title="Permanent link">&para;</a></h2>
 <h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
 <ul>
@@ -1171,7 +1214,7 @@ duration or the chair's name — all abstain and all say so. 240/240.</p>
   than left in the codebase beside the rule that replaced it.</li>
 </ul>
 <h2 id="0714-2026-09-22">[0.7.14] — 2026-09-22<a class="headerlink" href="#0714-2026-09-22" title="Permanent link">&para;</a></h2>
-<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>An answer may rest on more than one line, and on no more than it
   names</strong> (W166). The quoted reading carried eight turns of fifteen,
@@ -1249,7 +1292,7 @@ the gap it was.</p>
 </li>
 </ul>
 <h2 id="0713-2026-09-22">[0.7.13] — 2026-09-22<a class="headerlink" href="#0713-2026-09-22" title="Permanent link">&para;</a></h2>
-<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
+<h3 id="changed_2">Changed<a class="headerlink" href="#changed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A discipline travels with the shape that needs it</strong> (W165). The
   cost of a turn is mostly OUR OWN INSTRUCTIONS, not the evidence —
@@ -2271,7 +2314,7 @@ repository; none of it is an estimate.</p>
   import-time check can see.</p>
 </li>
 </ul>
-<h3 id="changed_2">Changed<a class="headerlink" href="#changed_2" title="Permanent link">&para;</a></h3>
+<h3 id="changed_3">Changed<a class="headerlink" href="#changed_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>The meaning channel sits at the DOCUMENT layer, and the layer was
@@ -2558,7 +2601,7 @@ specifications the system has never seen 8/8 · 4/4 · 3/3 · 4/4; a
 thousand generated documents 25/25 · 25/25; NIST 11/13; EN 17/17; 158
 invariants.</p>
 <h2 id="036-2026-09-09">[0.3.6] — 2026-09-09<a class="headerlink" href="#036-2026-09-09" title="Permanent link">&para;</a></h2>
-<h3 id="changed_3">Changed<a class="headerlink" href="#changed_3" title="Permanent link">&para;</a></h3>
+<h3 id="changed_4">Changed<a class="headerlink" href="#changed_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A document that never uses the words is not asked about them.</strong> The
   mirror of the record answer, on the refusal path: a question naming
@@ -2674,7 +2717,7 @@ specifications (50 q): factual 25/25, traps 23/25. NIST 11/13 and EN
   nothing installed. The suite's own claim — no model, no network — is
   now verified the only way it can be, in a virtualenv with neither.</li>
 </ul>
-<h3 id="changed_4">Changed<a class="headerlink" href="#changed_4" title="Permanent link">&para;</a></h3>
+<h3 id="changed_5">Changed<a class="headerlink" href="#changed_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The question door does not gamble on a chat.</strong> Every question was
   paying for a full chat completion that was thrown away: the
@@ -2885,7 +2928,7 @@ invariants, W14–W26).</p>
 <li><code>compose(..., topics=)</code> gathers per topic — dedicated seats, dedicated
   queries.</li>
 </ul>
-<h3 id="changed_5">Changed<a class="headerlink" href="#changed_5" title="Permanent link">&para;</a></h3>
+<h3 id="changed_6">Changed<a class="headerlink" href="#changed_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Latency, halved and then some</strong> (measured, same dialogue): a greeting
   turn 15.9 s → ~6 s, a catalogue's first line on screen 13.4 s → ~5 s.
@@ -2986,7 +3029,7 @@ the work of making it installable, readable and lawful to publish.</p>
   the core installs with no dependencies.</li>
 <li>Six tests for the new surface (59 total), none of which needs a model.</li>
 </ul>
-<h3 id="changed_6">Changed<a class="headerlink" href="#changed_6" title="Permanent link">&para;</a></h3>
+<h3 id="changed_7">Changed<a class="headerlink" href="#changed_7" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The core install has no dependencies.</strong> <code>pandas</code> was imported at
   <code>tables.py</code>'s top level, which meant the pure-python layer could not be
