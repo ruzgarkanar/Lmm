@@ -4,6 +4,55 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.11] — 2026-09-22
+
+### Fixed
+
+- **The meaning channel's fusion obeys the region cap too** (W162).
+  `find` has always capped a region at two seats — one states, a second
+  corroborates, a third crowds out another voice — and then the
+  channel's proposal is fused onto that list by rank and the result
+  taken whole, so a region that wins on rank took as many seats as it
+  liked. Measured on a 355-page study guide: asked a regulation's
+  number, FOUR of six seats went to overlapping windows of the same
+  table of contents, carrying page numbers that look like values, while
+  the line holding the answer waited outside. With the channel switched
+  off, the same question seats that region twice.
+
+  The same rule, the same organ (`_same_region`), applied where the
+  fusion ends — and narrowed twice by what the tests and the
+  measurements said:
+
+  * only the windows this layer DERIVED are folded. Three catalogue
+    lines reading "PROGRAMME: <name> leadership track" are three
+    programmes and one word count; capping them cost a count its third
+    item and a named document its block.
+  * only what the CHANNEL added is judged. The words' own list has
+    already been through this file's seating — its region cap, its
+    source caps, its dedicated seats for a named document — and
+    re-judging it undoes decisions made with more knowledge.
+
+  A first cut also let the surplus step back in when the block would
+  otherwise go unfilled — the rule belonging to the SOURCE cap — and
+  was measured refilling the block with exactly the repetitions it had
+  just removed.
+
+### What this is NOT
+
+- **It is not the cost answer**, and the hypothesis that it would be is
+  refuted here rather than quietly dropped. On one question the block
+  fell from 5,086 characters to 3,580; across six questions with known
+  answers it fell from 28,531 to 28,444 — **0.3%** — with the
+  answer-bearing line present in the block in 6 of 6 either way. An
+  engine-side A/B over fifteen questions came back slightly worse
+  (98 calls against 90 and 84 in two earlier runs), which the
+  engine-free comparison says cannot be attributed to this change: the
+  blocks it reads are all but identical. Run-to-run variance on that
+  corpus moves two cells, and two cells moved.
+
+  So this ships as what it is — two paths brought under one rule, a
+  pathological case closed, no answer lost — and not as a saving.
+
 ## [0.7.10] — 2026-09-22
 
 ### Added
