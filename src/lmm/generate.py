@@ -527,7 +527,7 @@ def quoted_answer(question, block):
     nothing — is this a line the store holds, and does the answer stay
     inside it — which are word comparisons rather than opinions.
 
-    Returns `(answer, line_number)`, or `("", -1)` when the engine
+    Returns `(answer, line_numbers)`, or `("", None)` when the engine
     declines. Nothing here is trusted: the caller checks that the
     number is one it offered and that the answer stays inside that
     line, and discards anything else."""
@@ -544,7 +544,8 @@ def quoted_answer(question, block):
     system = ("Answer the question using ONE numbered line of the "
               "evidence.\n"
               "Reply in exactly two lines and nothing else:\n"
-              "LINE: <the number of the line you used>\n"
+              "LINES: <the number, or up to three numbers separated by "
+              "commas, of the lines you used>\n"
               "ANSWER: <one short sentence, in the question's language, "
               "using only words from that line or from the question>\n"
               "If no single line answers the question, reply NONE.")
@@ -553,15 +554,15 @@ def quoted_answer(question, block):
                            system=system, max_tokens=300, temperature=0.0)
     out = (out or "").strip()
     if not out or out.upper().startswith("NONE"):
-        return "", -1
-    answer, held = "", -1
+        return "", None
+    answer, held = "", None
     for line in out.splitlines():
         head, _sep, rest = line.partition(":")
         head = head.strip().upper()
-        if head == "LINE" and held < 0:
+        if head in ("LINE", "LINES") and held is None:
             digits = re.findall(r"\d+", rest)
             if digits:
-                held = int(digits[0])
+                held = [int(d) for d in digits[:3]]
         elif head == "ANSWER" and not answer:
             answer = rest.strip()
     return answer, held

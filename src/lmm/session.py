@@ -3566,20 +3566,35 @@ class Session:
             return None
         if not said:
             return None                 # the engine declined (W160)
-        if not (0 <= held < len(lines)):
+        # AN ANSWER MAY REST ON MORE THAN ONE LINE, AND ON NO MORE THAN
+        # IT NAMES (W166). A claim whose attribute sits on one line and
+        # whose value on another is not a fabrication — the fact
+        # checker's own prompt has said so for as long as it existed —
+        # and forbidding it here cost answers the store holds: the
+        # reading carried eight turns of fifteen, and an answer spread
+        # over four lines came back naming one of them. Up to three
+        # lines may be named; the answer is then checked against THOSE
+        # lines and nothing else, so a word from a line the engine did
+        # not name is still a refusal.
+        held = [held] if isinstance(held, int) else list(held or ())
+        held = [at for at in held if isinstance(at, int)][:3]
+        if not held or not all(0 <= at < len(lines) for at in held):
             self.quoted_refused = True
             return None                 # a line nobody offered
-        if evidence.coverage(said, lines[held], question) < 1.0:
+        quoted = "\n".join(lines[at] for at in held)
+        if evidence.coverage(said, quoted, question) < 1.0:
             self.quoted_refused = True
-            return None                 # a claim beyond its own quote
-        if not evidence.digits_ok(said, lines[held]):
+            return None                 # a claim beyond its own quotes
+        if not evidence.digits_ok(said, quoted):
             self.quoted_refused = True
-            return None                 # a number the line does not carry
+            return None                 # a number the lines do not carry
         self._step("quoted")
         self.last_abstained = False
-        self._mark = sources[held] if held < len(sources) else ""
-        self._last_proof = [lines[held]]
-        self._origin_of = {lines[held]: self._mark}
+        marks = [sources[at] for at in held if at < len(sources)]
+        self._mark = marks[0] if marks else ""
+        self._last_proof = [lines[at] for at in held]
+        self._origin_of = {lines[at]: (sources[at] if at < len(sources) else "")
+                           for at in held}
         return said
 
     def _answer(self, question, subject_label, widen=()):

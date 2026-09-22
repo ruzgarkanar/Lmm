@@ -6217,6 +6217,73 @@ def w150():
             % (reported, declared))
 
 
+@test("W166 an answer may rest on more than one line, and on no more "
+      "than it names")
+def w166():
+    """The quoted reading carried eight turns of fifteen, and the
+    diagnosis said why it did not carry the rest: three questions the
+    store genuinely cannot answer, two where the engine named the
+    wrong line — and the documented cost, an answer spread over
+    several lines getting only the one it quoted (asked which exams a
+    guide serves, it named one of four).
+
+    Both are the same limit. A claim whose attribute sits on one line
+    and whose value sits on another is not a fabrication — the fact
+    checker's own prompt has said so for as long as it has existed
+    ("COMBINING EVIDENCE IS ALLOWED... the attribute and its value may
+    sit in DIFFERENT evidence items") — and forbidding it here cost
+    answers the store holds.
+
+    So the engine may name up to three lines, and the answer is
+    checked against THOSE lines and nothing else. The guarantee is
+    unchanged in kind: what is spoken is assembled out of lines the
+    store holds, and a word from a line the engine did not name is
+    still a refusal. What changes is that the frame may be two lines
+    wide when the evidence is."""
+    from lmm import generate
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    first = "Das Handbuch nennt die Pruefung Alpha und die Pruefung Beta."
+    second = "Das Handbuch nennt ausserdem die Pruefung Gamma."
+    s.evidence.add(first, "#doc:guide")
+    s.evidence.add(second, "#doc:guide")
+    s.evidence.add("Der Support ist werktags erreichbar.", "#doc:guide")
+    asked = "Welche Pruefungen nennt das Handbuch?"
+    real = generate.quoted_answer
+
+    # two lines named, and the answer drawn from both
+    generate.quoted_answer = lambda q, b: (
+        "Das Handbuch nennt die Pruefung Alpha, Beta und Gamma.",
+        [i for i, x in enumerate(b.splitlines()) if "Pruefung" in x][:2])
+    try:
+        said = s._quoted_answer(asked)
+    finally:
+        generate.quoted_answer = real
+    assert said and "Gamma" in said, (
+        "an answer resting on two named lines was refused: %r" % said)
+
+    # a word from a line the engine did NOT name is still a refusal
+    generate.quoted_answer = lambda q, b: (
+        "Das Handbuch nennt Alpha und den Support.",
+        [i for i, x in enumerate(b.splitlines()) if "Alpha" in x][:1])
+    try:
+        assert s._quoted_answer(asked) is None, (
+            "a word from an unnamed line was spoken")
+    finally:
+        generate.quoted_answer = real
+    assert s.quoted_refused is True, s.quoted_refused
+
+    # one line still works, named as a bare number
+    generate.quoted_answer = lambda q, b: (
+        "Das Handbuch nennt die Pruefung Alpha und die Pruefung Beta.",
+        next(i for i, x in enumerate(b.splitlines()) if "Alpha" in x))
+    try:
+        assert s._quoted_answer(asked)
+    finally:
+        generate.quoted_answer = real
+
+
 @test("W165 a discipline travels with the shape that needs it")
 def w165():
     """The fact checker's prompt is 4,643 characters — 1,256 prompt
