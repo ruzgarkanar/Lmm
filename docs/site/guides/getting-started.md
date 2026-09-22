@@ -50,6 +50,13 @@ A spreadsheet reaches the graph with **no model call at all** — a table
 states its own structure. That is why a sheet loads in milliseconds and a
 350-page manual is queryable in about two seconds.
 
+The same is true of a table written inside a document. A markdown or ASCII
+table is read **row by row**, each cell under the column name its header
+gives it, so a value is never quoted next to a neighbouring row's label. A
+table of contents is read as what it is: its page column points at a place
+rather than stating a value, so it is left out of the evidence and the
+headings keep their words. See [the pieces](../concepts/architecture.md).
+
 ## Three calls you will use next
 
 ```python

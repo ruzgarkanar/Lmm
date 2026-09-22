@@ -649,6 +649,15 @@ m.save()
 
 `learn()` returns a small report (`.facts`, `.tables`, `.adapter`, `.source`).
 
+A table inside a document is read **row by row** — a delimited row (`|` or
+tabs: markdown, ASCII tables) is whole on one line and its cells are stored
+under the names its header row gives them, so no window ever puts one row's
+value beside another row's label. A **table of contents is read as what it
+is**: a column of page numbers points at a place rather than stating a
+value, so it never enters the evidence — otherwise "what is this
+regulation's number?" is answerable with the page its section opens on,
+past every gate, because the page really is written beside the name.
+
 ### The operator's knobs
 
 Everything a RAG system prompt bundles into one block is a named parameter

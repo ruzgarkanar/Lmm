@@ -154,9 +154,10 @@ from unverified answering far more sharply than accuracy does.
 
 The same run also reports **zero fabrications in 44 cells** — the promise
 held exactly as written. Both of LMM's false-covered cells were checked
-against the document by hand: one is the open abstention-stamp defect, and
-the other is a true, sourced sentence answering a *different* question than
-the one asked. Which points at the limit that actually bites, below.
+against the document by hand: one was the abstention-stamp defect, closed
+in 0.8.0 (a refusal published with `abstained=False`), and the other is a
+true, sourced sentence answering a *different* question than the one asked.
+Which points at the limit that actually bites, below.
 
 ## The scorer's own bugs
 
