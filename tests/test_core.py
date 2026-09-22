@@ -6211,6 +6211,56 @@ def w150():
             % (reported, declared))
 
 
+@test("W162 the meaning channel's fusion obeys the region cap too")
+def w162():
+    """Found while diagnosing cost: asked a regulation's number over a
+    355-page study guide, FOUR of the six seats went to overlapping
+    windows of the same table of contents — the same navigation text
+    four times, carrying page numbers that look like values, while the
+    line holding the answer waited outside. With the meaning channel
+    switched off the same question seats that region twice, which is
+    the cap `find` has always applied.
+
+    So the cap was never the problem: the fused reading does not apply
+    it. `find` caps a region at two seats — "one states, a second
+    corroborates, a third crowds out another voice" — and then the
+    channel's proposal is fused onto that list by rank, and the fused
+    result is taken whole. A region that wins on rank takes as many
+    seats as it likes.
+
+    The same rule, in the same words, at the end of the same journey:
+    at most two seats to a region, the rest stepping aside and stepping
+    back only if the block would otherwise go unfilled. It costs
+    nothing — the reading is `_same_region`, which this file already
+    owns — and it buys back seats for lines that say something new, in
+    a block the caller pays for by the token."""
+    from lmm.evidence import SentenceStore
+
+    store = SentenceStore()
+    # one region, seen at several widths, the way the window maker does
+    body = ("BOELUM 1 EINLEITUNG 1 BOELUM 2 GRUNDLAGEN 14 BOELUM 3 "
+            "VERFAHREN 96 BOELUM 4 ANHANG 140")
+    for n in range(5):
+        # derived=True: these are the layer's own context windows, which
+        # is what the store marks them as when it builds them
+        store.add(body + (" BOELUM 5 INDEX %d" % (150 + n)), "#doc:guide",
+                  derived=True)
+    store.add("Das Verfahren traegt die Nummer III-52.1 im Register.",
+              "#doc:guide")
+    store.attach_dense(lambda texts: [[1.0, 0.0] for _ in texts])
+    store.catch_up_dense() if hasattr(store, "catch_up_dense") else None
+
+    lines = store.find("Welche Nummer traegt das Verfahren?", most=6)
+    assert lines, "nothing was seated"
+    seats = sum(1 for line in lines if "BOELUM" in line)
+    assert seats <= 2, (
+        "one region took %d of %d seats: %s"
+        % (seats, len(lines), [x[:40] for x in lines]))
+    assert any("III-52.1" in line for line in lines), (
+        "the answering line never got a seat: %s"
+        % [x[:40] for x in lines])
+
+
 @test("W161 the store's refusal may stand, and the caller says so")
 def w161():
     """Measured on fifteen questions with the gold read off the

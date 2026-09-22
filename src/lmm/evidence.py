@@ -877,6 +877,8 @@ class SentenceStore:
         # Which units the DOCUMENT wrote (a sentence, a masthead, a table row)
         # and which this layer derived from them (the context windows).
         self._derived = set()
+        self._windows = set()               # derived TEXTS, cached (W162)
+        self._windows_at = -1
         # READER-WORD -> FIELD-HEAD, generated once per head at the
         # operator's request (`Session.learn_bridges`) and owned by the
         # store: never speakable, never evidence —
@@ -1655,9 +1657,100 @@ class SentenceStore:
         # documents the channel proposed, so a second pass over the
         # fused list re-reads lines it has just read.
         order = dense.fuse(list(found), proposed, most=most)
+        # ...AND THE REGION CAP IS THE LAST WORD, AS IT IS IN `find`.
+        # Measured on a 355-page study guide: asked a regulation's
+        # number, FOUR of six seats went to overlapping windows of the
+        # same table of contents — the same navigation text four times,
+        # carrying page numbers that look like values — while the line
+        # holding the answer waited outside. With the channel switched
+        # off the same question seats that region twice, which is the
+        # cap this file has always applied. The cap was never the
+        # problem: `find` applies it to the words' list, and then the
+        # fused result is taken whole, so a region that wins on rank
+        # takes as many seats as it likes.
+        #
+        # The same rule, the same organ (`_same_region`), the same
+        # words: at most two seats to a region — one states, a second
+        # corroborates, a third crowds out another voice — with the
+        # rest stepping aside and stepping back only if the block would
+        # otherwise go unfilled. Nothing is discarded and nothing new
+        # is admitted: it is a reordering of what the fusion already
+        # chose, in the fusion's own order.
+        # ...and only what the CHANNEL added is judged here. The words'
+        # own list has already been through this file's seating — its
+        # region cap, its source caps, its dedicated seats for a named
+        # document — and re-judging it undoes decisions made with more
+        # knowledge than this point has (measured: a named document's
+        # block fell to two lines, a count lost its third item).
+        order = self._one_region_twice(order, most, self._window_texts(),
+                                       set(found))
         self.last_sources = [lexical_at.get(line, wrote.get(line))
                              for line in order]
         return order
+
+    def _window_texts(self):
+        """The texts this layer DERIVED — its context windows, as
+        opposed to the document's own sentences (W162).
+
+        The distinction is already recorded at write time (`derived=`,
+        `_derived`) and it is a structural fact rather than a reading:
+        a window is an artifact of indexing, a sentence is what the
+        document wrote. Only windows are folded as repetitions of one
+        another, because only they can BE repetitions — three sibling
+        lines of a catalogue look alike to a word count and are three
+        different things."""
+        at = len(self.sentences)
+        if self._windows_at != at:
+            self._windows = {self.sentences[sid][0]
+                             for sid in self._derived
+                             if sid < at}
+            self._windows_at = at
+        return self._windows
+
+    def _one_region_twice(self, lines, most, windows, seated=()):
+        """At most two seats to a region, in the order given — `find`'s
+        own cap, applied where the fusion ends (W162).
+
+        Two is what corroboration is: one view of a region states the
+        binding, a second confirms it, a third adds nothing the second
+        `seated` are the lines the words themselves chose: they have
+        already passed this file's seating and are not re-judged here.
+        `windows` are the contexts this layer derived — the only lines
+        that can be repetitions of one another at all.
+
+        Two is what corroboration is: one view of a region states the
+        binding, a second confirms it, a third adds nothing the second
+        did not — so the third is DROPPED, and the block is simply
+        shorter. That is what `find` does with a capped region, and it
+        is the point: a seat filled by the same text again carries no
+        evidence and the caller pays for it by the token. The first cut
+        of this let the surplus step back in when the block would
+        otherwise go unfilled — the rule that belongs to the SOURCE cap
+        — and measured it refilling the block with exactly the
+        repetitions it had just removed."""
+        kept, seats = [], []                # seats: [[wordset, taken], ...]
+        for line in lines:
+            words = set(_words(line))
+            if not words:
+                continue
+            # THE DOCUMENT'S OWN SENTENCES ARE NEVER REPETITIONS OF ONE
+            # ANOTHER. Measured while building this: three catalogue
+            # lines reading "PROGRAMME: <name> leadership track" are
+            # three programmes and one word count — capping them cost a
+            # count its third item and a named document its block. Only
+            # the windows this layer derived are folded.
+            if line not in windows or line in seated:
+                kept.append(line)
+                continue
+            at = next((held for held in seats
+                       if _same_region(words, held[0])), None)
+            if at is None:
+                seats.append([words, 1])
+                kept.append(line)
+            elif at[1] < 2:
+                at[1] += 1
+                kept.append(line)
+        return kept[:most] if most else kept
 
 
     def _score_over(self, qwords, index, keys, weigh=None):
