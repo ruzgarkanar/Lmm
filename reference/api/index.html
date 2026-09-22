@@ -1027,15 +1027,32 @@ claims — contradiction, causality, the trust ladder, the memory dynamics —
 lives on <code>m.session</code>, which is public and is the same object <code>Memory</code> is
 built on. A feature with no documented entry point is not a feature.</p>
 <h2 id="memory">Memory<a class="headerlink" href="#memory" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">m</span> <span class="o">=</span> <span class="n">Memory</span><span class="p">(</span><span class="s2">"mind.lmm"</span><span class="p">,</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>           <span class="n">persona</span><span class="o">=</span><span class="s2">"You are Ada, a warm onboarding coach."</span><span class="p">,</span>   <span class="c1"># the VOICE</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>           <span class="n">style</span><span class="o">=</span><span class="s2">"One section per course: name, duration, outcomes."</span><span class="p">,</span>  <span class="c1"># the FORMAT</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>           <span class="n">warmth</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>          <span class="c1"># temperature of the voice surfaces</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>           <span class="n">reply_tokens</span><span class="o">=</span><span class="mi">1200</span><span class="p">,</span>   <span class="c1"># length cap of the voice surfaces</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>           <span class="n">encoder</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>        <span class="c1"># the meaning channel's vectors</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>           <span class="n">reranker</span><span class="o">=</span><span class="s2">"bundled"</span><span class="p">,</span>  <span class="c1"># the ordering inside a proposal</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>           <span class="n">dense</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>          <span class="c1"># the meaning channel itself</span>
+<p>The full signature, with every default exactly as the code holds it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">Memory</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>             <span class="c1"># the store on disk; None is transient</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>       <span class="n">who</span><span class="o">=</span><span class="s2">"#operator"</span><span class="p">,</span>       <span class="c1"># whose trust level a statement arrives at</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>       <span class="n">mode</span><span class="o">=</span><span class="s2">"STRICT"</span><span class="p">,</span>         <span class="c1"># the gate's strictness</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>       <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>            <span class="c1"># memoise repeated questions in-process</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>       <span class="n">persona</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span>            <span class="c1"># the VOICE</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>       <span class="n">warmth</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>           <span class="c1"># temperature of the voice surfaces</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>       <span class="n">reply_tokens</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>     <span class="c1"># length cap of the voice surfaces</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>       <span class="n">style</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span>              <span class="c1"># the FORMAT, the composer's alone</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>       <span class="n">identity</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>         <span class="c1"># what the memory may say about itself</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>       <span class="n">encoder</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>          <span class="c1"># the meaning channel's vectors</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>       <span class="n">dense</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>            <span class="c1"># the meaning channel itself</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>       <span class="n">reranker</span><span class="o">=</span><span class="s2">"bundled"</span><span class="p">)</span>    <span class="c1"># the ordering inside a proposal</span>
 </code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">m</span> <span class="o">=</span> <span class="n">Memory</span><span class="p">(</span><span class="s2">"mind.lmm"</span><span class="p">,</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>           <span class="n">persona</span><span class="o">=</span><span class="s2">"You are Ada, a warm onboarding coach."</span><span class="p">,</span>   <span class="c1"># the VOICE</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>           <span class="n">style</span><span class="o">=</span><span class="s2">"One section per course: name, duration, outcomes."</span><span class="p">,</span>  <span class="c1"># the FORMAT</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>           <span class="n">warmth</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>          <span class="c1"># temperature of the voice surfaces</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>           <span class="n">reply_tokens</span><span class="o">=</span><span class="mi">1200</span><span class="p">,</span>   <span class="c1"># length cap of the voice surfaces</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>           <span class="n">encoder</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>        <span class="c1"># the meaning channel's vectors</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>           <span class="n">reranker</span><span class="o">=</span><span class="s2">"bundled"</span><span class="p">,</span>  <span class="c1"># the ordering inside a proposal</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>           <span class="n">dense</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>          <span class="c1"># the meaning channel itself</span>
+</code></pre></div>
+<p><code>warmth</code> and <code>reply_tokens</code> are <strong><code>None</code> by default</strong>, not numbers: unset, each
+voice surface keeps its own measured default, and a number here overrides all
+of them at once.</p>
 <p>The operator's knobs, each travelling exactly where it belongs — and none of
 them reaching a verifier, because a judge whose thermostat the caller can
 turn is not a judge:</p>
@@ -1058,17 +1075,17 @@ turn is not a judge:</p>
 <li><strong><code>dense=False</code></strong> — no meaning channel at all. The store answers exactly as
   it did before the channel existed, and numpy is not needed.</li>
 </ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># your own encoder, and a cross-encoder doing the reordering</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sentence_transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">SentenceTransformer</span><span class="p">,</span> <span class="n">CrossEncoder</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">bi</span><span class="p">,</span> <span class="n">cross</span> <span class="o">=</span> <span class="n">SentenceTransformer</span><span class="p">(</span><span class="s2">"BAAI/bge-m3"</span><span class="p">),</span> <span class="n">CrossEncoder</span><span class="p">(</span><span class="s2">"BAAI/bge-reranker-v2-m3"</span><span class="p">)</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">order</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">texts</span><span class="p">):</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">scored</span> <span class="o">=</span> <span class="n">cross</span><span class="o">.</span><span class="n">predict</span><span class="p">([(</span><span class="n">query</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">texts</span><span class="p">])</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">texts</span><span class="p">)),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="o">-</span><span class="n">scored</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">m</span> <span class="o">=</span> <span class="n">Memory</span><span class="p">(</span><span class="s2">"mind.lmm"</span><span class="p">,</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>           <span class="n">encoder</span><span class="o">=</span><span class="k">lambda</span> <span class="n">texts</span><span class="p">:</span> <span class="n">bi</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">texts</span><span class="p">,</span> <span class="n">normalize_embeddings</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>           <span class="n">reranker</span><span class="o">=</span><span class="n">order</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># your own encoder, and a cross-encoder doing the reordering</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sentence_transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">SentenceTransformer</span><span class="p">,</span> <span class="n">CrossEncoder</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">bi</span><span class="p">,</span> <span class="n">cross</span> <span class="o">=</span> <span class="n">SentenceTransformer</span><span class="p">(</span><span class="s2">"BAAI/bge-m3"</span><span class="p">),</span> <span class="n">CrossEncoder</span><span class="p">(</span><span class="s2">"BAAI/bge-reranker-v2-m3"</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">order</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">texts</span><span class="p">):</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">scored</span> <span class="o">=</span> <span class="n">cross</span><span class="o">.</span><span class="n">predict</span><span class="p">([(</span><span class="n">query</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">texts</span><span class="p">])</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">texts</span><span class="p">)),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="o">-</span><span class="n">scored</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">m</span> <span class="o">=</span> <span class="n">Memory</span><span class="p">(</span><span class="s2">"mind.lmm"</span><span class="p">,</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>           <span class="n">encoder</span><span class="o">=</span><span class="k">lambda</span> <span class="n">texts</span><span class="p">:</span> <span class="n">bi</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">texts</span><span class="p">,</span> <span class="n">normalize_embeddings</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>           <span class="n">reranker</span><span class="o">=</span><span class="n">order</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="two-session-numbers">Two session numbers<a class="headerlink" href="#two-session-numbers" title="Permanent link">&para;</a></h3>
 <p>How hard a turn tries is a session attribute rather than a constructor
@@ -1108,18 +1125,18 @@ insurance is worth buying where the risk is real.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>m.learn(what)</code></td>
-<td>teach it a file or a string</td>
-<td>no engine for tables</td>
+<td><code>m.learn(what, source=, deep=)</code></td>
+<td>teach it a file or a string. <strong><code>source="#Vendor"</code></strong> is the stamp everything from this reading carries — it is what makes a multi-document store answerable per document, and what <code>scope=</code> later selects on. <code>deep</code> mines each sentence for triples with the engine: <code>None</code> (the default) means <strong>False for a file, True for text handed in directly</strong>, so a document costs nothing and a typed fact costs one call per sentence. The returned <code>Learned</code> reports <code>.calls</code></td>
+<td>no engine for files</td>
 </tr>
 <tr>
-<td><code>m.ask(q, explain=True)</code></td>
-<td>answer, with <code>.sources</code> and <code>.abstained</code> — <strong>cannot write memory</strong></td>
+<td><code>m.ask(q, explain=True, fluent=)</code></td>
+<td>answer. <code>explain=True</code> returns an <code>Answer</code> carrying <code>.sources</code>, <code>.abstained</code>, <code>.engine_error</code>, <code>.route</code>; without it you get a plain string. <code>fluent=True</code> skips the router for a turn that is known to be conversation. <strong>Cannot write memory</strong></td>
 <td>engine</td>
 </tr>
 <tr>
-<td><code>m.compose(brief, topics=, on_line=)</code></td>
-<td>a structured draft from the evidence — per-topic gathering, gated line by line, streamed to <code>on_line</code> as lines survive, returned with its sources</td>
+<td><code>m.compose(brief, seats=24, topics=, on_line=)</code></td>
+<td>a structured draft from the evidence — per-topic gathering, gated line by line, streamed to <code>on_line</code> as lines survive, returned with its sources. <code>seats</code> is how many evidence lines each topic may draw on</td>
 <td>engine</td>
 </tr>
 <tr>
@@ -1128,8 +1145,8 @@ insurance is worth buying where the risk is real.</p>
 <td>no engine</td>
 </tr>
 <tr>
-<td><code>m.themes()</code></td>
-<td>which documents belong together, and on what entities — community detection over the store's own graph, deterministic</td>
+<td><code>m.themes(least=3, most=12)</code></td>
+<td>which documents belong together, and on what entities — community detection over the store's own graph, deterministic. <code>least</code> is the smallest group worth reporting, <code>most</code> the largest number of groups</td>
 <td>no engine</td>
 </tr>
 <tr>
@@ -1293,6 +1310,10 @@ turn knows about itself:</p>
 <td>did this turn assert anything — the structural stamp, in any language</td>
 </tr>
 <tr>
+<td><code>.engine_error</code></td>
+<td><strong>why</strong> it abstained, when the reason was not the memory: <code>True</code> only when the engine could not be reached at all. An abstention with this <code>False</code> is the store's own honest "I do not hold that"; with it <code>True</code>, nothing was asked of the store at all — retry or alert, do not record a capability as absent</td>
+</tr>
+<tr>
 <td><code>.sources</code></td>
 <td>the provenance stamps the answer rests on</td>
 </tr>
@@ -1306,10 +1327,18 @@ turn knows about itself:</p>
 </tr>
 <tr>
 <td><code>.route</code></td>
-<td>which organs the turn passed through, in order — <code>("record",)</code>, <code>("chain", "refuse", "count")</code>, <code>("plan",)</code></td>
+<td>which organs the turn passed through, in order — <code>("record",)</code>, <code>("chain", "refuse", "count")</code>, <code>("plan",)</code>, and <code>("engine-error",)</code> when the engine fell</td>
 </tr>
 </tbody>
 </table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">a</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">"which interfaces does the validator use?"</span><span class="p">,</span> <span class="n">explain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">engine_error</span><span class="p">:</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="o">...</span>        <span class="c1"># infrastructure: retry, alert, fail over</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">elif</span> <span class="n">a</span><span class="o">.</span><span class="n">abstained</span><span class="p">:</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="o">...</span>        <span class="c1"># the memory genuinely does not hold it</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">sources</span><span class="p">)</span>
+</code></pre></div>
 
 
 
