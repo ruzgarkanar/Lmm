@@ -1421,9 +1421,15 @@ what that costs.</p>
 </tr>
 <tr>
 <td><code>ask(..., quoted=True)</code></td>
-<td>one call answers AND names the evidence line; the STORE checks that the line is one it offered and that the answer stays inside it — word comparisons, no model</td>
+<td>one call answers AND names the evidence line; the STORE checks that the line is one it offered and that the answer stays inside it — word comparisons, no model. When a check fails, the ordinary path runs</td>
 <td><strong>~30% fewer calls and tokens</strong>, −16% wall clock</td>
 <td>answers that span several lines: a question whose answer is spread over four lines gets the one line it quoted</td>
+</tr>
+<tr>
+<td><code>ask(..., quoted="only")</code></td>
+<td>the same, except the STORE's refusal stands instead of falling back — an engine that declined outright still falls back, having offered nothing to refuse</td>
+<td><strong>40% fewer calls again</strong> (54 → 32 over fifteen questions)</td>
+<td>answers the ordinary path would have rescued: measured, it asserted nothing false where falling back spoke one wrong number, and missed three answers where falling back found one</td>
 </tr>
 </tbody>
 </table>
