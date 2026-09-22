@@ -751,6 +751,23 @@
   
 </li>
         
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-judgment-is-a-seam" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A judgment is a seam
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="A judgment is a seam">
+      <ul class="md-nav__list">
+        
           <li class="md-nav__item">
   <a href="#what-reading-a-document-does-to-its-tables" class="md-nav__link">
     <span class="md-ellipsis">
@@ -975,6 +992,23 @@
   
 </li>
         
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-judgment-is-a-seam" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A judgment is a seam
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="A judgment is a seam">
+      <ul class="md-nav__list">
+        
           <li class="md-nav__item">
   <a href="#what-reading-a-document-does-to-its-tables" class="md-nav__link">
     <span class="md-ellipsis">
@@ -1095,7 +1129,8 @@ built on. A feature with no documented entry point is not a feature.</p>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>       <span class="n">identity</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>         <span class="c1"># what the memory may say about itself</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>       <span class="n">encoder</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>          <span class="c1"># the meaning channel's vectors</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>       <span class="n">dense</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>            <span class="c1"># the meaning channel itself</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>       <span class="n">reranker</span><span class="o">=</span><span class="s2">"bundled"</span><span class="p">)</span>    <span class="c1"># the ordering inside a proposal</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>       <span class="n">reranker</span><span class="o">=</span><span class="s2">"bundled"</span><span class="p">,</span>    <span class="c1"># the ordering inside a proposal</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>       <span class="n">judge</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>            <span class="c1"># who answers the gates' yes/no questions</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">m</span> <span class="o">=</span> <span class="n">Memory</span><span class="p">(</span><span class="s2">"mind.lmm"</span><span class="p">,</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>           <span class="n">persona</span><span class="o">=</span><span class="s2">"You are Ada, a warm onboarding coach."</span><span class="p">,</span>   <span class="c1"># the VOICE</span>
@@ -1141,6 +1176,9 @@ turn is not a judge:</p>
   <code>(query, texts) -&gt; list[int]</code> replaces it; <code>None</code> turns it off.</li>
 <li><strong><code>dense=False</code></strong> — no meaning channel at all. The store answers exactly as
   it did before the channel existed, and numpy is not needed.</li>
+<li><strong><code>judge</code></strong> — who answers the gates' yes/no questions. Unset, this
+  memory's own engine, which is what every measurement here was made
+  with. See <a href="#a-judgment-is-a-seam">A judgment is a seam</a>.</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># your own encoder, and a cross-encoder doing the reordering</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sentence_transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">SentenceTransformer</span><span class="p">,</span> <span class="n">CrossEncoder</span>
@@ -1182,6 +1220,46 @@ bought stopped winning once retrieval improved.</p>
 </table>
 <p>Raise them on a corpus where retrieval is weak — they are insurance, and
 insurance is worth buying where the risk is real.</p>
+<p>| <code>m.session.QUOTED_RELATION</code> | True | whether a quoted turn still answers for its <strong>relation</strong>. Quoting replaces the read-back — the store checks the answer against lines it offered, for nothing — and replaces nothing for the other gate, because a quotation is not made relevant by being a quotation. Setting it <code>False</code> restores 0.8.1: measured on fifteen questions, the quoted reading then carries 9 turns instead of 7 at 58 calls instead of 86, and one genuinely wrong answer comes back instead of an honest abstention |</p>
+<h2 id="a-judgment-is-a-seam">A judgment is a seam<a class="headerlink" href="#a-judgment-is-a-seam" title="Permanent link">&para;</a></h2>
+<p>Both gates ask one shape of question — <strong>does the evidence say this</strong>
+(<code>says</code>), <strong>does this answer what was asked</strong> (<code>answers</code>) — and both pay a
+frontier engine to write "yes" in prose that is then parsed. A model class
+now exists that answers exactly this shape as a typed decision with a
+calibrated probability, for a fraction of the latency and the price.</p>
+<p>This library adopts none of them. What it offers is the seam one could sit
+behind:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">judge</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">question</span><span class="p">,</span> <span class="n">answer</span><span class="p">,</span> <span class="n">evidence</span><span class="p">):</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span><span class="sd">"""kind is "says" or "answers". Return a probability, or None."""</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="k">return</span> <span class="n">my_classifier</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">question</span><span class="p">,</span> <span class="n">answer</span><span class="p">,</span> <span class="n">evidence</span><span class="p">)</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">m</span> <span class="o">=</span> <span class="n">Memory</span><span class="p">(</span><span class="s2">"mind.lmm"</span><span class="p">,</span> <span class="n">judge</span><span class="o">=</span><span class="n">judge</span><span class="p">)</span>
+</code></pre></div>
+<p>Pass nothing and the engine is asked exactly as before. Three properties
+make the seam safe to hand to a stranger:</p>
+<ul>
+<li>a judge that returns <strong><code>None</code> has declined</strong>, and the engine is asked —
+  a provider that cannot answer must not be able to refuse an answer
+  silently;</li>
+<li>a judge that <strong>raises</strong> is the same thing: an outage is not a verdict;</li>
+<li><strong>the boundary is this memory's</strong>, not the provider's
+  (<code>m.session.JUDGE_BOUNDARY</code>, the majority), so a supplier cannot move a
+  gate by changing what it calls confident.</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Where such a judge belongs, and where it does not</p>
+<p>Not "wherever there is a call". A typed-decision model's declared
+failure mode is <strong>confident wrongness inside its schema</strong> — and on a
+gate that is a fabrication which passed the audit, which is worse
+than a prose engine's hallucination, because the hallucination is
+what the gate is shaped to catch.</p>
+<p>Put it where a miss costs <strong>recall</strong> rather than the promise, and
+above all where this memory has <strong>no judge at all</strong> today: ordering a
+proposal, filtering candidates before a cascade is paid for. There it
+can only add. Replacing the read-back is the last move, not the
+first, and it wants shadow numbers on your own corpus before it is
+trusted.</p>
+</div>
 <table>
 <thead>
 <tr>
@@ -1436,10 +1514,10 @@ turn knows about itself:</p>
 <code>missing</code> says what to ask about next. A caller with grades of its own
 builds them from these; the library ships the measurement, not a
 vocabulary:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">a</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">"Does it consider country of departure, destination, VAT ID "</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>          <span class="s2">"and transport responsibility?"</span><span class="p">,</span> <span class="n">explain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">a</span><span class="o">.</span><span class="n">covered</span>      <span class="c1"># 0.78</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">a</span><span class="o">.</span><span class="n">missing</span>      <span class="c1"># ('transport', 'responsibility')</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">a</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">"Does it consider country of departure, destination, VAT ID "</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>          <span class="s2">"and transport responsibility?"</span><span class="p">,</span> <span class="n">explain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">a</span><span class="o">.</span><span class="n">covered</span>      <span class="c1"># 0.78</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">a</span><span class="o">.</span><span class="n">missing</span>      <span class="c1"># ('transport', 'responsibility')</span>
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title"><code>covered</code> is a count, not a quality score</p>
@@ -1537,13 +1615,13 @@ containment check could see it. That cost <strong>2 of 11 carried turns</strong>
 on our own slice; the two are still answered correctly by the
 ordinary path.</p>
 </div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">a</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">"which interfaces does the validator use?"</span><span class="p">,</span> <span class="n">explain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">engine_error</span><span class="p">:</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="o">...</span>        <span class="c1"># infrastructure: retry, alert, fail over</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">elif</span> <span class="n">a</span><span class="o">.</span><span class="n">abstained</span><span class="p">:</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="o">...</span>        <span class="c1"># the memory genuinely does not hold it</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">sources</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">a</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">"which interfaces does the validator use?"</span><span class="p">,</span> <span class="n">explain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">engine_error</span><span class="p">:</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="o">...</span>        <span class="c1"># infrastructure: retry, alert, fail over</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">elif</span> <span class="n">a</span><span class="o">.</span><span class="n">abstained</span><span class="p">:</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="o">...</span>        <span class="c1"># the memory genuinely does not hold it</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">sources</span><span class="p">)</span>
 </code></pre></div>
 
 
