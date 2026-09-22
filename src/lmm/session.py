@@ -2997,7 +2997,10 @@ class Session:
         # sentence.
         head = evidence.front_matter(text)
         if head:
-            self.evidence.add(head, source)
+            # THE MASTHEAD IS LINES GATHERED, NOT A SENTENCE (W174) — we
+            # built it out of several, so it is marked like every other
+            # thing this layer assembles.
+            self.evidence.add(head, source, derived=True)
         # CONTEXT WINDOWS (`evidence.SCALES` — a geometric ladder, defined with
         # the store): neighboring sentences are indexed together too —
         # the sentence "Uyarı: Eşik ayarı..." doesn't carry the word 'sepsis'
@@ -3057,8 +3060,13 @@ class Session:
         # an answer read out of one of those ("the camera's regulatory risk is
         # medium", against the document's "Yüksek (KVKK)") is past every gate
         # by construction, because the claim really is in the evidence.
-        for window in evidence.table_windows(text):
-            self.evidence.add(window, source)
+        # ...AND EACH ONE SAYS WHETHER WE BUILT IT (W174). A row is the
+        # document's own; the fallback windows claim only that their
+        # lines follow one another, and going in unmarked they passed for
+        # sentences somebody wrote — which is how the quoted reading came
+        # to quote a join of two unrelated paragraphs.
+        for window, assembled in evidence.table_windows(text):
+            self.evidence.add(window, source, derived=assembled)
 
         # INSTANT-READY mode (deep=False): evidence layer only — ZERO model
         # calls, even 500 pages become QUERYABLE within seconds (answers via
@@ -3547,6 +3555,52 @@ class Session:
                 self.gate.inferred(who, predicate, what, because)
 
     # --- answering -----------------------------------------------------
+    def _quoted_region(self, said, quoted, question):
+        """Does ONE region of the quoted text carry the whole answer?
+
+        The quoted reading's promise is that what is spoken is assembled
+        out of a line the store holds — and half of what the store holds
+        it assembled itself, at three window scales. A window is
+        neighbouring sentences, so where two topics meet it holds the end
+        of one and the start of the next, and an answer can take a clause
+        from each WITHOUT ever stepping outside its quote. Measured on
+        the reported failure: three of six candidates carried both
+        clauses inside one line, so containment was satisfied at 1.0 by
+        construction and had nothing to refuse.
+
+        So the line is re-split into the sentences the document wrote and
+        those are folded into regions by the same word-overlap reading
+        the rest of this file uses (`evidence._same_region`). The answer
+        must be carried whole by ONE of them. Several sentences are still
+        allowed — W166's permission stands wherever they are views of one
+        passage — and what is refused is the JOIN of two passages, which
+        is what `table_windows` refuses across two rows, one level up.
+        No model is asked, and a refusal falls back to the ordinary path,
+        which owns the relation gate.
+        """
+        parts = [p.strip() for p in re.split(r"(?<=[.!?;])\s+|\n+", quoted)
+                 if p.strip()]
+        if len(parts) < 2:
+            return True
+        held = [set(evidence._words(p)) for p in parts]
+        of = list(range(len(parts)))
+
+        def root(at):
+            while of[at] != at:
+                of[at] = of[of[at]]
+                at = of[at]
+            return at
+
+        for i in range(len(parts)):
+            for j in range(i + 1, len(parts)):
+                if evidence._same_region(held[i], held[j]):
+                    of[root(i)] = root(j)
+        regions = {}
+        for at, part in enumerate(parts):
+            regions.setdefault(root(at), []).append(part)
+        return any(evidence.coverage(said, "\n".join(one), question) >= 1.0
+                   for one in regions.values())
+
     def _quoted_answer(self, question):
         """Answer from ONE line the store holds, checked by the store
         itself — one engine call, and verification for nothing (W159).
@@ -3588,6 +3642,10 @@ class Session:
         if not lines:
             return None
         sources = list(self.evidence.last_sources[:len(lines)])
+        # A line may outrun its stamp (`last_sources` is what the gather
+        # could name); pad rather than zip, or the shorter list silently
+        # throws lines away.
+        sources = (sources + [""] * len(lines))[:len(lines)]
         block = "\n".join(lines)
         try:
             said, held = generate.quoted_answer(question, block)
@@ -3610,7 +3668,22 @@ class Session:
         if not held or not all(0 <= at < len(lines) for at in held):
             self.quoted_refused = True
             return None                 # a line nobody offered
+        # ...AND ON ONE REGION OF THEM (W172/W174). Reported from the
+        # field and reproduced: asked how internal control checks are
+        # performed, the reading spliced a clause from a TESTING
+        # paragraph onto a clause from a REQUIREMENTS paragraph and spoke
+        # one fluent sentence about neither. Every word was in the
+        # document, the stamp was right, the sentence was true, and the
+        # document had never put those two clauses together. Containment
+        # cannot see it — the answer is a VERBATIM splice, so its
+        # coverage is 1.0 by construction — and the splice need not even
+        # cross two named lines, because a WINDOW already holds the end
+        # of one passage and the start of the next. `_quoted_region`
+        # reads the join wherever it falls.
         quoted = "\n".join(lines[at] for at in held)
+        if not self._quoted_region(said, quoted, question):
+            self.quoted_refused = True
+            return None                 # a join of two passages (W174)
         if evidence.coverage(said, quoted, question) < 1.0:
             self.quoted_refused = True
             return None                 # a claim beyond its own quotes

@@ -901,7 +901,7 @@ def h3():
                  "hedeflenmelidir.")
     text = "\n".join(lines)
 
-    windows = evidence.table_windows(text)
+    windows = [line for line, _assembled in evidence.table_windows(text)]
     assert windows, windows
     # the layout HAS a phase to read (period + indented column), so rows are
     # reconstructed rather than guessed at
@@ -10961,7 +10961,7 @@ def w169():
         "| Rotor | 40 | high |",
         "| Seal | 95 | low |",
     ])
-    rows = evidence.table_windows(table)
+    rows = [text for text, _assembled in evidence.table_windows(table)]
     assert any("Part: Rotor" in r and "Torque: 40" in r for r in rows), rows
     # NO ROW MAY HOLD ANOTHER ROW'S CELL — the whole reason the organ exists.
     for row in rows:
@@ -10970,7 +10970,7 @@ def w169():
 
     # A TABLE WITH NO RULE HAS NO NAMES, and still has rows.
     plain = "\n".join(["| Valve | 12 |", "| Rotor | 40 |", "| Seal | 95 |"])
-    rows = evidence.table_windows(plain)
+    rows = [text for text, _a in evidence.table_windows(plain)]
     assert any(r.strip() == "Rotor · 40" for r in rows), rows
     for row in rows:
         assert not ("Rotor" in row and ("12" in row or "95" in row)), row
@@ -10982,14 +10982,14 @@ def w169():
         "|---|---|---|",
         "| 5 | operator | the person running the system |",
     ])
-    rows = evidence.table_windows(partial)
+    rows = [text for text, _a in evidence.table_windows(partial)]
     assert any("level: 5" in r and "source: operator" in r
                and "the person running the system" in r for r in rows), rows
 
     # A FIRST ROW OF NUMBERS IS DATA, not a set of column names.
     numbered = "\n".join([
         "| 2019 | 4 |", "| --- | --- |", "| 2020 | 7 |", "| 2021 | 9 |"])
-    rows = evidence.table_windows(numbered)
+    rows = [text for text, _a in evidence.table_windows(numbered)]
     assert any(r.strip() == "2019 · 4" for r in rows), rows
     assert not any(":" in r for r in rows), rows
 
@@ -11117,6 +11117,176 @@ def w171():
         assert s.last_abstained is False, said
     finally:
         generate.refusal = real
+
+
+@test("W172 a quoted answer may rest on several lines, but on ONE region")
+def w172():
+    """Reported from the field and reproduced here byte for byte: asked
+    how internal control checks are performed, the quoted reading spliced
+    a clause from a TESTING paragraph onto a clause from a REQUIREMENTS
+    paragraph and spoke one fluent sentence about neither. Every word was
+    in the document, the stamp was right, the sentence was true, and the
+    document had never put those two clauses together. The ordinary path,
+    on the same engine and the same store, abstained — its relation gate
+    refused the sentence; the quoted path has no such gate.
+
+    The reporter hypothesised that the containment check weakens as lines
+    grow, since a sixty-word line supplies enough vocabulary for almost
+    any on-register sentence. Measured, that is not what happened here:
+    `coverage(answer, the two named lines, question)` is 1.0 — the answer
+    is a VERBATIM splice, so containment was satisfied by construction at
+    any line length and was never the binding constraint.
+
+    What the document did not do is join them. W166 let an answer rest on
+    more than one line, and the missing half of that permission is the one
+    this codebase already applies to tables — no window may span two rows,
+    because cells the document never put side by side make a claim it
+    never made. Lines are the same: several are allowed, but they must be
+    views of ONE region (`_regions_of`, W148). Word overlap decides it, no
+    model is asked, and a refusal here falls back to the ordinary path,
+    which owns the relation gate."""
+    from lmm import evidence, session as lmm_session
+
+    testing = ("8. Build and Technical Unit Testing: Once built, we conduct "
+               "technical unit testing to verify the accuracy and reliability "
+               "of the solution. The testing process will involve checks by "
+               "our functional and technical teams in collaboration with the "
+               "client's team to ensure the system landscape is stable.")
+    gathering = ("7. Requirements Gathering: Our process begins with a "
+                 "structured assessment of the client's reporting needs. We "
+                 "conduct a series of in-depth interviews with internal teams "
+                 "to gather detailed functional and technical requirements. "
+                 "Each interview will be documented comprehensively, capturing "
+                 "all relevant inputs, decisions, and action points.")
+    # THE PREMISE, stated as arithmetic so the fix cannot drift from it.
+    assert not evidence._same_region(set(evidence._words(gathering)),
+                                     set(evidence._words(testing))), \
+        "the fixture no longer has two regions to tell apart"
+
+    s = lmm_session.Session(None)
+    assert len(s._regions_of([gathering, testing])) == 2, \
+        s._regions_of([gathering, testing])
+
+    question = "How are internal control checks performed and documented?"
+    splice = ("The testing process will involve checks by our functional and "
+              "technical teams in collaboration with the client's team; each "
+              "interview will be documented comprehensively.")
+    # CONTAINMENT IS NOT WHAT REFUSES THIS — the splice is verbatim.
+    assert evidence.coverage(splice, gathering + "\n" + testing,
+                             question) == 1.0
+
+    from lmm import generate
+    real = generate.quoted_answer
+    s._find = lambda q, most=6, **kw: [gathering, testing]
+    try:
+        generate.quoted_answer = lambda q, block: (splice, [0, 1])
+        assert s._quoted_answer(question) is None, \
+            "two regions were spoken as one quotation"
+        assert s.quoted_refused is True
+        # THE WITNESS: one region, several lines — W166 keeps its permission.
+        s.quoted_refused = False
+        nested = ("The testing process will involve checks by our functional "
+                  "and technical teams in collaboration with the client's "
+                  "team to ensure the system landscape is stable.")
+        s._find = lambda q, most=6, **kw: [testing, nested]
+        inside = "The testing process will involve checks."
+        generate.quoted_answer = lambda q, block: (inside, [0, 1])
+        said = s._quoted_answer(question)
+        assert said and "testing process" in said, (said, s.quoted_refused)
+    finally:
+        generate.quoted_answer = real
+
+
+@test("W173 a turn that abstained carried nothing, and says so")
+def w173():
+    """Reported from the field: a refusal came back `covered=1.0` with
+    `missing=()` — full coverage for an answer that answered nothing. It
+    happens when the refusal restates the question ("I don't have specific
+    information on how internal control checks are performed and
+    documented"): every demand the question makes is then present in the
+    refusal's own words, and the count has nothing left to miss.
+
+    Measured on the reporter's own sentence: 1.00 for the restating
+    refusal, 0.00 for a refusal that does not restate, 0.25 for a correct
+    VERBATIM answer out of the document, 0.88 for a fluent restatement.
+    So the number rewards saying the question back — which is precisely
+    what W152 established is not a claim at all. `covered` is a count and
+    stays one; what it must not do is count an abstention as coverage.
+
+    The session already knows, structurally, that the turn asserted
+    nothing. An abstention carries none of the question's demands, and
+    both fields now say so."""
+    from lmm import evidence
+
+    question = "How are internal control checks performed and documented?"
+    restating = ("I don't have specific information on how internal control "
+                 "checks are performed and documented.")
+    # THE DEFECT, as arithmetic — this is what the words alone report.
+    assert evidence.carried(restating, question)[0] == 1.0, \
+        evidence.carried(restating, question)
+
+    from lmm import api, session as lmm_session
+    memory = object.__new__(api.Memory)
+    memory.session = lmm_session.Session(None)
+    memory.session.last_abstained = True
+    told = api.Memory._told(memory, restating, asked=question)
+    assert told.abstained is True
+    assert told.covered == 0.0, told.covered
+    assert told.missing == evidence.demands(question), told.missing
+
+
+@test("W174 text this layer assembled is marked as assembled")
+def w174():
+    """The root cause under W172, and it was not where either reading
+    looked. The reported failure quoted a sentence the document never
+    wrote; the answer turned out not to span two lines at all — THREE of
+    the six retrieved candidates carried both of its clauses inside ONE
+    line, because that line was something this layer had built.
+
+    `table_windows` falls back to windows of consecutive lines when a run
+    has no row structure, and its own docstring says what they claim:
+    that the lines FOLLOW one another, nothing more. A run of numbered
+    prose paragraphs reads as such a run, so paragraph 7's tail and
+    paragraph 8's head were joined with a separator and stored — and
+    stored WITHOUT the derived mark, so the store believed a thing it had
+    assembled was a sentence the document wrote. Every organ standing on
+    that distinction (the fusion region cap W162, `_window_texts`, and
+    now the quoted reading) was reasoning from a false premise.
+
+    A ROW IS NOT AN ASSEMBLY. One record per row is what the document put
+    in that row, so records stay the document's own; the fallback windows
+    and the masthead are ours, and say so. The scale windows have carried
+    the mark since W162 — these two were simply missed."""
+    from lmm import evidence, session as lmm_session
+
+    prose = "\n".join([
+        "7. Gathering: we assess reporting needs.",
+        "8. Testing: the process involves checks.",
+        "9. Training: consultants lead training.",
+        "10. Deployment: the phase includes checks.",
+        "11. Support: our teams remain on standby.",
+    ])
+    built = evidence.table_windows(prose)
+    assert built, "the fixture no longer reaches the table reader"
+    assert all(len(row) == 2 for row in built), (
+        "table_windows must say which of its lines it assembled: %r"
+        % (built[:2],))
+    assert any(assembled for _text, assembled in built), built
+
+    # A DELIMITED ROW IS THE DOCUMENT'S OWN and keeps its standing.
+    table = "\n".join(["| Part | Torque |", "| --- | --- |",
+                       "| Valve | 12 |", "| Rotor | 40 |", "| Seal | 95 |"])
+    rows = evidence.table_windows(table)
+    assert rows and not any(assembled for _text, assembled in rows), rows
+
+    # AND THE STORE AGREES: nothing this layer built passes for a sentence.
+    s = lmm_session.Session(None)
+    s.learn_text(prose, source="#handbook", deep=False)
+    windows = s.evidence._window_texts()
+    for text, _src in s.evidence.sentences:
+        if " · " in text or " — " in text:
+            assert text in windows, (
+                "an assembled line is held as the document's own: %r" % text)
 
 
 def main():
