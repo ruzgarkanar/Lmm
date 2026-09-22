@@ -17,14 +17,24 @@ marketing; this one is part of the measurement.
   *"The memory has something to say about X"* is not *"the supplier offers
   X"*, and an integration doing coverage rather than question-answering
   carries that distance itself. Nothing here judges it.
-- **An assertion with no stamp is worth suspecting.** While the
-  abstention-stamp defect stays open (`abstained=False` on a sentence that
-  is itself a refusal), the same field run found that every instance
-  carried the same signature: `abstained=False` **and** `sources == ()`.
-  Requiring a source is measured as a poor *rule* — it removed two wrong
-  answers and cost two right ones — but as a *diagnostic* it caught every
-  occurrence. A careful caller treats an answer that asserts without
-  provenance as suspect.
+- **An assertion with no stamp is worth suspecting** — and the defect that
+  made it necessary is closed as of 0.8.0. A refusal spoken with
+  `abstained=False` and `sources == ()` was reported twice from the field,
+  and it had two doors, both of the same shape. The answer path's fallback
+  excluded only what the relation gate had refused, so it revived what the
+  grounding score had already eliminated; the widened rescue pass took its
+  own refusal SENTENCE and asked a word-overlap reading whether it was a
+  claim. Both now defer to the structural stamp: **a gate that asks whether
+  what a sentence says is in the evidence cannot fail a sentence that says
+  nothing**, so a sentence carrying none of its evidence is not an answer,
+  and a pass that left by the refusal door did not answer whatever its
+  words look like. Measured on a fifteen-question slice: unsourced
+  assertions 2 → 0, honest abstentions 1 of 3 → 3 of 3.
+
+  The diagnostic is still worth keeping. Requiring a source was measured as
+  a poor *rule* — it removed two wrong answers and cost two right ones —
+  but as a *signal* it caught every occurrence of this class, and it will
+  catch the next one before a report does.
 - **The synonym ceiling is lower than it was, and it is not gone.** A word
   search alone cannot reach a paraphrase, and two instruments were built
   against that. The offline expansion channel was **measured not to close it**

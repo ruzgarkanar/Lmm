@@ -114,6 +114,31 @@ insurance is worth buying where the risk is real.
 | `m.facts` | how many records exist | no engine |
 | `m.save(path)` | graph and evidence, both | no engine |
 
+### What reading a document does to its tables
+
+No call to make and nothing to configure — it is what `learn()` does — but
+it decides what later questions can reach, so it is worth knowing.
+
+A **row is a unit**: the cells the document put together and no others. A
+table whose cells have shattered onto separate lines (the usual PDF dump)
+is reassembled by the period in its cell lengths; a table written with
+**delimiters** — `|` or tabs, which is markdown, ASCII tables and most of
+what an ingested file contains — is already whole on one line, and where a
+rule (`| --- | --- |`) follows the first row, that row names the columns
+and each cell is stored as `Name: value`. No window ever spans two rows.
+
+An **index column is dropped**. Rows ending in a bare number that never
+decreases, rises across at least three rows and carries no column name
+above it are a table of contents or a register: the number says where a
+thing is written, not what it is. Keeping it makes a question like "what
+is this regulation's number?" answerable with the page it starts on —
+past every gate, because the page really is written beside the name. A
+**named** column is a field and is never touched, however its values are
+sorted.
+
+If you need the page numbers themselves as data, give them a column name,
+or keep that table in a separate file the memory reads as prose.
+
 ## Session
 
 | call | what it does | engine? |
