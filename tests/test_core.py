@@ -11061,6 +11061,64 @@ def w170():
          generate.refusal, generate.telling_answer, runtime.generate) = real
 
 
+@test("W171 a rescue pass that refused did not produce an answer")
+def w171():
+    """W170 closed the answer path's back door; this is the same class one
+    floor up, and the live measurement found it: two turns of fifteen came
+    back "Bu konuda henüz bir bilgim yok." stamped `abstained=False` with
+    no sources, on the route `chain · refuse · refuse · widened`.
+
+    The two refusals in that route are the whole story. The first pass
+    abstained, the WIDENED rescue pass ran, and it abstained too — and the
+    rescue then handed its own refusal SENTENCE to `_asserted_a_fact` and
+    asked a word-overlap reading whether it was a claim. The reading said
+    yes, and an honest shrug was published as an assertion.
+
+    The session does not have to guess. Every refusal in this codebase
+    leaves by one door precisely so that abstention is a FACT ON THE
+    OBJECT rather than a property of a sentence's words — and this call
+    site was reading the words instead. A pass that left by that door did
+    not answer, whatever its sentence looks like.
+
+    The stub below makes the word reading say "asserted", as it did in the
+    field: the turn must stay abstained anyway, which is exactly the claim
+    that the structural stamp outranks the textual guess."""
+    from lmm import extract, generate, session as lmm_session
+
+    s = lmm_session.Session(None)
+    s.learn_text("Sermaye piyasası, tasarrufların aktarılmasını sağlar.\n"
+                 "Ders Kodu: 1001\n", source="#not", deep=False)
+    refusal = "Bu konuda henüz bir bilgim yok."
+    real = generate.refusal
+    generate.refusal = lambda question, persona="": refusal
+    passes = {"n": 0}
+
+    def inner(message, fluent=False, teach=True):
+        s.last_kind = extract.ASK
+        passes["n"] += 1
+        return s._refuse(message)
+
+    s._respond = inner
+    s._store_words = lambda message: ["sermaye"]
+    s._answer = lambda question, subject="", **kw: s._refuse(question)
+    # THE WORD READING, FOOLED — as it was in the field.
+    s._asserted_a_fact = lambda said, asked="": True
+    try:
+        said = s.respond("Bu sınavın başvuru ücreti kaç TL", teach=False)
+        assert s.last_abstained is True, (
+            "a rescue pass that refused was published as an assertion: %r"
+            % (said,))
+        # THE WITNESS: a rescue that actually ANSWERS still speaks.
+        s._widened = False
+        s.last_abstained = True
+        s._answer = lambda question, subject="", **kw: "Ders Kodu: 1001"
+        said = s.respond("Ders kodu nedir", teach=False)
+        assert "1001" in str(said), said
+        assert s.last_abstained is False, said
+    finally:
+        generate.refusal = real
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
