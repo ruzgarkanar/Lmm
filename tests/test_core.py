@@ -11178,6 +11178,9 @@ def w172():
     from lmm import generate
     real = generate.quoted_answer
     s._find = lambda q, most=6, **kw: [gathering, testing]
+    # The relation gate is W175's subject, not this one: what is under
+    # test here is the region reading, so the judge is stood aside.
+    s.QUOTED_RELATION = False
     try:
         generate.quoted_answer = lambda q, block: (splice, [0, 1])
         assert s._quoted_answer(question) is None, \
@@ -11287,6 +11290,145 @@ def w174():
         if " · " in text or " — " in text:
             assert text in windows, (
                 "an assembled line is held as the document's own: %r" % text)
+
+
+@test("W175 quoting replaces the read-back; it does not replace the relation")
+def w175():
+    """The quoted reading dropped BOTH judges and only ever replaced one.
+
+    The read-back asks whether the evidence SAYS this, and under quoting
+    the store answers it for nothing: the answer is checked, word by
+    word, against lines the store itself offered. The relation check asks
+    something else — whether the claim answers what was ASKED — and
+    nothing about quoting a line makes it relevant. That judge was
+    dropped with no replacement, which is why the path can speak a
+    single, whole, true sentence about the wrong subject. Reported from
+    the field as the remaining failure after W172, and verified here: on
+    0.8.1 such a sentence passes `_quoted_region` (one sentence is one
+    region), passes containment at 1.0, and is spoken.
+
+    It is the same judge the ordinary path runs, over the same lines the
+    answer rests on, so a turn the reading carries costs two engine calls
+    rather than one. That is the honest price of the guarantee, and the
+    docs stop claiming parity per carried turn. A caller who measured the
+    cheaper trade to be profitable keeps it: `QUOTED_RELATION = False` is
+    a session number beside `CANDIDATES` and `VIEWS`, not a new argument
+    on `ask()`."""
+    from lmm import generate, session as lmm_session
+
+    off = ("Each interview will be documented comprehensively, capturing all "
+           "relevant inputs, decisions, and action points assigned and "
+           "tracked by the project manager.")
+    question = "How are internal control checks performed and documented?"
+
+    s = lmm_session.Session(None)
+    s._find = lambda q, most=6, **kw: [off]
+    real = (generate.quoted_answer, generate.answers_asked)
+    generate.quoted_answer = lambda q, block: (off, [0])
+    asked = []
+
+    def judge(q, answer, view):
+        """The engine's verdict, stood in for: the document documents
+        interviews and says nothing about internal control checks."""
+        asked.append(view)
+        return "interview" in q.lower()
+
+    generate.answers_asked = judge
+    try:
+        assert s._quoted_answer(question) is None, \
+            "a true sentence about the wrong subject was spoken"
+        assert s.quoted_refused is True
+        assert asked, "the relation gate was never asked"
+        # IT IS ASKED OVER THE LINES THE ANSWER RESTS ON, not the corpus.
+        assert all(off in view for view in asked), asked
+
+        # THE WITNESS: an answer that DOES answer still leaves by this path.
+        s.quoted_refused = False
+        said = s._quoted_answer("Which interview records are kept?")
+        assert said and "interview" in said, (said, s.quoted_refused)
+
+        # AND THE CHEAPER TRADE STAYS REACHABLE.
+        s.quoted_refused = False
+        s.QUOTED_RELATION = False
+        assert s._quoted_answer(question) == off, s.quoted_refused
+    finally:
+        (generate.quoted_answer, generate.answers_asked) = real
+
+
+@test("W176 a judgment is a seam, and the memory keeps the boundary")
+def w176():
+    """Both gates ask the same shape of question — does the evidence SAY
+    this, does this ANSWER what was asked — and both pay a frontier
+    engine to write "yes" in prose that is then parsed. A model class
+    exists that answers exactly this shape as a typed decision with a
+    calibrated probability, in a fraction of the latency and the price.
+
+    What this does NOT do is adopt one. The judgment stays where it is;
+    what is added is the seam it could sit behind: `Memory(judge=...)`,
+    beside `encoder=` and `reranker=`, which are the slots this library
+    already parameterises. The default is exactly what it was, so a
+    caller who passes nothing pays nothing and nothing moves.
+
+    Three properties make the seam safe to hand to a stranger. A judge
+    that returns `None` has DECLINED, and the turn asks the engine as it
+    always did — a provider that cannot answer must not be able to
+    silently refuse an answer. A judge that RAISES is the same thing: an
+    outage is not a verdict. And the boundary is the memory's, not the
+    provider's — the majority, the same non-dial boundary every other
+    mixture reading here uses — so a supplier cannot move this gate by
+    changing what it calls confident.
+
+    `JUDGE_BOUNDARY` is a session number for operators who have measured
+    their own judge's calibration; it means nothing with a judge that
+    only ever answers 0 or 1, which is what a prose engine is."""
+    from lmm import generate, session as lmm_session
+
+    s = lmm_session.Session(None)
+    asked = []
+
+    # THE SEAM IS ASKED FOR BOTH KINDS, and its verdict is honoured.
+    s.judge = lambda kind, question, answer, view: (
+        asked.append(kind) or (0.9 if "right" in answer else 0.1))
+    real = (generate.supported, generate.answers_asked)
+    called = []
+    generate.supported = lambda answer, view: called.append("says") or True
+    generate.answers_asked = (lambda question, answer, view:
+                              called.append("answers") or True)
+    try:
+        assert s._read_back("the right one", ["evidence"], "block") is True
+        assert s._read_back("the wrong one", ["evidence"], "block") is False
+        assert s._relation_held("q", "the right one", ["evidence"], "b") is True
+        assert s._relation_held("q", "the wrong one", ["evidence"], "b") is False
+        assert sorted(set(asked)) == ["answers", "says"], asked
+        assert not called, ("the engine was paid for a judgment the seam "
+                            "had already made: %r" % called)
+
+        # A JUDGE THAT DECLINES DOES NOT DECIDE — the engine is asked.
+        asked.clear()
+        s.judge = lambda kind, question, answer, view: None
+        assert s._read_back("anything", ["evidence"], "block") is True
+        assert called == ["says"], called
+
+        # NOR DOES ONE THAT FALLS OVER.
+        called.clear()
+
+        def broken(kind, question, answer, view):
+            raise RuntimeError("the provider is down")
+
+        s.judge = broken
+        assert s._read_back("anything", ["evidence"], "block") is True
+        assert called == ["says"], called
+
+        # THE BOUNDARY IS THE MEMORY'S, and it is the majority.
+        called.clear()
+        s.judge = lambda kind, question, answer, view: 0.5
+        assert s._read_back("anything", ["evidence"], "block") is False
+        s.JUDGE_BOUNDARY = 0.9
+        s.judge = lambda kind, question, answer, view: 0.8
+        assert s._read_back("anything", ["evidence"], "block") is False
+        assert not called, called
+    finally:
+        (generate.supported, generate.answers_asked) = real
 
 
 def main():

@@ -21,7 +21,8 @@ Memory(path=None,             # the store on disk; None is transient
        identity=None,         # what the memory may say about itself
        encoder=None,          # the meaning channel's vectors
        dense=True,            # the meaning channel itself
-       reranker="bundled")    # the ordering inside a proposal
+       reranker="bundled",    # the ordering inside a proposal
+       judge=None)            # who answers the gates' yes/no questions
 ```
 
 ```python
@@ -70,6 +71,9 @@ turn is not a judge:
   `(query, texts) -> list[int]` replaces it; `None` turns it off.
 - **`dense=False`** — no meaning channel at all. The store answers exactly as
   it did before the channel existed, and numpy is not needed.
+- **`judge`** — who answers the gates' yes/no questions. Unset, this
+  memory's own engine, which is what every measurement here was made
+  with. See [A judgment is a seam](#a-judgment-is-a-seam).
 
 ```python
 # your own encoder, and a cross-encoder doing the reordering
@@ -99,6 +103,52 @@ bought stopped winning once retrieval improved.
 
 Raise them on a corpus where retrieval is weak — they are insurance, and
 insurance is worth buying where the risk is real.
+
+| `m.session.QUOTED_RELATION` | True | whether a quoted turn still answers for its **relation**. Quoting replaces the read-back — the store checks the answer against lines it offered, for nothing — and replaces nothing for the other gate, because a quotation is not made relevant by being a quotation. Setting it `False` restores 0.8.1: measured on fifteen questions, the quoted reading then carries 9 turns instead of 7 at 58 calls instead of 86, and one genuinely wrong answer comes back instead of an honest abstention |
+
+## A judgment is a seam
+
+Both gates ask one shape of question — **does the evidence say this**
+(`says`), **does this answer what was asked** (`answers`) — and both pay a
+frontier engine to write "yes" in prose that is then parsed. A model class
+now exists that answers exactly this shape as a typed decision with a
+calibrated probability, for a fraction of the latency and the price.
+
+This library adopts none of them. What it offers is the seam one could sit
+behind:
+
+```python
+def judge(kind, question, answer, evidence):
+    """kind is "says" or "answers". Return a probability, or None."""
+    return my_classifier(kind, question, answer, evidence)
+
+m = Memory("mind.lmm", judge=judge)
+```
+
+Pass nothing and the engine is asked exactly as before. Three properties
+make the seam safe to hand to a stranger:
+
+- a judge that returns **`None` has declined**, and the engine is asked —
+  a provider that cannot answer must not be able to refuse an answer
+  silently;
+- a judge that **raises** is the same thing: an outage is not a verdict;
+- **the boundary is this memory's**, not the provider's
+  (`m.session.JUDGE_BOUNDARY`, the majority), so a supplier cannot move a
+  gate by changing what it calls confident.
+
+!!! warning "Where such a judge belongs, and where it does not"
+    Not "wherever there is a call". A typed-decision model's declared
+    failure mode is **confident wrongness inside its schema** — and on a
+    gate that is a fabrication which passed the audit, which is worse
+    than a prose engine's hallucination, because the hallucination is
+    what the gate is shaped to catch.
+
+    Put it where a miss costs **recall** rather than the promise, and
+    above all where this memory has **no judge at all** today: ordering a
+    proposal, filtering candidates before a cascade is paid for. There it
+    can only add. Replacing the read-back is the last move, not the
+    first, and it wants shadow numbers on your own corpus before it is
+    trusted.
 
 | call | what it does | engine? |
 |---|---|---|
