@@ -343,6 +343,20 @@ class Memory:
         # model calls a question costs (`benchmarks/COST.md` §2). `cache=False`
         # turns it off; see `_state` for what "has not moved" means and
         # `ask` for which turns are eligible at all.
+        #
+        # `cache=False` IS NOT "NOTHING IS REUSED", AND A BENCHMARKER MUST
+        # KNOW IT. Below this object the engine pools its own deterministic
+        # calls (`runtime._SEEN`: temperature 0, byte-exact prompt, per
+        # PROCESS and therefore across `Memory` instances), and the
+        # extractor memoises the sentences it has already read. So asking
+        # one question twice in a single process can cost ZERO calls with
+        # the cache off and with a second, freshly built memory — measured
+        # by somebody timing this library, who briefly recorded a
+        # spectacular and entirely false "0 calls" for a change they were
+        # evaluating. Nothing is wrong with the pooling; it is right in
+        # production, where a repeated deterministic call has one answer.
+        # It is wrong to measure through, and the fix is the one they
+        # found: give each variant its own process.
         self._cache = {} if cache else None
 
     # A BOUND, so a long-running memory does not accumulate every question ever
@@ -554,7 +568,8 @@ class Memory:
 
     # ------------------------------------------------------------------ ask
 
-    def ask(self, question, explain=False, fluent=False, shape=None):
+    def ask(self, question, explain=False, fluent=False, shape=None,
+            standalone=False):
         """Ask a question. Returns the answer — or an honest refusal.
 
         With `explain=True` the return additionally carries what the turn knows
@@ -605,11 +620,21 @@ class Memory:
         # ONLY (W157) — seated before the door, cleared after it, so a
         # batch's declaration cannot leak into a later ordinary turn.
         session.declared_shape = shape
+        # A TURN THAT DECLINES THE CONVERSATION IT DID NOT HAVE (W158).
+        # `standalone` ends the conversation before the turn and again
+        # after it, so an independent question neither inherits a
+        # subject it never raised nor leaves one for the next — which
+        # is what a matrix of cells is, and what a `Memory` per cell
+        # was standing in for.
+        if standalone:
+            self.reset()
         try:
             said = session.respond(question, fluent=fluent, teach=False,
                                    conversational=False) or ""
         finally:
             session.declared_shape = None
+            if standalone:
+                self.reset()
         # WHICH TURNS MAY BE KEPT, and it is the narrow set. A turn that WROTE
         # is not a repeat of itself — asking it again re-enters the gate. A
         # turn that left a research offer outstanding means "shall I?", and
@@ -687,6 +712,39 @@ class Memory:
         )
 
     # ----------------------------------------------------------------- keep
+
+    def reset(self):
+        """End the CONVERSATION. Nothing that was learned is forgotten.
+
+        A turn that names no document of its own reads the one the
+        conversation was about — right in a conversation, and
+        contamination in a matrix of independent cells. Measured from
+        the field, both directions: a cell answers when asked first and
+        abstains when asked after nine unrelated cells in the same
+        `Memory`, with nothing but the order different. The inheritance
+        EARNS its place (the same reporter measured 77.3% with it
+        against 72.7% without), so it is not turned off — what was
+        missing is the caller's say over it. Until now the only way to
+        get an isolated turn was to build a second `Memory`, which
+        works because ingestion costs nothing, but a workaround is not
+        an intent.
+
+        What this clears is exactly the conversation: the recent turns,
+        the subject the last turn was about, the consultation's brief
+        and the documents the topic had come to be about. The graph,
+        the evidence index and the retrieval aids are the memory, and a
+        memory is not a conversation: `m.facts` and every stored line
+        are the same after this call as before it.
+        """
+        session = self.session
+        session.history = []
+        session.last_subject = ""
+        session._prior_subject = ""
+        session._brief = []
+        session._scope_now = set()
+        session.topic.said = []
+        session.topic.sources = set()
+        return self
 
     def where(self, term):
         """Which documents mention this — names and counts, no engine, ms.

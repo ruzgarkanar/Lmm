@@ -6211,6 +6211,85 @@ def w150():
             % (reported, declared))
 
 
+@test("W158 a turn may decline the conversation it did not have")
+def w158():
+    """Measured from outside, both directions, same question and
+    document: asked first, a cell answers; asked after nine unrelated
+    cells in the same `Memory`, the same cell abstains. Nothing but the
+    order changed.
+
+    That is the follow-up inheritance doing its job — a turn that names
+    no document of its own reads the one the conversation was about
+    (W109/W114), which is right when there IS a conversation. A matrix
+    of independent cells is not one: row 12 does not continue row 9,
+    and the reader of row 12 is not carrying a thought over from it.
+
+    The reporter measured the inheritance EARNING its place even on
+    their corpus (77.3% against 72.7% with a fresh memory per cell), so
+    nothing is turned off. What was missing is the caller's control
+    over it: `Memory.reset()` ends the conversation without touching
+    what was learned, and `ask(..., standalone=True)` does it for one
+    turn. Today the only way to get an isolated turn is to build a new
+    `Memory` — which works, because ingestion costs nothing, but a
+    workaround is not an intent.
+
+    What reset must NOT do is forget: the graph, the evidence and the
+    aids are the memory, and a conversation is not."""
+    from lmm import api
+    from lmm.session import Session
+
+    m = api.Memory(None, dense=False)
+    m.learn("The Alpha module validates the tax registration.",
+            source="#alpha", deep=False)
+    m.learn("The Beta module archives every invoice for ten years.",
+            source="#beta", deep=False)
+    facts, lines = m.facts, len(m.session.evidence.sentences)
+
+    # a conversation accumulates: history, the subject, the brief, the
+    # documents the topic is about
+    session = m.session
+    session.history = [{"role": "user", "content": "what does Beta do?"},
+                       {"role": "assistant", "content": "It archives."}]
+    session.last_subject = "Beta module"
+    session._brief = ["beta", "archiving"]
+    session.topic.sources = {"#beta"}
+    session.topic.said = ["It archives every invoice."]
+
+    m.reset()
+    assert session.history == [], session.history
+    assert session.last_subject == "", session.last_subject
+    assert list(session._brief) == [], session._brief
+    assert session.topic.sources == set(), session.topic.sources
+    assert session.topic.said == [], session.topic.said
+    # ...and the memory itself is untouched
+    assert m.facts == facts, (m.facts, facts)
+    assert len(m.session.evidence.sentences) == lines
+
+    # one standalone turn: the conversation is not inherited, and what
+    # the turn itself says is not kept either — the next turn is as
+    # alone as this one was
+    session.history = [{"role": "user", "content": "what does Beta do?"}]
+    session.last_subject = "Beta module"
+    session.topic.sources = {"#beta"}
+    seen = {}
+    real = Session._respond
+
+    def spy(self, message, **kw):
+        seen["scope"] = set(self._scope_now or ())
+        seen["prior"] = self._prior_subject
+        return "The Alpha module validates the tax registration."
+
+    Session._respond = spy
+    try:
+        m.ask("which module validates the tax registration?",
+              standalone=True)
+    finally:
+        Session._respond = real
+    assert seen["scope"] == set(), seen["scope"]
+    assert not seen["prior"], seen["prior"]
+    assert session.history == [], session.history
+
+
 @test("W157 a caller who knows the turn's kind is not asked to prove it")
 def w157():
     """Traced from outside, one cell of a batch: six engine calls and
