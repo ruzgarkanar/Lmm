@@ -4,6 +4,114 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-09-22
+
+Four architectural readings, all of them structural: what a table's last
+column means, what a delimited row is, and twice over what it takes for a
+sentence to count as an answer. Nothing here knows a word of any language.
+
+### Added
+
+- **A delimited row is a row, and its cells keep their column** (W169).
+  `table_windows` exists because a sliding window over a shattered
+  table's cells puts side by side what the document never put in one row
+  — "the camera's regulatory risk is medium", past every gate because
+  the claim really is in the evidence. A table written with DELIMITERS
+  was falling into that exact failure: its row is whole, on one line, so
+  the shattered reader found no period in the cell lengths, answered "no
+  row structure", and the rows went in mixed together. On the commonest
+  table shape an ingested document has.
+
+  A run of consecutive lines cut into the same number of cells by `|` or
+  a tab is a table. Where a rule — a line with neither letter nor digit,
+  which is all any markdown or ASCII separator is — follows the first
+  row, that row NAMES the columns, and every cell is stored under its
+  own name, so a detached value still says which attribute it is the
+  value of. A column name is not a number: a first row of bare numbers
+  is data, and the table goes in unnamed. An empty header cell is that
+  column's silence, not a disqualification — measured on a live table
+  whose description column carries no heading.
+
+  Measured: **89 records** recovered from this repository's own README
+  alone, each under its column names, where before there were mixed
+  windows.
+
+### Fixed
+
+- **An index column points at a place, and a place is not a value**
+  (W168). Asked for a regulation's number, the memory answered `140`.
+  The document's number for it is `III-52.1`; `140` is the page its
+  section starts on. Both sit in the same row of the table of contents,
+  so every gate passed — the claim really was in the evidence. What
+  failed was not the audit but what the row was taken to SAY: a contents
+  row states where a thing is written, not what it is. (0.7.15 recorded
+  these two as "correctly refused"; they are now correctly *answered*.)
+
+  The reading is typographic: a run of rows whose last cell is a bare
+  number, the numbers never decreasing and rising across at least three
+  rows, with no column NAME above them. The name test is what separates
+  an index from an ascending price list — a named column is a field and
+  keeps its values however it is sorted. The strip happens once, on the
+  document's own lines, before anything is split or windowed, so the
+  pointer never enters the store and every organ downstream inherits the
+  correction for free. The row keeps its words: the heading that WAS the
+  answer stays readable.
+
+  Measured across 25 real documents: **13 lines changed, all of them the
+  one contents table.**
+
+- **A sentence that carries no evidence is not an answer** (W170).
+  Reported from the field twice — a refusal stamped `abstained=False`
+  with no sources, and a refusal in the wrong language spoken by the
+  answer path — and reproduced here with no engine at all: four
+  questions, one of them plainly answered by the document, all four
+  spoken as the engine's own "I don't have that information".
+
+  The gates were not loose. `_select` grades a candidate that carries
+  none of the evidence's words at zero and declines to speak it. The
+  fallback beneath resurrected it: its spare list excluded only what the
+  RELATION gate had refused, so a candidate the grounding score had
+  eliminated came back through the back door, and `verify` had nothing
+  to contradict it with because a shrug asserts nothing. **That is the
+  blind spot every audit of this kind shares: a gate that asks whether
+  what a sentence says is in the evidence cannot fail a sentence that
+  says nothing.** The other reading was already on the session —
+  `_asserted_a_fact`, a word intersection with the proof, no model call
+  — and it now guards what the fallback revives and what it generates.
+
+- **A rescue pass that refused did not produce an answer** (W171). The
+  same class one floor up, found by the live slice: two turns of fifteen
+  came back as a refusal sentence stamped an assertion, on the route
+  `chain · refuse · refuse · widened`. The first pass abstained, the
+  widened rescue ran, it abstained too — and the rescue then handed its
+  own refusal SENTENCE to the word reading and was told it was a claim.
+
+  Every refusal in this codebase leaves by one door precisely so that
+  abstention is a fact on the object rather than a property of a
+  sentence's words. `last_abstained` cannot say it here, because the
+  rescue only runs on a turn that has already abstained and the flag is
+  True on both sides of the call — so the door counts, and the
+  structural stamp outranks the textual guess.
+
+### Measured
+
+On the fifteen-question document slice, before → after:
+
+| | 0.7.15 | 0.8.0 |
+| --- | --- | --- |
+| gold (six checkable) | 3/6 | **6/6** |
+| unsourced assertions | 2 | **0** |
+| honest abstentions | 1 of 3 | **3 of 3** |
+| turns the quoted reading carried | 10/15 | **11/15** |
+| engine calls | 50 | 50 |
+| prompt characters | 183,316 | **129,681** |
+| seconds | 82 | **68** |
+
+The three regulation-number questions answer correctly for the first
+time (`II-17.1`, `II-15.1`, `III-52.1`). The three questions the document
+does not answer — verified against the file, which never writes a fee, a
+duration or the chair's name — all abstain and all say so. 240/240.
+
 ## [0.7.15] — 2026-09-22
 
 ### Fixed
