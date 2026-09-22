@@ -2952,6 +2952,14 @@ class Session:
         self.unread = []      # READING GUARANTEE: sentences that couldn't be
         #                       learned — NO silent skipping, the caller sees
         #                       them (honesty)
+        # AN INDEX COLUMN POINTS AT A PLACE (`evidence.strip_locators`), and
+        # a place is not a value. A contents row holds the thing's name and
+        # the page it starts on side by side, so an answer that reads the
+        # page as the thing's number passes every gate — the claim really is
+        # in the evidence. The column comes off the document's own lines
+        # HERE, before they are split or windowed, so every reader below
+        # (sentences, scales, the masthead, the table repair) inherits it.
+        text = evidence.strip_locators(text)
         sentences = [s.strip() for s in re.split(r"(?<=[.!?;])\s+|\n+", text)
                      if s.strip()]
         # EVIDENCE: every sentence enters the store — numbers/ranges/nuance

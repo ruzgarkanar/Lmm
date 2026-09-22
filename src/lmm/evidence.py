@@ -774,6 +774,99 @@ def rows_of(raw):
     return _cut([l.strip() for l in raw], p, column) if column else None
 
 
+def _cells_of(line):
+    """The cells a DELIMITED row cuts itself into, or None when the line is
+    not one. A vertical bar or a tab is a layout character: ONE of them is
+    punctuation a sentence may use, two or more cut a row into cells. The
+    empty pieces a leading and trailing delimiter leave are the edge of the
+    table, not cells of their own."""
+    for mark in ("|", "\t"):
+        if line.count(mark) < 2:
+            continue
+        parts = line.split(mark)
+        if not parts[0].strip():
+            parts = parts[1:]
+        if parts and not parts[-1].strip():
+            parts = parts[:-1]
+        cells = [part.strip() for part in parts]
+        if len(cells) >= 2:
+            return cells
+    return None
+
+
+def _row_runs(text):
+    """Runs of consecutive delimited lines. A RULE — a line with neither
+    letter nor digit — is kept inside its run as a marker rather than
+    ending it: that is all a markdown or ASCII separator is, and where it
+    sits is what says a header stands above the rows."""
+    out, run = [], []
+    for line in text.split("\n") + [""]:
+        bare = line.strip()
+        if bare and _RULE.match(bare):
+            if run:
+                run.append(None)
+            continue
+        cells = _cells_of(line) if bare else None
+        if cells is not None:
+            run.append(cells)
+            continue
+        if len([row for row in run if row]) >= 2:
+            out.append(run)
+        run = []
+    return out
+
+
+def delimited_rows(text):
+    """A DELIMITED table read as records — one per row, cells under names.
+
+    `table_windows` exists because a sliding window over a shattered
+    table's cells puts side by side what the document never put in one
+    row, and an answer read out of that is past every gate by
+    construction. A table written with delimiters was falling into that
+    exact failure: its row is whole, on one line, so the shattered reader
+    could find no period in the cell lengths, answered "no row structure",
+    and the rows went in mixed together — on the commonest table shape an
+    ingested document has.
+
+    Nothing here knows a language. A run of consecutive lines cut into the
+    same number of cells by the same layout character is a table. Where a
+    rule follows the first row, that row NAMES the columns and each cell
+    is stored under its own name, so a detached value still says which
+    attribute it is the value of. A column name is not a number: a first
+    row of bare numbers is data, and the table goes in unnamed.
+    """
+    out = []
+    for run in _row_runs(text):
+        rows = [row for row in run if row]
+        counts = {}
+        for row in rows:
+            counts[len(row)] = counts.get(len(row), 0) + 1
+        width = max(counts, key=lambda n: (counts[n], n))
+        rows = [row for row in run if row is None or len(row) == width]
+        body = [row for row in rows if row]
+        if len(body) < 2:
+            continue
+        named = None
+        if len(rows) > 1 and rows[1] is None:
+            head = rows[0]
+            # A column may be left UNNAMED and its neighbours still named —
+            # measured on a live table whose last column has no heading. An
+            # empty cell is that column's silence, not a disqualification;
+            # a NUMBER in the header row is, because a name is not a value.
+            if any(head) and not any(_BARE_NUMBER.match(cell)
+                                     for cell in head if cell):
+                named, body = head, body[1:]
+        for row in body:
+            if named:
+                said = " · ".join("%s: %s" % (name, cell) if name else cell
+                                  for name, cell in zip(named, row) if cell)
+            else:
+                said = " · ".join(cell for cell in row if cell)
+            if said:
+                out.append(said)
+    return out
+
+
 def table_windows(text):
     """What a shattered table contributes to the evidence store.
 
@@ -782,8 +875,16 @@ def table_windows(text):
     overlapping windows of consecutive lines, which claim only that the lines
     follow one another — and the row's column names are prefixed either way, so
     a detached value still says which attribute it is the value of.
+
+    A table whose rows are DELIMITED rather than shattered is read first
+    (`delimited_rows`), and its lines are then withheld from the shattered
+    reader: a row that has already been read whole must not go back in as
+    part of a window that spans its neighbours.
     """
-    out = []
+    out = list(delimited_rows(text))
+    kept = ["" if _cells_of(line) is not None else line
+            for line in text.split("\n")]
+    text = "\n".join(kept)
     for raw in _cell_runs(text):
         cells = [l.strip() for l in raw]
         rows = rows_of(raw)
@@ -811,6 +912,100 @@ def table_windows(text):
             row = " · ".join(cells[i:j])
             out.append(f"{header} — {row}" if header else row)
     return out
+
+
+# A CELL SEAM — where a laid-out row separates one cell from the next: a
+# delimiter, a leader run, or the padding a column is set with. Typography,
+# with no word of any language in it. A SINGLE space is deliberately not a
+# seam: it is what prose puts between two words.
+_SEAM = re.compile(r"[|·\t]|[.·…_\-]{2,}|\s{2,}")
+# A cell holding nothing but a number and its decoration (bold, underline).
+_BARE_NUMBER = re.compile(r"[*_\s]*\d{1,5}[*_\s]*\Z")
+# A RULE — a line with neither letter nor digit. Every table's separator is
+# one (`| --- | --- |`, `+-----+-----+`, `=========`), and a rule inside a
+# run of rows does not end the run.
+_RULE = re.compile(r"\A[^\w]+\Z")
+
+
+def _tail_cell(line):
+    """The last cell of a laid-out row: what follows the row's final seam,
+    or None when the line has no seam and so is not laid out in cells."""
+    bare = line.rstrip()
+    if bare.endswith("|"):
+        bare = bare[:-1].rstrip()
+    last = None
+    for seam in _SEAM.finditer(bare):
+        last = seam
+    if last is None:
+        return None
+    return bare[:last.start()].rstrip(), bare[last.end():].strip()
+
+
+def strip_locators(text):
+    """The document's INDEX COLUMN removed before anything else reads it.
+
+    A table of contents, an index, a register of sections: rows whose last
+    cell is a page. That cell says WHERE a thing is written, and a pointer
+    attests nothing about the thing it points at — but it sits in the same
+    row as the thing's name, so an answer that reads the page number as the
+    thing's number is past every gate by construction. Measured: asked for
+    a regulation's number, the memory answered `140`, the page its section
+    opens on, while the number the document gives it (`III-52.1`) stood in
+    the very same row.
+
+    What marks the column is typographic, and nothing here knows a word of
+    any language:
+
+      * the last cell of each row is a bare number,
+      * the numbers never decrease down the run and rise across it,
+      * three rows at least, so one coincidence is not a table, and
+      * NO COLUMN NAME stands above them — the line before the run either
+        is not laid out in cells or ends in a cell that is a number too.
+
+    The name test is what separates an index from an ascending price list:
+    a named column is a field and keeps its values however they are sorted.
+    A rule (a line of pure punctuation) may sit inside the run without
+    ending it, which is all a markdown or ASCII separator is.
+
+    This runs once, on the document's own lines, before they are split into
+    sentences or gathered into windows — so the pointer never enters the
+    store and every organ downstream inherits the correction for free. The
+    row keeps its words: the heading that WAS the answer stays readable.
+    """
+    lines = text.split("\n")
+    rows, runs, before, seen = [], [], None, None
+    for at, line in enumerate(lines):
+        if not line.strip():
+            continue                    # a blank separates a table's groups
+        cut = _tail_cell(line)
+        if cut and cut[0] and _BARE_NUMBER.match(cut[1]):
+            if not rows:
+                before = seen
+            rows.append((at, int(re.search(r"\d+", cut[1]).group()), cut[0]))
+            continue
+        if _RULE.match(line.strip()):
+            continue                    # a rule is not a row and does not end one
+        if rows:
+            runs.append((rows, before))
+            rows = []
+        seen = line
+    if rows:
+        runs.append((rows, before))
+    out = list(lines)
+    for run, head in runs:
+        if len(run) < 3:
+            continue
+        values = [value for _at, value, _text in run]
+        if any(b < a for a, b in zip(values, values[1:])):
+            continue                    # a column that falls is not an index
+        if values[-1] <= values[0]:
+            continue                    # nor one that never rises
+        named = _tail_cell(head) if head else None
+        if named and not _BARE_NUMBER.match(named[1]):
+            continue                    # the column has a name: it is a field
+        for at, _value, kept in run:
+            out[at] = kept[1:].lstrip() if kept.startswith("|") else kept
+    return "\n".join(out)
 
 
 # A LINE THAT ENDS A SENTENCE — terminal punctuation at the end of the line.
