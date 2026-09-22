@@ -253,6 +253,53 @@ def answers_asked(question, answer, block):
     return out.strip().lower().startswith("yes")
 
 
+def judged(question, answer, block):
+    """BOTH judgments of one candidate, over one view, in ONE request.
+
+    Borrowed from the typed-decision model class and implemented with
+    whatever engine this memory already has: a state travels once, and
+    every question about it rides along. `supported` and `answers_asked`
+    were sending the same evidence separately — run concurrently, which
+    hid the latency and paid for the tokens twice.
+
+    The reply is TYPED by contract, the same discipline `quoted_answer`
+    uses: two lines, each a bare yes or no, in a fixed order. A reply
+    that does not have that shape is not guessed at — the caller falls
+    back to asking the two questions separately, because a judgment read
+    out of a malformed answer is worse than a judgment paid for.
+
+    Both disciplines travel: the claim reading brings whatever the
+    evidence's own shapes demand (`prompts.support_system`), the
+    relation reading brings its own, and each is named so the engine
+    answers the two questions about different things rather than
+    averaging them into one impression.
+    """
+    system = (prompts.support_system(block) + "\n\n"
+              + prompts.RELATION_SYSTEM + "\n\n" + prompts.JUDGED_CONTRACT)
+    out = runtime.generate(
+        f"EVIDENCE:\n{block}\n\nCLAIM: {answer}\n\nQUESTION: {question}",
+        # TWO LABELLED LINES DO NOT FIT IN ONE LINE'S BUDGET. Measured
+        # against the live engine at 8: 'SUPPORTED: yes  \nANSWERS:' —
+        # the second verdict truncated away, every fused call refused as
+        # malformed, and the turn paid three calls where it used to pay
+        # two. The cap is the contract's own shape plus room to spell it.
+        system=system, max_tokens=24, temperature=0.0, small=True)
+    lines = [ln.strip().lower() for ln in (out or "").splitlines()
+             if ln.strip()]
+    if len(lines) < 2:
+        raise ValueError("the judgment did not come back in two lines")
+    said = []
+    for line in lines[:2]:
+        body = line.split(":")[-1].strip()
+        if body.startswith("yes"):
+            said.append(True)
+        elif body.startswith("no"):
+            said.append(False)
+        else:
+            raise ValueError("a judgment was neither yes nor no: %r" % line)
+    return said[0], said[1]
+
+
 # `hedge_note` STOOD HERE, AND IS GONE. It asked the engine for a short caveat
 # and `Session` concatenated the result onto an answer that had already passed
 # verify / digits_ok / coverage / read-back — so the one property this

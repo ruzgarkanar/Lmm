@@ -4815,8 +4815,38 @@ class Session:
         occasional cost is one relation call for a candidate the
         read-back would have refused; the gain is an engine round-trip
         off every answered turn."""
-        jobs = (lambda: self._read_back(raw, proof, block,
-                                        question=question),
+        # TWO QUESTIONS ABOUT ONE VIEW ARE ONE REQUEST (W177). Borrowed
+        # from the typed-decision model class and implemented with our
+        # own engine rather than theirs: a state travels once, and every
+        # question about it rides along. These two were sending the SAME
+        # evidence separately — concurrency hid the latency and paid for
+        # the tokens twice.
+        #
+        # Everything the STRUCTURE settles still settles first, for
+        # nothing (`_read_back_plan`), so the fusion only ever replaces
+        # two remaining questions with one. And it happens only where
+        # both organs would read the same view: the read-back narrows to
+        # the lines a claim NAMES and the relation check does not, so
+        # fusing there would judge one of them on evidence it was never
+        # meant to see.
+        verdict, views = self._read_back_plan(raw, proof, block, question)
+        if verdict is False:
+            return False                # the structure refused; ask nothing
+        mine = views[:self.VIEWS]
+        theirs = [v for v in (self._focus_view(raw, proof), block) if v]
+        theirs = list(dict.fromkeys(theirs))[:self.VIEWS]
+        fused = getattr(generate, "judged", None)
+        if (verdict is None and fused is not None
+                and getattr(self, "judge", None) is None
+                and len(mine) == 1 and mine == theirs):
+            try:
+                says, answers = fused(question, raw, mine[0])
+            except Exception:                               # noqa: BLE001
+                pass                    # an engine that fell is not a verdict
+            else:
+                return bool(says) and bool(answers)
+        jobs = (lambda: (verdict if verdict is not None
+                         else self._ask_views(views, question, raw)),
                 lambda: self._relation_held(question, raw, proof, block))
         return all(runtime.parallel_map(lambda f: f(), jobs))
 
@@ -5551,18 +5581,31 @@ class Session:
         # lifted out of "is not optional" is fully covered and false — which
         # is exactly the veto the selector test (G5) pins down. The jury
         # keeps everything short of mutual coverage.
+        verdict, views = self._read_back_plan(raw, proof, block, question)
+        if verdict is not None:
+            return verdict
+        return self._ask_views(views, question, raw)
+
+    def _read_back_plan(self, raw, proof, block, question=""):
+        """What the STRUCTURE already decides, and the views left to ask.
+
+        Split out of `_read_back` so that the fused judgment (W177) can
+        put the remaining question beside the relation check's without
+        skipping anything the structure settles for nothing. Returns
+        `(True|False|None, views)`; a verdict means no engine is needed.
+        """
         claim = re.sub(r"\([^)]*\)", " ", raw)
         claim = " ".join(w for w in claim.split() if not w.startswith("#"))
         # the borrowed-substance rule — see _substance_ok, the one organ
         # both doors read
         if question and claim.strip() and not self._substance_ok(
                 claim, proof, question):
-            return False
+            return False, []
         if claim.strip():
             for line in proof:
                 if (evidence.coverage(claim, line) == 1.0
                         and evidence.coverage(line, claim) == 1.0):
-                    return True
+                    return True, []
         # A CLAIM THAT NAMES ITS SOURCE IS JUDGED BY THAT SOURCE ALONE.
         # Measured: "the Delegation course does not state its seat count" —
         # real substance, borrowed from ANOTHER course's box, stapled to
@@ -5586,9 +5629,13 @@ class Session:
         # turn and waste on both. The narrow view is measured to be
         # right more often, so it goes first; the wide one follows only
         # on a no. Verdict unchanged: ANY confirming view confirms.
+        return None, views
+
+    def _ask_views(self, views, question, raw):
+        """The read-back's remaining question, put to the engine."""
         for view in views[:self.VIEWS]:
             if self._judged("says", question, raw, view,
-                            lambda: generate.supported(raw, view)):
+                            lambda view=view: generate.supported(raw, view)):
                 return True
         return False
 

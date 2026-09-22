@@ -4,6 +4,52 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] — 2026-09-22
+
+### Changed
+
+- **Two questions about one view are one engine call** (W177). Borrowed
+  from the typed-decision model class and implemented with our own
+  engine rather than theirs: a state travels once, and every question
+  about it rides along. The two gates were sending the SAME evidence
+  separately — run concurrently, which hid the latency and paid for the
+  tokens twice.
+
+  Everything the structure settles still settles first, for nothing
+  (`_read_back_plan`), so the fusion only ever replaces two *remaining*
+  questions with one. And it happens only where both organs would read
+  the same view: the read-back narrows to the lines a claim NAMES and
+  the relation check does not, so fusing there would judge one of them
+  on evidence it was never meant to see. The reply is typed by contract
+  — two lines, fixed order — and a reply that is not that shape is
+  refused rather than guessed at, the caller asking the two questions
+  separately instead.
+
+  Measured on the fifteen-question slice: **79 calls against 86**,
+  prompt 239k against 247k, with gold 6/6, unsourced assertions 0 and
+  the same abstentions. It recovers a quarter of what W175 cost.
+
+### Measured, and worth saying plainly
+
+- **The borrowed economics did not transfer; the borrowed shape did.**
+  For a model priced so that the state is expensive and extra questions
+  are nearly free, fusing is a large win. Here the SYSTEM PROMPT
+  dominates, not the state: two full disciplines travelling together
+  come to 5,574 characters against 5,925 for the same two questions
+  asked separately — **6%**, not half. What was actually saved is a
+  round trip per judged turn, not the tokens.
+
+### Refuted on the way, and recorded
+
+- The first cut capped the fused reply at 8 tokens, the cap a one-word
+  verdict uses. Two labelled lines do not fit in one line's budget: the
+  live engine returned `SUPPORTED: yes  \nANSWERS:` with the second
+  verdict truncated away, every fused call was refused as malformed, and
+  the turn paid **three** calls where it used to pay two — measured at
+  90 calls, worse than the 86 it was meant to improve. Recorded because
+  the failure is silent by design: a malformed judgment is refused, not
+  guessed at, so the only symptom is a bill.
+
 ## [0.9.0] — 2026-09-22
 
 ### Fixed
