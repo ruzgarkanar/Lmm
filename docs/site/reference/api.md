@@ -35,6 +35,16 @@ m = Memory("mind.lmm",
            dense=True)          # the meaning channel itself
 ```
 
+!!! warning "Benchmarking: `cache=False` is not 'nothing is reused'"
+    Below `Memory`, the engine pools its own **deterministic** calls
+    (temperature 0, byte-exact prompt) for the life of the **process**,
+    across `Memory` instances, and the extractor memoises sentences it has
+    already read. Asking one question twice in a single process can
+    therefore cost **zero calls** even with the cache off and a freshly
+    built memory. This is right in production — a repeated deterministic
+    call has one answer — and wrong to measure through. Give each variant
+    its own process.
+
 `warmth` and `reply_tokens` are **`None` by default**, not numbers: unset, each
 voice surface keeps its own measured default, and a number here overrides all
 of them at once.
@@ -93,8 +103,9 @@ insurance is worth buying where the risk is real.
 | call | what it does | engine? |
 |---|---|---|
 | `m.learn(what, source=, deep=)` | teach it a file or a string. **`source="#Vendor"`** is the stamp everything from this reading carries — it is what makes a multi-document store answerable per document, and what `scope=` later selects on. `deep` mines each sentence for triples with the engine: `None` (the default) means **False for a file, True for text handed in directly**, so a document costs nothing and a typed fact costs one call per sentence. The returned `Learned` reports `.calls` | no engine for files |
-| `m.ask(q, explain=True, fluent=, shape=)` | answer. `explain=True` returns an `Answer` carrying `.sources`, `.abstained`, `.engine_error`, `.route`; without it you get a plain string. `fluent=True` skips the router for a turn that is known to be conversation. **`shape=`** declares the turn's kind (`"none"`, `"count"`, `"sum"`, `"order"`, `"when"`, `"material"`) for a caller that already knows it: the engine is then asked neither what shape the message is nor whether it is about the memory itself — two calls of six, on every turn of a batch. A wrong declaration costs the organ it would have reached. **Cannot write memory** | engine |
+| `m.ask(q, explain=True, fluent=, shape=)` | answer. `explain=True` returns an `Answer` carrying `.sources`, `.abstained`, `.engine_error`, `.route`; without it you get a plain string. `fluent=True` skips the router for a turn that is known to be conversation. **`shape=`** declares the turn's kind (`"none"`, `"count"`, `"sum"`, `"order"`, `"when"`, `"material"`) for a caller that already knows it: the engine is then asked neither what shape the message is nor whether it is about the memory itself — two calls of six, on every turn of a batch. A wrong declaration costs the organ it would have reached. **`standalone=True`** answers the question alone: the turn neither inherits the conversation's subject nor leaves one behind — what a matrix of independent cells needs, and what building a second `Memory` per cell was standing in for. **Cannot write memory** | engine |
 | `m.compose(brief, seats=24, topics=, on_line=)` | a structured draft from the evidence — per-topic gathering, gated line by line, streamed to `on_line` as lines survive, returned with its sources. `seats` is how many evidence lines each topic may draw on | engine |
+| `m.reset()` | end the CONVERSATION — the recent turns, the subject the last turn was about, the brief, and the documents the topic had come to be about. Nothing learned is forgotten: the graph, the evidence and the aids are untouched. A batch of independent questions wants this between cells, or `ask(..., standalone=True)` | no engine |
 | `m.where(term)` | which documents mention this — names and counts, the census | no engine |
 | `m.themes(least=3, most=12)` | which documents belong together, and on what entities — community detection over the store's own graph, deterministic. `least` is the smallest group worth reporting, `most` the largest number of groups | no engine |
 | `m.distil(text, source=, speaker=)` | write the events AND ongoing facts a passage reports into the graph — the engine lists each as thing/what-happened/KIND, the passage's own words admit the thing, each survivor is one gated dated record; the KIND is an index key beside the bridges, never a claim (0.7) | one call per passage |

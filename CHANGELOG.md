@@ -4,6 +4,57 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.7] — 2026-09-22
+
+### Added
+
+- **`Memory.reset()` and `ask(..., standalone=True)`** — a turn may
+  decline the conversation it did not have (W158). Measured from the
+  field, both directions, same question and document: a cell answers
+  when asked first and abstains when asked after nine unrelated cells
+  in the same `Memory`. Nothing but the order differed, and the
+  reporter first attributed the change to a release — the sequence is
+  part of the input, and anyone comparing runs needs to know it.
+
+  That is the follow-up inheritance doing its job: a turn naming no
+  document of its own reads the one the conversation was about, which
+  is right in a conversation and contamination in a matrix of
+  independent cells. It is NOT turned off — the same reporter measured
+  it earning its place even there (77.3% with it, 72.7% with a fresh
+  memory per cell; isolation traded three invented coverages for three
+  missed ones). What was missing is the caller's say: `reset()` ends
+  the conversation, `standalone=True` does it for one turn, before and
+  after.
+
+  What neither does is forget. The graph, the evidence index and the
+  aids are the memory; a conversation is not, and the invariant checks
+  that `facts` and every stored line survive a reset.
+
+### Documentation
+
+- **`cache=False` is not "nothing is reused"** — and a benchmarker must
+  know it. Below `Memory` the engine pools its own deterministic calls
+  (temperature 0, byte-exact prompt, per PROCESS and so across `Memory`
+  instances) and the extractor memoises sentences already read. Asking
+  one question twice in a single process can cost ZERO calls with the
+  cache off and a freshly built memory — measured by somebody timing
+  this library, who briefly recorded a spectacular and false "0 calls"
+  for the change they were evaluating. The pooling is right in
+  production and wrong to measure through; the fix is one process per
+  variant, and it is now written down in both the code and the API
+  page.
+
+### Recorded
+
+- `Answer.covered` (0.7.5) does NOT separate its proposer's three
+  grades on their corpus, and they published the distribution showing
+  it: partial cells at 0.31 and 0.82, a false-covered cell at 0.89.
+  Partialness there comes from a QUALIFICATION — a footnote assigning
+  the work elsewhere, a scope note contradicting the price table — and
+  no word count reads that, in either direction. `covered` measures
+  what it says and stays; it is simply not a grader, which is the
+  second reason grades do not belong in this library.
+
 ## [0.7.6] — 2026-09-22
 
 ### Added
