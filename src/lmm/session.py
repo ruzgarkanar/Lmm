@@ -499,6 +499,13 @@ class Session:
         # a turn consults appends its name; `Answer.route` carries the
         # list out. Bookkeeping only: no call, no behaviour.
         self.last_route = []
+        # DID THE ENGINE FAIL THIS TURN (W149)? An unreachable engine used
+        # to leave the same trace as an empty store — "I don't know",
+        # abstained, no route — and a caller cannot tell "we do not hold
+        # this" from "nothing answered". The flag is written by the one
+        # handler below that catches `runtime.EngineDown`, and it rides
+        # out on `Answer.engine_error`.
+        self.last_engine_error = False
         self._shape_cache = None        # turn_shape, read once per turn
         self._scope_now = set()         # this turn's scope, see _open_scope
         # WHO IS ASKING — the operator may say (W98); the event organs
@@ -865,7 +872,28 @@ class Session:
             # line or two. More-than-half again, read off the proof
             # itself, so a four-line chat and a hundred-page standard
             # measure the same way.
-            per_line = [set(evidence._words(line)) for line in proof]
+            # OVERLAPPING WINDOWS ARE ONE REGION, NOT A REGISTER (W148).
+            # W97's majority stands on proof lines being INDEPENDENT
+            # attestations; the multi-scale evidence index breaks that
+            # premise, seating the same passage at several widths, so a
+            # content word appears in a MAJORITY of proof lines and is
+            # struck as blanket. A line whose folded words are a subset
+            # of another proof line's is the same region read at two
+            # scales — it is folded into the wider one and casts one
+            # vote. Distinct lines (chat evidence, W97's own case)
+            # subsume nothing and measure exactly as before.
+            word_sets = [set(evidence._words(line)) for line in proof]
+            per_line = []
+            for i, ws in enumerate(word_sets):
+                if not ws:
+                    continue
+                if any(j != i and ws < other      # strict subset: wider wins
+                       for j, other in enumerate(word_sets)):
+                    continue
+                if any(ws == other and j < i      # duplicates: keep the first
+                       for j, other in enumerate(word_sets)):
+                    continue
+                per_line.append(ws)
             half = len(per_line) / 2
 
             def _load_bearing_words(sentence):
@@ -1365,6 +1393,16 @@ class Session:
                         return recap
             self._step("chat")
             return self._chat(message, spec, spec_queue)
+        except runtime.EngineDown:
+            # THE ENGINE NEVER ANSWERED — not the same fact as "the store
+            # does not hold it" (W149). The turn still abstains, because
+            # nothing was asserted; what changes is that it SAYS WHY, in
+            # the route and on the answer, so a caller can retry, alert,
+            # or fall back instead of recording a capability as absent.
+            self._step("engine-error")
+            self.last_engine_error = True
+            self.last_abstained = True
+            return FALLBACK_DONT_KNOW
         except Exception:                                   # noqa: BLE001
             # A crashed turn says nothing, which is an abstention like any
             # other — and the flag has to say so, or a benchmark would read
