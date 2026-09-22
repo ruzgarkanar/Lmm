@@ -4,6 +4,40 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.10] — 2026-09-22
+
+### Added
+
+- **`ask(..., quoted="only")`** — the store's refusal may stand (W161),
+  and **`Session.quoted_refused`** says which failure happened (W160).
+
+  Diagnosing the quoted reading over fifteen questions turned its own
+  scoreboard around. It carried nine; the engine DECLINED four, three
+  of them correctly (the store holds nothing on those subjects); and
+  the store REFUSED two. Those two were not misses — they were saves.
+  Asked a regulation's number, the engine had answered with the PAGE
+  number from a table of contents ("96", "140"), and the check caught
+  both, because the digit appeared nowhere in the line the engine said
+  it had used. **The ordinary path then spoke one of them anyway.**
+
+  So a decline and a refusal are different facts and the turn now
+  keeps them apart. With `quoted="only"` a refusal stands; a decline
+  still falls back, having offered nothing to refuse.
+
+  **Measured, gold read off the document itself:** falling back
+  rescued one correct answer and spoke one false one; letting the
+  refusal stand asserted nothing false and missed three — same score,
+  a different KIND of error, and 54 → 32 calls, 72 → 48 seconds.
+  Neither dominates, so neither is the default: the caller says which
+  error is the expensive one where they work.
+
+### Recorded
+
+- A third measurement trap caught the author of the other two: the
+  first version of the W161 invariant asked one question twice in one
+  `Memory` and compared a cached answer with a live one. `cache=False`
+  in a test that measures two paths against the same question.
+
 ## [0.7.9] — 2026-09-22
 
 ### Added

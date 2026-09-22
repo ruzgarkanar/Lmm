@@ -177,6 +177,18 @@ class Session:
         # the caller's choice of which mechanism keeps the promise, not
         # of the promise itself. Off by default.
         self.quoted_only = False
+        # WHICH FAILURE IT WAS (W160): True when the STORE refused what
+        # came back — a line nobody offered, a sentence stepping outside
+        # it, a digit the line does not carry — as opposed to the engine
+        # declining to answer at all. Two different facts: a decline is
+        # "I could not", a refusal is "you tried and it was not there".
+        self.quoted_refused = False
+        # AND WHAT TO DO WITH THAT (W161): with `quoted_strict`, a turn
+        # whose quoted reading the STORE refused abstains instead of
+        # falling back. An engine that DECLINED still falls back — it
+        # never offered anything to refuse. Off by default, because the
+        # measurement made neither answer dominant.
+        self.quoted_strict = False
         self._identity = self._seed_identity()
         # CAUSALITY predicate — a causal fact (cause→effect) is stored as a
         # NORMAL Record under this reserved predicate; it inherits the entire
@@ -1485,6 +1497,18 @@ class Session:
                     quoted = self._quoted_answer(message)
                     if quoted:
                         return quoted
+                    # THE STORE'S REFUSAL MAY STAND (W161). Measured on
+                    # fifteen questions with gold read off the document
+                    # itself: falling back rescued one correct answer
+                    # and spoke one false one (a table of contents PAGE
+                    # number offered as a regulation's number), while
+                    # letting the refusal stand asserted nothing false
+                    # and missed three. Same score, a different KIND of
+                    # error, 40% fewer calls — so neither is the
+                    # default and the caller says which error is the
+                    # expensive one where they work.
+                    if self.quoted_strict and self.quoted_refused:
+                        return self._refuse(message)
                 self._step("chain")
                 return self._answer(message, subject)
             if self._no_teach and self._conversational:
@@ -3512,6 +3536,7 @@ class Session:
         is why it needs no read-back: fabrication is structurally
         impossible rather than judged unlikely.
         """
+        self.quoted_refused = False
         lines = self._find(question, most=6)
         if not lines:
             return None
@@ -3521,11 +3546,16 @@ class Session:
             said, held = generate.quoted_answer(question, block)
         except Exception:                                   # noqa: BLE001
             return None
-        if not said or not (0 <= held < len(lines)):
-            return None                 # no line, or one nobody offered
+        if not said:
+            return None                 # the engine declined (W160)
+        if not (0 <= held < len(lines)):
+            self.quoted_refused = True
+            return None                 # a line nobody offered
         if evidence.coverage(said, lines[held], question) < 1.0:
+            self.quoted_refused = True
             return None                 # a claim beyond its own quote
         if not evidence.digits_ok(said, lines[held]):
+            self.quoted_refused = True
             return None                 # a number the line does not carry
         self._step("quoted")
         self.last_abstained = False

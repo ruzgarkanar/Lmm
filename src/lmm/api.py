@@ -627,7 +627,13 @@ class Memory:
         # about 30% fewer calls and tokens, at the cost of answers that
         # span several lines. The turn falls back to the ordinary path
         # whenever the quoted reading cannot be trusted.
-        session.quoted_only = quoted
+        # `quoted=True` tries the quoted reading and falls back when it
+        # cannot be trusted; `quoted="only"` lets the STORE's refusal
+        # stand instead (W161) — an engine that declined outright still
+        # falls back either way, because it never offered anything to
+        # refuse.
+        session.quoted_only = bool(quoted)
+        session.quoted_strict = (quoted == "only")
         # A TURN THAT DECLINES THE CONVERSATION IT DID NOT HAVE (W158).
         # `standalone` ends the conversation before the turn and again
         # after it, so an independent question neither inherits a
@@ -642,6 +648,7 @@ class Memory:
         finally:
             session.declared_shape = None
             session.quoted_only = False
+            session.quoted_strict = False
             if standalone:
                 self.reset()
         # WHICH TURNS MAY BE KEPT, and it is the narrow set. A turn that WROTE
