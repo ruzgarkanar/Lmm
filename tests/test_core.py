@@ -10850,6 +10850,154 @@ def w53():
                              % calls)
 
 
+@test("W168 an index column points at a place, and a place is not a value")
+def w168():
+    """Measured on a live document: asked for a regulation's NUMBER, the
+    memory answered `140`. The document's number for it is `III-52.1`;
+    `140` is the page the section starts on. Both sit in the same row of
+    the table of contents, so every gate passed — the claim really was in
+    the evidence. What failed was not the audit but what the row was taken
+    to SAY: a contents row states where a thing is written, not what it is.
+
+    The reading is typographic and carries no word of any language: a run
+    of rows whose LAST cell is a bare integer, the integers never
+    decreasing and rising overall, and no column NAME above them. A named
+    column is a field and keeps its values however they are sorted — that
+    is what separates an index from an ascending price list. A rule (a
+    line with neither letter nor digit) may sit inside the run without
+    ending it; that is all a markdown or ASCII table's separator is.
+
+    The strip happens once, on the document's own lines, before anything
+    is split or windowed, so the pointer never enters the store at all and
+    every organ downstream inherits the correction for free."""
+    from lmm import evidence
+
+    contents = "\n".join([
+        "# CONTENTS",
+        "",
+        "|  **1. THE OPENING** | **1**  |",
+        "| --- | --- |",
+        "|  1.1. The Valve Section (A-11.2) | 4  |",
+        "|  1.2. The Rotor Section (B-17.1) | 96  |",
+        "|  1.3. The Seal Section (C-52.1) | 140  |",
+        "",
+        "The rotor section is numbered B-17.1 and governs the shaft.",
+    ])
+    cut = evidence.strip_locators(contents)
+    assert "B-17.1" in cut, "the row's own words were thrown away: %r" % cut
+    assert "96" not in cut, "the page number survived as a value: %r" % cut
+    assert "140" not in cut, "the page number survived as a value: %r" % cut
+    assert "The rotor section is numbered B-17.1" in cut, cut
+
+    # A NAMED COLUMN IS A FIELD, however it is sorted.
+    named = "\n".join([
+        "| Part | Torque |",
+        "| --- | --- |",
+        "| Valve | 12 |",
+        "| Rotor | 40 |",
+        "| Seal | 95 |",
+    ])
+    assert evidence.strip_locators(named) == named, (
+        "a named column was read as an index: %r"
+        % evidence.strip_locators(named))
+
+    # A COLUMN THAT DOES NOT RISE IS NOT AN INDEX.
+    flat = "\n".join(["| Valve | 12 |", "| Rotor | 12 |", "| Seal | 12 |"])
+    assert evidence.strip_locators(flat) == flat, evidence.strip_locators(flat)
+    loose = "\n".join(["| Valve | 40 |", "| Rotor | 12 |", "| Seal | 95 |"])
+    assert evidence.strip_locators(loose) == loose, evidence.strip_locators(loose)
+
+    # THE SAME SHAPE WITHOUT PIPES: a leader run is a cell boundary too.
+    leaders = "\n".join([
+        "CONTENTS",
+        "The Opening ............ 1",
+        "The Valve Section ...... 4",
+        "The Rotor Section ...... 96",
+    ])
+    cut = evidence.strip_locators(leaders)
+    assert "The Rotor Section" in cut and "96" not in cut, cut
+
+    # PROSE IS NOT A TABLE.
+    prose = ("There are 96 valves in the plant. The plant opened in 1998. "
+             "It was rebuilt in 2004.")
+    assert evidence.strip_locators(prose) == prose
+
+    # AND THE POINTER NEVER REACHES THE STORE.
+    from lmm import Memory
+    m = Memory()
+    m.learn(contents, deep=False)
+    held = [text for text, _src in m.session.evidence.sentences]
+    assert not any("96" in text for text in held), (
+        "a page number was stored as evidence: %r"
+        % [t for t in held if "96" in t])
+    assert any("B-17.1" in text for text in held), held
+
+
+@test("W169 a delimited row is a row, and its cells keep their column")
+def w169():
+    """`table_windows` exists because a shattered table's cells, gathered
+    by a sliding window, put side by side what the document never put in
+    one row — "the camera's regulatory risk is medium", past every gate
+    because the claim really is in the evidence. A table that is NOT
+    shattered was falling into exactly that failure: a markdown or ASCII
+    table writes its whole row on one line, delimited, and the row reader
+    only knew how to read cells that had each landed on a line of their
+    own. `rows_of` answered None, and the rows went in as overlapping
+    windows — the very mixing the organ was built to stop, on the most
+    common table shape an ingested document has.
+
+    A delimiter is layout: two or more cells cut by `|` or a tab, the same
+    count on consecutive lines. Where a rule line follows the first row —
+    all any markdown separator is — that first row NAMES the columns, and
+    each cell is stored under its own name, so a detached value still says
+    which attribute it is the value of. A name is not a number: a first
+    row whose cells are numbers is data, and the table goes in unnamed."""
+    from lmm import evidence
+
+    table = "\n".join([
+        "| Part | Torque | Risk |",
+        "| --- | --- | --- |",
+        "| Valve | 12 | low |",
+        "| Rotor | 40 | high |",
+        "| Seal | 95 | low |",
+    ])
+    rows = evidence.table_windows(table)
+    assert any("Part: Rotor" in r and "Torque: 40" in r for r in rows), rows
+    # NO ROW MAY HOLD ANOTHER ROW'S CELL — the whole reason the organ exists.
+    for row in rows:
+        assert not ("Rotor" in row and ("12" in row or "95" in row)), row
+        assert not ("Valve" in row and "high" in row), row
+
+    # A TABLE WITH NO RULE HAS NO NAMES, and still has rows.
+    plain = "\n".join(["| Valve | 12 |", "| Rotor | 40 |", "| Seal | 95 |"])
+    rows = evidence.table_windows(plain)
+    assert any(r.strip() == "Rotor · 40" for r in rows), rows
+    for row in rows:
+        assert not ("Rotor" in row and ("12" in row or "95" in row)), row
+
+    # A COLUMN MAY BE LEFT UNNAMED and its neighbours still named — measured
+    # on a live table whose description column carries no heading.
+    partial = "\n".join([
+        "| level | source | |",
+        "|---|---|---|",
+        "| 5 | operator | the person running the system |",
+    ])
+    rows = evidence.table_windows(partial)
+    assert any("level: 5" in r and "source: operator" in r
+               and "the person running the system" in r for r in rows), rows
+
+    # A FIRST ROW OF NUMBERS IS DATA, not a set of column names.
+    numbered = "\n".join([
+        "| 2019 | 4 |", "| --- | --- |", "| 2020 | 7 |", "| 2021 | 9 |"])
+    rows = evidence.table_windows(numbered)
+    assert any(r.strip() == "2019 · 4" for r in rows), rows
+    assert not any(":" in r for r in rows), rows
+
+    # PROSE IS NOT A TABLE — a sentence with a vertical bar in it is one line.
+    prose = "The valve opens at 12 bar | see appendix A for the curve."
+    assert not evidence.table_windows(prose)
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
