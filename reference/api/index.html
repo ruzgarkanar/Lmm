@@ -751,6 +751,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#what-reading-a-document-does-to-its-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What reading a document does to its tables
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -958,6 +969,17 @@
     <span class="md-ellipsis">
       
         Two session numbers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-reading-a-document-does-to-its-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What reading a document does to its tables
       
     </span>
   </a>
@@ -1226,6 +1248,26 @@ insurance is worth buying where the risk is real.</p>
 </tr>
 </tbody>
 </table>
+<h3 id="what-reading-a-document-does-to-its-tables">What reading a document does to its tables<a class="headerlink" href="#what-reading-a-document-does-to-its-tables" title="Permanent link">&para;</a></h3>
+<p>No call to make and nothing to configure — it is what <code>learn()</code> does — but
+it decides what later questions can reach, so it is worth knowing.</p>
+<p>A <strong>row is a unit</strong>: the cells the document put together and no others. A
+table whose cells have shattered onto separate lines (the usual PDF dump)
+is reassembled by the period in its cell lengths; a table written with
+<strong>delimiters</strong> — <code>|</code> or tabs, which is markdown, ASCII tables and most of
+what an ingested file contains — is already whole on one line, and where a
+rule (<code>| --- | --- |</code>) follows the first row, that row names the columns
+and each cell is stored as <code>Name: value</code>. No window ever spans two rows.</p>
+<p>An <strong>index column is dropped</strong>. Rows ending in a bare number that never
+decreases, rises across at least three rows and carries no column name
+above it are a table of contents or a register: the number says where a
+thing is written, not what it is. Keeping it makes a question like "what
+is this regulation's number?" answerable with the page it starts on —
+past every gate, because the page really is written beside the name. A
+<strong>named</strong> column is a field and is never touched, however its values are
+sorted.</p>
+<p>If you need the page numbers themselves as data, give them a column name,
+or keep that table in a separate file the memory reads as prose.</p>
 <h2 id="session">Session<a class="headerlink" href="#session" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

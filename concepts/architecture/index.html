@@ -942,6 +942,27 @@ are written with an <code>#inference</code> stamp <strong>below the speaking thr
 <p><strong>The evidence index.</strong> The document's own sentences, kept verbatim, indexed
 at several window scales. Retrieval by words is deterministic word/graph
 lookup — explainable, and the same answer every run.</p>
+<p><strong>Rows.</strong> A table's row is a unit: the cells the document put together and
+no others. Where a table has SHATTERED — a PDF dump that drops each cell on
+its own line — the row length is read off the period in the cell lengths.
+Where it is written with DELIMITERS (<code>|</code> or tabs: markdown, ASCII tables,
+most of what an ingested file actually contains), the row is already whole
+on one line, and where a rule follows the first row that row names the
+columns, so each cell is stored under its own name. Either way no window
+may span two rows: cells the document never put side by side, gathered into
+one window, produce a claim that is past every gate by construction.</p>
+<p><strong>And one column is not a value at all.</strong> A run of rows ending in a bare
+number that never decreases, rises across at least three rows, and has no
+column NAME above it is an INDEX — a table of contents, a register. Its
+numbers say where a thing is written, not what it is, and they sit in the
+same row as the thing's name: asked for a regulation's number, a memory
+that keeps that column answers <code>140</code> — the page — while <code>III-52.1</code> stands
+beside it, and the answer passes every audit because the claim really is in
+the evidence. So the column comes off before the document is split. This is
+the one place the store does not keep a line as the document wrote it; the
+row keeps all of its words. A NAMED column is a field and keeps its values
+however they are sorted, which is what separates an index from an ascending
+price list.</p>
 <p><strong>The meaning channel.</strong> A word search cannot cross a paraphrase: a lease
 writes RESIDES and a reader asks where somebody LIVES. So a 30 MB static
 multilingual matrix ships in the wheel and is attached by default — one

@@ -850,14 +850,23 @@ marketing; this one is part of the measurement.</p>
 <p><em>"The memory has something to say about X"</em> is not <em>"the supplier offers
   X"</em>, and an integration doing coverage rather than question-answering
   carries that distance itself. Nothing here judges it.
-- <strong>An assertion with no stamp is worth suspecting.</strong> While the
-  abstention-stamp defect stays open (<code>abstained=False</code> on a sentence that
-  is itself a refusal), the same field run found that every instance
-  carried the same signature: <code>abstained=False</code> <strong>and</strong> <code>sources == ()</code>.
-  Requiring a source is measured as a poor <em>rule</em> — it removed two wrong
-  answers and cost two right ones — but as a <em>diagnostic</em> it caught every
-  occurrence. A careful caller treats an answer that asserts without
-  provenance as suspect.
+- <strong>An assertion with no stamp is worth suspecting</strong> — and the defect that
+  made it necessary is closed as of 0.8.0. A refusal spoken with
+  <code>abstained=False</code> and <code>sources == ()</code> was reported twice from the field,
+  and it had two doors, both of the same shape. The answer path's fallback
+  excluded only what the relation gate had refused, so it revived what the
+  grounding score had already eliminated; the widened rescue pass took its
+  own refusal SENTENCE and asked a word-overlap reading whether it was a
+  claim. Both now defer to the structural stamp: <strong>a gate that asks whether
+  what a sentence says is in the evidence cannot fail a sentence that says
+  nothing</strong>, so a sentence carrying none of its evidence is not an answer,
+  and a pass that left by the refusal door did not answer whatever its
+  words look like. Measured on a fifteen-question slice: unsourced
+  assertions 2 → 0, honest abstentions 1 of 3 → 3 of 3.</p>
+<p>The diagnostic is still worth keeping. Requiring a source was measured as
+  a poor <em>rule</em> — it removed two wrong answers and cost two right ones —
+  but as a <em>signal</em> it caught every occurrence of this class, and it will
+  catch the next one before a report does.
 - <strong>The synonym ceiling is lower than it was, and it is not gone.</strong> A word
   search alone cannot reach a paraphrase, and two instruments were built
   against that. The offline expansion channel was <strong>measured not to close it</strong>

@@ -1025,6 +1025,12 @@ reader reports the exact install line rather than a traceback.</p>
 <p>A spreadsheet reaches the graph with <strong>no model call at all</strong> — a table
 states its own structure. That is why a sheet loads in milliseconds and a
 350-page manual is queryable in about two seconds.</p>
+<p>The same is true of a table written inside a document. A markdown or ASCII
+table is read <strong>row by row</strong>, each cell under the column name its header
+gives it, so a value is never quoted next to a neighbouring row's label. A
+table of contents is read as what it is: its page column points at a place
+rather than stating a value, so it is left out of the evidence and the
+headings keep their words. See <a href="../../concepts/architecture/">the pieces</a>.</p>
 <h2 id="three-calls-you-will-use-next">Three calls you will use next<a class="headerlink" href="#three-calls-you-will-use-next" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">m</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="s2">"psychological safety"</span><span class="p">)</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># → [("Trust Basics", 62), ("Team Field Guide", 51), ...]</span>
