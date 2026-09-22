@@ -675,8 +675,12 @@ def g5():
         said[answer] = said.get(answer, 0) + 1
         return supported[0]
 
-    real = (generate.answer, generate.supported, generate.answers_asked)
+    real = (generate.answer, generate.supported, generate.answers_asked,
+            generate.judged)
     generate.answer, generate.supported = fake_answer, fake_supported
+    # The engine is a stub here and the SELECTOR is what is under test,
+    # so the fused judgment (W177, its own invariant) is stood aside.
+    generate.judged = None
     # the RELATION gate has its own test (H5); here it stays out of the way
     generate.answers_asked = lambda question, answer, view: True
     try:
@@ -706,7 +710,7 @@ def g5():
         assert chosen is None
     finally:
         (generate.answer, generate.supported,
-         generate.answers_asked) = real
+         generate.answers_asked, generate.judged) = real
 
 
 @test("G6 the read-back is asked about the evidence the claim rests on")
@@ -4693,18 +4697,22 @@ def w48():
     assert not inflect.same_stem("time", "times")
 
 
-@test("W49 the two judgments of a candidate are asked side by side")
+@test("W49 the two judgments of a candidate never queue behind each other")
 def w49():
     """The last sequential pair on the answering path: the read-back
     asks whether the evidence SAYS this, the relation check asks
     whether it answers what was ASKED, and one waited for the other
     though neither reads the other's verdict. They are independent
-    judgments of the same candidate, so they go to the engine together
-    where the backend allows — and a candidate is admitted only if BOTH
-    still hold, exactly as before. The pattern is the verifier's own
-    (runtime.parallel_map): the occasional cost is one relation call for
-    a candidate the read-back would have refused; the gain is a whole
-    engine round-trip off every answered turn."""
+    judgments of the same candidate, so they stopped queueing — first
+    side by side over two requests (`runtime.parallel_map`), and since
+    W177 in ONE request where both would read the same view, which is
+    strictly better: the evidence travels once instead of twice.
+
+    This holds the weaker, older property, which is the one that must
+    never come back: whichever way they are asked, the second judgment
+    does not wait for the first. The fused reading is W177's subject, so
+    here it is stood aside and the two-request path is what is measured.
+    A candidate is admitted only if BOTH hold, as it always was."""
     import os, threading, time
     from lmm import generate
     from lmm.session import Session
@@ -4722,9 +4730,10 @@ def w49():
         with lock:
             state[kind] -= 1
         return result
-    real = (generate.supported, generate.answers_asked)
+    real = (generate.supported, generate.answers_asked, generate.judged)
     generate.supported = lambda raw, view: busy("read", True)
     generate.answers_asked = lambda q, a, view: busy("rel", True)
+    generate.judged = None              # W177's path is W177's subject
     old = os.environ.get("LMM_BACKEND")
     try:
         os.environ["LMM_BACKEND"] = "azure"
@@ -4732,7 +4741,8 @@ def w49():
         ok = s._judge("what closes the arc?", "The trust walk closes it.",
                       proof, "\n".join(proof))
     finally:
-        generate.supported, generate.answers_asked = real
+        (generate.supported, generate.answers_asked,
+         generate.judged) = real
         if old is None:
             os.environ.pop("LMM_BACKEND", None)
         else:
@@ -4742,11 +4752,13 @@ def w49():
     # ...and a refusal from either one still refuses
     generate.supported = lambda raw, view: True
     generate.answers_asked = lambda q, a, view: False
+    generate.judged = None              # W177's path is W177's subject
     try:
         bad = s._judge("what closes the arc?", "The trust walk closes it.",
                        proof, "\n".join(proof))
     finally:
-        generate.supported, generate.answers_asked = real
+        (generate.supported, generate.answers_asked,
+         generate.judged) = real
     assert bad is False
 
 
@@ -11429,6 +11441,70 @@ def w176():
         assert not called, called
     finally:
         (generate.supported, generate.answers_asked) = real
+
+
+@test("W177 two questions about one view are one engine call")
+def w177():
+    """Borrowed from the typed-decision model class and implemented with
+    our own engine rather than theirs: **several questions about one
+    state travel in one request.** A judged candidate asks two — does the
+    evidence SAY this, does this ANSWER what was asked — and both were
+    being sent the same evidence, separately, concurrently. Concurrency
+    hid the latency and paid for the tokens twice.
+
+    Where the two organs would read the SAME view, they now ask together
+    and the reply is two lines. Everything either organ decides without
+    the engine still decides first, so the structural short-circuits keep
+    saving the whole call; the fusion only ever replaces two remaining
+    questions with one. Where the views differ — the read-back narrows to
+    the lines a claim NAMES, the relation check does not — nothing is
+    fused, because fusing would mean judging one of them on evidence it
+    was not meant to see.
+
+    The verdicts are unchanged: both must hold, and either organ's no is
+    the candidate's no."""
+    from lmm import generate, session as lmm_session
+
+    s = lmm_session.Session(None)
+    calls = {"fused": 0, "says": 0, "answers": 0}
+    real = (generate.judged, generate.supported, generate.answers_asked)
+
+    def fused(question, answer, view):
+        calls["fused"] += 1
+        return ("keeps" in answer, "asked" in question)
+
+    generate.judged = fused
+    generate.supported = lambda a, v: calls.__setitem__(
+        "says", calls["says"] + 1) or True
+    generate.answers_asked = lambda q, a, v: calls.__setitem__(
+        "answers", calls["answers"] + 1) or True
+    proof = ["The valve keeps the line at four bar during the night shift."]
+    try:
+        # ONE CALL, BOTH VERDICTS.
+        held = s._judge("what was asked", "the valve keeps four bar",
+                        proof, "\n".join(proof))
+        assert held is True, held
+        assert calls["fused"] == 1, calls
+        assert calls["says"] == 0 and calls["answers"] == 0, calls
+
+        # EITHER NO IS THE CANDIDATE'S NO.
+        calls["fused"] = 0
+        assert s._judge("what was asked", "the valve drops to one bar",
+                        proof, "\n".join(proof)) is False
+        assert calls["fused"] == 1, calls
+        calls["fused"] = 0
+        assert s._judge("nobody enquired", "the valve keeps four bar",
+                        proof, "\n".join(proof)) is False
+        assert calls["fused"] == 1, calls
+
+        # AN ENGINE WITHOUT THE FUSED READING FALLS BACK TO TWO.
+        calls.update(fused=0, says=0, answers=0)
+        generate.judged = None
+        assert s._judge("what was asked", "the valve keeps four bar",
+                        proof, "\n".join(proof)) is True
+        assert calls["says"] == 1 and calls["answers"] == 1, calls
+    finally:
+        (generate.judged, generate.supported, generate.answers_asked) = real
 
 
 def main():

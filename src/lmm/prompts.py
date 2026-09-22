@@ -504,3 +504,22 @@ sentence's own language):
 
 
 
+
+
+# TWO QUESTIONS ABOUT ONE VIEW, ANSWERED IN ONE REPLY (W177). The two
+# gate prompts above ask about DIFFERENT things — whether the evidence
+# says the claim, and whether it answers the question — and sending the
+# same evidence twice to ask them was paying for the state twice. The
+# contract is the one `quoted_answer` already uses: a fixed number of
+# lines, a fixed order, nothing else. A reply that does not have this
+# shape is refused rather than guessed at, and the caller asks the two
+# questions separately instead.
+JUDGED_CONTRACT = """You are answering TWO SEPARATE questions about the same
+EVIDENCE. Judge them independently — one may be yes and the other no, and a
+claim the evidence states word for word can still answer a question nobody
+asked.
+
+Reply in exactly two lines and nothing else:
+SUPPORTED: <yes or no — does the EVIDENCE state everything the CLAIM asserts>
+ANSWERS: <yes or no — does the EVIDENCE carry the relation the QUESTION asks
+for, with the CLAIM as its answer>"""
