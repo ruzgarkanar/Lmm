@@ -218,7 +218,8 @@ what that costs.
 | | how | measured cost | what it gives up |
 |---|---|---|---|
 | default | the engine phrases freely; a read-back and a relation check audit the claims afterwards | 4 calls a turn | — |
-| `ask(..., quoted=True)` | one call answers AND names the evidence line; the STORE checks that the line is one it offered and that the answer stays inside it — word comparisons, no model | **~30% fewer calls and tokens**, −16% wall clock | answers that span several lines: a question whose answer is spread over four lines gets the one line it quoted |
+| `ask(..., quoted=True)` | one call answers AND names the evidence line; the STORE checks that the line is one it offered and that the answer stays inside it — word comparisons, no model. When a check fails, the ordinary path runs | **~30% fewer calls and tokens**, −16% wall clock | answers that span several lines: a question whose answer is spread over four lines gets the one line it quoted |
+| `ask(..., quoted="only")` | the same, except the STORE's refusal stands instead of falling back — an engine that declined outright still falls back, having offered nothing to refuse | **40% fewer calls again** (54 → 32 over fifteen questions) | answers the ordinary path would have rescued: measured, it asserted nothing false where falling back spoke one wrong number, and missed three answers where falling back found one |
 
 In quoted mode fabrication is not judged unlikely, it is structurally
 impossible: what is spoken is assembled out of a line the store holds.

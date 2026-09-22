@@ -6211,6 +6211,127 @@ def w150():
             % (reported, declared))
 
 
+@test("W161 the store's refusal may stand, and the caller says so")
+def w161():
+    """Measured on fifteen questions with the gold read off the
+    document itself, not invented: when the quoted reading is refused
+    BY THE STORE, falling back to the ordinary path rescued one correct
+    answer and spoke one false one — a table of contents PAGE number
+    offered as a regulation's number — while letting the refusal stand
+    asserted nothing false and missed three. Same score, a different
+    kind of error, and 40% fewer calls (54 -> 32).
+
+    Neither dominates, so neither becomes the default. `quoted="only"`
+    lets the store's refusal stand; `quoted=True` falls back as before.
+    An engine that DECLINED outright falls back either way — it never
+    offered anything for the store to refuse, and the three absence
+    questions in that run reached their honest abstention through it."""
+    from lmm import api, generate
+    from lmm.session import Session
+
+    # cache=False: the same question is asked twice here, and a
+    # remembered answer would hide the difference being measured
+    m = api.Memory(None, dense=False, cache=False)
+    m.learn("Kurumsal Yonetim Tebligi ist unter II-17.1 veroeffentlicht.\n"
+            "Die Seitenzahl lautet 96.", source="#doc:spl", deep=False)
+    asked = "Unter welcher Nummer ist Kurumsal Yonetim Tebligi veroeffentlicht?"
+    real = generate.quoted_answer
+    chain = {"n": 0}
+    real_answer = Session._answer
+
+    def counted(self, question, subject_label, widen=()):
+        chain["n"] += 1
+        return "Es ist unter 96 veroeffentlicht."
+
+    # the store refuses (a digit the named line does not carry)
+    generate.quoted_answer = lambda q, b: (
+        "Kurumsal Yonetim Tebligi ist unter 96 veroeffentlicht.",
+        next(i for i, x in enumerate(b.splitlines()) if "II-17.1" in x))
+    Session._answer = counted
+    try:
+        loose = m.ask(asked, explain=True, quoted=True, shape="none")
+        strict = m.ask(asked, explain=True, quoted="only", shape="none")
+    finally:
+        generate.quoted_answer = real
+        Session._answer = real_answer
+    assert chain["n"] == 1, (
+        "strict mode fell back anyway: %d chain calls" % chain["n"])
+    assert "96" in loose, loose
+    assert strict.abstained, strict
+    assert "96" not in strict, strict
+
+    # an engine that DECLINED falls back in both, having offered nothing
+    generate.quoted_answer = lambda q, b: ("", -1)
+    Session._answer = counted
+    chain["n"] = 0
+    try:
+        m.ask(asked, explain=True, quoted="only", shape="none")
+    finally:
+        generate.quoted_answer = real
+        Session._answer = real_answer
+    assert chain["n"] == 1, "a decline was treated as a refusal"
+
+
+@test("W160 a decline and a refusal are not the same failure")
+def w160():
+    """Measured while diagnosing the quoted reading: of fifteen
+    questions it carried nine, the engine DECLINED four — three of them
+    correctly, the store holding nothing on those subjects — and the
+    store REFUSED two. Those two are the interesting ones. Asked a
+    regulation's number, the engine had answered with the PAGE number
+    from a table of contents ("96", "140"), and the check caught both,
+    because the digit was nowhere in the line the engine said it used.
+
+    Then the fallback ran and spoke one of them anyway. The ordinary
+    path is not wrong to exist — it holds organs and evidence the
+    quoted reading never sees — but the two failures are different
+    facts and the turn now keeps them apart. `quoted_refused` says the
+    STORE rejected what came back, as opposed to the engine declining
+    to answer at all, and a caller measuring one against the other can
+    see which happened.
+
+    Nothing routes on it yet: this invariant fixes the distinction, and
+    what to DO with it is a measurement, not an opinion."""
+    from lmm import generate
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    line = "Kurumsal Yonetim Tebligi ist unter II-17.1 veroeffentlicht."
+    s.evidence.add(line, "#doc:spl")
+    s.evidence.add("Die Seitenzahl lautet 96.", "#doc:spl")
+    asked = "Unter welcher Nummer ist Kurumsal Yonetim Tebligi veroeffentlicht?"
+    real = generate.quoted_answer
+
+    # the engine declines: nothing was refused, it was never offered
+    generate.quoted_answer = lambda q, b: ("", -1)
+    try:
+        assert s._quoted_answer(asked) is None
+        assert s.quoted_refused is False, "a decline was read as a refusal"
+    finally:
+        generate.quoted_answer = real
+
+    # the store refuses: a digit the named line does not carry
+    generate.quoted_answer = lambda q, b: (
+        "Kurumsal Yonetim Tebligi ist unter 96 veroeffentlicht.",
+        next(i for i, x in enumerate(b.splitlines()) if "II-17.1" in x))
+    try:
+        assert s._quoted_answer(asked) is None
+        assert s.quoted_refused is True, (
+            "the store's refusal was read as a decline")
+    finally:
+        generate.quoted_answer = real
+
+    # ...and a good answer leaves the flag down
+    generate.quoted_answer = lambda q, b: (
+        "Kurumsal Yonetim Tebligi ist unter II-17.1 veroeffentlicht.",
+        next(i for i, x in enumerate(b.splitlines()) if "II-17.1" in x))
+    try:
+        assert s._quoted_answer(asked)
+        assert s.quoted_refused is False, s.quoted_refused
+    finally:
+        generate.quoted_answer = real
+
+
 @test("W159 an answer that quotes the store verifies itself for nothing")
 def w159():
     """Measured from the field: against the SAME retrieval this library
