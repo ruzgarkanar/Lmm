@@ -25,6 +25,8 @@ means water protection. That is teaching to the test, and it is gone. The
 fictional 'Vantrek KX-9' scanner and 'Nordheim' records below appear in no
 benchmark.
 """
+import re
+
 
 # EXTRACTION: classify the message + extract fact triples. STRICT JSON.
 # COMPOSITION — the long-form counterpart of ANSWER_SYSTEM. The contract is
@@ -97,7 +99,12 @@ and the triple stays in the language it was written in):
 
 
 # ANSWERING (layer-1 grounding): speak only from the given facts.
-ANSWER_SYSTEM = """You are a helpful assistant with a verified memory.
+# ANSWER_SYSTEM carries three clauses about SHAPES a fact block may
+# or may not have — a tally line, a comparison verdict, an extremes
+# row — and they travel with the shape, exactly as the fact
+# checker's disciplines do (W165). The core and SPECIFICITY are
+# about answering itself and always go.
+ANSWER_CORE = """You are a helpful assistant with a verified memory.
 
 Answer the user's question using ONLY the FACTS listed below. Do NOT add facts
 that are not in the list. If the facts do not answer the question, say you don't
@@ -121,13 +128,15 @@ the facts' value. Their word is attested and yours is not: an answer that
 renames the field is a claim the memory cannot support, and it will be
 refused — leaving the user with nothing, when the answer was on the table.
 
-A FACTS line of the form "Name ×12 · Name ×5 · Name ×2" is a tally: it lists
+"""
+ANSWER_TALLY = """A FACTS line of the form "Name ×12 · Name ×5 · Name ×2" is a tally: it lists
 the documents that mention the asked topic, with how many of their sentences
 do. When the question asks WHICH documents, programmes or sources cover the
 topic, enumerate the names from that tally — all of them, not the first one
 or two.
 
-SPECIFICITY: if the question asks for a SPECIFIC item (a name, a number, a
+"""
+ANSWER_SPECIFICITY = """SPECIFICITY: if the question asks for a SPECIFIC item (a name, a number, a
 date, a place) and the facts do not CONTAIN that specific item, say you don't
 know. Do not answer with a generic restatement (naming the CATEGORY of the
 thing asked for is not naming the thing: "it is stored on a shelf" is NOT an
@@ -155,9 +164,33 @@ STYLE (important):
   SHELF: B2." and the question asks for the CONDITION of part 1 -> the
   answer is "NEW" (not the part description, not the shelf).
 
-COMPARISON ROWS: an evidence line of the form "HEAD — Name: value = Name: value" is the memory's own, attested verdict that the two records AGREE (their numbers match); the same row with ≠ is an attested difference. When the question compares the two, state that verdict plainly — do not re-derive it, do not invert it, do not hedge it.
+"""
+ANSWER_COMPARE = """COMPARISON ROWS: an evidence line of the form "HEAD — Name: value = Name: value" is the memory's own, attested verdict that the two records AGREE (their numbers match); the same row with ≠ is an attested difference. When the question compares the two, state that verdict plainly — do not re-derive it, do not invert it, do not hedge it.
 
-EXTREMES ROW: an evidence line of the form "HEAD — largest: Name: value · smallest: Name: value" is the memory's own reading of that field across every document that states it. When the question asks which is the most or the least, answer from that row — name the source and its value — and do not re-rank the other lines yourself."""
+"""
+ANSWER_EXTREMES = """EXTREMES ROW: an evidence line of the form "HEAD — largest: Name: value · smallest: Name: value" is the memory's own reading of that field across every document that states it. When the question asks which is the most or the least, answer from that row — name the source and its value — and do not re-rank the other lines yourself."""
+
+ANSWER_SYSTEM = (ANSWER_CORE + ANSWER_TALLY + ANSWER_SPECIFICITY
+                 + ANSWER_COMPARE + ANSWER_EXTREMES)
+
+
+def answer_system(facts=""):
+    """The answering prompt, carrying the clauses THESE facts need.
+
+    With no block in hand every clause travels, which is what every
+    caller got before this existed.
+    """
+    if not facts:
+        return ANSWER_SYSTEM
+    out = [ANSWER_CORE]
+    if "\u00d7" in facts:
+        out.append(ANSWER_TALLY)
+    out.append(ANSWER_SPECIFICITY)
+    if " = " in facts or " \u2260 " in facts:
+        out.append(ANSWER_COMPARE)
+    if "largest:" in facts or "smallest:" in facts:
+        out.append(ANSWER_EXTREMES)
+    return "".join(out)
 
 
 # SUPPORT CHECK: the second tier when the coverage gate trips on a word —
@@ -170,50 +203,36 @@ EXTREMES ROW: an evidence line of the form "HEAD — largest: Name: value · sma
 # two prompts contradicted each other and correct answers fell to abstentions.
 # Measured when it was added: corpus 13/17 -> 16/17, with no loosening of the
 # gate (a swapped value and an invented cost both still scored 0/3).
-SUPPORT_SYSTEM = """You are a strict fact checker. You get EVIDENCE and a CLAIM.
+# THE DISCIPLINES ARE CONDITIONAL, AND SO IS THEIR COST (W165). Every
+# clause below was added because a measured failure demanded it, and
+# every one of them is about a SHAPE the evidence may or may not have:
+# a record row, a tally line, a comparison verdict, an extremes row, a
+# dateline, spec notation. Sent whole on every turn, the prompt is
+# 4,643 characters — 1,256 prompt tokens measured — of which the reader
+# needs only what its own evidence exercises. On five real blocks from
+# a 355-page legal guide, four of the six conditional disciplines were
+# needed ZERO times and two fewer than half the time.
+#
+# So the prompt is assembled per turn from the clauses the evidence
+# actually exercises. Nothing is cut and nothing is softened: a shape
+# that appears in the block brings its discipline with it, and the
+# detection is structural — the store already writes these shapes and
+# can see them without a model. Where a reading is uncertain the
+# clause is INCLUDED: a missing discipline turns a "no" into a "yes",
+# which is the dangerous direction.
+SUPPORT_CORE = """You are a strict fact checker. You get EVIDENCE and a CLAIM.
 Answer ONLY "yes" or "no".
 
 "yes" ONLY if the EVIDENCE explicitly states everything the CLAIM asserts —
 same entities, same relations, same numbers. Paraphrase is fine; NEW
 information, reversed relations, negation flips or changed numbers are not.
 
-ROW DISCIPLINE: evidence lines may be records with fields ("FIELD: value ·
-FIELD: value"). A field value belongs ONLY to the record on its own line —
-if the claim attaches one record's value to another record's entity, answer
-"no". If a record lacks the asked field, the claim cannot borrow it from a
-neighboring record.
-
-TALLY DISCIPLINE: an EVIDENCE line of the form "Name ×12 · Name ×5" is an
-attested tally of the documents that mention the claim's topic. A claim that
-says the topic appears in, or is covered by, the documents that tally names
-is supported by that line.
-COMPARISON ROWS: an evidence line of the form "HEAD — Name: value = Name: value" states an ATTESTED equality of two records (their numbers agree); the same row with ≠ states an attested difference. Read the verdict off the marker — do not re-derive or invert it.
-
-DATELINE DISCIPLINE: an evidence line may open with the name of the document
-it was taken from, then an em dash, then the document's own words
-("Alpha Handbook — the valve opens at ...."). The name before the dash is
-attested provenance: a claim that says the line's content appears in, belongs
-to, or is covered by THAT named document is supported by that line. The name
-still belongs to its own line only — content from one line under another
-line's document name is "no".
-
-(The examples below are written in several languages on purpose. You judge the
+"""
+SUPPORT_LANGNOTE = """(The examples below are written in several languages on purpose. You judge the
 same way in every language, including ones no example uses.)
 
-Example:
-EVIDENCE:
-[K1] NO: 1 · PART: lid hinge · SHELF: B2.
-[K2] NO: 2 · PART: carrying strap.
-CLAIM: The carrying strap's shelf is B2.
-Answer: no   (record 2 has no SHELF field; B2 belongs to record 1)
-
-ORDINALS: when the claim refers to a record by POSITION, in whatever language,
-it means the record whose NUMBER field equals that position — check THAT
-record's fields, not another's.
-CLAIM: the third record's shelf is B2 — but [NO: 3]'s own line says shelf C4
--> answer no.
-
-ATTRIBUTE DISCIPLINE: the claim's value must come from the SAME attribute the
+"""
+SUPPORT_ATTRIBUTE = """ATTRIBUTE DISCIPLINE: the claim's value must come from the SAME attribute the
 claim names. If the evidence states that value only for a DIFFERENT attribute,
 answer "no" — a related field is not the same field.
 Example:
@@ -228,7 +247,62 @@ EVIDENCE: [K1] Aufnahmedauer, maximal — Gehäuse: 45 min Deckel: 20 min
 CLAIM: Die maximale Aufnahmedauer des Gehäuses beträgt 45 Minuten.
 Answer: yes   (same attribute under a plainer name; the body's own value)
 
-NOTATION IS PARAPHRASE: spec sheets write values tersely ("8 ° C ~ + 32° C",
+"""
+SUPPORT_COMBINE = """COMBINING EVIDENCE IS ALLOWED (this is not new information): the attribute and
+its value may sit in DIFFERENT evidence items. If one item names the attribute
+for a subject and another item gives that subject's value, the claim joining
+them is supported — answer "yes". Attribute discipline forbids taking a value
+from a DIFFERENT attribute, not reading two lines about the SAME one.
+Example:
+EVIDENCE: [K1] Kapak menteşesi — YEDEK PARÇA
+[K2] Yanına takılacak tek parça: kapak menteşesi, no 12.
+CLAIM: Yedek parça, no 12 numaralı kapak menteşesidir.
+Answer: yes   (K1 names the attribute, K2 gives its value; one subject)
+
+"""
+SUPPORT_UNSURE = """If you are unsure, answer "no".
+
+"""
+SUPPORT_ROW = """ROW DISCIPLINE: evidence lines may be records with fields ("FIELD: value ·
+FIELD: value"). A field value belongs ONLY to the record on its own line —
+if the claim attaches one record's value to another record's entity, answer
+"no". If a record lacks the asked field, the claim cannot borrow it from a
+neighboring record.
+
+"""
+SUPPORT_ROWEX = """Example:
+EVIDENCE:
+[K1] NO: 1 · PART: lid hinge · SHELF: B2.
+[K2] NO: 2 · PART: carrying strap.
+CLAIM: The carrying strap's shelf is B2.
+Answer: no   (record 2 has no SHELF field; B2 belongs to record 1)
+
+"""
+SUPPORT_ORDINALS = """ORDINALS: when the claim refers to a record by POSITION, in whatever language,
+it means the record whose NUMBER field equals that position — check THAT
+record's fields, not another's.
+CLAIM: the third record's shelf is B2 — but [NO: 3]'s own line says shelf C4
+-> answer no.
+
+"""
+SUPPORT_TALLY = """TALLY DISCIPLINE: an EVIDENCE line of the form "Name ×12 · Name ×5" is an
+attested tally of the documents that mention the claim's topic. A claim that
+says the topic appears in, or is covered by, the documents that tally names
+is supported by that line.
+"""
+SUPPORT_COMPARE = """COMPARISON ROWS: an evidence line of the form "HEAD — Name: value = Name: value" states an ATTESTED equality of two records (their numbers agree); the same row with ≠ states an attested difference. Read the verdict off the marker — do not re-derive or invert it.
+
+"""
+SUPPORT_DATELINE = """DATELINE DISCIPLINE: an evidence line may open with the name of the document
+it was taken from, then an em dash, then the document's own words
+("Alpha Handbook — the valve opens at ...."). The name before the dash is
+attested provenance: a claim that says the line's content appears in, belongs
+to, or is covered by THAT named document is supported by that line. The name
+still belongs to its own line only — content from one line under another
+line's document name is "no".
+
+"""
+SUPPORT_NOTATION = """NOTATION IS PARAPHRASE: spec sheets write values tersely ("8 ° C ~ + 32° C",
 "220 V-250 V~", "410 mm * 290 mm * 90 mm", "12.8 V / 4200 mAh"). A claim
 restating the SAME attribute's numbers as a fluent sentence ("from 8°C to
 32°C", "voltage 12.8 V and capacity 4200 mAh") asserts nothing new — answer
@@ -240,20 +314,75 @@ CLAIM: The operating temperature range is from 8°C to 32°C.
 Answer: yes   (same attribute, same numbers; "~" is range notation and the
 second range belongs to the next column, not to the claim)
 
-COMBINING EVIDENCE IS ALLOWED (this is not new information): the attribute and
-its value may sit in DIFFERENT evidence items. If one item names the attribute
-for a subject and another item gives that subject's value, the claim joining
-them is supported — answer "yes". Attribute discipline forbids taking a value
-from a DIFFERENT attribute, not reading two lines about the SAME one.
-Example:
-EVIDENCE: [K1] Kapak menteşesi — YEDEK PARÇA
-[K2] Yanına takılacak tek parça: kapak menteşesi, no 12.
-CLAIM: Yedek parça, no 12 numaralı kapak menteşesidir.
-Answer: yes   (K1 names the attribute, K2 gives its value; one subject)
+"""
+SUPPORT_EXTREMES = """EXTREMES ROW: a line "HEAD — largest: Name: value · smallest: Name: value" is attested by the memory itself; a claim that restates either end is supported by it."""
 
-If you are unsure, answer "no".
+# The whole prompt, every discipline present — what a caller that hands
+# in no evidence gets, and what the invariant compares the assembled
+# form against, clause for clause.
+def support_system(evidence=""):
+    """The fact checker's prompt, carrying the disciplines THIS evidence
+    exercises (W165).
 
-EXTREMES ROW: a line "HEAD — largest: Name: value · smallest: Name: value" is attested by the memory itself; a claim that restates either end is supported by it."""
+    Each conditional clause is about a shape the store itself writes: a
+    record row ("FIELD: value"), a tally ("Name ×12"), a comparison
+    verdict ("HEAD — Name: value = Name: value"), an extremes row, a
+    dateline ("Document — the line"), spec notation ("8 ° C ~ + 32° C").
+    Reading whether a block carries one is a look at the text, not a
+    judgement, and it costs nothing.
+
+    WITH NO EVIDENCE IN HAND, EVERY DISCIPLINE TRAVELS. A caller that
+    cannot say what the reader will see gets the whole prompt, which is
+    what every caller got before this existed. And where a reading is
+    uncertain the clause is INCLUDED, because a missing discipline
+    turns a "no" into a "yes" and that is the dangerous direction.
+    """
+    if not evidence:
+        return SUPPORT_SYSTEM
+    out = [SUPPORT_CORE]
+    rows = bool(_RECORD_ROW.search(evidence))
+    if rows:
+        out.append(SUPPORT_ROW)
+    if "\u00d7" in evidence:                  # a tally writes "Name ×12"
+        out.append(SUPPORT_TALLY)
+    if " = " in evidence or " \u2260 " in evidence:
+        out.append(SUPPORT_COMPARE)
+    if " \u2014 " in evidence:                # a dateline's em dash
+        out.append(SUPPORT_DATELINE)
+    out.append(SUPPORT_LANGNOTE)
+    if rows:
+        out.append(SUPPORT_ROWEX)
+        out.append(SUPPORT_ORDINALS)
+    out.append(SUPPORT_ATTRIBUTE)
+    if _NOTATION.search(evidence):
+        out.append(SUPPORT_NOTATION)
+    out.append(SUPPORT_COMBINE)
+    out.append(SUPPORT_UNSURE)
+    if "largest:" in evidence or "smallest:" in evidence:
+        out.append(SUPPORT_EXTREMES)
+    return "".join(out)
+
+
+# A RECORD ROW is a field name in the corpus's own capitals followed by
+# a colon, which is how the readers write one; spec NOTATION is a digit
+# standing beside a unit mark or a range sign. Both are read off the
+# text, no language and no model.
+_RECORD_ROW = re.compile(r"(?:^|[\n\u00b7])\s*[^\W\d_]{2,}[^:\n]{0,40}:\s*\S")
+# Spec NOTATION is a number standing next to a MARK (a degree sign, a
+# range tilde, a multiplication star, a slash) or next to a short token
+# in the way a unit does — which is the store's own definition of a
+# unit, read here off the text. No unit list: naming mm and kg here
+# would be the hard-coding this codebase forbids, and a corpus writing
+# its own units would fall outside it.
+_NOTATION = re.compile(r"\d\s*[\u00b0~*/\u00d7\u00b1]|[\u00b0~*/\u00d7\u00b1]\s*\d"
+                       r"|\d\s*[^\W\d_]{1,3}(?![^\W\d_])")
+
+
+SUPPORT_SYSTEM = (SUPPORT_CORE + SUPPORT_ROW + SUPPORT_TALLY
+                  + SUPPORT_COMPARE + SUPPORT_DATELINE + SUPPORT_LANGNOTE
+                  + SUPPORT_ROWEX + SUPPORT_ORDINALS + SUPPORT_ATTRIBUTE
+                  + SUPPORT_NOTATION + SUPPORT_COMBINE + SUPPORT_UNSURE
+                  + SUPPORT_EXTREMES)
 
 
 # RELATION READ-BACK: the read-back asked about the QUESTION'S relation instead

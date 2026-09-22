@@ -4,6 +4,59 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.13] — 2026-09-22
+
+### Changed
+
+- **A discipline travels with the shape that needs it** (W165). The
+  cost of a turn is mostly OUR OWN INSTRUCTIONS, not the evidence —
+  measured against the engine, the fact checker's prompt alone is
+  **1,256 prompt tokens**, and the read-back call the field trace put
+  at 1,450 tokens is therefore ~85% instruction. Per turn the four
+  system prompts came to roughly 4,100 tokens of standing text.
+
+  Most of that text is conditional. A record-row discipline, a tally
+  discipline, a comparison verdict, an extremes row, a dateline, spec
+  notation — each was added because a measured failure demanded it,
+  and each is about a SHAPE the evidence may or may not carry. On five
+  real blocks from a 355-page legal guide, **four of the six
+  conditional disciplines were needed zero times** and two fewer than
+  half the time.
+
+  So the prompts are assembled per turn from the clauses their own
+  evidence exercises. **Nothing is cut and nothing is softened**: a
+  shape that appears in the block brings its discipline with it, the
+  reading is structural (the store writes these shapes and can see
+  them without a model), and where a reading is uncertain the clause
+  is INCLUDED — a missing discipline turns a "no" into a "yes", which
+  is the dangerous direction. A caller that hands in no evidence still
+  gets the whole prompt, byte for byte as before.
+
+  Measured on fifteen questions, same harness, same corpus: prompt
+  characters **372k → 302k (−19%)**, calls 95 → 84, seconds 118 → 101,
+  and no answer lost. (One question went from abstention to the
+  correct answer, but that cell flips run to run on this corpus and is
+  not claimed.)
+
+  Prompt caching does not make this moot: Azure returned
+  `cached_tokens` 0, 1152, 0 across three identical system prompts —
+  the discount is real and unreliable.
+
+### Measured, not shipped
+
+- **The narrowest view of a region.** Seats go to the widest windows,
+  because a longer text intersects more query words — a bias BM25
+  answers with length normalisation and this codebase does not have.
+  Replacing each seated window with the narrowest NESTED window that
+  still carries the matched words was measured at **−14% block
+  characters with the answer-bearing line intact in 6 of 6** gold
+  questions. A first, looser version of the same idea — the shortest
+  line anywhere carrying those words — measured −69% and was refuted
+  the moment it was checked: it selects HEADINGS, which carry every
+  query word and no answer ("6362 sayılı SPKn md. 2/2…" became
+  "SERMAYE PİYASASI KANUNU"). The safe version is recorded here with
+  its number rather than shipped on one corpus's six questions.
+
 ## [0.7.12] — 2026-09-22
 
 Three changes, measured together and released together.
