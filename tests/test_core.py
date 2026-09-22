@@ -6117,6 +6117,186 @@ def w136():
                                  % group["sources"])
 
 
+@test("W151 a reading reports what it cost in engine calls")
+def w151():
+    """`deep` defaults differently for a file (False) and for text
+    handed in directly (True) — sound per its docstring, and
+    invisible. A reader who cleans a document into a string first,
+    which is the ordinary thing to do, pays one engine call per
+    sentence and is told nothing; the field report found it by
+    watching the bill. What a reading cost is now beside what it
+    gained, counted at the engine's one door and only on real
+    dispatches."""
+    from lmm import api, generate, runtime
+
+    m = api.Memory(None, dense=False)
+    # a file-shaped reading pays nothing, and says so
+    told = m.learn("SEAT COUNT: 14-18 people.\nCOURSE LENGTH: two days.",
+                   deep=False)
+    assert told.calls == 0, told.calls
+    assert "engine calls" not in repr(told), repr(told)
+
+    # deep=True mines each sentence: the calls are counted and shown
+    real = generate.is_causal
+    seen = {"n": 0}
+
+    def fake(text):
+        seen["n"] += 1
+        runtime.CALLS += 1              # what a real call would do
+        return ""
+    generate.is_causal = fake
+    try:
+        told = m.learn("The Alpha engine drives the Bornt rotor.",
+                       deep=True)
+    finally:
+        generate.is_causal = real
+    assert seen["n"], "deep=True mined nothing — test is not exercising it"
+    assert told.calls >= seen["n"], (told.calls, seen["n"])
+    assert "engine calls" in repr(told), repr(told)
+
+
+@test("W150 the package states one version, and it is the built one")
+def w150():
+    """0.7.0 shipped with two versions: `importlib.metadata.version`
+    said 0.7.0, `lmm.__version__` said 0.6.5 — the release bumped
+    `pyproject.toml` and the hand-maintained string in `__init__.py`
+    was missed. Found by somebody integrating against the package, and
+    a memory layer that cannot state its own version has no business
+    asking to be trusted about provenance.
+
+    A number written in two places is eventually two numbers, so the
+    string is DERIVED from the installed distribution's metadata. This
+    test guards the other half: what the build declares must be what
+    an installed package would report, so the two can never drift
+    again."""
+    import re as _re
+    import os as _os
+    root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    raw = open(_os.path.join(root, "pyproject.toml"), encoding="utf-8").read()
+    declared = _re.search(r'^version\s*=\s*"([^"]+)"', raw, _re.M)
+    assert declared, "pyproject.toml declares no version"
+    declared = declared.group(1)
+
+    import lmm
+    # the source of the string is metadata, not a literal: no second
+    # place for a release to forget
+    src = open(_os.path.join(root, "src", "lmm", "__init__.py"),
+               encoding="utf-8").read()
+    assert not _re.search(r'^__version__\s*=\s*"\d', src, _re.M), (
+        "__version__ is a hand-written literal again")
+    reported = lmm.__version__
+    if reported != "0+unknown":          # nothing installed: nothing to check
+        assert reported == declared, (
+            "the installed package reports %r, the build declares %r"
+            % (reported, declared))
+
+
+@test("W148 overlapping windows are one region, not a register")
+def w148():
+    """Field report, reproduced 3/3 by its finder: a correct, sourced
+    answer — every word of it written in the document — was stamped
+    `abstained=True`. Root cause is W97's own boundary meeting the
+    multi-scale evidence index: the proof seated four overlapping
+    WINDOWS of the same passage, so the answer's most distinctive
+    words appeared in a MAJORITY of proof lines, and the load-bearing
+    reading — 'register blankets; content sits in a line or two' —
+    mistook content for register and stamped a full correct answer an
+    abstention. The core promise, inverted.
+
+    The premise W97 stands on is that proof lines are INDEPENDENT
+    attestations. Overlapping windows are not: a line whose folded
+    text is contained in another proof line is the same region read at
+    two scales, and it casts one vote, not two. Distinct lines — the
+    chat evidence W97 was written on — dedupe to themselves, so that
+    case measures exactly as before."""
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    passage = ("The Alpha Validator uses the interfaces Vexi, Bornt "
+               "and Finqol for verification.")
+    # the multi-scale index seats the SAME passage at several widths
+    proof = [
+        passage,
+        "Every request is logged. " + passage,
+        "Every request is logged. " + passage + " Results are cached "
+        "for one day.",
+        passage + " Results are cached for one day.",
+        "The service also offers batch checks for large registers.",
+        "Support is available on weekdays for every module.",
+    ]
+    s._last_proof = list(proof)
+    said = ("The Alpha Validator uses the interfaces Vexi, Bornt and "
+            "Finqol.")
+    assert s._asserted_a_fact(said), (
+        "a correct sourced answer was read as an abstention")
+    # ...and an honest refusal over the same proof still claims nothing
+    assert not s._asserted_a_fact("I do not have that information."), (
+        "a refusal was read as an assertion")
+
+
+@test("W149 a fallen engine is not an honest abstention")
+def w149():
+    """Field report: with no engine reachable (package missing, or a
+    bad key), every question returned 'I don't know' with
+    `abstained=True` and an empty route — infrastructure failure
+    wearing the exact signature of honest ignorance. A system that
+    sells trustworthy abstention cannot let a dead engine mint them:
+    in the reporter's use it marked a vendor's real capability as
+    'not covered'.
+
+    An engine failure now has its own name (`runtime.EngineDown`), its
+    own route step, and its own field on the answer: `engine_error` is
+    True, the turn still abstains (nothing was asserted), and the two
+    causes are machine-separable."""
+    from lmm import api, runtime
+    from lmm.session import Session
+
+    real = runtime._dispatch
+
+    def dead(*a, **kw):
+        raise ConnectionError("boom: no engine here")
+
+    runtime._dispatch = dead
+    try:
+        m = api.Memory(None, dense=False)
+        m.session.evidence.add("The Alpha Validator checks records.",
+                               "#doc:alpha")
+        said = m.ask("which interfaces does the validator use?",
+                     explain=True)
+    finally:
+        runtime._dispatch = real
+    assert said.abstained, said
+    assert said.engine_error, (
+        "a dead engine minted an honest abstention: %r" % said)
+    assert "engine-error" in said.route, said.route
+
+    # THE OTHER HALF OF THE REPORT: no engine INSTALLED at all. It reads
+    # as an ImportError to whoever calls the engine directly (W62 keeps
+    # that message), and as an engine error to the turn — one failure,
+    # both readings (`runtime.EngineMissing`).
+    def absent(*a, **kw):
+        raise ImportError("LMM has no engine to speak with. Choose one: ...")
+
+    runtime._dispatch = absent
+    try:
+        m2 = api.Memory(None, dense=False)
+        m2.session.evidence.add("The Alpha Validator checks records.",
+                                "#doc:alpha")
+        said2 = m2.ask("which interfaces does it use?", explain=True)
+    finally:
+        runtime._dispatch = real
+    assert said2.engine_error, (
+        "an uninstalled engine minted an honest abstention: %r" % said2)
+    assert isinstance(runtime.EngineMissing("x"), ImportError), (
+        "the configuration case lost its ImportError voice (W62)")
+
+    # ...and an ordinary engine-less refusal keeps engine_error False:
+    # a session with no store and a stubbed healthy engine that
+    # refuses is ignorance, not infrastructure.
+    s = Session(None, dense=False)
+    assert getattr(s, "last_engine_error", False) is False
+
+
 @test("W147 a small dated telling is read whole when every organ dies")
 def w147():
     """Measured on 12 missed chat questions: handed the SAME lines

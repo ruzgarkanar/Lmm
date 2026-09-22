@@ -4,6 +4,71 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] — 2026-09-22
+
+Five findings from somebody integrating 0.7.0 against two real tender
+documents — the kind of report that only comes from outside. Two of
+them inverted this project's central promise, and both are closed.
+
+### Fixed
+
+- **A correct, sourced answer could be stamped `abstained=True`**
+  (W148). Reproduced 3/3 by its finder: every word of the answer was
+  written in the document, and the turn reported it as a refusal with
+  no sources. The abstention reading (W97) subtracts "register" — words
+  the proof blankets — from the content that carries a claim, and it
+  stands on proof lines being INDEPENDENT attestations. The
+  multi-scale evidence index breaks that premise: it seats the same
+  passage at several widths, so the answer's most distinctive words sit
+  in a MAJORITY of proof lines and are struck as blanket. Now a line
+  whose words are a subset of another proof line's is the same region
+  read at two scales and casts one vote. Distinct lines — the chat
+  evidence W97 was written on — subsume nothing and measure exactly as
+  before.
+
+- **An unreachable engine is no longer indistinguishable from honest
+  ignorance** (W149). With no engine — client package absent, key
+  refused, network gone — every question returned "I don't know",
+  `abstained=True`, empty route: infrastructure failure wearing the
+  exact signature of the thing this project asks to be trusted for. In
+  the reporter's use it marked a vendor's real capability as "not
+  covered". The dispatch's failures now carry one name
+  (`runtime.EngineDown`), the turn records an `engine-error` step in
+  its route, and **`Answer.engine_error`** states it. The turn still
+  abstains — nothing was asserted — but a caller can retry or alert
+  instead of writing down an absence.
+
+  The configuration case keeps both readings: `runtime.EngineMissing`
+  is an `EngineDown` *and* an `ImportError`, so a fresh machine still
+  gets the message naming the four engines and the `pip install` line
+  (W62), while the turn still reports an engine error.
+
+- **The package stated two versions** (W150). `importlib.metadata`
+  said 0.7.0 while `lmm.__version__` said 0.6.5 — the release bumped
+  `pyproject.toml` and the hand-written string was missed. The string
+  is now derived from the installed distribution's metadata, and the
+  invariant checks the build and the report agree, so they cannot
+  drift again.
+
+### Added
+
+- **`Learned.calls`** — what a reading cost in engine calls (W151),
+  counted at the engine's one door and only on real dispatches. `deep`
+  defaults to False for a file and True for text handed in directly,
+  which is sound and was invisible: a reader who cleans a document into
+  a string first, the ordinary thing to do, paid one call per sentence
+  without being told. The trade is now a number beside what was gained.
+
+### Documentation
+
+- The API page carries `Memory`'s full signature with the defaults the
+  code actually holds (`warmth` and `reply_tokens` are `None`, not 0.6
+  and 1200), and documents the entry points it had been missing:
+  `learn(source=, deep=)` — the parameter the whole multi-document
+  story rests on — `ask(fluent=)`, `compose(seats=)`,
+  `themes(least=, most=)`, and `Answer.engine_error` with the
+  three-branch pattern a caller should write.
+
 ## [0.7.0] — 2026-09-13
 
 Conversation memory learns what "living" means: a told fact can END, a

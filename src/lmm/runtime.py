@@ -50,6 +50,50 @@ class EngineTimeout(TimeoutError):
     a smaller question, use another backend) depends on which of those it was."""
 
 
+class EngineDown(RuntimeError):
+    """THE ENGINE COULD NOT BE REACHED AT ALL — a missing client package, a
+    refused key, a network that is not there.
+
+    Field report, and it inverts this project's central promise: with no
+    engine reachable, every question came back "I don't know" with
+    `abstained=True` and an empty route — infrastructure failure wearing
+    the exact signature of honest ignorance. In the reporter's use that
+    marked a vendor's real, documented capability as "not covered".
+
+    A memory that sells trustworthy abstention cannot let a dead engine
+    mint them. This name carries the original failure as its cause, the
+    turn records it (`Session.last_engine_error`, an "engine-error" step
+    in the route) and `Answer.engine_error` states it — so "the store
+    does not know" and "the engine never answered" are separable by a
+    caller, not by reading English."""
+
+
+class EngineMissing(EngineDown, ImportError):
+    """NO ENGINE IS INSTALLED OR CHOSEN AT ALL — the configuration case,
+    and it is deliberately both things at once.
+
+    It is an `ImportError`, because that is what a reader who reaches the
+    engine on a fresh machine must be handed: the four choices and the
+    DISTRIBUTION name to type after `pip install` (W62), not a stack
+    trace about somebody else's library. And it is an `EngineDown`,
+    because a turn that meets it asserted nothing for a reason that is
+    not the memory's (W149) — so the session records it exactly as it
+    records a refused key or a dead network, and `Answer.engine_error`
+    reads True either way.
+
+    Either name alone would have had to give up one of those two
+    readings; the field report is the evidence for keeping both."""
+
+
+# HOW MANY ENGINE CALLS THIS PROCESS HAS ACTUALLY MADE (W151). Monotonic,
+# counted at the one door every backend leaves by, and incremented only on
+# a real dispatch — a pooled repeat (`_asked_before`) cost nothing and is
+# not counted. Readers take two snapshots and subtract; `Learned.calls`
+# does exactly that, so "was this reading free?" is a number the caller
+# can read instead of a claim they have to believe.
+CALLS = 0
+
+
 def budget():
     """The per-call time budget in seconds; 0 means no limit."""
     raw = (os.environ.get("LMM_TIMEOUT") or "").strip()
@@ -249,7 +293,28 @@ def generate(messages, max_tokens=256, temperature=0.7, system=None,
         said = _asked_before(key)
         if said is not None:
             return said
-    said = _dispatch(chosen, messages, max_tokens, temperature, system)
+    # AN UNREACHABLE ENGINE IS NAMED, NOT SWALLOWED (W149). Every caller
+    # in this codebase guards its own generate() with `except Exception`
+    # and falls through to silence — which is right for a model that
+    # answered badly and wrong for a model that never answered. The
+    # dispatch's failures are re-raised under one name the session knows
+    # to catch; EngineTimeout keeps its own identity, and a failure that
+    # is already an EngineDown passes through unchanged.
+    global CALLS
+    CALLS += 1
+    try:
+        said = _dispatch(chosen, messages, max_tokens, temperature, system)
+    except (EngineDown, EngineTimeout):
+        raise
+    except ImportError as missing:
+        # THE CONFIGURATION CASE KEEPS ITS OWN VOICE. An absent engine is
+        # an EngineDown like any other (W149) — but the message it
+        # carries is the one that tells a new reader which four engines
+        # exist and what to type (W62), and that message is only found
+        # by somebody catching ImportError. `EngineMissing` is both.
+        raise EngineMissing(str(missing)) from missing
+    except Exception as broke:                          # noqa: BLE001
+        raise EngineDown(str(broke) or broke.__class__.__name__) from broke
     if key is not None and said:
         _remember(key, said)
     return said

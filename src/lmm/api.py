@@ -61,12 +61,21 @@ class Answer(str):
     """
 
     __slots__ = ("abstained", "sources", "subject", "kind", "wrote", "route",
-                 "from_graph")
+                 "from_graph", "engine_error")
 
     def __new__(cls, text, *, abstained=False, sources=(), subject="",
-                kind="", wrote=(), from_graph=False, route=()):
+                kind="", wrote=(), from_graph=False, route=(),
+                engine_error=False):
         self = super().__new__(cls, text)
         self.abstained = bool(abstained)
+        # WHY IT ABSTAINED, WHEN THE REASON WAS NOT THE MEMORY (W149).
+        # An unreachable engine — missing client package, refused key,
+        # no network — used to produce exactly the trace of honest
+        # ignorance: "I don't know", abstained, empty route. A caller
+        # that trusts abstention would record a real capability as
+        # absent. `engine_error` is True only when the engine failed;
+        # an abstention with it False is the memory's own, as before.
+        self.engine_error = bool(engine_error)
         # THE ROUTE — which organs the turn consulted, in order (W86):
         # ("record",) for a row read with no model call, ("chain",
         # "refuse", "count") for a rescued count. The orchestration was
@@ -135,16 +144,24 @@ class Learned:
     """
 
     __slots__ = ("facts", "tables", "source", "adapter", "evidence",
-                 "warnings")
+                 "warnings", "calls")
 
     def __init__(self, facts=0, tables=0, source="", adapter="", evidence=0,
-                 warnings=()):
+                 warnings=(), calls=0):
         self.facts = facts        # triples the GATE admitted (not offered)
         self.tables = tables      # structured grids routed around the engine
         self.source = source      # the stamp every one of them now carries
         self.adapter = adapter    # which reader ran
         self.evidence = evidence  # sentences/windows this file added to the index
         self.warnings = tuple(warnings)   # what the reader could not read
+        # WHAT THIS READING COST, IN ENGINE CALLS (W151). `deep` defaults
+        # differently for a file (False) and for text handed in directly
+        # (True, because a typed sentence is a fact being taught) — sound
+        # per its docstring, and invisible: a reader who cleans a document
+        # into a string first, which is the ordinary thing to do, pays one
+        # call per sentence without ever being told. Reported here, beside
+        # what was gained, so the trade is a number rather than a surprise.
+        self.calls = calls
 
     def __bool__(self):
         """False when this file put NOTHING in the memory — so `if not
@@ -154,8 +171,12 @@ class Learned:
 
     def __repr__(self):
         warned = (" — " + "; ".join(self.warnings)) if self.warnings else ""
+        # the calls are named only when there were any: a zero-call
+        # reading is the normal one and saying so on every line would
+        # bury the counts that matter
+        cost = f", {self.calls} engine calls" if self.calls else ""
         return (f"<Learned {self.facts} facts, {self.tables} tables, "
-                f"{self.evidence} evidence via {self.adapter} "
+                f"{self.evidence} evidence{cost} via {self.adapter} "
                 f"from {self.source!r}{warned}>")
 
 
@@ -369,7 +390,17 @@ class Memory:
         that class by construction. A switch nobody should turn on is
         not an option; it is a liability.
         """
-        return self._read_into(what, source=source, deep=deep)
+        # WHAT THE READING COST IS COUNTED HERE, ONCE (W151) — around the
+        # whole reading rather than at each of `_read_into`'s four exits,
+        # so a new adapter cannot forget to report it.
+        from lmm import runtime                          # noqa: PLC0415
+        before = runtime.CALLS
+        told = self._read_into(what, source=source, deep=deep)
+        try:
+            told.calls = runtime.CALLS - before
+        except AttributeError:                           # noqa: BLE001
+            pass
+        return told
 
     def _read_into(self, what, source=None, deep=None):
         """Teach the memory something. `what` is a file path or the text itself.
@@ -618,6 +649,7 @@ class Memory:
         return Answer(
             said,
             abstained=session.last_abstained,
+            engine_error=getattr(session, "last_engine_error", False),
             from_graph=session.last_from_graph,
             # THE MARK HAS A SHAPE, so it is read as one. Splitting the
             # answer on whitespace and keeping the words that start with

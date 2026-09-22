@@ -7,6 +7,23 @@ built on. A feature with no documented entry point is not a feature.
 
 ## Memory
 
+The full signature, with every default exactly as the code holds it:
+
+```python
+Memory(path=None,             # the store on disk; None is transient
+       who="#operator",       # whose trust level a statement arrives at
+       mode="STRICT",         # the gate's strictness
+       cache=True,            # memoise repeated questions in-process
+       persona="",            # the VOICE
+       warmth=None,           # temperature of the voice surfaces
+       reply_tokens=None,     # length cap of the voice surfaces
+       style="",              # the FORMAT, the composer's alone
+       identity=None,         # what the memory may say about itself
+       encoder=None,          # the meaning channel's vectors
+       dense=True,            # the meaning channel itself
+       reranker="bundled")    # the ordering inside a proposal
+```
+
 ```python
 m = Memory("mind.lmm",
            persona="You are Ada, a warm onboarding coach.",   # the VOICE
@@ -17,6 +34,10 @@ m = Memory("mind.lmm",
            reranker="bundled",  # the ordering inside a proposal
            dense=True)          # the meaning channel itself
 ```
+
+`warmth` and `reply_tokens` are **`None` by default**, not numbers: unset, each
+voice surface keeps its own measured default, and a number here overrides all
+of them at once.
 
 The operator's knobs, each travelling exactly where it belongs — and none of
 them reaching a verifier, because a judge whose thermostat the caller can
@@ -71,11 +92,11 @@ insurance is worth buying where the risk is real.
 
 | call | what it does | engine? |
 |---|---|---|
-| `m.learn(what)` | teach it a file or a string | no engine for tables |
-| `m.ask(q, explain=True)` | answer, with `.sources` and `.abstained` — **cannot write memory** | engine |
-| `m.compose(brief, topics=, on_line=)` | a structured draft from the evidence — per-topic gathering, gated line by line, streamed to `on_line` as lines survive, returned with its sources | engine |
+| `m.learn(what, source=, deep=)` | teach it a file or a string. **`source="#Vendor"`** is the stamp everything from this reading carries — it is what makes a multi-document store answerable per document, and what `scope=` later selects on. `deep` mines each sentence for triples with the engine: `None` (the default) means **False for a file, True for text handed in directly**, so a document costs nothing and a typed fact costs one call per sentence. The returned `Learned` reports `.calls` | no engine for files |
+| `m.ask(q, explain=True, fluent=)` | answer. `explain=True` returns an `Answer` carrying `.sources`, `.abstained`, `.engine_error`, `.route`; without it you get a plain string. `fluent=True` skips the router for a turn that is known to be conversation. **Cannot write memory** | engine |
+| `m.compose(brief, seats=24, topics=, on_line=)` | a structured draft from the evidence — per-topic gathering, gated line by line, streamed to `on_line` as lines survive, returned with its sources. `seats` is how many evidence lines each topic may draw on | engine |
 | `m.where(term)` | which documents mention this — names and counts, the census | no engine |
-| `m.themes()` | which documents belong together, and on what entities — community detection over the store's own graph, deterministic | no engine |
+| `m.themes(least=3, most=12)` | which documents belong together, and on what entities — community detection over the store's own graph, deterministic. `least` is the smallest group worth reporting, `most` the largest number of groups | no engine |
 | `m.distil(text, source=, speaker=)` | write the events AND ongoing facts a passage reports into the graph — the engine lists each as thing/what-happened/KIND, the passage's own words admit the thing, each survivor is one gated dated record; the KIND is an index key beside the bridges, never a claim (0.7) | one call per passage |
 | `m.bridge()` | teach the store, once, what words readers ask its fields with — afterwards those questions are answered by the record itself, in milliseconds | one call per field, once |
 | `m.about(label)` | the records held on a concept | no engine |
@@ -156,7 +177,18 @@ turn knows about itself:
 | attribute | meaning |
 |---|---|
 | `.abstained` | did this turn assert anything — the structural stamp, in any language |
+| `.engine_error` | **why** it abstained, when the reason was not the memory: `True` only when the engine could not be reached at all. An abstention with this `False` is the store's own honest "I do not hold that"; with it `True`, nothing was asked of the store at all — retry or alert, do not record a capability as absent |
 | `.sources` | the provenance stamps the answer rests on |
 | `.subject` | the subject label the turn was about |
 | `.from_graph` | answered by the graph alone (zero model calls) |
-| `.route` | which organs the turn passed through, in order — `("record",)`, `("chain", "refuse", "count")`, `("plan",)` |
+| `.route` | which organs the turn passed through, in order — `("record",)`, `("chain", "refuse", "count")`, `("plan",)`, and `("engine-error",)` when the engine fell |
+
+```python
+a = m.ask("which interfaces does the validator use?", explain=True)
+if a.engine_error:
+    ...        # infrastructure: retry, alert, fail over
+elif a.abstained:
+    ...        # the memory genuinely does not hold it
+else:
+    print(a, a.sources)
+```

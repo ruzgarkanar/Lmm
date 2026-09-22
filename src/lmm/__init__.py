@@ -23,7 +23,27 @@ beside it are the layer that gives it language.
 Names are exported LAZILY. `import lmm` must stay cheap and must not drag in an
 engine, so the heavy modules are imported on first attribute access.
 """
-__version__ = "0.6.5"
+# ONE VERSION, READ FROM THE INSTALLED PACKAGE (W150). This string was
+# maintained by hand beside `pyproject.toml`'s, and a release shipped with
+# the two disagreeing — `importlib.metadata.version` said 0.7.0 while
+# `lmm.__version__` said 0.6.5, found by somebody integrating against it.
+# A number written in two places is eventually two numbers, so this one
+# is now DERIVED: the distribution's metadata is the single source. Run
+# from a source tree with nothing installed, there is no metadata to read
+# and the fallback says so rather than inventing a number.
+def _installed_version():
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+    except ImportError:                                 # py3.7 and older
+        return "0+unknown"
+    try:
+        from lmm.tables import DIST
+        return version(DIST)
+    except Exception:                                   # noqa: BLE001
+        return "0+unknown"
+
+
+__version__ = _installed_version()
 
 __all__ = ["Memory", "Answer", "Learned", "Session", "__version__"]
 
