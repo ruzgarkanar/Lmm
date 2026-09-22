@@ -1403,7 +1403,7 @@ turn knows about itself:</p>
 </tr>
 <tr>
 <td><code>.covered</code></td>
-<td>of the question's demands (its content words), the share this answer carries — a count, no model call, nothing it can fabricate</td>
+<td>of the question's demands (its content words), the share this answer carries — a count, no model call, nothing it can fabricate. <strong>An abstention reports 0.0</strong> and misses everything (0.8.1): a refusal that restates the question used to carry every demand in its own words and report 1.0</td>
 </tr>
 <tr>
 <td><code>.missing</code></td>
@@ -1441,6 +1441,21 @@ vocabulary:</p>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">a</span><span class="o">.</span><span class="n">covered</span>      <span class="c1"># 0.78</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">a</span><span class="o">.</span><span class="n">missing</span>      <span class="c1"># ('transport', 'responsibility')</span>
 </code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title"><code>covered</code> is a count, not a quality score</p>
+<p>It counts how many of the question's words the answer says back, so
+<strong>an answer that restates the question scores higher than one that
+quotes the document.</strong> Measured on one real question: a fluent
+restatement 0.88, a correct verbatim answer out of the document 0.25.
+Two consequences a caller should know. Cells answered by different
+routes are not comparable — the quoted reading's answers are terse
+and score low, the ordinary path's are phrased and score high — and
+<code>covered</code> was measured <strong>not</strong> to work as a relevance signal: on 44
+field cells the one wrong answer sat at 0.25, above fifteen correct
+ones, four of which sat at 0.00. No threshold separates them.</p>
+<p>Read it for what it is: which of the things you asked about are
+named in the reply, and which to ask about next.</p>
+</div>
 <h3 id="which-mechanism-keeps-the-promise">Which mechanism keeps the promise<a class="headerlink" href="#which-mechanism-keeps-the-promise" title="Permanent link">&para;</a></h3>
 <p>The promise never changes: an answer the memory does not support cannot
 leave. What a caller may choose is <strong>which mechanism enforces it</strong>, and
@@ -1482,11 +1497,42 @@ that fell back paid for the attempt as well, so the AVERAGE was 4.6
 calls against the ordinary path's 6.3: −27% calls, −28% tokens, −18%
 wall clock, and one question answered that the ordinary path had
 abstained on. Parity per carried turn; not parity on the average.</p>
+<p>Those figures are a matched pair measured at <strong>0.7.12</strong> and are the
+conservative end. An integrator measuring 44 cells on two real documents
+reported 9.2 calls a turn falling to 4.3 — roughly twice the saving —
+with strict accuracy rising from 84.1% to 90.9% rather than falling. Our
+own slice sits between them. The pair above is not restated with newer
+numbers because only the quoted arm has been re-measured since, and half
+a comparison is not one.</p>
 <p>In quoted mode fabrication is not judged unlikely, it is structurally
 impossible: what is spoken is assembled out of a line the store holds.
 When the reading cannot be trusted — no line, a line nobody offered, a
-sentence stepping outside it — the turn falls back to the ordinary path,
-so the worst case is one extra call and today's behaviour.</p>
+sentence stepping outside it, or one that joins two passages — the turn
+falls back to the ordinary path, so the worst case is one extra call and
+today's behaviour.</p>
+<div class="admonition warning">
+<p class="admonition-title">What quoted mode trades, and for whom</p>
+<p>Fabrication is structurally out; <strong>relevance is not</strong>, and the quoted
+reading reaches the relevance failure more easily than the ordinary
+path does, because the ordinary path judges a claim with a read-back
+and a relation check and this one does not. Reported from the field
+on 44 cells: four false-empty answers became one false-covered. That
+was strongly profitable for the reporter and would not be for a
+caller whose cost of a wrong "yes" is high.</p>
+<p>The commitment is also <strong>engine-bound</strong>. On the reported
+reproduction, <code>gpt-4o-mini</code> abstains 4 times out of 4 and <code>gpt-4.1</code>
+commits 4 out of 4: the more capable engine is the more willing to
+build an answer out of whatever is on register. Shadow the setting on
+your own corpus and engine before trusting the table above.</p>
+<p>Since 0.8.1 one shape of that error is closed without a model call: a
+quotation may rest on several lines, but they must be views of ONE
+passage. A window is neighbouring sentences, so where two topics meet
+it holds the end of one and the start of the next — and an answer
+that takes a clause from each never leaves its quote, which is why no
+containment check could see it. That cost <strong>2 of 11 carried turns</strong>
+on our own slice; the two are still answered correctly by the
+ordinary path.</p>
+</div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">a</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">"which interfaces does the validator use?"</span><span class="p">,</span> <span class="n">explain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">engine_error</span><span class="p">:</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="o">...</span>        <span class="c1"># infrastructure: retry, alert, fail over</span>

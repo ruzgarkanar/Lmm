@@ -835,6 +835,114 @@
 <p>All notable changes to this project are documented here. The format follows
 <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>, and this project
 follows <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<h2 id="081-2026-09-22">[0.8.1] — 2026-09-22<a class="headerlink" href="#081-2026-09-22" title="Permanent link">&para;</a></h2>
+<p>Three findings from an integrator's 0.8.0 report, each verified before it
+was acted on. Two of the three diagnoses turned out to be wrong — including
+one of ours — and the verification is written down here because it is the
+part that changed what got built.</p>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>A quotation may span lines, but not two passages</strong> (W172/W174). The
+  reported failure: asked how internal control checks are performed, the
+  quoted reading answered with a clause from a TESTING paragraph joined to
+  a clause from a REQUIREMENTS paragraph — one fluent sentence about
+  neither. Every word was in the document, the stamp was right, the
+  sentence was true, and the document had never put those two clauses
+  together.</li>
+</ul>
+<p>Reproduced byte for byte, and it is <strong>engine-bound</strong>: on <code>gpt-4o-mini</code>
+  the same reproduction abstains 4 times out of 4; on <code>gpt-4.1</code> it commits
+  4 out of 4. On the same engine the ordinary path abstains, so the
+  asymmetry really is the quoted reading's, as reported.</p>
+<p><em>Two diagnoses were refused on measurement.</em> The reporter's — that
+  containment weakens as lines grow, since a long line supplies enough
+  vocabulary for any on-register sentence — does not apply here:
+  <code>coverage(answer, the named lines, question)</code> is <strong>1.0</strong>, because the
+  answer is a verbatim splice and containment is therefore satisfied by
+  construction at any line length. Ours — that the splice crossed two
+  named lines — shipped a guard that never fired: <strong>three of the six
+  retrieved candidates carried both clauses inside ONE line</strong>, because
+  that line was a window this layer had built. A window is neighbouring
+  sentences, so where two topics meet it holds the end of one and the
+  start of the next, and an answer can take a clause from each without
+  ever leaving its quote.</p>
+<p>So the quote is re-split into the sentences the document wrote, those
+  are folded into regions by the same word overlap the rest of the
+  evidence layer uses, and <strong>one region must carry the whole answer</strong>.
+  W166 keeps its permission wherever the lines are views of one passage;
+  what is refused is the JOIN of two passages — which is <code>table_windows</code>'
+  own law across two rows, one level up. No model call is added.</p>
+<ul>
+<li>
+<p><strong>Text this layer assembled is marked as assembled</strong> (W174, the premise
+  underneath). <code>table_windows</code>' fallback gatherings and the masthead were
+  going into the store <strong>without</strong> the derived mark, so every organ that
+  stands on "did the document write this, or did we" — the fusion region
+  cap, <code>_window_texts</code>, and now the quoted reading — was reasoning from a
+  false premise. A row stays the document's own; an assembly says it is
+  one. <code>evidence.table_windows</code> now returns <code>(text, assembled)</code> pairs.</p>
+</li>
+<li>
+<p><strong>A turn that abstained carried nothing, and says so</strong> (W173). A refusal
+  came back <code>covered=1.0</code> with <code>missing=()</code> — full coverage for an answer
+  that answered nothing. It happens when the refusal restates the
+  question: every demand is then present in the refusal's own words.
+  Measured on the reported sentence: <strong>1.00</strong> restating, <strong>0.00</strong> not
+  restating, <strong>0.25</strong> for a correct verbatim answer out of the document,
+  <strong>0.88</strong> for a fluent restatement. The count was rewarding saying the
+  question back, which W152 established is not a claim at all. The count
+  stays a count; the session's structural stamp now decides whether there
+  is anything to count.</p>
+</li>
+</ul>
+<h3 id="measured-including-the-price">Measured, including the price<a class="headerlink" href="#measured-including-the-price" title="Permanent link">&para;</a></h3>
+<p>On the fifteen-question document slice, 0.8.0 → 0.8.1:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>0.8.0</th>
+<th>0.8.1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>gold (six checkable)</td>
+<td>6/6</td>
+<td>6/6</td>
+</tr>
+<tr>
+<td>unsourced assertions</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>turns the quoted reading carried</td>
+<td>11/15</td>
+<td><strong>9/15</strong></td>
+</tr>
+<tr>
+<td>engine calls</td>
+<td>50</td>
+<td><strong>58</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The two turns the quoted reading gives up are <strong>still answered correctly</strong>
+by the ordinary path, so the price of closing this class is calls, not
+accuracy. Stated plainly because the trade is real: a caller whose cost of
+a wrong "yes" is low may prefer the old behaviour.</p>
+<h3 id="refuted-on-the-way-and-removed">Refuted on the way, and removed<a class="headerlink" href="#refuted-on-the-way-and-removed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A blunter first cut — let the quoted reading name only lines the
+  document itself wrote, never a window — closes the same failure and was
+  measured at <strong>1 of 15 carried and 96 calls</strong>, against 9 and 58 for the
+  rule that shipped. It was taken back out.</li>
+<li>Our own cross-line region guard, written before the mechanism was
+  understood, was measured redundant once the region reading moved inside
+  the quote, and deleted rather than left beside the rule that replaced
+  it.</li>
+</ul>
 <h2 id="080-2026-09-22">[0.8.0] — 2026-09-22<a class="headerlink" href="#080-2026-09-22" title="Permanent link">&para;</a></h2>
 <p>Four architectural readings, all of them structural: what a table's last
 column means, what a delimited row is, and twice over what it takes for a
@@ -863,7 +971,7 @@ sentence to count as an answer. Nothing here knows a word of any language.</p>
 <p>Measured: <strong>89 records</strong> recovered from this repository's own README
   alone, each under its column names, where before there were mixed
   windows.</p>
-<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>An index column points at a place, and a place is not a value</strong>
   (W168). Asked for a regulation's number, the memory answered <code>140</code>.
@@ -971,7 +1079,7 @@ time (<code>II-17.1</code>, <code>II-15.1</code>, <code>III-52.1</code>). The th
 does not answer — verified against the file, which never writes a fee, a
 duration or the chair's name — all abstain and all say so. 240/240.</p>
 <h2 id="0715-2026-09-22">[0.7.15] — 2026-09-22<a class="headerlink" href="#0715-2026-09-22" title="Permanent link">&para;</a></h2>
-<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>An inflection is not a claim, and its host says so</strong> (W167). Three
   of fifteen questions were refused by the quoted reading for saying
@@ -993,7 +1101,7 @@ duration or the chair's name — all abstain and all say so. 240/240.</p>
 <p>The quoted reading now carries <strong>10 of 15</strong> turns, up from 9. The
   other two refusals in that family stay refused, and correctly: the
   engine had answered with a table of contents PAGE number.</p>
-<h3 id="refuted-on-the-way-and-removed">Refuted on the way, and removed<a class="headerlink" href="#refuted-on-the-way-and-removed" title="Permanent link">&para;</a></h3>
+<h3 id="refuted-on-the-way-and-removed_1">Refuted on the way, and removed<a class="headerlink" href="#refuted-on-the-way-and-removed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>A first version learned the rule from the CORPUS — a fragment that
   never stands alone anywhere in the store is an inflection — which is
@@ -1163,7 +1271,7 @@ the gap it was.</p>
   door, cannot write memory, and a declarative handed to it names a
   subject.</li>
 </ul>
-<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_3">Fixed<a class="headerlink" href="#fixed_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The meaning channel's fusion obeys the region cap too</strong> (W162) —
   see 0.7.11 for the measurement and for what it is not.</li>
@@ -1177,7 +1285,7 @@ the gap it was.</p>
   refuted experiment is not diligence.</li>
 </ul>
 <h2 id="0711-2026-09-22">[0.7.11] — 2026-09-22<a class="headerlink" href="#0711-2026-09-22" title="Permanent link">&para;</a></h2>
-<h3 id="fixed_3">Fixed<a class="headerlink" href="#fixed_3" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_4">Fixed<a class="headerlink" href="#fixed_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The meaning channel's fusion obeys the region cap too</strong> (W162).
   <code>find</code> has always capped a region at two seats — one states, a second
@@ -1500,7 +1608,7 @@ the gap it was.</p>
   instead of a noisy 11x.</li>
 </ul>
 <h2 id="074-2026-09-22">[0.7.4] — 2026-09-22<a class="headerlink" href="#074-2026-09-22" title="Permanent link">&para;</a></h2>
-<h3 id="fixed_4">Fixed<a class="headerlink" href="#fixed_4" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_5">Fixed<a class="headerlink" href="#fixed_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A strict minority needs three regions to exist</strong> (W154). The
   reported "a second document destroys the correct answer" was real,
@@ -1548,7 +1656,7 @@ the gap it was.</p>
 </li>
 </ul>
 <h2 id="073-2026-09-22">[0.7.3] — 2026-09-22<a class="headerlink" href="#073-2026-09-22" title="Permanent link">&para;</a></h2>
-<h3 id="fixed_5">Fixed<a class="headerlink" href="#fixed_5" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_6">Fixed<a class="headerlink" href="#fixed_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Repeating the question is not a claim of its own</strong> (W152). The
   gate before the one 0.7.2 fixed, and the same reporter's corpus
@@ -1595,7 +1703,7 @@ strict containment, and the evidence index seats a passage as windows
 SLID by a sentence — each carries a few words of a neighbour, so none
 is a subset of another, nothing folded, and a correct sourced answer
 was still stamped <code>abstained=True</code>.</p>
-<h3 id="fixed_6">Fixed<a class="headerlink" href="#fixed_6" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_7">Fixed<a class="headerlink" href="#fixed_7" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Sliding windows of one passage are one attestation</strong> (W148, second
   cut). The fold now asks <code>evidence._same_region</code> — the question this
@@ -1630,7 +1738,7 @@ was still stamped <code>abstained=True</code>.</p>
 <p>Five findings from somebody integrating 0.7.0 against two real tender
 documents — the kind of report that only comes from outside. Two of
 them inverted this project's central promise, and both are closed.</p>
-<h3 id="fixed_7">Fixed<a class="headerlink" href="#fixed_7" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_8">Fixed<a class="headerlink" href="#fixed_8" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>A correct, sourced answer could be stamped <code>abstained=True</code></strong>
@@ -1757,7 +1865,7 @@ undated stores. Invariants 211 → <strong>218</strong>.</p>
   answer correctly, stamped.</p>
 </li>
 </ul>
-<h3 id="fixed_8">Fixed<a class="headerlink" href="#fixed_8" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_9">Fixed<a class="headerlink" href="#fixed_9" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>A list is not the name of one thing</strong> (W144). The distiller offered
@@ -1811,7 +1919,7 @@ which is the only place this kind of thing is ever found. Two reproduce
 and one was worse than described; the third does not reproduce. A
 fourth was found by re-running the exam afterwards and is a cost of
 0.6.3's own change.</p>
-<h3 id="fixed_9">Fixed<a class="headerlink" href="#fixed_9" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_10">Fixed<a class="headerlink" href="#fixed_10" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>An underscore is a space that survived a filename</strong> (W138). <code>\w</code>
@@ -1882,7 +1990,7 @@ it is the most useful thing this release found.</p>
   trying.</strong> Scoping the composer to a community's documents returned one
   course's outline, not the shared subject. <code>themes()</code> is a structural
   reading and claims nothing more.</p>
-<h3 id="fixed_10">Fixed<a class="headerlink" href="#fixed_10" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_11">Fixed<a class="headerlink" href="#fixed_11" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>Two events told the same day are not ordered by the clock</strong> (W134).
@@ -1918,7 +2026,7 @@ in different words each time, and the list comes back short.</p>
 <p>Found by tracing one failing turn end to end instead of guessing at it.
 Every step before the last was right, and the last one threw the answer
 away.</p>
-<h3 id="fixed_11">Fixed<a class="headerlink" href="#fixed_11" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_12">Fixed<a class="headerlink" href="#fixed_12" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>A field is its words, not its capitalisation</strong> (W132). One document
@@ -1963,7 +2071,7 @@ reader asks, with the gold answers extracted FROM the documents rather
 than written by hand. Field questions — the most basic thing this
 library does — were answered 8 times in 20. They are now answered 20
 in 20, and two of the three causes were ours for years.</p>
-<h3 id="fixed_12">Fixed<a class="headerlink" href="#fixed_12" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_13">Fixed<a class="headerlink" href="#fixed_13" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A word folded from capitals now reaches the same key as from lower
   case</strong> (W131). <code>casefold</code> is not idempotent across case for every
@@ -2012,7 +2120,7 @@ in 20, and two of the three causes were ours for years.</p>
 <h2 id="061-2026-09-13">[0.6.1] — 2026-09-13<a class="headerlink" href="#061-2026-09-13" title="Permanent link">&para;</a></h2>
 <p>Two defects found while testing 0.6.0 the way a user would — installed
 from PyPI, against a hundred real documents.</p>
-<h3 id="fixed_13">Fixed<a class="headerlink" href="#fixed_13" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_14">Fixed<a class="headerlink" href="#fixed_14" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>The reordering is given something to reorder</strong> (W127). The proposal
@@ -2136,7 +2244,7 @@ repository; none of it is an estimate.</p>
 <p><code>learn()</code> lost its <code>expand=</code> argument, and <code>Learned</code> its <code>expanded</code> count.</p>
 </li>
 </ul>
-<h3 id="fixed_14">Fixed<a class="headerlink" href="#fixed_14" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_15">Fixed<a class="headerlink" href="#fixed_15" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>The memory answers the identity question it was asked</strong> (W120). Asked
@@ -2264,7 +2372,7 @@ hand-written language rules) held through all of it.</p>
   classifier is not a licence to reroute sixteen.</p>
 </li>
 </ul>
-<h3 id="fixed_15">Fixed<a class="headerlink" href="#fixed_15" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_16">Fixed<a class="headerlink" href="#fixed_16" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>No apparatus of ours can be spoken.</strong> Asked which documents state a
   field, the memory answered "K1, K2, K3, K4" — reciting the labels this
@@ -2362,7 +2470,7 @@ would have had to give up to buy the same abilities from an embedding.</p>
   can answer: a head that opens a hundredth of the units is a field, one
   that opens three lines of a novel is a colon.</li>
 </ul>
-<h3 id="fixed_16">Fixed<a class="headerlink" href="#fixed_16" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_17">Fixed<a class="headerlink" href="#fixed_17" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A row is reachable by the name a question uses.</strong> A spreadsheet
   writes people as "Taylor, Mr. Elmer Zebley" and a question arrives as
@@ -2426,7 +2534,7 @@ generated specifications (50 q): <strong>25/25 · 25/25</strong>. NIST 11/13, EN
   twelve — the cause was the naming underneath it, and a bullet being
   read as part of a head, both fixed here.</li>
 </ul>
-<h3 id="fixed_17">Fixed<a class="headerlink" href="#fixed_17" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_18">Fixed<a class="headerlink" href="#fixed_18" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A value belongs to the field it was written under.</strong> A
   specification carrying MEMORY: 128 GB and no STORAGE line was asked
@@ -2460,7 +2568,7 @@ hardware specifications the system had never seen (19 q): 8/8, 4/4, 3/3,
 4/4 — a complete card on a corpus with no adaptation. 1,000 generated
 specifications (50 q): factual 25/25, traps 23/25. NIST 11/13 and EN
 17/17 unchanged; 148 invariants.</p>
-<h3 id="fixed_18">Fixed<a class="headerlink" href="#fixed_18" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_19">Fixed<a class="headerlink" href="#fixed_19" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The extremes of a field are the corpus's, not the block's.</strong> The
   first measurement above sixty documents found the worst kind of bug
@@ -2557,7 +2665,7 @@ comparisons 12/15. NIST 11/13 and EN 17/17 unchanged; 142 invariants.</p>
   server and checks across the two languages that what one user teaches,
   another cannot read.</li>
 </ul>
-<h3 id="fixed_19">Fixed<a class="headerlink" href="#fixed_19" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_20">Fixed<a class="headerlink" href="#fixed_20" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>A refusal is spoken in the language it was asked in.</strong> Hidden behind
   a Turkish corpus: six English questions with no answer in the store
@@ -2605,7 +2713,7 @@ grew up. Measured on a 73-question field set (40 factual, 15
 comparisons, 10 traps, 8 frontier), three runs, medians: comparisons
 8/15 → 13/15, factual 37/40 → 38/40, traps 10/10 throughout. NIST
 11/13 and EN 17/17 unchanged; 130 invariants.</p>
-<h3 id="fixed_20">Fixed<a class="headerlink" href="#fixed_20" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_21">Fixed<a class="headerlink" href="#fixed_21" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>In a comparison, two sources saying the same thing say it twice.</strong>
   Sibling documents share a template, so two items of equal value write
@@ -2643,7 +2751,7 @@ and a head-to-head benchmark against LangChain, LlamaIndex and Mem0 —
 with every finding, ours included, fixed architecturally or filed
 openly. Published numbers re-measured unchanged after every batch
 (NIST 11/13, EN 17/17; 124 invariants, W27-W42).</p>
-<h3 id="fixed_21">Fixed<a class="headerlink" href="#fixed_21" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_22">Fixed<a class="headerlink" href="#fixed_22" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>One-row Word tables are fact boxes, and fact boxes are prose.</strong> The
   docx reader dropped single-row grids whole (no header row to read),
@@ -2733,7 +2841,7 @@ invariants, W14–W26).</p>
   format, not a quantity — the digit gate no longer kills the engine's own
   section numbering.</li>
 </ul>
-<h3 id="fixed_22">Fixed<a class="headerlink" href="#fixed_22" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_23">Fixed<a class="headerlink" href="#fixed_23" title="Permanent link">&para;</a></h3>
 <ul>
 <li>A context statement in a no-teach conversation no longer falls through to
   the question treatment (it used to end in a refusal wearing the
@@ -2775,7 +2883,7 @@ EN corpus 17/17).</p>
   not a lesson, however imperative its grammar. Teaching stays on
   <code>Session.respond</code>, deliberately.</li>
 </ul>
-<h3 id="fixed_23">Fixed<a class="headerlink" href="#fixed_23" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_24">Fixed<a class="headerlink" href="#fixed_24" title="Permanent link">&para;</a></h3>
 <ul>
 <li>The abstention stamp is read off the evidence, not asked of a model — a
   full correct answer was being recorded as a refusal when the re-extractor
