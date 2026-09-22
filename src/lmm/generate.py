@@ -60,7 +60,8 @@ def answer(question, facts_block, warmth=0.2, persona="", max_tokens=None,
     the table and the user got nothing. Naming the field as the documents
     name it is the difference between an attested sentence and a silence.
     """
-    system = prompts.ANSWER_SYSTEM
+    # the clauses these FACTS exercise, and not the rest (W165)
+    system = prompts.answer_system(facts_block)
     if keep_digits:
         # A DERIVED ROW IS SPOKEN, NOT RE-COMPUTED (W101). The caller
         # has already done the arithmetic and will verify that every
@@ -222,8 +223,14 @@ def supported(answer, block):
     and is non-negotiable; this only judges word-level residue. Strict: when in
     doubt, no → the answer drops (false-negative is safe, false-positive is
     dangerous)."""
+    # THE DISCIPLINES THIS EVIDENCE EXERCISES, AND NOT THE REST (W165).
+    # Measured against the engine: the whole prompt is 1,256 prompt
+    # tokens on every read-back, and on five real blocks from a legal
+    # guide four of its six conditional disciplines were needed zero
+    # times. A shape in the block brings its discipline with it; with
+    # no block in hand the whole prompt travels, as it always did.
     out = runtime.generate(f"EVIDENCE:\n{block}\n\nCLAIM: {answer}",
-                           system=prompts.SUPPORT_SYSTEM, max_tokens=4,
+                           system=prompts.support_system(block), max_tokens=4,
                            temperature=0.0, small=True)
     return out.strip().lower().startswith("yes")
 

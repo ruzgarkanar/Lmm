@@ -1001,7 +1001,13 @@ def h5():
         claim = "Raporu Nordheim Kayıt Bürosu hazırlamıştır."
         assert generate.supported(claim, block) is False
         system, user = seen[-1]
-        assert system == prompts.SUPPORT_SYSTEM
+        # WHICH CHECKER RAN, not which bytes it sent: the support prompt
+        # is assembled from the disciplines the evidence exercises
+        # (W165), so it opens with the core and carries only what this
+        # block brought. The invariant here is that this is the SUPPORT
+        # checker and not the relation one.
+        assert system.startswith(prompts.SUPPORT_CORE), system[:60]
+        assert system != prompts.RELATION_SYSTEM
         assert "QUESTION" not in user, user      # the claim is judged alone
         assert generate.answers_asked("Raporu kim imzalamıştır", claim,
                                       block) is False
@@ -6209,6 +6215,59 @@ def w150():
         assert reported == declared, (
             "the installed package reports %r, the build declares %r"
             % (reported, declared))
+
+
+@test("W165 a discipline travels with the shape that needs it")
+def w165():
+    """The fact checker's prompt is 4,643 characters — 1,256 prompt
+    tokens, measured against the engine — and it was sent whole on
+    every turn. Most of it is conditional: a record-row discipline, a
+    tally discipline, a comparison verdict, an extremes row, a
+    dateline, spec notation. Each was added because a measured failure
+    demanded it, and each is about a SHAPE the evidence may or may not
+    carry. On five real blocks from a 355-page legal guide, four of the
+    six conditional disciplines were needed ZERO times.
+
+    So the prompt is assembled from the clauses the evidence exercises.
+    Nothing is cut and nothing is softened — a shape that appears in
+    the block brings its discipline with it — and the reading is
+    structural, because the store writes these shapes itself and can
+    see them without a model.
+
+    Two guarantees hold it in place: with NO evidence in hand every
+    discipline travels (what every caller got before this existed), and
+    the assembled prompt never contains a clause its shape did not
+    bring."""
+    from lmm import prompts
+
+    whole = prompts.support_system()
+    assert whole == prompts.SUPPORT_SYSTEM, "the blind caller lost a clause"
+
+    plain = prompts.support_system("Die Loesung erkennt Vorgaenge "
+                                   "automatisiert und sicher.")
+    assert len(plain) < len(whole) / 2, (len(plain), len(whole))
+    for absent in (prompts.SUPPORT_ROW, prompts.SUPPORT_TALLY,
+                   prompts.SUPPORT_COMPARE, prompts.SUPPORT_EXTREMES,
+                   prompts.SUPPORT_NOTATION, prompts.SUPPORT_ORDINALS):
+        assert absent not in plain, absent[:40]
+    # the core and its always-on disciplines are never dropped
+    for kept in (prompts.SUPPORT_CORE, prompts.SUPPORT_ATTRIBUTE,
+                 prompts.SUPPORT_COMBINE, prompts.SUPPORT_UNSURE):
+        assert kept in plain, kept[:40]
+
+    # ...and each shape brings its own discipline back
+    rows = prompts.support_system("SEAT COUNT: 18 people.")
+    assert prompts.SUPPORT_ROW in rows and prompts.SUPPORT_ORDINALS in rows
+    tally = prompts.support_system("Alpha \u00d712 \u00b7 Beta \u00d75")
+    assert prompts.SUPPORT_TALLY in tally
+    compare = prompts.support_system(
+        "LENGTH \u2014 Alpha: 2 days = Beta: 2 days")
+    assert prompts.SUPPORT_COMPARE in compare
+    assert prompts.SUPPORT_DATELINE in compare      # the em dash, too
+    ends = prompts.support_system("LENGTH \u2014 largest: Alpha: 5 days")
+    assert prompts.SUPPORT_EXTREMES in ends
+    spec = prompts.support_system("Vantrek KX-9 operating 8 \u00b0 C ~ + 32\u00b0 C")
+    assert prompts.SUPPORT_NOTATION in spec
 
 
 @test("W164 on the question door, a statement is the question")
