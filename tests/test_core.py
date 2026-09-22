@@ -6191,6 +6191,66 @@ def w150():
             % (reported, declared))
 
 
+@test("W154 a minority needs three regions to exist")
+def w154():
+    """Found from outside, with a synthetic eight-sentence store and no
+    real document at all — and the mechanism was not where either of us
+    had been looking. The reporter's A/B was "one document answers,
+    two documents refuse", so both of us hunted a lost SEAT; three
+    synthetic reproductions of that failed. What actually changed
+    between the two runs was the number of REGIONS the proof folds to:
+    one, and then two.
+
+    At exactly two regions the load-bearing test is unsatisfiable.
+    `half` is 1.0, and a word must hold `holders >= 1` (it is in the
+    proof at all) AND `holders < 1.0` (it is in a minority of regions)
+    — no word can do both, so nothing is load-bearing, and every
+    answer without a digit in it is stamped an abstention. A dead band
+    of exactly one width, which is why a second document looked like
+    the cause: going from one region to two is the only way in.
+
+    The boundary itself is right — register is what the proof
+    BLANKETS, content sits in a minority — but a STRICT minority needs
+    at least three regions to exist. With two, every word present is
+    in one or both, and neither is a minority of two: there is no
+    register to subtract, exactly as with one region, and the reading
+    defers to coverage as it did before W97.
+
+    The reporter proposed `<=` instead. Measured on W97's own fixture,
+    that breaks it: four regions, `half` 2.0, and "have" and
+    "information" (2 of 4 lines each) become load-bearing, so an
+    honest refusal is stamped an assertion — the very thing W97
+    exists to prevent. The population bound leaves every three-region
+    and four-region case byte for byte as it was."""
+    from lmm.session import Session
+
+    s = Session(None, dense=False)
+    # two independent regions, and an answer with no digit in it
+    proof = ["Der Freigabeprozess sichert das Zwoelf-Augen-Prinzip.",
+             "Das Dashboard zeigt alle offenen Vorgaenge im Ueberblick."]
+    s._last_proof = proof
+    s._origin_of = {proof[0]: "#doc:a", proof[1]: "#doc:b"}
+    assert len(s._regions_of(proof)) == 2, s._regions_of(proof)
+    said = ("Ja, der Freigabeprozess sichert das Zwoelf-Augen-Prinzip "
+            "im Dashboard.")
+    assert s._asserted_a_fact(said), (
+        "at two regions nothing could be load-bearing, and a correct "
+        "answer was stamped an abstention")
+
+    # ...and W97's own ground is untouched: at four regions a refusal
+    # that speaks the proof's register still claims nothing
+    chatty = ["User: I have that information about the gala somewhere.",
+              "User: yes I do have the March schedule with me.",
+              "User: that information came from the parish letter.",
+              "User: I think the gala is on March 22, that is the plan."]
+    s2 = Session(None, dense=False)
+    s2._last_proof = chatty
+    s2._origin_of = {line: "#chat:%d" % i for i, line in enumerate(chatty)}
+    assert len(s2._regions_of(chatty)) == 4, s2._regions_of(chatty)
+    assert not s2._asserted_a_fact("I don't have that information yet."), (
+        "the majority boundary moved and a refusal became an assertion")
+
+
 @test("W152 repeating the question is not a claim of its own")
 def w152():
     """Field report, 3/3 reproducible, and it is the gate BEFORE the one

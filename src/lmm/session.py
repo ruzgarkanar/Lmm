@@ -947,11 +947,29 @@ class Session:
             half = len(per_line) / 2
 
             def _load_bearing_words(sentence):
-                # a population of one has no register to subtract: with
-                # a single proof line, blanket and content are the same
-                # set, and the reading defers to coverage as it always
-                # did (W5's standing cases)
-                if len(per_line) < 2:
+                # A STRICT MINORITY NEEDS THREE REGIONS TO EXIST (W154).
+                # A population of ONE has no register to subtract —
+                # blanket and content are the same set — and the
+                # reading defers to coverage as it always did (W5's
+                # standing cases). A population of TWO is the same fact
+                # one step up, and the arithmetic says so plainly: with
+                # two regions `half` is 1.0, a word must hold
+                # `holders >= 1` to be in the proof at all and
+                # `holders < 1.0` to be in a minority of it, and no
+                # word can do both. A dead band exactly one width
+                # wide, in which nothing without a digit could ever be
+                # load-bearing — found from outside as "a second
+                # document refuses what one document answered", because
+                # going from one region to two is the only way into it.
+                #
+                # The boundary itself stands: register is what the
+                # proof BLANKETS. Widening it to `holders <= half`
+                # instead was measured on W97's own fixture and breaks
+                # it — four regions, and words in two of them become
+                # load-bearing, so an honest refusal is stamped an
+                # assertion. The population bound leaves every
+                # three-region and four-region proof byte for byte.
+                if len(per_line) < 3:
                     return True
                 for w in evidence._words(sentence):
                     holders = sum(1 for held in per_line if any(

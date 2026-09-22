@@ -4,6 +4,55 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.4] — 2026-09-22
+
+### Fixed
+
+- **A strict minority needs three regions to exist** (W154). The
+  reported "a second document destroys the correct answer" was real,
+  and the mechanism was in neither place we looked. Both of us hunted
+  a lost SEAT — three synthetic reproductions of that failed. What
+  changed between the reporter's two runs was the number of REGIONS
+  the proof folds to: one, then two.
+
+  At exactly two regions the load-bearing test is unsatisfiable.
+  `half` is 1.0, and a word must hold `holders >= 1` to be in the
+  proof at all and `holders < 1.0` to be in a minority of it. No word
+  can do both, so nothing without a digit in it could ever be
+  load-bearing and every such answer was stamped an abstention — a
+  dead band exactly one width wide, entered only by going from one
+  region to two, which is why a second document looked like the
+  cause.
+
+  The boundary stands: register is what the proof BLANKETS. But a
+  strict minority needs three regions to exist — with two, every word
+  present is in one or both and neither is a minority, so there is no
+  register to subtract and the reading defers to coverage, exactly as
+  it already did with one region.
+
+  The report proposed widening the comparison to `holders <= half`
+  instead. Measured on W97's own fixture, that breaks it: at four
+  regions "have" and "information" (two lines each) become
+  load-bearing and an honest refusal is stamped an assertion — the
+  thing W97 exists to prevent. The population bound leaves every
+  three- and four-region proof byte for byte as it was.
+
+### Still open
+
+- Seat displacement in a multi-source store: at `most=6`, a second
+  document's line can take the seat of a lower-ranked line from the
+  document that holds the answer (at `most=10` the two orders agree).
+  Reported with data. It may no longer be reachable end to end now
+  that the dead band above is gone — the same report shows the rescue
+  pass finding the target line and the turn refusing anyway, which is
+  what that dead band did — so it is measured again before the
+  seating rules, whose monopoly behaviour was measured on 62 sibling
+  documents, are touched.
+
+- A refusal came back in mixed language ("Ich do not know.", route
+  `('chain', 'widened')`). The answer path, not `_refuse`, so the
+  language match that refusals get never ran.
+
 ## [0.7.3] — 2026-09-22
 
 ### Fixed
