@@ -6233,6 +6233,56 @@ def w148():
     assert not s._asserted_a_fact("I do not have that information."), (
         "a refusal was read as an assertion")
 
+    # THE REPORTER'S ACTUAL PROOF, and the reason the first cut of this
+    # fix was not enough: the index seats a passage as SLIDING windows
+    # at several scales. They overlap heavily, but each carries a few
+    # words of a neighbouring sentence, so NONE is a subset of another
+    # — containment alone folded nothing and the answer was still
+    # stamped an abstention. Two views of one region is a question this
+    # codebase already had an organ for (`evidence._same_region`:
+    # majority by Jaccard or by containment ratio), and the folding
+    # must be transitive, because three windows of one passage are one
+    # attestation, not two.
+    from lmm import evidence
+    lines = [
+        "The platform logs every request for audit.",
+        "The Alpha Validator uses the interfaces Vexi, Bornt and Finqol.",
+        "Results are cached for one working day.",
+        "Batch checks are available for large registers.",
+    ]
+    # one scale, slid by one sentence: heavy overlap, no containment —
+    # exactly the shape the report measured
+    windows = [" ".join(lines[i:i + 3]) for i in range(len(lines) - 2)]
+    windows += ["Support is offered on weekdays for every module.",
+                "Invoices are archived for ten years by default."]
+    word_sets = [set(evidence._words(w)) for w in windows]
+    assert not any(a < b for i, a in enumerate(word_sets)
+                   for j, b in enumerate(word_sets) if i != j), (
+        "the fixture is not the reported case: a window contains another")
+    s2 = Session(None, dense=False)
+    s2._last_proof = windows
+    s2._origin_of = {w: "#doc:alpha" for w in windows}
+    assert s2._asserted_a_fact(said), (
+        "sliding windows of one passage were read as independent "
+        "attestations, and a correct answer was stamped an abstention")
+
+    # ...AND THE FOLDING STOPS AT THE SOURCE (W39's law, kept). Two
+    # sibling documents sharing a template line read as one region on
+    # words alone; folding them would erase the independence W39 exists
+    # to protect, so lines from different sources never merge.
+    twins = ["The Alpha course runs for two full days in Berlin.",
+             "The Beta seminar runs for two full days in Berlin."]
+    s3 = Session(None, dense=False)
+    s3._last_proof = twins
+    s3._origin_of = {twins[0]: "#doc:alpha", twins[1]: "#doc:beta"}
+    folded = s3._regions_of(twins)
+    assert len(folded) == 2, (
+        "sibling documents were folded into one attestation: %d region(s)"
+        % len(folded))
+    s3._origin_of = {t: "#doc:alpha" for t in twins}
+    assert len(s3._regions_of(twins)) == 1, (
+        "two windows of one document did not fold")
+
 
 @test("W149 a fallen engine is not an honest abstention")
 def w149():
