@@ -349,6 +349,53 @@ def digits_present(answer, block):
     return all(t in block_digits for t in _tokens(answer) if t.isdigit())
 
 
+def demands(question):
+    """What a question ASKS FOR, as the store can read it: its content
+    words, in order, without repeats (W156).
+
+    A question naming six things demands six things, and whether an
+    answer carried them is a COUNT rather than an opinion — which is
+    the whole point. An engine asked "how complete is this answer?"
+    was measured taking a 79.5% strict score to 38.6%, because a model
+    shown six retrieved windows and asked what is missing will always
+    find something.
+
+    THE DEMANDS ARE ALL THE CONTENT WORDS, and deliberately not a
+    cleverer subset. Two cleverer subsets were measured and refused:
+    dropping words the store carries often kept the modal ("shall")
+    and dropped a real demand ("material classification") for the
+    crime of being written down; and a corpus-relative median cuts at
+    a place that has nothing to do with what was asked. There is no
+    stopword list here and there will not be one — so a question's
+    quieter words ride along in the denominator, the same way in every
+    question, which leaves the measure comparable where it is used:
+    one question against another, one supplier against the next."""
+    out, seen = [], set()
+    for word in _words(question):
+        if word not in seen:
+            seen.add(word)
+            out.append(word)
+    return tuple(out)
+
+
+def carried(answer, question):
+    """Of a question's demands, those the answer carries and those it
+    does not — `(covered, missing)`, inflection-tolerant (W156).
+
+    The mirror of `coverage`: that one measures how much of the ANSWER
+    the proof supports, this one how much of the QUESTION the answer
+    reached. Same word machinery, same stem reading, no model call and
+    nothing here can fabricate — it only counts.
+    """
+    wanted = demands(question)
+    if not wanted:
+        return 1.0, ()
+    held = set(_words(answer))
+    missing = tuple(w for w in wanted
+                    if not any(inflect.same_stem(w, h) for h in held))
+    return (len(wanted) - len(missing)) / len(wanted), missing
+
+
 def coverage(answer, block, question=""):
     """WHAT FRACTION of the answer's content-words comes from the given block
     (+question) — the ratio form of `covered`, digits aside.

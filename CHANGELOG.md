@@ -4,6 +4,78 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.5] — 2026-09-22
+
+### Added
+
+- **`Answer.covered` and `Answer.missing`** (W156) — how much of the
+  question the answer carried, and which of its demands it did not.
+  `abstained` is binary, and an integration measuring 44
+  supplier/requirement cells hit a structural ceiling on it: three of
+  its gold cells are PARTLY covered and no configuration could emit
+  that.
+
+  The obvious repair was measured by the reporter and thrown away:
+  asking the engine to grade completeness over the proof lines took a
+  79.5% strict score to 38.6%, because a model shown six retrieved
+  windows and asked "how complete is this?" always finds something
+  missing. What ships instead is a COUNT, not a judgement — the same
+  instrument as `evidence.coverage` pointed the other way, engine-free
+  and unable to fabricate, in the same class as `where()` and
+  `themes()`.
+
+  The demands are the question's content words, and deliberately not a
+  cleverer subset: two cleverer subsets were built and measured here —
+  dropping what the store carries often kept the modal ("shall") and
+  dropped a real demand ("material classification") for the crime of
+  being written down, and a corpus-relative median cuts where nothing
+  was asked. There is no stopword list in this codebase and there will
+  not be one, so a question's quieter words ride along in the
+  denominator the same way in every question, which is what leaves the
+  measure comparable — one question against another, one supplier
+  against the next.
+
+  Three grades ("fully / partly / not covered") are NOT shipped: that
+  is a procurement vocabulary, not a memory concept, and a library
+  that learns one customer's matrix stops being a library. The
+  measurement is the library's; the grades are the caller's.
+
+### Open, with the reasoning
+
+- **A refusal sentence can be stamped as an assertion** — reported
+  from the same integration, two cells of 44, stable. A short refusal
+  restates the question, W152 correctly subtracts the question's own
+  words, and what remains is the refusal's register ("specific",
+  "information", "have"), which an English business document carries.
+  Reproduced here.
+
+  Two repairs were built and refused. **Togetherness** — a claim
+  quotes one region, a refusal gathers words from several (W135's
+  doctrine) — measured backwards: True for both refusals, False for
+  W97's genuine claim. **Store frequency**, the reporter's own
+  suggestion, is the right instrument and has no boundary that is not
+  a dial: their own table puts "and" at 48% of sentences, under the
+  majority this codebase uses everywhere, and a corpus-relative median
+  was measured cutting the wrong words.
+
+  It also runs with the grain of a deliberate choice: this reading
+  "errs towards ASSERTED", because claiming an abstention that did not
+  happen is the damaging direction. The reporter measured the obvious
+  guard (require a source stamp) at net zero — two false-covered
+  removed, two true positives lost. So it waits on the chat slice
+  being measurable again rather than on another idea.
+
+### Measurement
+
+- The ingestion-shape test (E5) was measuring the machine's mood. Its
+  timed loop runs in single-digit milliseconds at the small size, and
+  it was caught FAILING on a tree whose ingestion had got faster — the
+  small run sped up more than the large one and the quotient rose
+  past the bound. It now collects the garbage of two hundred earlier
+  tests first and takes the best of three runs at each size; the bound
+  did not move, and the shape it reports is 5.8x for 5x the data
+  instead of a noisy 11x.
+
 ## [0.7.4] — 2026-09-22
 
 ### Fixed

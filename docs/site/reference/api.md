@@ -177,11 +177,26 @@ turn knows about itself:
 | attribute | meaning |
 |---|---|
 | `.abstained` | did this turn assert anything — the structural stamp, in any language |
+| `.covered` | of the question's demands (its content words), the share this answer carries — a count, no model call, nothing it can fabricate |
+| `.missing` | the demands the answer did not carry: what to ask about next |
 | `.engine_error` | **why** it abstained, when the reason was not the memory: `True` only when the engine could not be reached at all. An abstention with this `False` is the store's own honest "I do not hold that"; with it `True`, nothing was asked of the store at all — retry or alert, do not record a capability as absent |
 | `.sources` | the provenance stamps the answer rests on |
 | `.subject` | the subject label the turn was about |
 | `.from_graph` | answered by the graph alone (zero model calls) |
 | `.route` | which organs the turn passed through, in order — `("record",)`, `("chain", "refuse", "count")`, `("plan",)`, and `("engine-error",)` when the engine fell |
+
+A question that asks for several things gets a partial reading for free —
+`abstained` says whether anything was found, `covered` says how much, and
+`missing` says what to ask about next. A caller with grades of its own
+builds them from these; the library ships the measurement, not a
+vocabulary:
+
+```python
+a = m.ask("Does it consider country of departure, destination, VAT ID "
+          "and transport responsibility?", explain=True)
+a.covered      # 0.78
+a.missing      # ('transport', 'responsibility')
+```
 
 ```python
 a = m.ask("which interfaces does the validator use?", explain=True)

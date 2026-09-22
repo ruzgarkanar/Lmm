@@ -61,11 +61,11 @@ class Answer(str):
     """
 
     __slots__ = ("abstained", "sources", "subject", "kind", "wrote", "route",
-                 "from_graph", "engine_error")
+                 "from_graph", "engine_error", "covered", "missing")
 
     def __new__(cls, text, *, abstained=False, sources=(), subject="",
                 kind="", wrote=(), from_graph=False, route=(),
-                engine_error=False):
+                engine_error=False, covered=0.0, missing=()):
         self = super().__new__(cls, text)
         self.abstained = bool(abstained)
         # WHY IT ABSTAINED, WHEN THE REASON WAS NOT THE MEMORY (W149).
@@ -76,6 +76,15 @@ class Answer(str):
         # absent. `engine_error` is True only when the engine failed;
         # an abstention with it False is the memory's own, as before.
         self.engine_error = bool(engine_error)
+        # HOW MUCH OF THE QUESTION THIS ANSWER CARRIED (W156), and what
+        # it did not — a count over the question's own words, engine-free
+        # and unable to fabricate. `abstained` says whether anything was
+        # found; these two say how much, and what to ask about next. A
+        # caller with grades of its own ("fully / partly / not covered")
+        # builds them from this; the library ships the measurement, not
+        # somebody's vocabulary.
+        self.covered = float(covered)
+        self.missing = tuple(missing)
         # THE ROUTE — which organs the turn consulted, in order (W86):
         # ("record",) for a row read with no model call, ("chain",
         # "refuse", "count") for a rescued count. The orchestration was
@@ -585,7 +594,7 @@ class Memory:
             kept = self._cache.get(key)
             if kept is not None and kept[0] == before:
                 said = self._replay(question, kept[1])
-                return self._told(said) if explain else said
+                return self._told(said, question) if explain else said
         # teach=False: a question API cannot write memory — an imperative
         # brief ("draft a programme...") is a request here, never a lesson
         # THE QUESTION DOOR DOES NOT GAMBLE ON A CHAT. `ask` is asked a
@@ -612,7 +621,7 @@ class Memory:
                 session.last_subject, session.last_kind))
             while len(self._cache) > self.CACHE_KEEP:
                 del self._cache[next(iter(self._cache))]
-        return self._told(said) if explain else said
+        return self._told(said, question) if explain else said
 
     def _replay(self, question, kept):
         """Re-speak a kept answer, and leave the session saying about this turn
@@ -643,13 +652,17 @@ class Memory:
         session.history = session.history[-12:]
         return said
 
-    def _told(self, said):
+    def _told(self, said, asked=""):
         """What this turn knows about itself, read off the session."""
+        from lmm import evidence as _ev                   # noqa: PLC0415
         session = self.session
+        covered, missing = _ev.carried(said, asked) if asked else (0.0, ())
         return Answer(
             said,
             abstained=session.last_abstained,
             engine_error=getattr(session, "last_engine_error", False),
+            covered=covered,
+            missing=missing,
             from_graph=session.last_from_graph,
             # THE MARK HAS A SHAPE, so it is read as one. Splitting the
             # answer on whitespace and keeping the words that start with
