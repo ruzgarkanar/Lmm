@@ -585,12 +585,25 @@ class Session:
             words = self._store_words(message)
             if words:
                 self._rescue_pass = True
+                mark = getattr(self, "_refusals", 0)
                 try:
                     again = self._answer(message, self.last_subject or "",
                                          widen=words)
                 finally:
                     self._rescue_pass = False
-                if again:
+                # A PASS THAT REFUSED DID NOT ANSWER (W171). Measured on
+                # the live slice: two turns of fifteen came back "Bu
+                # konuda henüz bir bilgim yok." stamped an assertion, on
+                # the route `chain · refuse · refuse · widened` — the
+                # rescue abstained, then handed its own refusal SENTENCE
+                # to the word reading and was told it was a claim. Every
+                # refusal here leaves by one door precisely so the
+                # abstention is a fact on the object; this site was
+                # reading the words instead. The structural stamp
+                # outranks the textual guess, and the guess is not even
+                # asked when the door has been used.
+                refused = getattr(self, "_refusals", 0) != mark
+                if again and not refused:
                     self._step("widened")
                     spoken = self._strip_marks(again)
                     if spoken and self._asserted_a_fact(again, message):
@@ -1050,6 +1063,14 @@ class Session:
         """
         self._step("refuse")
         self.last_abstained = True
+        # HOW MANY TIMES THIS TURN LEFT BY THIS DOOR (W171). A pass that
+        # refused did not answer, and a caller that wraps another pass —
+        # the widened rescue — must read that as the FACT it is rather
+        # than re-reading the refusal's own sentence for claims. The flag
+        # above cannot say it: the rescue only runs on a turn that has
+        # already abstained, so `last_abstained` is True on both sides of
+        # the call. A count moves.
+        self._refusals = getattr(self, "_refusals", 0) + 1
         return (generate.refusal(message,
                                  **self._voice(persona=self.persona))
                 or FALLBACK_DONT_KNOW)
