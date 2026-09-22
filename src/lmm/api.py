@@ -554,7 +554,7 @@ class Memory:
 
     # ------------------------------------------------------------------ ask
 
-    def ask(self, question, explain=False, fluent=False):
+    def ask(self, question, explain=False, fluent=False, shape=None):
         """Ask a question. Returns the answer — or an honest refusal.
 
         With `explain=True` the return additionally carries what the turn knows
@@ -601,8 +601,15 @@ class Memory:
         # question by contract, so the conversational speculation — which
         # buys latency in a consultation and is discarded here — is not
         # placed. Measured: one full chat completion per question.
-        said = session.respond(question, fluent=fluent, teach=False,
-                               conversational=False) or ""
+        # THE CALLER'S DECLARED KIND RIDES ON THE SESSION FOR THIS TURN
+        # ONLY (W157) — seated before the door, cleared after it, so a
+        # batch's declaration cannot leak into a later ordinary turn.
+        session.declared_shape = shape
+        try:
+            said = session.respond(question, fluent=fluent, teach=False,
+                                   conversational=False) or ""
+        finally:
+            session.declared_shape = None
         # WHICH TURNS MAY BE KEPT, and it is the narrow set. A turn that WROTE
         # is not a repeat of itself — asking it again re-enters the gate. A
         # turn that left a research offer outstanding means "shall I?", and

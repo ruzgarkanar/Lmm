@@ -169,6 +169,10 @@ class Session:
         if self.memory.self_key is None:
             self.memory.self_key = self.memory.identify("#self")
         self._told_identity = identity
+        # THE TURN'S KIND: read once per turn (`_turn_shape`), or handed
+        # over by a caller that already knows it (`declared_shape`, W157).
+        self._shape_cache = None
+        self.declared_shape = None
         self._identity = self._seed_identity()
         # CAUSALITY predicate — a causal fact (cause→effect) is stored as a
         # NORMAL Record under this reserved predicate; it inherits the entire
@@ -499,6 +503,7 @@ class Session:
         # a turn consults appends its name; `Answer.route` carries the
         # list out. Bookkeeping only: no call, no behaviour.
         self.last_route = []
+        self._shape_cache = None        # read once per turn, or declared
         # DID THE ENGINE FAIL THIS TURN (W149)? An unreachable engine used
         # to leave the same trace as an empty store — "I don't know",
         # abstained, no route — and a caller cannot tell "we do not hold
@@ -506,7 +511,6 @@ class Session:
         # handler below that catches `runtime.EngineDown`, and it rides
         # out on `Answer.engine_error`.
         self.last_engine_error = False
-        self._shape_cache = None        # turn_shape, read once per turn
         self._scope_now = set()         # this turn's scope, see _open_scope
         # WHO IS ASKING — the operator may say (W98); the event organs
         # seat that speaker's lines first, and None changes nothing
@@ -1377,7 +1381,11 @@ class Session:
             # GUARANTEES fetching the identity fact from _lmm_key. Called only
             # when the subject is unresolved (no extra call on a clear "kartal
             # nedir").
-            if subject_key is None:
+            # ...AND NOT ASKED AT ALL WHEN THE CALLER DECLARED THE KIND
+            # (W157): "is this message about you?" is a reading of the
+            # MESSAGE, and a caller who has already made it is not asked
+            # to prove it.
+            if subject_key is None and not getattr(self, "declared_shape", None):
                 try:
                     if generate.is_identity_question(message):
                         return self._identity_reply(message)
@@ -1500,6 +1508,16 @@ class Session:
         used to ask its own yes/no question reads this instead, so the
         engine is consulted once where it was consulted up to three
         times, and BEFORE the chain instead of after its failure."""
+        # THE KIND THE CALLER ALREADY KNOWS (W157). A batch asks 44
+        # questions of one shape and pays, 44 times, for the engine to
+        # read a shape its caller declared before the run began. A
+        # declaration is read here, where every seat already asks for
+        # the shape, so there is ONE place that knows what this turn
+        # is. It is a declaration and not a hint: a wrong one costs the
+        # organ it would have reached, exactly as a wrong reading by
+        # the engine would. Unset, the turn reads as it always did.
+        if self.declared_shape:
+            return self.declared_shape
         if self._shape_cache is None:
             try:
                 self._shape_cache = generate.turn_shape(message)
