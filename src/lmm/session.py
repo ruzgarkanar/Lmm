@@ -4325,16 +4325,36 @@ class Session:
             # anyway — and so would a freshly generated one, since it answers
             # the same unasked question. Everything else keeps its old second
             # chance; only what THIS gate refused is out.
-            spare = [t for t in tried if fold(t) not in self._refused]
+            # AND IT CANNOT UNDO THE GROUNDING SCORE EITHER. `_select`
+            # grades a candidate that carries none of the evidence's
+            # words at zero and declines to speak it; this list used to
+            # exclude only what the RELATION gate refused, so a candidate
+            # the score had eliminated came back through the back door.
+            # What came back, measured from the field twice, was the
+            # ENGINE'S OWN SHRUG — "I don't have that information",
+            # spoken as a claim, stamped an assertion, in a language
+            # nobody asked in. Every audit of this kind shares the blind
+            # spot: a gate that asks whether what a sentence says is in
+            # the evidence cannot fail a sentence that says nothing.
+            # `_asserted_a_fact` is the other reading and the session
+            # already owns it — a word intersection with the proof, no
+            # model call, no word of any language — and it applies to a
+            # revived candidate and a freshly generated one alike.
+            spare = [t for t in tried if fold(t) not in self._refused
+                     and self._asserted_a_fact(t, question)]
             if tried and not spare:
                 return self._refuse(question)
             allowed = verify.allowed_of(self.memory, records)
-            safe = verify.verify(self.memory,
-                                 spare[0] if spare
-                                 else generate.answer(
-                                     question, block, persona=self.persona,
-                                     field=getattr(self, "_bridge_field", "")),
-                                 allowed, self.mode, anchor="edge")
+            if spare:
+                offered = spare[0]
+            else:
+                offered = generate.answer(
+                    question, block, persona=self.persona,
+                    field=getattr(self, "_bridge_field", ""))
+                if not offered or not self._asserted_a_fact(offered, question):
+                    return self._refuse(question)
+            safe = verify.verify(self.memory, offered, allowed, self.mode,
+                                 anchor="edge")
             if not safe:
                 return self._refuse(question)
         # SOURCE-TRUST (strictest): if the weakest fact is below CERTAIN,
