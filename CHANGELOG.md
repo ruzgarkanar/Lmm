@@ -4,6 +4,48 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] — 2026-09-22
+
+The same reporter, measuring 0.7.1 against the same two tender
+documents: the abstention bug was not closed. 0.7.1's fold asked for
+strict containment, and the evidence index seats a passage as windows
+SLID by a sentence — each carries a few words of a neighbour, so none
+is a subset of another, nothing folded, and a correct sourced answer
+was still stamped `abstained=True`.
+
+### Fixed
+
+- **Sliding windows of one passage are one attestation** (W148, second
+  cut). The fold now asks `evidence._same_region` — the question this
+  codebase already had an organ for, majority by Jaccard or by
+  containment ratio, whose own docstring warns that answering it with
+  a second rule is how two organs end up disagreeing about what "the
+  same" means. It is transitive, because three windows of one passage
+  are one attestation and not two.
+
+  And it **stops at the source**. Measured while building it: "The
+  Alpha course runs for two full days in Berlin" and its Beta sibling
+  read as one region on words alone — folding them would have erased
+  exactly the independence W39 exists to protect (the same sentence in
+  two documents is two attestations). Lines from different sources
+  never merge.
+
+  The folding is now a named organ, `Session._regions_of`, rather than
+  a block inside the abstention reading: one place to test, one place
+  to read. A proof that folds to a single region has no register to
+  subtract and the reading defers to coverage, exactly as before W97 —
+  which is right for a document seen at several scales, and leaves
+  chat evidence, whose lines subsume nothing, measuring unchanged
+  (W97's own fixture folds nothing at all).
+
+### Known, and not silently patched
+
+- A refusal can still be read as an assertion when one of its words
+  (an "I do not have **that**" sort of word) happens to sit in a
+  minority of proof lines. Present in 0.7.1 and before, not introduced
+  here, and closing it properly needs the chat slice re-measured
+  rather than a guess.
+
 ## [0.7.1] — 2026-09-22
 
 Five findings from somebody integrating 0.7.0 against two real tender

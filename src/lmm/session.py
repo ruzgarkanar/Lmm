@@ -817,6 +817,74 @@ class Session:
                 self.topic.remember(bare or "", mark=self._mark)
         return said
 
+    def _regions_of(self, proof):
+        """The proof's lines, folded into the REGIONS they are views of
+        — one word-set per region (W148).
+
+        W97's abstention reading subtracts register (what the proof
+        blankets) from content (what a claim carries), and it stands on
+        proof lines being INDEPENDENT attestations. The multi-scale
+        evidence index breaks that premise: it seats one passage as
+        windows at several widths AND slid by a sentence, so the
+        answer's most distinctive words sit in a majority of lines and
+        are struck as blanket — a correct, sourced answer stamped an
+        abstention, reported from the field and reproduced 3/3.
+
+        Three rules, none of them new:
+
+        * ONE REGION IS THE STORE'S OWN READING. `evidence._same_region`
+          already answers "are these two views of one region" (majority
+          by Jaccard OR by containment ratio). Asking it here with a
+          second, slightly different rule is exactly how two organs end
+          up disagreeing about what "the same" means — that function's
+          own docstring says so. A first cut of this asked for strict
+          containment and the reported proof defeated it: slid windows
+          each carry a few words of a neighbour, so none is a subset of
+          another and nothing folded.
+        * THE FOLDING IS TRANSITIVE. Three windows of one passage are
+          one attestation, not two, so regions merge through whatever
+          chain of overlaps links them.
+        * AND IT STOPS AT THE SOURCE. Two windows of a region always
+          come from one document; two SIBLING documents sharing a
+          template line never do, and W39 settled that case: the same
+          sentence in two documents is TWO attestations. Measured while
+          building this — "The Alpha course runs for two full days in
+          Berlin" and its Beta sibling read as one region on words
+          alone. Origins come from `_origin_of`; where none are
+          recorded every line reads as one unnamed source, which is the
+          single-document case.
+
+        A proof that folds to ONE region has no register to subtract —
+        every word is that region's — and the caller defers to coverage,
+        as it did before W97 existed. That is the right reading for a
+        document seen at several scales, and it leaves chat evidence,
+        whose lines subsume nothing, measuring exactly as before.
+        """
+        origin_of = getattr(self, "_origin_of", None) or {}
+        word_sets = [set(evidence._words(line)) for line in proof]
+        origins = [origin_of.get(line, "") for line in proof]
+        home = list(range(len(word_sets)))
+
+        def _root(x):
+            while home[x] != x:
+                home[x] = home[home[x]]            # path halving
+                x = home[x]
+            return x
+
+        for i, words in enumerate(word_sets):
+            for j in range(i + 1, len(word_sets)):
+                if not (words and word_sets[j]) or _root(i) == _root(j):
+                    continue
+                if origins[i] != origins[j]:
+                    continue                # two documents, two witnesses
+                if evidence._same_region(words, word_sets[j]):
+                    home[_root(i)] = _root(j)
+        regions = {}
+        for i, words in enumerate(word_sets):
+            if words:
+                regions.setdefault(_root(i), set()).update(words)
+        return list(regions.values())
+
     def _asserted_a_fact(self, said):
         """Did the spoken answer CLAIM anything — the language-free half of the
         abstention reading.
@@ -872,28 +940,10 @@ class Session:
             # line or two. More-than-half again, read off the proof
             # itself, so a four-line chat and a hundred-page standard
             # measure the same way.
-            # OVERLAPPING WINDOWS ARE ONE REGION, NOT A REGISTER (W148).
-            # W97's majority stands on proof lines being INDEPENDENT
-            # attestations; the multi-scale evidence index breaks that
-            # premise, seating the same passage at several widths, so a
-            # content word appears in a MAJORITY of proof lines and is
-            # struck as blanket. A line whose folded words are a subset
-            # of another proof line's is the same region read at two
-            # scales — it is folded into the wider one and casts one
-            # vote. Distinct lines (chat evidence, W97's own case)
-            # subsume nothing and measure exactly as before.
-            word_sets = [set(evidence._words(line)) for line in proof]
-            per_line = []
-            for i, ws in enumerate(word_sets):
-                if not ws:
-                    continue
-                if any(j != i and ws < other      # strict subset: wider wins
-                       for j, other in enumerate(word_sets)):
-                    continue
-                if any(ws == other and j < i      # duplicates: keep the first
-                       for j, other in enumerate(word_sets)):
-                    continue
-                per_line.append(ws)
+            # OVERLAPPING WINDOWS ARE ONE REGION, NOT A REGISTER
+            # (W148) — the premise W97 stands on, restored: see
+            # `_regions_of`.
+            per_line = self._regions_of(proof)
             half = len(per_line) / 2
 
             def _load_bearing_words(sentence):
