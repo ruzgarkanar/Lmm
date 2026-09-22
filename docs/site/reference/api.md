@@ -213,7 +213,7 @@ turn knows about itself:
 | attribute | meaning |
 |---|---|
 | `.abstained` | did this turn assert anything — the structural stamp, in any language |
-| `.covered` | of the question's demands (its content words), the share this answer carries — a count, no model call, nothing it can fabricate |
+| `.covered` | of the question's demands (its content words), the share this answer carries — a count, no model call, nothing it can fabricate. **An abstention reports 0.0** and misses everything (0.8.1): a refusal that restates the question used to carry every demand in its own words and report 1.0 |
 | `.missing` | the demands the answer did not carry: what to ask about next |
 | `.engine_error` | **why** it abstained, when the reason was not the memory: `True` only when the engine could not be reached at all. An abstention with this `False` is the store's own honest "I do not hold that"; with it `True`, nothing was asked of the store at all — retry or alert, do not record a capability as absent |
 | `.sources` | the provenance stamps the answer rests on |
@@ -233,6 +233,21 @@ a = m.ask("Does it consider country of departure, destination, VAT ID "
 a.covered      # 0.78
 a.missing      # ('transport', 'responsibility')
 ```
+
+!!! warning "`covered` is a count, not a quality score"
+    It counts how many of the question's words the answer says back, so
+    **an answer that restates the question scores higher than one that
+    quotes the document.** Measured on one real question: a fluent
+    restatement 0.88, a correct verbatim answer out of the document 0.25.
+    Two consequences a caller should know. Cells answered by different
+    routes are not comparable — the quoted reading's answers are terse
+    and score low, the ordinary path's are phrased and score high — and
+    `covered` was measured **not** to work as a relevance signal: on 44
+    field cells the one wrong answer sat at 0.25, above fifteen correct
+    ones, four of which sat at 0.00. No threshold separates them.
+
+    Read it for what it is: which of the things you asked about are
+    named in the reply, and which to ask about next.
 
 ### Which mechanism keeps the promise
 
@@ -254,11 +269,44 @@ calls against the ordinary path's 6.3: −27% calls, −28% tokens, −18%
 wall clock, and one question answered that the ordinary path had
 abstained on. Parity per carried turn; not parity on the average.
 
+Those figures are a matched pair measured at **0.7.12** and are the
+conservative end. An integrator measuring 44 cells on two real documents
+reported 9.2 calls a turn falling to 4.3 — roughly twice the saving —
+with strict accuracy rising from 84.1% to 90.9% rather than falling. Our
+own slice sits between them. The pair above is not restated with newer
+numbers because only the quoted arm has been re-measured since, and half
+a comparison is not one.
+
 In quoted mode fabrication is not judged unlikely, it is structurally
 impossible: what is spoken is assembled out of a line the store holds.
 When the reading cannot be trusted — no line, a line nobody offered, a
-sentence stepping outside it — the turn falls back to the ordinary path,
-so the worst case is one extra call and today's behaviour.
+sentence stepping outside it, or one that joins two passages — the turn
+falls back to the ordinary path, so the worst case is one extra call and
+today's behaviour.
+
+!!! warning "What quoted mode trades, and for whom"
+    Fabrication is structurally out; **relevance is not**, and the quoted
+    reading reaches the relevance failure more easily than the ordinary
+    path does, because the ordinary path judges a claim with a read-back
+    and a relation check and this one does not. Reported from the field
+    on 44 cells: four false-empty answers became one false-covered. That
+    was strongly profitable for the reporter and would not be for a
+    caller whose cost of a wrong "yes" is high.
+
+    The commitment is also **engine-bound**. On the reported
+    reproduction, `gpt-4o-mini` abstains 4 times out of 4 and `gpt-4.1`
+    commits 4 out of 4: the more capable engine is the more willing to
+    build an answer out of whatever is on register. Shadow the setting on
+    your own corpus and engine before trusting the table above.
+
+    Since 0.8.1 one shape of that error is closed without a model call: a
+    quotation may rest on several lines, but they must be views of ONE
+    passage. A window is neighbouring sentences, so where two topics meet
+    it holds the end of one and the start of the next — and an answer
+    that takes a clause from each never leaves its quote, which is why no
+    containment check could see it. That cost **2 of 11 carried turns**
+    on our own slice; the two are still answered correctly by the
+    ordinary path.
 
 ```python
 a = m.ask("which interfaces does the validator use?", explain=True)

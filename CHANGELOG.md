@@ -4,6 +4,94 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] — 2026-09-22
+
+Three findings from an integrator's 0.8.0 report, each verified before it
+was acted on. Two of the three diagnoses turned out to be wrong — including
+one of ours — and the verification is written down here because it is the
+part that changed what got built.
+
+### Fixed
+
+- **A quotation may span lines, but not two passages** (W172/W174). The
+  reported failure: asked how internal control checks are performed, the
+  quoted reading answered with a clause from a TESTING paragraph joined to
+  a clause from a REQUIREMENTS paragraph — one fluent sentence about
+  neither. Every word was in the document, the stamp was right, the
+  sentence was true, and the document had never put those two clauses
+  together.
+
+  Reproduced byte for byte, and it is **engine-bound**: on `gpt-4o-mini`
+  the same reproduction abstains 4 times out of 4; on `gpt-4.1` it commits
+  4 out of 4. On the same engine the ordinary path abstains, so the
+  asymmetry really is the quoted reading's, as reported.
+
+  *Two diagnoses were refused on measurement.* The reporter's — that
+  containment weakens as lines grow, since a long line supplies enough
+  vocabulary for any on-register sentence — does not apply here:
+  `coverage(answer, the named lines, question)` is **1.0**, because the
+  answer is a verbatim splice and containment is therefore satisfied by
+  construction at any line length. Ours — that the splice crossed two
+  named lines — shipped a guard that never fired: **three of the six
+  retrieved candidates carried both clauses inside ONE line**, because
+  that line was a window this layer had built. A window is neighbouring
+  sentences, so where two topics meet it holds the end of one and the
+  start of the next, and an answer can take a clause from each without
+  ever leaving its quote.
+
+  So the quote is re-split into the sentences the document wrote, those
+  are folded into regions by the same word overlap the rest of the
+  evidence layer uses, and **one region must carry the whole answer**.
+  W166 keeps its permission wherever the lines are views of one passage;
+  what is refused is the JOIN of two passages — which is `table_windows`'
+  own law across two rows, one level up. No model call is added.
+
+- **Text this layer assembled is marked as assembled** (W174, the premise
+  underneath). `table_windows`' fallback gatherings and the masthead were
+  going into the store **without** the derived mark, so every organ that
+  stands on "did the document write this, or did we" — the fusion region
+  cap, `_window_texts`, and now the quoted reading — was reasoning from a
+  false premise. A row stays the document's own; an assembly says it is
+  one. `evidence.table_windows` now returns `(text, assembled)` pairs.
+
+- **A turn that abstained carried nothing, and says so** (W173). A refusal
+  came back `covered=1.0` with `missing=()` — full coverage for an answer
+  that answered nothing. It happens when the refusal restates the
+  question: every demand is then present in the refusal's own words.
+  Measured on the reported sentence: **1.00** restating, **0.00** not
+  restating, **0.25** for a correct verbatim answer out of the document,
+  **0.88** for a fluent restatement. The count was rewarding saying the
+  question back, which W152 established is not a claim at all. The count
+  stays a count; the session's structural stamp now decides whether there
+  is anything to count.
+
+### Measured, including the price
+
+On the fifteen-question document slice, 0.8.0 → 0.8.1:
+
+| | 0.8.0 | 0.8.1 |
+| --- | --- | --- |
+| gold (six checkable) | 6/6 | 6/6 |
+| unsourced assertions | 0 | 0 |
+| turns the quoted reading carried | 11/15 | **9/15** |
+| engine calls | 50 | **58** |
+
+The two turns the quoted reading gives up are **still answered correctly**
+by the ordinary path, so the price of closing this class is calls, not
+accuracy. Stated plainly because the trade is real: a caller whose cost of
+a wrong "yes" is low may prefer the old behaviour.
+
+### Refuted on the way, and removed
+
+- A blunter first cut — let the quoted reading name only lines the
+  document itself wrote, never a window — closes the same failure and was
+  measured at **1 of 15 carried and 96 calls**, against 9 and 58 for the
+  rule that shipped. It was taken back out.
+- Our own cross-line region guard, written before the mechanism was
+  understood, was measured redundant once the region reading moved inside
+  the quote, and deleted rather than left beside the rule that replaced
+  it.
+
 ## [0.8.0] — 2026-09-22
 
 Four architectural readings, all of them structural: what a table's last
