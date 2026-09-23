@@ -4,120 +4,45 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.10.0] — 2026-09-23
 
-- **A reply that broke its contract is counted, not only survived**
-  (W184). 0.9.1 shipped a defect whose own release note called it
-  *"silent by design"*, and that was the honest description: the fused
-  judgment capped its reply at eight tokens, two labelled lines did not
-  fit, every fused call was refused as malformed, and the turn paid
-  three calls where it used to pay two. Nothing was wrong with the
-  answers — **the only symptom was the bill**, and it took a
-  fifteen-question measurement to find it.
+A day of measuring instead of reasoning. Every change below was found by
+attributing a turn's engine calls to the organ that made them, and two of
+them are the FIRST measurements of mechanisms that had been justified by
+argument alone. On the thirteen-question NIST slice the same run went
+**57 → 42 calls (−26%)** with the verdicts identical question for
+question, and the turns that end in "I don't know" — which were costing
+2.6× an answered turn — went **41 → 26**.
 
-  Refusing a reply that does not fit its contract stays right: a verdict
-  read out of a malformed answer is worse than one paid for twice. What
-  was missing is that the refusal left no trace. `runtime.MALFORMED` is
-  `runtime.CALLS`' twin — a number the caller can read instead of a
-  claim they have to believe — with `runtime.BROKE` holding what the
-  last one looked like. A DECLINE is not a broken contract: an engine
-  answering NONE because no line carries the answer (W160) has obeyed
-  perfectly and is not counted.
-
-  Measured on the thirteen NIST questions: **0**, on 42 calls. The
-  contracts are being kept; the counter is the guard that says so.
-
-### Considered and not done, with the reason
-
-- **Structured output (a JSON schema on the backend) was next on the
-  list and is not being added.** It is the half of the typed-decision
-  idea our own engine could take for free, and it would make a shape
-  error impossible rather than merely refused. But with W184 in place
-  the rate of the failure it prevents is now **measured at zero**, and
-  the change is not free: it is backend-specific (the local engine has
-  no such mode), and constraining decoding can move a judge's verdicts,
-  which would have to be measured against every gate. A fix for a
-  problem measuring zero, priced in a risk to the gates, is not a trade
-  worth making today. If `MALFORMED` climbs, it earns its place then —
-  which is what the counter is for.
-
-- **An undated store does not pay for a plan it cannot execute** (W183).
-  The plan seat is a rescue — a turn that abstained buys one plan
-  proposal before it closes — and unlike the widening it must NOT be
-  switched off: it is the only path to a dated answer, which on a corpus
-  of dated lines is its whole purpose.
-
-  What it does not need is to be *asked* where it cannot execute. Every
-  date-taking primitive anchors a phrase by reading the day out of the
-  line's SOURCE STAMP, by `stamp_day`'s own rule — a stamp with fewer
-  than three numbers carries no day — so in a store where no source
-  carries one, `anchor`, `latest`, `lines`, `span`, `before`,
-  `before_lines`, `after_lines` and `month_tally` all die on the first
-  step. Measured on NIST SP 800-63B: **12,253 sentences, none from a
-  dated source**, and the call was bought on all five abstaining turns.
-
-  **What the precondition costs, stated rather than hidden**: a plan of
-  `now:` alone anchors nothing, so on a store with no dated source at
-  all this seat can no longer answer "what is today's date". That is the
-  whole loss and it is bounded.
-
-  Measured on the thirteen NIST questions: **47 → 42 calls**, 68 → 61
-  seconds, verdicts identical question for question. Across the day's
-  unreleased work the same slice has gone **57 → 42 calls, −26%**, with
-  the same answers and the same abstentions, and the five refusing turns
-  now take 26 calls where they took 41.
-
-- **A standalone question does not pay to be classified** (W182). Found
-  by attributing a turn's calls to the organ that made them: the
-  extractor was **10–12%** of every run on two corpora, and on the
-  question door it has nothing left to decide. `ask()` cannot write
-  memory and W164 settled that a statement handed to that door *is* the
-  question, so the kind is ASK by construction.
-
-  What the extractor still earns its call for is the two CONVERSATION
-  features that read its triples — the terms fed to the composer
-  bridge's brief, and whether a message is the bare "yes" answering a
-  research offer. `standalone=True` ends the conversation on both sides
-  of the turn, so the brief is empty going in and discarded coming out
-  and no offer can be outstanding: the call was paid and thrown away.
-
-  Narrow on purpose. A non-standalone `ask()` still classifies, and
-  nothing about the conversation surface moves. Measured on the thirteen
-  NIST questions: **52 → 47 calls**, 74 → 68 seconds, verdicts identical
-  question for question.
+### Fixed
 
 - **A speaker who corrects himself is not silenced by his old self**
   (W181). A DOCUMENT that contradicts itself is a contradiction and this
   system surfaces it rather than picking a side (W54, and that is
   right). A PERSON who says *"I have moved"* is not contradicting
   himself — he is superseding his own earlier fact, and the two were
-  being treated the same.
+  treated the same.
 
   Measured end to end, engine-free: taught "I live in Ankara" and then
   "I moved to Istanbul", the graph keeps both and links them as rivals —
   and arbitration left the **stale** one at 0.75, above the speaking
   threshold, while the correction was lowered to **0.20**, below it. The
-  memory went on asserting exactly what the speaker had just retracted,
-  and refused to say the new thing.
+  memory went on asserting exactly what the speaker had just retracted.
 
-  The cause was an omission rather than a mistake: `dynamics.arbitrate`
-  ranked by `(-level, -witnesses, -trust, key)` and **time was not a
-  criterion**. Two claims from one speaker at one level with one witness
-  each tie on everything it reads, so the tie fell to the record key —
-  insertion order. Whoever spoke first won, permanently.
+  The cause was an omission: `dynamics.arbitrate` ranked by
+  `(-level, -witnesses, -trust, key)` and **time was not a criterion**,
+  so two claims from one speaker at one level with one witness each fell
+  to the record key — insertion order, and whoever spoke first won
+  permanently. `at` now ranks below witnesses and above trust: it is a
+  property of the evidence, written once and touched neither by
+  `strengthen` nor by arbitration, so the function keeps the
+  order-independence its own docstring owes. A thirty-witness claim is
+  not unseated by a later one-witness one — asserted, not assumed.
 
-  `at` now ranks below witnesses and above trust. It belongs there for
-  the same reason level and witnesses do: it is a property of the
-  evidence, written once when the claim arrives and never touched by
-  `strengthen` or by arbitration itself, so the function keeps its
-  order-independence property. A document attested thirty times still
-  beats a later one-witness claim — asserted, not assumed.
-
-  **One behaviour changes beyond the defect**: where two rival values
-  come from the same document, the later-written line now wins the slot
-  where the earlier one used to. Both were arbitrary; nothing pinned the
-  old one, and the evidence path still surfaces the disagreement as a
-  contradiction row either way.
+  **One behaviour changes beyond the defect**: between two rival values
+  from one document, the later-written line now wins the slot where the
+  earlier one used to. Both were arbitrary, nothing pinned the old one,
+  and the evidence path surfaces the disagreement either way.
 
 ### Changed
 
@@ -135,14 +60,83 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   | an integrator's 44-cell catalogue, "almost entirely paraphrase" | 6 | 38.8% of the run | **0** |
 
   The second corpus is the test that matters: its question set labels a
-  `paraphrase` class, which is the very thing this organ exists for, and
+  *paraphrase* class, which is the very thing this organ exists for, and
   the widening rescued none of it. The obvious explanation was tested
   and **refused** — with the meaning channel switched off, the channel
   that arrived after this organ and might have taken its job, it still
-  rescued none.
+  rescued none. `m.session.WIDEN = True` restores it exactly.
 
-  `m.session.WIDEN = True` restores it exactly. The reading is right
-  wherever retrieval is weak in a way these three corpora are not.
+- **The relation check's disciplines travel with the shape too** (W180).
+  W165 gave the claim reading and the answer writer prompts that carry
+  only the disciplines *this* evidence exercises; the relation check was
+  left whole at 2,353 characters on every judged turn. An integrator's
+  client-side trace is what made that matter: on an **answered** turn
+  the gates are **54% of the tokens**, so the check costs more than the
+  answer it is checking.
+
+  Its three examples are each about a SHAPE — a record row, a terse
+  notation with a unit, a value joined across two items — so a block
+  with none of them pays for none of them. Measured over the thirteen
+  NIST questions against their real retrieved blocks: **30,589 → 25,634
+  characters of relation prompt, −16%**; a plain prose block drops from
+  2,353 to 1,528. With no evidence in hand the whole prompt travels, and
+  an uncertain reading INCLUDES the clause, because a missing discipline
+  turns a "no" into a "yes".
+
+- **A standalone question does not pay to be classified** (W182). The
+  extractor was **10–12%** of every run on two corpora, and on the
+  question door it has nothing left to decide: `ask()` cannot write
+  memory and W164 settled that a statement handed to that door *is* the
+  question, so the kind is ASK by construction. What it still earns its
+  call for is the two CONVERSATION features that read its triples — the
+  composer bridge's brief, and whether a message is the bare "yes"
+  answering a research offer — and `standalone=True` ends the
+  conversation on both sides of the turn, so both are dead. Narrow on
+  purpose: a non-standalone `ask()` still classifies. Measured:
+  **52 → 47 calls**.
+
+- **An undated store does not pay for a plan it cannot execute** (W183).
+  The plan seat is a rescue and, unlike the widening, must NOT be
+  switched off — it is the only path to a dated answer. What it does not
+  need is to be *asked* where it cannot execute: every date-taking
+  primitive anchors by reading the day out of the line's SOURCE STAMP,
+  so in a store where no source carries one they all die on the first
+  step. Measured on NIST: **12,253 sentences, none dated**, and the call
+  was bought on all five abstaining turns. **47 → 42 calls.**
+
+  *What the precondition costs, stated rather than hidden*: a plan of
+  `now:` alone anchors nothing, so on a store with no dated source at
+  all this seat can no longer answer "what is today's date".
+
+### Added
+
+- **A reply that broke its contract is counted, not only survived**
+  (W184). 0.9.1 shipped a defect whose own release note called it
+  *"silent by design"*: the fused judgment capped its reply at eight
+  tokens, two labelled lines did not fit, every fused call was refused
+  as malformed, and the turn paid three calls where it used to pay two.
+  Nothing was wrong with the answers — **the only symptom was the
+  bill**, and it took a fifteen-question measurement to find it.
+
+  Refusing a reply that does not fit its contract stays right. What was
+  missing is that the refusal left no trace. `runtime.MALFORMED` is
+  `runtime.CALLS`' twin, with `runtime.BROKE` holding what the last one
+  looked like. A DECLINE is not a broken contract: an engine answering
+  NONE because no line carries the answer (W160) has obeyed perfectly
+  and is not counted. Measured on NIST: **0**, on 42 calls.
+
+### Considered and not done, with the reason
+
+- **Structured output — a JSON schema on the backend — is not being
+  added.** It is the half of the typed-decision idea our own engine
+  could take for free, and it would make a shape error impossible rather
+  than merely refused. But with W184 in place the rate of the failure it
+  prevents is **measured at zero**, and the change is not free: it is
+  backend-specific, and constraining decoding can move a judge's
+  verdicts, which would have to be measured against every gate. A fix
+  for a problem measuring zero, priced in a risk to the gates, is not a
+  trade worth making. If `MALFORMED` climbs it earns its place then,
+  which is what the counter is for.
 
 ### Measured, and answering a question that was put to us
 
@@ -152,40 +146,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   language calls, the widening's words and the plan organ, all after the
   quoted reading and the relation judge had both declined.
 
-  Measured on NIST SP 800-63B: **five turns saw a refusal, none of them
-  was rescued by anything downstream, and those five took 41 of the
-  run's 57 calls — 72%.** The same shape held with the meaning channel
-  off. On the Turkish slice the one rescue was a wrong answer.
-
-  The widening is what changed above. The plan organ still runs there
-  and still rescued nothing on either corpus; it is left alone for now,
-  because one measured change at a time is how the other numbers here
-  were arrived at.
-
-### Changed
-
-- **The relation check's disciplines travel with the shape too** (W180).
-  W165 gave the claim reading and the answer writer prompts that carry
-  only the disciplines *this* evidence exercises. The relation check was
-  left whole — 2,353 characters on every judged turn — and an
-  integrator's client-side trace is what made that matter: on an
-  **answered** turn the gates are **54% of the tokens**, so the check
-  costs more than the answer it is checking.
-
-  Its three examples are each about a SHAPE, exactly like the other
-  prompt's clauses: a record row (`Prepared by: ...`), a terse notation
-  with a unit (`3 kg`), and a value joined across two items. A block
-  with none of them pays for none of them, read by the two detectors
-  this file already has plus a count of items.
-
-  Measured over the thirteen NIST questions against their real retrieved
-  blocks: **30,589 → 25,634 characters of relation prompt, −16%**. A
-  plain prose block drops from 2,353 to 1,528.
-
-  The safe direction is unchanged: with no evidence in hand the whole
-  prompt travels, as every caller got before, and an uncertain reading
-  INCLUDES the clause, because a missing discipline turns a "no" into a
-  "yes".
+  Measured on NIST SP 800-63B: **five turns saw a refusal, none was
+  rescued by anything downstream, and those five took 41 of the run's 57
+  calls — 72%.** The same shape held with the meaning channel off. On
+  the Turkish slice the one rescue was a wrong answer. Two of the four
+  changes above came out of that question.
 
 ## [0.9.3] — 2026-09-23
 
