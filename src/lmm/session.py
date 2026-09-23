@@ -2423,6 +2423,38 @@ class Session:
                             return (when, src, phrase, True)
         return fallback
 
+    def _by_day(self, lines, stamps):
+        """A wholly dated block, newest first (W186).
+
+        Measured on the synthetic conversation: asked where the user
+        lives NOW the memory answers Istanbul; asked which city they are
+        BASED IN — the same fact in other words — it answered "Ankara",
+        stamped with the session before the move. True, sourced, past
+        every gate, out of date. W181 fixed this where the graph holds
+        it; the evidence path has no arbitration, only a ranked block,
+        and nothing in the block said which line was later.
+
+        A document is not a conversation, so the reading is conditioned
+        on the STORE and not on a guess: every line must come from a
+        source carrying a day, by `stamp_day`'s rule — the same one the
+        counting organ's time-ordered block and the telling seat already
+        keep. One undated line and the order is retrieval's, untouched,
+        which is every document corpus this project measures.
+
+        Nothing is added, removed or re-scored. The same lines, in the
+        order their own stamps put them, with retrieval's rank breaking
+        ties inside a day.
+        """
+        if len(lines) < 2:
+            return list(lines)
+        days = [evidence.stamp_day(stamps[at]) if at < len(stamps) else None
+                for at in range(len(lines))]
+        if any(day is None for day in days):
+            return list(lines)
+        order = sorted(range(len(lines)), key=lambda at: (days[at], -at),
+                       reverse=True)
+        return [lines[at] for at in order]
+
     def _store_is_dated(self):
         """Does ANY source in this store carry a day (W183).
 
@@ -3972,6 +4004,15 @@ class Session:
         # which document each seat came from, aligned with `proof` — read off
         # the store's `last_sources`, which `find` leaves beside its result
         proof_origins = list(self.evidence.last_sources[:len(proof)])
+        # ...AND A WHOLLY DATED BLOCK IS READ NEWEST FIRST (W186). The
+        # lines and their stamps travel together, so the reordering
+        # takes both or neither: a proof whose origins no longer line up
+        # with it would stamp an answer with another line's source.
+        if len(proof) > 1 and len(proof_origins) == len(proof):
+            put = self._by_day(list(range(len(proof))), proof_origins)
+            if put != list(range(len(proof))):
+                proof = [proof[at] for at in put]
+                proof_origins = [proof_origins[at] for at in put]
         # THE COMPARISON READING. "Do A and B run the same length?" is
         # answered by NO single document — the verdict is born when the two
         # lines lie side by side, and the single race cannot promise that:

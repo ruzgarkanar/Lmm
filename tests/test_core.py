@@ -11988,6 +11988,56 @@ def w185():
     assert seen and seen[0] == 3, seen
 
 
+@test("W186 a wholly dated block is read newest first")
+def w186():
+    """Measured on this repository's synthetic conversation, four dated
+    sessions: asked "where does the user live now?" the memory answers
+    Istanbul, correctly. Asked the SAME fact in other words — "which
+    city is the user based in?" — it answered **"The user is based in
+    Ankara"**, stamped `#docx:2026-03-12`, the session before the move.
+    True, sourced, past every gate, and out of date.
+
+    W181 fixed this where the graph holds it: arbitration ranked by
+    level, witnesses and trust and time was not a criterion. The
+    EVIDENCE path has no arbitration — it has a ranked block — and
+    nothing in that block said which line was later. The engine even
+    cited the day it was reading; it simply had no reason to prefer the
+    other one, because the stale line shared more words with the
+    question than the terse correction did.
+
+    A document is not a conversation and must not be treated as one, so
+    the reading is conditioned on the store rather than on a guess: when
+    EVERY line in the block comes from a source carrying a day
+    (`stamp_day`, the same rule the counting organ's time-ordered block
+    and the telling seat already keep), the block is ordered newest
+    first. A block with one undated line is left exactly as retrieval
+    ranked it, which is every document corpus this project measures.
+
+    Nothing is added, removed or re-scored: the same lines, in the order
+    their own stamps put them."""
+    from lmm import session as lmm_session
+
+    s = lmm_session.Session(None)
+    older = "I live in Ankara, on the north side, and I work from home."
+    newer = "I live in Istanbul now."
+    s.learn_text(older, source="#docx:2026-03-12", deep=False)
+    s.learn_text(newer, source="#docx:2026-09-04", deep=False)
+
+    ranked = [older, newer]
+    stamps = ["#docx:2026-03-12", "#docx:2026-09-04"]
+    put = s._by_day(ranked, stamps)
+    assert put == [newer, older], put
+
+    # ONE UNDATED LINE AND THE ORDER IS RETRIEVAL'S, UNTOUCHED.
+    mixed = s._by_day([older, newer, "a line"],
+                      ["#docx:2026-03-12", "#docx:2026-09-04", "#spec"])
+    assert mixed == [older, newer, "a line"], mixed
+
+    # AND A SHORT BLOCK IS NOT REORDERED INTO ANYTHING NEW.
+    assert s._by_day([older], ["#docx:2026-03-12"]) == [older]
+    assert s._by_day([], []) == []
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
