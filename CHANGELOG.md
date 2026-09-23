@@ -4,6 +4,51 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] — 2026-09-23
+
+### Measured: where the calls actually go
+
+The first per-organ attribution of a turn. Every engine call is charged
+to the organ that made it, by finding the nearest `lmm/generate.py`
+frame on the stack — and, this time, counting only the round trips the
+**deterministic pool did not absorb**. That distinction is this
+repository's own documented measurement trap and it was walked into
+again: every call figure published today before this one counts pooled
+hits as calls and overstates the bill by about 8%. The corrected total
+for the fifteen-question slice is **69 calls**, not 75.
+
+| | turns | calls | per turn |
+|---|---|---|---|
+| answered | 12 | 42 | 3.5 |
+| abstained | 3 | 27 | **9.0** |
+
+**A fifth of the turns spend two fifths of the budget, and they are the
+ones that end up saying "I don't know".** By organ: the quoted reading
+15 calls, the answering call 11 (and 77k of the 235k prompt characters,
+the largest single consumer), the relation gate 9, the extractor 8, the
+language naming 8, the fused judgment 7, the spoken refusal 4, the
+widening's word proposal 4, the plan organ 3.
+
+A quoted turn costs **exactly two calls** — the reading and its relation
+gate — which is what 0.9.0 said it would and had not been measured.
+
+### Added
+
+- **The widening is a number, because it is a wager** (W178). A turn
+  that abstained buys one more retrieval with words the engine proposes
+  and the store approves, then answers again. On this slice it ran on
+  four turns and cost **eight calls of sixty-nine** — 69 → 61, and 17%
+  of the prompt — and rescued exactly one turn, whose answer was the
+  slice's known off-subject one (asked what capital market *instruments*
+  do, the rescued sentence is about *institutions*; with the widening
+  off, it abstains).
+
+  **The default does not move on that.** One slice, one wobbling
+  question, and the widening was measured onto a corpus where a question
+  and a document use different words for one thing — which this document
+  is not. `m.session.WIDEN = False` is for a corpus that has measured
+  its own answer, beside `CANDIDATES`, `VIEWS` and `QUOTED_RELATION`.
+
 ## [0.9.1] — 2026-09-22
 
 ### Changed

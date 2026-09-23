@@ -89,12 +89,21 @@ m = Memory("mind.lmm",
            reranker=order)
 ```
 
-### Two session numbers
+### The session numbers
 
 How hard a turn tries is a session attribute rather than a constructor
-argument, because it is about effort rather than voice. Both default to **1**,
-and both were measured down from higher numbers: the extra readings they
-bought stopped winning once retrieval improved.
+argument, because it is about effort rather than voice. The first two
+default to **1**, and both were measured down from higher numbers: the
+extra readings they bought stopped winning once retrieval improved. The
+rest are wagers a corpus can settle for itself.
+
+!!! note "Where a turn's calls actually go"
+    Measured per organ on fifteen questions, counting only the round
+    trips the deterministic pool did not absorb: **an answered turn costs
+    3.5 calls and an abstaining one costs 9.0**. A fifth of the turns
+    spend two fifths of the budget, and they are the ones that end up
+    saying "I don't know". A turn the quoted reading carries costs
+    exactly **two**: the reading and its relation gate.
 
 | attribute | default | what raising it buys |
 |---|---|---|
@@ -104,6 +113,7 @@ bought stopped winning once retrieval improved.
 Raise them on a corpus where retrieval is weak — they are insurance, and
 insurance is worth buying where the risk is real.
 
+| `m.session.WIDEN` | True | whether a turn that abstained buys one more retrieval, with words the engine proposes and the store approves. Attributed per organ on fifteen questions it ran on four turns and cost **eight calls of sixty-nine** (69 → 61, and 17% of the prompt), rescuing one turn whose answer was off-subject. The default stands because that is one slice and the widening was measured onto a corpus where a question and a document use different words for one thing |
 | `m.session.QUOTED_RELATION` | True | whether a quoted turn still answers for its **relation**. Quoting replaces the read-back — the store checks the answer against lines it offered, for nothing — and replaces nothing for the other gate, because a quotation is not made relevant by being a quotation. Setting it `False` restores 0.8.1: measured on fifteen questions, the quoted reading then carries 9 turns instead of 7 at 58 calls instead of 86, and one genuinely wrong answer comes back instead of an honest abstention |
 
 ## A judgment is a seam
