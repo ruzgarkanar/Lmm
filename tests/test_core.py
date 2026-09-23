@@ -11507,6 +11507,66 @@ def w177():
         (generate.judged, generate.supported, generate.answers_asked) = real
 
 
+@test("W178 the widening is a number, because it is a wager")
+def w178():
+    """A turn that abstained buys one more retrieval with words the
+    ENGINE proposes and the STORE approves, and answers again. It earns
+    its keep on a corpus where the question and the document use
+    different words for one thing — which is why it exists — and it is a
+    wager either way: the words cost a call, the second answer costs
+    another, and the gates cost more.
+
+    Attributed per organ on the fifteen-question slice, counting the
+    engine round trips the deterministic pool did NOT absorb: the
+    widening ran on four turns and cost eight calls of sixty-nine —
+    69 -> 61, and 17% of the prompt. It rescued exactly one turn, and
+    that turn was the slice's known off-subject answer: asked what
+    capital market INSTRUMENTS do, the rescued sentence is about
+    institutions. With the widening off it abstains instead.
+
+    That is one slice and one wobbling question, which is why the
+    DEFAULT DOES NOT MOVE. The widening was measured onto a corpus where
+    a question and a document use different words for one thing, and
+    this document is not one; flipping a default here would trade an
+    unmeasured corpus for a measured one.
+
+    So it becomes a number, beside `CANDIDATES` and `VIEWS` and for the
+    same reason: both of those were measured down from higher values
+    once retrieval improved, and both stayed numbers rather than
+    deletions because the reading they buy is right wherever retrieval
+    is weak. Nothing about the rescue's behaviour changes; what changes
+    is that a corpus which does not need it can say so."""
+    from lmm import extract, generate, session as lmm_session
+
+    s = lmm_session.Session(None)
+    s.learn_text("The trust walk closes the morning arc.", source="#a",
+                 deep=False)
+    tried = []
+
+    def inner(message, fluent=False, teach=True):
+        s.last_kind = extract.ASK
+        return s._refuse(message)
+
+    s._respond = inner
+    s._store_words = lambda message: tried.append("words") or ["walk"]
+    s._answer = lambda q, subject="", **kw: tried.append("again") or None
+    real = generate.refusal
+    generate.refusal = lambda question, persona="": "no"
+    try:
+        s.respond("what closes the arc", teach=False)
+        assert tried == ["words", "again"], tried
+
+        # OFF: the turn abstains exactly as it did, and buys nothing.
+        tried.clear()
+        s._widened = False
+        s.WIDEN = False
+        said = s.respond("what closes the arc", teach=False)
+        assert tried == [], tried
+        assert s.last_abstained is True, said
+    finally:
+        generate.refusal = real
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

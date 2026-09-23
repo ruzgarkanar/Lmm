@@ -582,8 +582,9 @@ class Session:
         # approves them (a word nobody wrote cannot enter a search), and
         # the widening goes to the query alone — every gate below still
         # reads the question as it was asked.
-        if (self.last_abstained and not self._widened and not teach
-                and self.evidence.sentences and self.last_kind == extract.ASK):
+        if (self.WIDEN and self.last_abstained and not self._widened
+                and not teach and self.evidence.sentences
+                and self.last_kind == extract.ASK):
             self._widened = True
             words = self._store_words(message)
             if words:
@@ -4570,6 +4571,29 @@ class Session:
     # own corpus (four empty answers became one wrong one, which suited
     # them). Turning it off restores 0.8.1's behaviour exactly.
     QUOTED_RELATION = True
+
+    # WHETHER A TURN THAT ABSTAINED BUYS ONE MORE RETRIEVAL (W178). The
+    # widening asks the engine for words the STORE approves and answers
+    # again, and it earns its keep where a question and a document use
+    # different words for one thing — which is why it exists. It is a
+    # wager either way: the words cost a call, the second answer costs
+    # another, and the gates cost more.
+    #
+    # Attributed per organ on the fifteen-question slice, counting only
+    # the round trips the deterministic pool did not absorb: it ran on
+    # four turns and cost eight calls of sixty-nine — 69 -> 61, and 17%
+    # of the prompt. It rescued exactly ONE turn, and that turn was the
+    # slice's known off-subject answer: asked what capital market
+    # INSTRUMENTS do, the rescued sentence is about institutions. With
+    # the widening off, it abstains.
+    #
+    # THE DEFAULT DOES NOT MOVE ON THAT. It is one slice and one
+    # wobbling question, and the widening was measured onto a corpus
+    # where a question and a document use different words for one
+    # thing — which this document is not. It becomes a NUMBER, exactly
+    # as CANDIDATES and VIEWS did, so a corpus that has measured its own
+    # answer can say so.
+    WIDEN = True
 
     def _subsets(self, records, proof, fact_block):
         """The distinct EVIDENCE SUBSETS to answer from — at most CANDIDATES.
