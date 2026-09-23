@@ -179,6 +179,10 @@ class Session:
         # WHO JUDGES (W176) — None means this memory's own engine, which
         # is what every measurement in this repository was made with.
         self.judge = None
+        # THE TURN STANDS ALONE — no conversation before it and none
+        # after (W158), which is also what makes its classification
+        # unnecessary (W182). Set by `Memory.ask(standalone=True)`.
+        self.standalone = False
         self.quoted_only = False
         # WHICH FAILURE IT WAS (W160): True when the STORE refused what
         # came back — a line nobody offered, a sentence stepping outside
@@ -1293,7 +1297,24 @@ class Session:
                 if self.quoted_strict and self.quoted_refused:
                     self.last_kind = extract.ASK
                     return self._refuse(message)
-            op = extract.extract(message)
+            # A STANDALONE QUESTION DOES NOT PAY TO BE CLASSIFIED
+            # (W182). Attributing a turn's calls to the organ that made
+            # them put the extractor at 10-12% of two runs, and on this
+            # door it has nothing left to decide: `ask` cannot write
+            # memory and W164 settled that a statement handed to the
+            # question door IS the question, so the kind is ASK by
+            # construction. What the extractor still earns its call for
+            # is the two CONVERSATION features that read its triples —
+            # the terms fed to the composer bridge's brief, and whether
+            # a message is the bare "yes" answering a research offer.
+            # `standalone` ends the conversation on both sides of the
+            # turn, so the brief is empty going in and discarded coming
+            # out and no offer can be outstanding. The call was paid and
+            # thrown away.
+            if self.standalone:
+                op = {"kind": extract.ASK, "triples": []}
+            else:
+                op = extract.extract(message)
             self.last_kind = op.get("kind") or ""
             if self._no_teach and op.get("triples"):
                 if not isinstance(self._brief, list):   # __new__-built
