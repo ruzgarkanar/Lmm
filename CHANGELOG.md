@@ -6,6 +6,25 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- **A standalone question does not pay to be classified** (W182). Found
+  by attributing a turn's calls to the organ that made them: the
+  extractor was **10–12%** of every run on two corpora, and on the
+  question door it has nothing left to decide. `ask()` cannot write
+  memory and W164 settled that a statement handed to that door *is* the
+  question, so the kind is ASK by construction.
+
+  What the extractor still earns its call for is the two CONVERSATION
+  features that read its triples — the terms fed to the composer
+  bridge's brief, and whether a message is the bare "yes" answering a
+  research offer. `standalone=True` ends the conversation on both sides
+  of the turn, so the brief is empty going in and discarded coming out
+  and no offer can be outstanding: the call was paid and thrown away.
+
+  Narrow on purpose. A non-standalone `ask()` still classifies, and
+  nothing about the conversation surface moves. Measured on the thirteen
+  NIST questions: **52 → 47 calls**, 74 → 68 seconds, verdicts identical
+  question for question.
+
 - **A speaker who corrects himself is not silenced by his old self**
   (W181). A DOCUMENT that contradicts itself is a contradiction and this
   system surfaces it rather than picking a side (W54, and that is

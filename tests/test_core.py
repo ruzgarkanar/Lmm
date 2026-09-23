@@ -11762,6 +11762,72 @@ def w181():
     assert attested.trust >= stray.trust, (attested.trust, stray.trust)
 
 
+@test("W182 a standalone question does not pay to be classified")
+def w182():
+    """Found by attributing a turn's calls to the organ that made them:
+    on two corpora the extractor was 10-12% of every run, and on the
+    question door it has nothing left to decide.
+
+    `ask()` cannot write memory — W164 settled that a statement handed
+    to the question door is the question — so the turn's KIND is ASK by
+    construction. What the extractor still earns its call for is the two
+    CONVERSATION features that read its triples: the terms it feeds to
+    the composer bridge's brief, and the reading of whether a message is
+    a bare "yes" answering a research offer this session made.
+
+    `standalone=True` ends the conversation before the turn and again
+    after it, so on that door both consumers are dead: the brief is
+    empty going in and discarded coming out, and no offer can be
+    outstanding. The call is paid and thrown away.
+
+    Narrow on purpose. A non-standalone `ask()` still classifies, because
+    there the brief accumulates and an offer can be pending; nothing
+    about the conversation surface moves at all."""
+    from lmm import extract, generate, Memory
+
+    calls = {"n": 0}
+    real = (extract.extract, generate.answer, generate.refusal,
+            generate.supported, generate.answers_asked, generate.quoted_answer)
+
+    def counted(message):
+        calls["n"] += 1
+        return {"kind": extract.ASK, "triples": []}
+
+    extract.extract = counted
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None, **kw: "The valve opens at four bar.")
+    generate.refusal = (lambda message, persona="", warmth=0.0,
+                        max_tokens=None: "I do not know.")
+    generate.supported = lambda a, v: True
+    generate.answers_asked = lambda q, a, v: True
+    generate.quoted_answer = lambda q, block: (None, None)
+    try:
+        # `cache=False`: the same question asked twice is otherwise
+        # answered from the cache and reaches no organ at all (W161).
+        m = Memory(cache=False)
+        m.learn("The valve opens at four bar.", source="#spec", deep=False)
+
+        # `shape=` too, as a batch caller declares it — without one the
+        # identity probe runs first and owns the turn (W157).
+        said = m.ask("at what pressure does the valve open", explain=True,
+                     shape="none", standalone=True)
+        assert calls["n"] == 0, (
+            "a standalone question paid to be classified: %d calls" % calls["n"])
+        assert said.kind == extract.ASK, said.kind
+        assert "four bar" in str(said), said
+
+        # THE CONVERSATION SURFACE DOES NOT MOVE.
+        m.ask("at what pressure does the valve open", shape="none",
+              standalone=False)
+        assert calls["n"] == 1, calls
+        m.session.respond("the valve opens at four bar", teach=True)
+        assert calls["n"] == 2, calls
+    finally:
+        (extract.extract, generate.answer, generate.refusal,
+         generate.supported, generate.answers_asked,
+         generate.quoted_answer) = real
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

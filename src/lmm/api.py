@@ -668,6 +668,7 @@ class Memory:
         # subject it never raised nor leaves one for the next — which
         # is what a matrix of cells is, and what a `Memory` per cell
         # was standing in for.
+        session.standalone = bool(standalone)
         if standalone:
             self.reset()
         try:
@@ -675,6 +676,7 @@ class Memory:
                                    conversational=False) or ""
         finally:
             session.declared_shape = None
+            session.standalone = False
             session.quoted_only = False
             session.quoted_strict = False
             if standalone:
