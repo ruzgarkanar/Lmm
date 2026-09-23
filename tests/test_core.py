@@ -1016,7 +1016,10 @@ def h5():
         assert generate.answers_asked("Raporu kim imzalamıştır", claim,
                                       block) is False
         system, user = seen[-1]
-        assert system == prompts.RELATION_SYSTEM
+        # ...and it carries the relation prompt, now assembled from the
+        # disciplines this evidence exercises (W180) rather than whole.
+        assert system.startswith(prompts.RELATION_CORE), system[:60]
+        assert prompts.RELATION_UNSURE in system
         # the asked relation is IN the proposition, so an answer that never
         # mentions it can no longer slip past
         assert "imzalam" in user and claim in user and block in user, user
@@ -11620,6 +11623,46 @@ def w179():
     told = m.ask("what is the annual licence fee", explain=True)
     for word in ("annual", "licence", "fee"):
         assert word in told.unseen, (word, told.unseen)
+
+
+@test("W180 the relation check's disciplines travel with the shape too")
+def w180():
+    """W165 gave the claim reading and the answer writer prompts that
+    carry only the disciplines THIS evidence exercises. The relation
+    check was left whole — 2,353 characters on every judged turn — and
+    an integrator's client-side trace is what made that matter: on an
+    answered turn the gates are **54% of the tokens**, so the check
+    costs more than the answer it is checking.
+
+    Its three examples are each about a SHAPE, exactly like the other
+    prompt's clauses: a record row ("Prepared by: ..."), a terse
+    notation with a unit, and a value joined across two items. A block
+    with none of those pays for none of them. The readings are the same
+    two this file already makes (`_RECORD_ROW`, `_NOTATION`) plus
+    "is there more than one item", which is a count.
+
+    THE SAFE DIRECTION IS UNCHANGED. With no evidence in hand the whole
+    prompt travels, as every caller got before; and where a reading is
+    uncertain the clause is INCLUDED, because a missing discipline turns
+    a "no" into a "yes"."""
+    from lmm import prompts
+
+    whole = prompts.RELATION_SYSTEM
+    assert prompts.relation_system() == whole, "a blind caller loses nothing"
+
+    plain = prompts.relation_system("The valve opens at four bar.")
+    assert len(plain) < len(whole), (len(plain), len(whole))
+    # THE CONTRACT AND THE CENTRAL RULE NEVER LEAVE.
+    for kept in ('Answer ONLY "yes" or "no"', "THE VERY ATTRIBUTE",
+                 "SILENT about the asked attribute", 'unsure, answer "no"'):
+        assert kept in plain, kept
+
+    rows = prompts.relation_system("Prepared by: Nordheim Records Office")
+    assert "Prepared by" in rows and "Prepared by" not in plain
+    spec = prompts.relation_system("Masse, ohne Verpackung: 3 kg")
+    assert "Kilogramm" in spec
+    joined = prompts.relation_system("one line\nand a second line")
+    assert "Yedek par" in joined and "Yedek par" not in plain
 
 
 def main():

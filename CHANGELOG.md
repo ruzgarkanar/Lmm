@@ -4,6 +4,33 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The relation check's disciplines travel with the shape too** (W180).
+  W165 gave the claim reading and the answer writer prompts that carry
+  only the disciplines *this* evidence exercises. The relation check was
+  left whole — 2,353 characters on every judged turn — and an
+  integrator's client-side trace is what made that matter: on an
+  **answered** turn the gates are **54% of the tokens**, so the check
+  costs more than the answer it is checking.
+
+  Its three examples are each about a SHAPE, exactly like the other
+  prompt's clauses: a record row (`Prepared by: ...`), a terse notation
+  with a unit (`3 kg`), and a value joined across two items. A block
+  with none of them pays for none of them, read by the two detectors
+  this file already has plus a count of items.
+
+  Measured over the thirteen NIST questions against their real retrieved
+  blocks: **30,589 → 25,634 characters of relation prompt, −16%**. A
+  plain prose block drops from 2,353 to 1,528.
+
+  The safe direction is unchanged: with no evidence in hand the whole
+  prompt travels, as every caller got before, and an uncertain reading
+  INCLUDES the clause, because a missing discipline turns a "no" into a
+  "yes".
+
 ## [0.9.3] — 2026-09-23
 
 ### Added
