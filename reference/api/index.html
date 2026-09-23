@@ -1499,6 +1499,10 @@ turn knows about itself:</p>
 <td>the demands the answer did not carry: what to ask about next</td>
 </tr>
 <tr>
+<td><code>.unseen</code></td>
+<td>of those demands, the words <strong>this store has never held</strong> — in any sentence of any document. <code>missing</code> is about the answer; this is about the store, and it separates <em>"the document never mentions a fee"</em> from <em>"we did not find it"</em>. Engine-free. A paraphrase looks the same from here (asked who <em>heads</em> NIST, the document says "acting director"), so it is reported, never acted on</td>
+</tr>
+<tr>
 <td><code>.engine_error</code></td>
 <td><strong>why</strong> it abstained, when the reason was not the memory: <code>True</code> only when the engine could not be reached at all. An abstention with this <code>False</code> is the store's own honest "I do not hold that"; with it <code>True</code>, nothing was asked of the store at all — retry or alert, do not record a capability as absent</td>
 </tr>
