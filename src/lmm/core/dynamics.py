@@ -155,8 +155,24 @@ def arbitrate(memory, record):
         return record
     # The key's last element is the record key: a total order, so two records
     # equal on every criterion still rank the same way in every round.
-    field.sort(key=lambda one: (-one.level, -one.witnesses, -one.trust,
-                                one.key))
+    # ...AND A LATER CLAIM SUPERSEDES AN EQUAL EARLIER ONE (W181). Time
+    # was not a criterion at all, so two claims from one speaker at one
+    # level with one witness each tied on everything read here and fell
+    # to the record key — insertion order. Whoever spoke FIRST won,
+    # permanently. Measured: taught "I live in Ankara" and then "I moved
+    # to Istanbul", the stale fact kept 0.75 and went on speaking while
+    # the correction was lowered to 0.20, under the 0.4 threshold. The
+    # memory asserted exactly what the speaker had just retracted.
+    #
+    # `at` belongs here for the same reason level and witnesses do: it is
+    # a property of the EVIDENCE — written once when the claim arrives,
+    # never touched by `strengthen` (which moves `last_seen`) and never
+    # by this function — so the order-independence property above holds.
+    # It sits BELOW witnesses, so a document attested thirty times still
+    # beats a stray later sentence, and above trust, which stays what it
+    # always was: the last resort.
+    field.sort(key=lambda one: (-one.level, -one.witnesses, -one.at,
+                                -one.trust, one.key))
     winner = field[0]
     ceiling = min(winner.trust, SPEAK) * 0.5
     for other in field[1:]:

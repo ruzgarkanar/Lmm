@@ -11673,6 +11673,95 @@ def w180():
     assert "Yedek par" in joined and "Yedek par" not in plain
 
 
+@test("W181 a speaker who corrects himself is not silenced by his old self")
+def w181():
+    """Diagnosed while reading a competitor's update step against ours.
+    A DOCUMENT that contradicts itself is a contradiction and this system
+    surfaces it rather than picking a side (W54, and it is right). A
+    PERSON who says "I have moved" is not contradicting himself — he is
+    superseding his own earlier fact, and we were treating the two the
+    same.
+
+    Measured end to end, engine-free: taught "I live in Ankara" and then
+    "I moved to Istanbul", the graph keeps both, links them as rivals —
+    and arbitration leaves the STALE one at 0.75, above the speaking
+    threshold, while the correction is lowered to 0.20, below it. The
+    memory goes on asserting exactly what the speaker just retracted,
+    and refuses to say the new thing.
+
+    The cause is in `dynamics.arbitrate`, and it is an omission rather
+    than a mistake: it ranks by `(-level, -witnesses, -trust, key)`, and
+    TIME IS NOT A CRITERION. Two claims from one speaker at one level
+    with one witness each tie on everything the ranking reads, so the
+    tie falls to the record key — which is insertion order. Whoever
+    spoke FIRST wins, permanently.
+
+    The fix must not cost the function its two stated properties: the
+    ranking may read nothing arbitration itself writes (which is why
+    trust breaks ties only), and the winner is never punished. It must
+    also leave a DOCUMENT alone: two lines of one ingestion are not a
+    correction, and W54 owns that case."""
+    from lmm import extract, generate, Memory
+    from lmm.core.gate import SPEAK
+
+    def taught(*turns):
+        """Each turn is a sentence that CARRIES its own triple. Two
+        protections this fixture must not fight: the write gate refuses a
+        claim the message does not ground, and a message that repeats a
+        stored PREDICATE is answered from the graph instead of taught —
+        which is why the correction says "has moved to" rather than
+        "lives in"."""
+        m = Memory(None)
+        seq = iter([{"kind": extract.WRITE, "triples": [t]} for t in turns])
+        real = (extract.extract, generate.confirm, generate.are_rivals,
+                generate.chat)
+        extract.extract = lambda message: next(seq)
+        generate.confirm = lambda learned, conflicts, message: "ok"
+        generate.are_rivals = lambda a, b: True
+        generate.chat = lambda *a, **k: "ok"
+        try:
+            for nth, (subject, _predicate, value) in enumerate(turns):
+                m.session.respond(
+                    "%s %s %s" % (subject,
+                                  "has moved to" if nth else "lives in",
+                                  value), teach=True)
+        finally:
+            (extract.extract, generate.confirm, generate.are_rivals,
+             generate.chat) = real
+        return m
+
+    m = taught(("ruzgar", "lives", "Ankara"), ("ruzgar", "lives", "Istanbul"))
+    held = {r.value: r for r in m.about("ruzgar")}
+    assert len(held) == 2, "the correction was not kept at all"
+    newer = max(held.values(), key=lambda r: r.key)
+    older = min(held.values(), key=lambda r: r.key)
+    assert newer.trust >= SPEAK, (
+        "the speaker's correction is below the speaking threshold while his "
+        "retracted fact is above it: correction %.2f, stale %.2f, SPEAK %.2f"
+        % (newer.trust, older.trust, SPEAK))
+    assert older.trust < newer.trust, (older.trust, newer.trust)
+
+    # AND THE GUARD: time ranks BELOW the evidence's own weight, so a
+    # claim attested many times is not unseated by a later stray one.
+    from lmm.core import dynamics
+    from lmm.core.memory import Memory as Graph
+
+    graph = Graph()
+    attested = graph.write(1, 2, 3, "#doc", 4)
+    for nth in range(30):
+        attested.strengthen("#witness%d" % nth)
+    stray = graph.write(1, 2, 9, "#doc", 4)
+    assert stray.at > attested.at, (stray.at, attested.at)
+    from lmm.core.memory import CONTRA
+    graph.link(attested.key, stray.key, CONTRA)
+    graph.link(stray.key, attested.key, CONTRA)
+    won = dynamics.arbitrate(graph, stray)
+    assert won is attested, (
+        "a later one-witness claim unseated a thirty-witness one: "
+        "%r beat %r" % (won.value, attested.value))
+    assert attested.trust >= stray.trust, (attested.trust, stray.trust)
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
