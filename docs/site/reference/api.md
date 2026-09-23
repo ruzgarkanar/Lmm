@@ -113,7 +113,7 @@ rest are wagers a corpus can settle for itself.
 Raise them on a corpus where retrieval is weak — they are insurance, and
 insurance is worth buying where the risk is real.
 
-| `m.session.WIDEN` | True | whether a turn that abstained buys one more retrieval, with words the engine proposes and the store approves. Attributed per organ on fifteen questions it ran on four turns and cost **eight calls of sixty-nine** (69 → 61, and 17% of the prompt), rescuing one turn whose answer was off-subject. The default stands because that is one slice and the widening was measured onto a corpus where a question and a document use different words for one thing |
+| `m.session.WIDEN` | **False** | whether a turn that abstained buys one more retrieval, with words the engine proposes and the store approves. Measured over three corpora and thirteen refusing turns, it rescued **one**, and that one was an off-subject answer — including on a question set with a labelled *paraphrase* class, which is what it exists for. Switching the meaning channel off did not bring it back. Set it `True` on a corpus whose questions and documents use different words for one thing |
 | `m.session.QUOTED_RELATION` | True | whether a quoted turn still answers for its **relation**. Quoting replaces the read-back — the store checks the answer against lines it offered, for nothing — and replaces nothing for the other gate, because a quotation is not made relevant by being a quotation. Setting it `False` restores 0.8.1: measured on fifteen questions, the quoted reading then carries 9 turns instead of 7 at 58 calls instead of 86, and one genuinely wrong answer comes back instead of an honest abstention |
 
 ## A judgment is a seam
