@@ -8,6 +8,66 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The conversation surface has a number at last** (`benchmarks/chat`).
+  Every published measurement of this project is document
+  question-answering; the half its name promises had no current figure —
+  the last one was 18/30, twelve releases ago. A **synthetic** four-session
+  conversation and fifteen labelled questions now exercise the classes
+  recorded as open: a fact the speaker supersedes, a quantity composed
+  across sessions, an ordering, a preference asked about in other words,
+  and questions whose discriminating word the conversation never writes.
+  It is small and invented and is not a substitute for LongMemEval.
+
+  **13/15, identical across two independent runs, zero flips**: facts
+  6/6, traps 3/3 (no fabrication), paraphrase 3/4, composition 1/2. The
+  two failures are honest — one abstains rather than guessing a sum, the
+  other is W186's class, below.
+
+- **A wholly dated block is read newest first** (W186) — the first defect
+  the conversation benchmark found. Asked "where does the user live now?"
+  the memory answers Istanbul; asked the same fact in other words —
+  "which city is the user based in?" — it answered **"the user is based
+  in Ankara"**, stamped with the session before the move. True, sourced,
+  past every gate, out of date. W181 fixed this where the graph holds it;
+  the evidence path has no arbitration, only a ranked block, and nothing
+  in the block said which line was later.
+
+  When EVERY line comes from a source carrying a day (`stamp_day`'s rule,
+  the one the counting organ and the telling seat already keep) the block
+  is ordered newest first; one undated line and the order is retrieval's,
+  untouched, which is every document corpus here. Lines and stamps move
+  together or not at all, so an answer cannot be stamped with another
+  line's source.
+
+- **A run in the same process is not a run** (`conversation_eval`). The
+  multi-run harness exists because byte-identical code gave opposite
+  verdicts forty minutes apart, and it answers with a median plus a FLIP
+  count. Measured on its own output: with `--runs 3` the second and third
+  runs took **zero seconds** and agreed with the first on everything,
+  because the engine pools its deterministic calls for the life of the
+  process. Three runs in one process are one run reported three times.
+  That is this repository's own documented measurement trap, walked into
+  by the tool written to avoid it. Each run now gets a fresh interpreter.
+
+### Measured, and open
+
+- **`WIDEN` off was the right default for conversation too.** Yesterday's
+  change was argued from three document corpora, and conversation is
+  where paraphrase actually lives — so it was the one default at risk.
+  Measured on the new benchmark, both arms: **13/15 either way, the same
+  two failures**, and the widening costs five more calls to rescue
+  nothing. A fourth corpus agreeing.
+
+- **Scope inheritance pins a later question to an earlier session.**
+  Asked alone, "which city is the user based in?" now answers Istanbul.
+  Asked eighth in a sequence, it still answers Ankara. The variable is
+  the conversation: after several turns answered from the March session,
+  a question that names no source inherits that scope (W109) and is
+  pinned to it. In a chat memory every session is a separate source and
+  later ones supersede earlier ones, so scope inheritance works against
+  the grain there. Diagnosed with its reproduction and **not fixed** —
+  W109 exists for a measured reason and its blast radius wants daylight.
+
 - **How many lines the block seats is a number, and it was measured**
   (W185). The answering call is the largest single consumer of prompt in
   a turn, and the size of what it reads had never been asked about: the
