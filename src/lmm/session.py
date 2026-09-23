@@ -2423,6 +2423,26 @@ class Session:
                             return (when, src, phrase, True)
         return fallback
 
+    def _store_is_dated(self):
+        """Does ANY source in this store carry a day (W183).
+
+        The same reading `stamp_day` keeps — three numbers in the stamp —
+        asked of the store rather than of one line, and remembered
+        against the store's own length, so a memory that grew re-reads
+        and one that did not pays a dict lookup. The note lives on THIS
+        session: a default argument would be one cache shared by every
+        memory in the process, which is how the first draft of this
+        answered a second store with the first store's verdict.
+        """
+        held = getattr(self, "evidence", None)
+        rows = getattr(held, "sentences", ()) if held is not None else ()
+        seen = getattr(self, "_dated_at", None)
+        if seen is None or seen[1] != len(rows):
+            seen = (any(evidence.stamp_day(src) is not None
+                        for _text, src in rows), len(rows))
+            self._dated_at = seen
+        return seen[0]
+
     def _plan_answer(self, question, want=None):
         """A plan is a proposal; the primitives are the law (W94).
 
@@ -2435,6 +2455,23 @@ class Session:
         caller's ordinary law applies. The engine never writes an
         output word; the dates, counts and verdicts spoken are the
         store's arithmetic, each anchored line's stamp in hand."""
+        # AN UNDATED STORE CANNOT EXECUTE A PLAN (W183). Every
+        # date-taking primitive anchors a phrase by reading the day out
+        # of the line's SOURCE STAMP, by `stamp_day`'s rule: a stamp with
+        # fewer than three numbers carries no day. Where no source in the
+        # store carries one, `anchor`, `latest`, `lines`, `span`,
+        # `before`, `before_lines`, `after_lines` and `month_tally` all
+        # die on the first step — so the proposal is not bought.
+        # Measured on NIST SP 800-63B: 12,253 sentences, none from a
+        # dated source, and the call was paid on all five abstaining
+        # turns of a run.
+        #
+        # WHAT IT COSTS, said rather than hidden: a plan of `now:` alone
+        # anchors nothing, so on a store with no dated source at all this
+        # seat can no longer answer "what is today's date". That is the
+        # whole loss and it is bounded.
+        if not self._store_is_dated():
+            return None
         try:
             steps = generate.plan_of(question)
         except Exception:                               # noqa: BLE001
