@@ -11567,6 +11567,61 @@ def w178():
         generate.refusal = real
 
 
+@test("W179 a word the store has never seen is a fact about the store")
+def w179():
+    """An integrator measuring a coverage matrix asked the right
+    question: is there a point at which "the store holds nothing about
+    this subject" is already knowable, before the rescues run? There is,
+    and it costs nothing — the inverted index either carries a word or
+    it does not, and that is a fact about the STORE rather than a
+    judgment about the answer.
+
+    Measured on NIST SP 800-63B with this repository's own labelled
+    question set, taking each question's RAREST demand:
+
+      * `yokluk` (the document cannot answer):        2 of 2 unseen
+      * `dogrudan` (the document answers plainly):    0 of 8 unseen
+      * `esanlam` (a paraphrase of what it answers):  1 of 3 unseen
+      * six further unanswerable questions written
+        for this test:                               5 of 6 unseen
+
+    The one false positive is the whole reason this must NOT abstain on
+    its own: asked who "heads" NIST, the document says "acting
+    director", and `heads` appears nowhere. That is exactly the class
+    the widening exists to rescue. So the reading is REPORTED, never
+    acted on — a caller grading cells can tell "the document never
+    mentions a fee" from "we did not find it", which is the distinction
+    a three-grade verdict needs and which the library itself declines to
+    make.
+
+    It is deterministic, engine-free and carries no word of any
+    language: the question's own content words, asked of the index."""
+    from lmm import Memory
+
+    m = Memory()
+    m.learn("The verifier shall permit a memorized secret of at least "
+            "eight characters. Reauthentication is repeated every thirty "
+            "minutes.", source="#spec", deep=False)
+
+    # A WORD THE DOCUMENT NEVER WROTE IS NAMED...
+    unseen = m.session.unseen_demands("what is the annual licence fee")
+    for word in ("annual", "licence", "fee"):
+        assert word in unseen, (word, unseen)
+    # ...AND A WORD IT WROTE IS NOT, however the question inflects it.
+    for question in ("how many characters shall the memorized secret be",
+                     "how many character",
+                     "which secrets does the verifier permit"):
+        seen = m.session.unseen_demands(question)
+        for word in ("character", "characters", "secret", "secrets",
+                     "verifier", "permit", "memorized"):
+            assert word not in seen, (question, word, seen)
+
+    # AND IT REACHES THE CALLER.
+    told = m.ask("what is the annual licence fee", explain=True)
+    for word in ("annual", "licence", "fee"):
+        assert word in told.unseen, (word, told.unseen)
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

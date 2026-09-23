@@ -61,11 +61,13 @@ class Answer(str):
     """
 
     __slots__ = ("abstained", "sources", "subject", "kind", "wrote", "route",
-                 "from_graph", "engine_error", "covered", "missing")
+                 "from_graph", "engine_error", "covered", "missing",
+                 "unseen")
 
     def __new__(cls, text, *, abstained=False, sources=(), subject="",
                 kind="", wrote=(), from_graph=False, route=(),
-                engine_error=False, covered=0.0, missing=()):
+                engine_error=False, covered=0.0, missing=(),
+                unseen=()):
         self = super().__new__(cls, text)
         self.abstained = bool(abstained)
         # WHY IT ABSTAINED, WHEN THE REASON WAS NOT THE MEMORY (W149).
@@ -85,6 +87,16 @@ class Answer(str):
         # somebody's vocabulary.
         self.covered = float(covered)
         self.missing = tuple(missing)
+        # WHICH OF THEM THIS STORE HAS NEVER SEEN (W179). `missing` is
+        # about the ANSWER — what it did not carry. This is about the
+        # STORE: words the index does not hold at all, in any sentence
+        # of any document. A caller grading cells can tell "the document
+        # never mentions a fee" from "we did not find it", which is the
+        # distinction a three-grade verdict needs and which this library
+        # declines to make on the caller's behalf. Engine-free, and it
+        # is reported rather than acted on: a paraphrase looks the same
+        # from here, and a paraphrase is what the widening rescues.
+        self.unseen = tuple(unseen)
         # THE ROUTE — which organs the turn consulted, in order (W86):
         # ("record",) for a row read with no model call, ("chain",
         # "refuse", "count") for a rescued count. The orchestration was
@@ -743,6 +755,7 @@ class Memory:
             engine_error=getattr(session, "last_engine_error", False),
             covered=covered,
             missing=missing,
+            unseen=session.unseen_demands(asked) if asked else (),
             from_graph=session.last_from_graph,
             # THE MARK HAS A SHAPE, so it is read as one. Splitting the
             # answer on whitespace and keeping the words that start with

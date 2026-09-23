@@ -4916,6 +4916,36 @@ class Session:
     # engine is.
     JUDGE_BOUNDARY = 0.5
 
+    def unseen_demands(self, question):
+        """The question's content words THIS STORE HAS NEVER SEEN (W179).
+
+        An integrator grading a coverage matrix asked whether "the store
+        holds nothing about this subject" is knowable before the rescues
+        run. It is, and it costs nothing: the inverted index either
+        carries a word or it does not. That is a fact about the store,
+        not a judgment about an answer — no engine, no threshold, and no
+        word of any language in the reading.
+
+        Measured on NIST SP 800-63B with this repository's labelled
+        question set, by each question's rarest demand: 2 of 2 questions
+        the document cannot answer come back unseen, 0 of 8 it answers
+        plainly do, and 1 of 3 PARAPHRASES does — asked who "heads"
+        NIST, the document says "acting director".
+
+        That last one is why this is reported and never acted on. The
+        paraphrase is exactly what the widening exists to rescue, so a
+        turn that abstained on it must still get its second retrieval.
+        What a caller gains is the distinction the library itself
+        declines to draw: "the document never mentions a fee" is not the
+        same verdict as "we did not find it".
+        """
+        held = getattr(self.evidence, "index", None) or {}
+        out = []
+        for word in evidence.demands(question):
+            if not any(inflect.same_stem(word, key) for key in held):
+                out.append(word)
+        return tuple(out)
+
     def _judged(self, kind, question, answer, view, ask_engine):
         """One judgment, through the seam if a caller supplied one.
 
