@@ -115,6 +115,42 @@ def one_run(questions, corpus_dir):
     return verdicts
 
 
+def _independent(questions, corpus_dir):
+    """One run, in a process of its own — because in ONE process they are
+    not runs at all.
+
+    This harness exists because byte-identical code and store gave
+    opposite verdicts forty minutes apart, and its answer is the median
+    across runs plus the FLIP count. Measured on its own output: with
+    `--runs 3` the second and third runs took **0 seconds** and agreed
+    with the first on every question, because below `Memory` the engine
+    pools its deterministic calls for the life of the PROCESS. Three
+    runs in one process are one run reported three times, and a flip
+    count of zero read from them means nothing at all.
+
+    That is this repository's own documented measurement trap
+    (`Memory`'s `cache=False` warning), walked into by the very tool
+    written to avoid it. Each run now gets a fresh interpreter, which is
+    the same remedy the retrieval-determinism invariant already uses.
+    """
+    import subprocess
+    script = (
+        "import json,sys;sys.path.insert(0,%r);"
+        "import conversation_eval as ce;"
+        "v=ce._independent_child(json.load(open(%r,encoding='utf-8')),%r);"
+        "print(json.dumps([[list(k),bool(x)] for k,x in v.items()]))"
+        % (os.path.dirname(os.path.abspath(__file__)),
+           questions["__path__"], corpus_dir))
+    out = subprocess.run([sys.executable, "-c", script], check=True,
+                         capture_output=True, text=True).stdout
+    return {tuple(k): v for k, v in json.loads(out.splitlines()[-1])}
+
+
+def _independent_child(questions, corpus_dir):
+    """The child's half of `_independent` — one run, reported as JSON."""
+    return one_run(questions, corpus_dir)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("questions")
@@ -124,11 +160,14 @@ def main():
     ap.add_argument("--save")
     args = ap.parse_args()
     questions = json.load(open(args.questions, encoding="utf-8"))
+    # the child re-reads the file, so it travels as a path rather than
+    # as a dict squeezed through a command line
+    questions["__path__"] = os.path.abspath(args.questions)
 
     runs = []
     for i in range(args.runs):
         t0 = time.time()
-        runs.append(one_run(questions, args.corpus_dir))
+        runs.append(_independent(questions, args.corpus_dir))
         print(f"# run {i + 1}/{args.runs}: {time.time() - t0:.0f}s",
               file=sys.stderr)
 
