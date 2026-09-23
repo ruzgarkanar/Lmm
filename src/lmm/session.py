@@ -3842,7 +3842,7 @@ class Session:
         # intersecting the question — numbers/ranges/nuance that don't fit a
         # triple come from here. The graph is structure, the sentence is
         # evidence.
-        seats = evidence.WINDOW
+        seats = self.SEATS or evidence.WINDOW
         # A FOLLOW-UP NAMES ITS SUBJECT BY POINTING, and retrieval cannot
         # see a pointer. Measured, five-turn conversation: "what does the
         # Alpha programme teach?" answered correctly, then "and who
@@ -4669,6 +4669,23 @@ class Session:
     # wherever retrieval is weak in a way these corpora are not, and
     # `WIDEN = True` restores it exactly.
     WIDEN = False
+
+    # HOW MANY EVIDENCE LINES THE ANSWERING BLOCK SEATS. `evidence.WINDOW`
+    # is the scale the store itself is built at, and the answering path
+    # has always borrowed it. Whether it is the right number for a BLOCK
+    # is a different question, and one nobody had asked: measured
+    # engine-free on NIST SP 800-63B with this repository's labelled
+    # question set, the line carrying the gold answer sits at seat 1 for
+    # nine of eleven questions and at seat 2 for the tenth; seats three
+    # through six change the miss count not at all, and they are two
+    # thirds of the block's characters.
+    #
+    # That is a fact about RETRIEVAL, not a licence to cut: the gates
+    # read this block too, and a narrower view has been measured to
+    # mislead before (0.7.8's "narrowest view" claim was refuted — it
+    # selected headings). So it starts as a number that changes nothing,
+    # and moves only if a two-armed measurement says the verdicts do not.
+    SEATS = 0                           # 0 = the store's own window
 
     def _subsets(self, records, proof, fact_block):
         """The distinct EVIDENCE SUBSETS to answer from — at most CANDIDATES.

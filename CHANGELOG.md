@@ -4,6 +4,41 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **How many lines the block seats is a number, and it was measured**
+  (W185). The answering call is the largest single consumer of prompt in
+  a turn, and the size of what it reads had never been asked about: the
+  block seats `evidence.WINDOW` lines because that is the scale the
+  STORE is built at — a reason for the store, not a reason for a block.
+
+  Measured engine-free on NIST SP 800-63B with this repository's
+  labelled question set, asking at which seat the line carrying the gold
+  answer arrives: **seat 1 for nine of eleven questions, seat 2 for the
+  tenth**, never for the two paraphrases the memory abstains on anyway.
+  Seats three through six change the miss count not at all and are two
+  thirds of the block's characters.
+
+  Measured again with the engine, two arms over the same thirteen
+  questions — six seats against three: **zero verdicts changed**, same
+  route, same abstention, same sentence, question for question, at
+  42 → 40 calls and **112,010 → 92,024 prompt characters, −18%**.
+
+  **The default does not move on that**, and the reason is what one
+  corpus cannot show. A standard asks literal questions of literal
+  lines. Two risks live outside it: an answer whose attribute sits on
+  one line and whose value on another (W166's own case) may need both
+  seats, and the gates read this block as their WIDE view, so narrowing
+  it leaves a claim the focused view rejected less to appeal to. A
+  narrowing argument has misled this project before — 0.7.8's "narrowest
+  view" was refuted for selecting headings.
+
+  `m.session.SEATS = 3` is the instrument. A corpus of paraphrased
+  questions over documents that split an attribute from its value is
+  exactly the case that would settle it.
+
 ## [0.10.0] — 2026-09-23
 
 A day of measuring instead of reasoning. Every change below was found by

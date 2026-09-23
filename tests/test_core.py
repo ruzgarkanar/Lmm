@@ -11934,6 +11934,60 @@ def w184():
         runtime.generate = real
 
 
+@test("W185 how many lines the block seats is a number, and it was measured")
+def w185():
+    """The answering call is the largest single consumer of prompt in a
+    turn, and the size of what it reads had never been asked about: the
+    block seats `evidence.WINDOW` lines because that is the scale the
+    STORE is built at, which is a reason for the store and not a reason
+    for a block.
+
+    Measured engine-free on NIST SP 800-63B with this repository's
+    labelled question set, asking at which seat the line carrying the
+    gold answer arrives: **seat 1 for nine of eleven questions, seat 2
+    for the tenth**, and never for the two paraphrases the memory
+    abstains on anyway. Seats three through six change the miss count
+    not at all and are two thirds of the block's characters.
+
+    Measured again with the engine, two arms over the same thirteen
+    questions: six seats against three, **zero verdicts changed** — same
+    route, same abstention, same sentence, question for question — at
+    42 → 40 calls and **112,010 → 92,024 prompt characters, −18%**.
+
+    THE DEFAULT DOES NOT MOVE ON THAT, and the reason is what one corpus
+    cannot show. A standard asks literal questions of literal lines. Two
+    risks live outside it: an answer whose attribute sits on one line and
+    whose value on another (W166's own case) may need both seats, and
+    the gates read this block as their WIDE view, so narrowing it leaves
+    a claim the focused view rejected less to appeal to. Neither appears
+    on NIST, and a narrowing argument has misled this project before —
+    0.7.8's "narrowest view" was refuted for selecting headings.
+
+    So it ships as an instrument with its measurement attached, the way
+    `WIDEN` did before a second and a third corpus agreed with it."""
+    from lmm import evidence, session as lmm_session
+
+    s = lmm_session.Session(None)
+    assert s.SEATS == 0, "the default must be the store's own window"
+
+    seen = []
+    s._find = lambda query, most=6, **kw: seen.append(most) or []
+    s.evidence.sentences.append(("a line", "#spec"))
+    try:
+        s._answer("what does it say", None)
+    except Exception:                                       # noqa: BLE001
+        pass
+    assert seen and seen[0] == evidence.WINDOW, seen
+
+    seen.clear()
+    s.SEATS = 3
+    try:
+        s._answer("what does it say", None)
+    except Exception:                                       # noqa: BLE001
+        pass
+    assert seen and seen[0] == 3, seen
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
