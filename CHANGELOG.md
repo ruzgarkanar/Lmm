@@ -6,6 +6,39 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- **A speaker who corrects himself is not silenced by his old self**
+  (W181). A DOCUMENT that contradicts itself is a contradiction and this
+  system surfaces it rather than picking a side (W54, and that is
+  right). A PERSON who says *"I have moved"* is not contradicting
+  himself — he is superseding his own earlier fact, and the two were
+  being treated the same.
+
+  Measured end to end, engine-free: taught "I live in Ankara" and then
+  "I moved to Istanbul", the graph keeps both and links them as rivals —
+  and arbitration left the **stale** one at 0.75, above the speaking
+  threshold, while the correction was lowered to **0.20**, below it. The
+  memory went on asserting exactly what the speaker had just retracted,
+  and refused to say the new thing.
+
+  The cause was an omission rather than a mistake: `dynamics.arbitrate`
+  ranked by `(-level, -witnesses, -trust, key)` and **time was not a
+  criterion**. Two claims from one speaker at one level with one witness
+  each tie on everything it reads, so the tie fell to the record key —
+  insertion order. Whoever spoke first won, permanently.
+
+  `at` now ranks below witnesses and above trust. It belongs there for
+  the same reason level and witnesses do: it is a property of the
+  evidence, written once when the claim arrives and never touched by
+  `strengthen` or by arbitration itself, so the function keeps its
+  order-independence property. A document attested thirty times still
+  beats a later one-witness claim — asserted, not assumed.
+
+  **One behaviour changes beyond the defect**: where two rival values
+  come from the same document, the later-written line now wins the slot
+  where the earlier one used to. Both were arbitrary; nothing pinned the
+  old one, and the evidence path still surfaces the disagreement as a
+  contradiction row either way.
+
 ### Changed
 
 - **The widening is off by default, because it was finally measured**
