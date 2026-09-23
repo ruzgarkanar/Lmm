@@ -6,6 +6,32 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- **An undated store does not pay for a plan it cannot execute** (W183).
+  The plan seat is a rescue — a turn that abstained buys one plan
+  proposal before it closes — and unlike the widening it must NOT be
+  switched off: it is the only path to a dated answer, which on a corpus
+  of dated lines is its whole purpose.
+
+  What it does not need is to be *asked* where it cannot execute. Every
+  date-taking primitive anchors a phrase by reading the day out of the
+  line's SOURCE STAMP, by `stamp_day`'s own rule — a stamp with fewer
+  than three numbers carries no day — so in a store where no source
+  carries one, `anchor`, `latest`, `lines`, `span`, `before`,
+  `before_lines`, `after_lines` and `month_tally` all die on the first
+  step. Measured on NIST SP 800-63B: **12,253 sentences, none from a
+  dated source**, and the call was bought on all five abstaining turns.
+
+  **What the precondition costs, stated rather than hidden**: a plan of
+  `now:` alone anchors nothing, so on a store with no dated source at
+  all this seat can no longer answer "what is today's date". That is the
+  whole loss and it is bounded.
+
+  Measured on the thirteen NIST questions: **47 → 42 calls**, 68 → 61
+  seconds, verdicts identical question for question. Across the day's
+  unreleased work the same slice has gone **57 → 42 calls, −26%**, with
+  the same answers and the same abstentions, and the five refusing turns
+  now take 26 calls where they took 41.
+
 - **A standalone question does not pay to be classified** (W182). Found
   by attributing a turn's calls to the organ that made them: the
   extractor was **10–12%** of every run on two corpora, and on the

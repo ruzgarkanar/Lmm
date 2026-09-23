@@ -11828,6 +11828,61 @@ def w182():
          generate.quoted_answer) = real
 
 
+@test("W183 an undated store does not pay for a plan it cannot execute")
+def w183():
+    """The plan seat is a rescue: a turn that abstained buys one plan
+    proposal before it closes. It is NOT the widening's case and must not
+    be switched off — it is the only path to a dated answer, and on a
+    corpus of dated lines that is its whole purpose.
+
+    What it does not need is to be ASKED where it cannot execute. Every
+    date-taking primitive anchors a phrase by reading the day out of the
+    line's SOURCE STAMP, by the same rule `stamp_day` keeps: a stamp with
+    fewer than three numbers carries no day. A store in which no source
+    carries one cannot anchor anything, so `anchor`, `latest`, `lines`,
+    `span`, `before`, `before_lines`, `after_lines` and `month_tally` all
+    die on the first step. Measured on NIST SP 800-63B: 12,253 sentences,
+    **none** from a dated source, and the proposal was bought on all five
+    abstaining turns.
+
+    WHAT THE PRECONDITION COSTS, stated rather than hidden: a plan of
+    `now:` alone needs no anchor, so on a store with no dated source at
+    all the memory can no longer answer "what is today's date" through
+    this seat. That is the whole loss, it is bounded, and it is the price
+    of not paying a call per refusal on every undated corpus."""
+    from lmm import generate, session as lmm_session
+
+    asked = []
+    real = (generate.plan_of, generate.answer, generate.refusal,
+            generate.supported, generate.answers_asked, generate.turn_shape)
+    generate.plan_of = lambda question: asked.append(question) or []
+    generate.answer = (lambda q, block, warmth=0.2, persona="",
+                       max_tokens=None, **kw: "I do not know.")
+    generate.refusal = (lambda message, persona="", warmth=0.0,
+                        max_tokens=None: "I do not know.")
+    generate.supported = lambda a, v: False
+    generate.answers_asked = lambda q, a, v: False
+    generate.turn_shape = lambda message: "none"
+    try:
+        # NO SOURCE CARRIES A DAY — the seat is not asked.
+        flat = lmm_session.Session(None)
+        flat.learn_text("The valve opens at four bar.", source="#spec",
+                        deep=False)
+        flat.respond("when was the valve last serviced", teach=False)
+        assert asked == [], ("an undated store paid for a plan: %r" % asked)
+
+        # ONE DATED SOURCE IS ENOUGH — the organ keeps its purpose.
+        dated = lmm_session.Session(None)
+        dated.learn_text("The valve was serviced.",
+                         source="chat 2026/03/12 09:00", deep=False)
+        dated.respond("when was the valve last serviced", teach=False)
+        assert asked, "a dated store stopped asking for a plan"
+    finally:
+        (generate.plan_of, generate.answer, generate.refusal,
+         generate.supported, generate.answers_asked,
+         generate.turn_shape) = real
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
