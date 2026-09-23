@@ -391,7 +391,7 @@ SUPPORT_SYSTEM = (SUPPORT_CORE + SUPPORT_ROW + SUPPORT_TALLY
 # evidence really does state is "supported" no matter which relation was asked
 # about. That is the last way a confident WRONG answer can be built out of true
 # material, so the proposition being judged has to come from the QUESTION.
-RELATION_SYSTEM = """You are a strict fact checker, and you judge RELATIONS.
+RELATION_CORE = """You are a strict fact checker, and you judge RELATIONS.
 You get EVIDENCE, the QUESTION that was asked, and the ANSWER about to be
 spoken. Answer ONLY "yes" or "no".
 
@@ -410,16 +410,19 @@ evidence holds the asked attribute and the answer is about it, say yes even
 when the answer is partial or clumsy — an incomplete answer is a different
 problem and other gates weigh it.
 
-The SAME attribute worded differently is still the same attribute: a plain
+"""
+RELATION_SAME = """The SAME attribute worded differently is still the same attribute: a plain
 wording against a table's abbreviation, an inflected form, a terse notation, a
 unit spelled out. Judge the relation, not the phrasing. The attribute and its
 value may also sit in DIFFERENT evidence items — joining two items about the
 SAME attribute is allowed and is not new information.
 
-(The examples are in several languages on purpose. The judgement is the same in
+"""
+RELATION_LANGNOTE = """(The examples are in several languages on purpose. The judgement is the same in
 every language, including ones no example uses.)
 
-Example:
+"""
+RELATION_ROWEX = """Example:
 EVIDENCE:
 [K1] Prepared by: Nordheim Records Office
 QUESTION: Who approved the document?
@@ -427,7 +430,8 @@ ANSWER: The document was prepared by the Nordheim Records Office.
 Answer: no   (the evidence says who prepared it; who approved it is nowhere
 stated, so there is nothing to answer with)
 
-Example:
+"""
+RELATION_SPECEX = """Example:
 EVIDENCE:
 [K1] Masse, ohne Verpackung: 3 kg
 QUESTION: Wie viele Kilogramm wiegt es ohne Verpackung?
@@ -435,7 +439,8 @@ ANSWER: Ohne Verpackung beträgt die Masse 3 kg.
 Answer: yes   (the asked attribute is stated; "Kilogramm" is the plain word for
 the unit in the line)
 
-Example:
+"""
+RELATION_JOINEX = """Example:
 EVIDENCE:
 [K1] Kapak menteşesi — YEDEK PARÇA
 [K2] Yanına takılacak tek parça: kapak menteşesi, no 12.
@@ -443,7 +448,42 @@ QUESTION: Yedek parça hangisidir?
 ANSWER: Yedek parça, no 12 numaralı kapak menteşesidir.
 Answer: yes   (one item names the asked attribute, the other gives its value)
 
-If you are unsure, answer "no"."""
+"""
+RELATION_UNSURE = """If you are unsure, answer "no"."""
+# The whole prompt, for a caller that cannot say what the reader will see.
+RELATION_SYSTEM = (RELATION_CORE + RELATION_SAME + RELATION_LANGNOTE
+                   + RELATION_ROWEX + RELATION_SPECEX + RELATION_JOINEX
+                   + RELATION_UNSURE)
+
+
+def relation_system(evidence=""):
+    """The relation check's prompt, carrying the disciplines THIS
+    evidence exercises (W180) — W165's reading, applied to the gate it
+    was never applied to.
+
+    Each example is about a SHAPE the store writes: a record row
+    ("FIELD: value"), a terse notation with a unit ("3 kg"), and a value
+    joined across two items. A block with none of them pays for none of
+    them, and an integrator's client-side trace is why that matters: on
+    an answered turn the gates are 54% of the tokens, so this check
+    costs more than the answer it is checking.
+
+    WITH NO EVIDENCE IN HAND, EVERYTHING TRAVELS, as every caller got
+    before this existed. And where a reading is uncertain the clause is
+    INCLUDED: a missing discipline turns a "no" into a "yes", which is
+    the dangerous direction.
+    """
+    if not evidence:
+        return RELATION_SYSTEM
+    out = [RELATION_CORE, RELATION_SAME, RELATION_LANGNOTE]
+    if _RECORD_ROW.search(evidence):
+        out.append(RELATION_ROWEX)
+    if _NOTATION.search(evidence):
+        out.append(RELATION_SPECEX)
+    if len([line for line in evidence.splitlines() if line.strip()]) > 1:
+        out.append(RELATION_JOINEX)
+    out.append(RELATION_UNSURE)
+    return "".join(out)
 
 
 # CHAT: greeting/thanks/small talk. It must carry no fact claim (verify filters).

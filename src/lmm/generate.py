@@ -249,7 +249,8 @@ def answers_asked(question, answer, block):
     means the turn abstains."""
     out = runtime.generate(
         f"EVIDENCE:\n{block}\n\nQUESTION: {question}\n\nANSWER: {answer}",
-        system=prompts.RELATION_SYSTEM, max_tokens=4, temperature=0.0, small=True)
+        system=prompts.relation_system(block), max_tokens=4,
+        temperature=0.0, small=True)
     return out.strip().lower().startswith("yes")
 
 
@@ -275,7 +276,8 @@ def judged(question, answer, block):
     averaging them into one impression.
     """
     system = (prompts.support_system(block) + "\n\n"
-              + prompts.RELATION_SYSTEM + "\n\n" + prompts.JUDGED_CONTRACT)
+              + prompts.relation_system(block) + "\n\n"
+              + prompts.JUDGED_CONTRACT)
     out = runtime.generate(
         f"EVIDENCE:\n{block}\n\nCLAIM: {answer}\n\nQUESTION: {question}",
         # TWO LABELLED LINES DO NOT FIT IN ONE LINE'S BUDGET. Measured
