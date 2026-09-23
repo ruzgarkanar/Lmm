@@ -3728,6 +3728,13 @@ class Session:
         held = [held] if isinstance(held, int) else list(held or ())
         held = [at for at in held if isinstance(at, int)][:3]
         if not held or not all(0 <= at < len(lines) for at in held):
+            # A SENTENCE WITH NO USABLE LINE NUMBER BROKE THE CONTRACT
+            # (W184) — unlike the engine declining outright, which
+            # obeyed it (W160) and is handled above. The refusal stands
+            # either way; what changes is that this one is now counted,
+            # so a reading that silently stops working shows up as a
+            # number rather than as a bill.
+            runtime.malformed(str(said)[:120])
             self.quoted_refused = True
             return None                 # a line nobody offered
         # ...AND ON ONE REGION OF THEM (W172/W174). Reported from the

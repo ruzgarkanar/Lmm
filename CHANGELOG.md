@@ -6,6 +6,41 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- **A reply that broke its contract is counted, not only survived**
+  (W184). 0.9.1 shipped a defect whose own release note called it
+  *"silent by design"*, and that was the honest description: the fused
+  judgment capped its reply at eight tokens, two labelled lines did not
+  fit, every fused call was refused as malformed, and the turn paid
+  three calls where it used to pay two. Nothing was wrong with the
+  answers — **the only symptom was the bill**, and it took a
+  fifteen-question measurement to find it.
+
+  Refusing a reply that does not fit its contract stays right: a verdict
+  read out of a malformed answer is worse than one paid for twice. What
+  was missing is that the refusal left no trace. `runtime.MALFORMED` is
+  `runtime.CALLS`' twin — a number the caller can read instead of a
+  claim they have to believe — with `runtime.BROKE` holding what the
+  last one looked like. A DECLINE is not a broken contract: an engine
+  answering NONE because no line carries the answer (W160) has obeyed
+  perfectly and is not counted.
+
+  Measured on the thirteen NIST questions: **0**, on 42 calls. The
+  contracts are being kept; the counter is the guard that says so.
+
+### Considered and not done, with the reason
+
+- **Structured output (a JSON schema on the backend) was next on the
+  list and is not being added.** It is the half of the typed-decision
+  idea our own engine could take for free, and it would make a shape
+  error impossible rather than merely refused. But with W184 in place
+  the rate of the failure it prevents is now **measured at zero**, and
+  the change is not free: it is backend-specific (the local engine has
+  no such mode), and constraining decoding can move a judge's verdicts,
+  which would have to be measured against every gate. A fix for a
+  problem measuring zero, priced in a risk to the gates, is not a trade
+  worth making today. If `MALFORMED` climbs, it earns its place then —
+  which is what the counter is for.
+
 - **An undated store does not pay for a plan it cannot execute** (W183).
   The plan seat is a rescue — a turn that abstained buys one plan
   proposal before it closes — and unlike the widening it must NOT be

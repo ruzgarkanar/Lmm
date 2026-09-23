@@ -11883,6 +11883,57 @@ def w183():
          generate.turn_shape) = real
 
 
+@test("W184 a reply that broke its contract is counted, not only survived")
+def w184():
+    """0.9.1 shipped a defect whose own release note called it "silent by
+    design", and that was the honest description: the fused judgment
+    capped its reply at eight tokens, two labelled lines did not fit, the
+    engine returned `SUPPORTED: yes  \\nANSWERS:` with the second verdict
+    truncated away, EVERY fused call was refused as malformed, and the
+    turn paid three calls where it used to pay two. Nothing was wrong
+    with the answers. The only symptom was the bill, and it took a
+    fifteen-question measurement to see it.
+
+    Refusing a reply that does not fit its contract is right — a verdict
+    read out of a malformed answer is worse than one paid for twice. What
+    was missing is that the refusal left no trace. `runtime.CALLS` exists
+    for exactly this reason (W151): a number the caller can read instead
+    of a claim they have to believe. This is its twin.
+
+    A decline is NOT a broken contract. An engine that answers NONE
+    because no line carries the answer (W160) has obeyed the contract
+    perfectly, and nothing here counts it."""
+    from lmm import generate, runtime
+
+    real = runtime.generate
+    before = runtime.MALFORMED
+    try:
+        # THE SHAPE THAT BIT US: the second verdict truncated away.
+        runtime.generate = lambda *a, **k: "SUPPORTED: yes  \nANSWERS:"
+        try:
+            generate.judged("q", "a", "evidence")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("a truncated reply was read as a verdict")
+        assert runtime.MALFORMED == before + 1, runtime.MALFORMED
+
+        # NEITHER YES NOR NO IS THE SAME CLASS.
+        runtime.generate = lambda *a, **k: "SUPPORTED: maybe\nANSWERS: no"
+        try:
+            generate.judged("q", "a", "evidence")
+        except ValueError:
+            pass
+        assert runtime.MALFORMED == before + 2, runtime.MALFORMED
+
+        # A WELL-FORMED REPLY COSTS NOTHING.
+        runtime.generate = lambda *a, **k: "SUPPORTED: yes\nANSWERS: no"
+        assert generate.judged("q", "a", "evidence") == (True, False)
+        assert runtime.MALFORMED == before + 2, runtime.MALFORMED
+    finally:
+        runtime.generate = real
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
