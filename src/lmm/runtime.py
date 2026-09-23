@@ -93,6 +93,33 @@ class EngineMissing(EngineDown, ImportError):
 # can read instead of a claim they have to believe.
 CALLS = 0
 
+# HOW MANY REPLIES BROKE THE CONTRACT THEY WERE GIVEN (W184). Several
+# readings here ask the engine for a SHAPE rather than prose — two
+# labelled lines, a line number, a list of steps — and refuse what does
+# not fit, because a verdict read out of a malformed answer is worse
+# than one paid for twice. Refusing is right; leaving no trace is not.
+#
+# 0.9.1 shipped a defect its own release note called "silent by design":
+# the fused judgment capped its reply at eight tokens, two labelled lines
+# did not fit, every fused call was refused as malformed, and the turn
+# paid three calls where it used to pay two. Nothing was wrong with the
+# answers. The only symptom was the bill, and it took a fifteen-question
+# measurement to find it. This is `CALLS`' twin: a number the caller can
+# read instead of a claim they have to believe.
+#
+# A DECLINE IS NOT A BROKEN CONTRACT. An engine that answers NONE because
+# no line carries the answer (W160) has obeyed perfectly, and nothing
+# counts it here.
+MALFORMED = 0
+BROKE = ""                  # what the last one looked like, for diagnosis
+
+
+def malformed(saw):
+    """Record that a reply did not fit the shape it was asked for."""
+    global MALFORMED, BROKE
+    MALFORMED += 1
+    BROKE = (saw or "")[:200]
+
 
 def budget():
     """The per-call time budget in seconds; 0 means no limit."""

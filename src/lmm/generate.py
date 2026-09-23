@@ -289,6 +289,7 @@ def judged(question, answer, block):
     lines = [ln.strip().lower() for ln in (out or "").splitlines()
              if ln.strip()]
     if len(lines) < 2:
+        runtime.malformed(out)
         raise ValueError("the judgment did not come back in two lines")
     said = []
     for line in lines[:2]:
@@ -298,6 +299,7 @@ def judged(question, answer, block):
         elif body.startswith("no"):
             said.append(False)
         else:
+            runtime.malformed(out)
             raise ValueError("a judgment was neither yes nor no: %r" % line)
     return said[0], said[1]
 
