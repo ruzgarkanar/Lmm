@@ -4,6 +4,42 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] — 2026-09-23
+
+### Added
+
+- **A word the store has never seen is a fact about the store** (W179).
+  An integrator grading a coverage matrix asked the right question: is
+  there a point at which *"the store holds nothing about this subject"*
+  is already knowable, before the rescues run? There is, and it costs
+  nothing — the inverted index either carries a word or it does not.
+
+  `Answer.unseen` (and `m.session.unseen_demands(question)`) reports the
+  question's own content words the index has never held, in any sentence
+  of any document. `missing` is about the ANSWER — what it failed to
+  carry. This is about the STORE.
+
+  Measured on NIST SP 800-63B with this repository's labelled question
+  set, by each question's rarest demand:
+
+  | question class | unseen |
+  |---|---|
+  | `yokluk` — the document cannot answer | **2 of 2** |
+  | `dogrudan` — it answers plainly | **0 of 8** |
+  | `esanlam` — a paraphrase of what it answers | 1 of 3 |
+  | six further unanswerable questions, written for this test | 5 of 6 |
+
+  **The one false positive is why this is reported and never acted on.**
+  Asked who *heads* NIST, the document says "acting director" and
+  `heads` appears nowhere — which is exactly the class the widening
+  exists to rescue. A reading that abstained on it would trade a
+  paraphrase for a saving. So the turn behaves exactly as it did, and
+  what the caller gains is the distinction this library declines to draw
+  on their behalf: *"the document never mentions a fee"* is not the same
+  verdict as *"we did not find it"*.
+
+  Engine-free, deterministic, and no word of any language in it.
+
 ## [0.9.2] — 2026-09-23
 
 ### Measured: where the calls actually go

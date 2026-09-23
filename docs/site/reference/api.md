@@ -275,6 +275,7 @@ turn knows about itself:
 | `.abstained` | did this turn assert anything — the structural stamp, in any language |
 | `.covered` | of the question's demands (its content words), the share this answer carries — a count, no model call, nothing it can fabricate. **An abstention reports 0.0** and misses everything (0.8.1): a refusal that restates the question used to carry every demand in its own words and report 1.0 |
 | `.missing` | the demands the answer did not carry: what to ask about next |
+| `.unseen` | of those demands, the words **this store has never held** — in any sentence of any document. `missing` is about the answer; this is about the store, and it separates *"the document never mentions a fee"* from *"we did not find it"*. Engine-free. A paraphrase looks the same from here (asked who *heads* NIST, the document says "acting director"), so it is reported, never acted on |
 | `.engine_error` | **why** it abstained, when the reason was not the memory: `True` only when the engine could not be reached at all. An abstention with this `False` is the store's own honest "I do not hold that"; with it `True`, nothing was asked of the store at all — retry or alert, do not record a capability as absent |
 | `.sources` | the provenance stamps the answer rests on |
 | `.subject` | the subject label the turn was about |
