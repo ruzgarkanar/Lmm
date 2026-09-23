@@ -1,0 +1,31 @@
+{
+  "_about": "A SYNTHETIC conversation, four dated sessions, written for this repository. It exists because every published measurement of this project is document question-answering, while the half its name promises — a memory that lives across sessions — had no current number at all. It is small and it is invented; it is not a substitute for LongMemEval, and it is not evidence about any real corpus. What it does is exercise the classes this project has recorded as open: a fact the speaker supersedes, a quantity that must be composed across sessions, an ordering, a preference stated once and asked about in other words, and questions whose discriminating word the conversation never writes.",
+  "_scoring": "Golds are chosen so that the OPPOSITE answer cannot contain them. 'Who is the manager' golds on the later name, not on the word 'manager'; the ordering question is asked as yes/no so that naming the other event scores nothing.",
+
+  "olgu": [
+    ["Where does the user live now?", ["istanbul"]],
+    ["Which district does the user live in?", ["kadikoy"]],
+    ["Who is the user's manager?", ["kerem", "aksoy"]],
+    ["How many days did the Advanced training course run?", ["3", "three"]],
+    ["How many days did the Foundation training course run?", ["2", "two"]],
+    ["What did the user pass on the last afternoon of the Advanced course?", ["certification"]]
+  ],
+
+  "kiyas": [
+    ["How many days did the two training courses take altogether?", ["5", "five"]],
+    ["Did the user pass the certification exam before moving to Istanbul?", ["yes", "evet"]]
+  ],
+
+  "sinir": [
+    ["What food should be kept off the menu for the user?", ["fish"]],
+    ["Which city is the user based in?", ["istanbul"]],
+    ["Who does the user report to?", ["kerem", "aksoy"]],
+    ["How often does the user come to the office?", ["four", "4"]]
+  ],
+
+  "tuzak": [
+    ["What is the user's salary?", null],
+    ["Which university did the user attend?", null],
+    ["What is the user's phone number?", null]
+  ]
+}
