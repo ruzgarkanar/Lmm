@@ -741,10 +741,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#two-session-numbers" class="md-nav__link">
+  <a href="#the-session-numbers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Two session numbers
+        The session numbers
       
     </span>
   </a>
@@ -982,10 +982,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#two-session-numbers" class="md-nav__link">
+  <a href="#the-session-numbers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Two session numbers
+        The session numbers
       
     </span>
   </a>
@@ -1192,11 +1192,21 @@ turn is not a judge:</p>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>           <span class="n">encoder</span><span class="o">=</span><span class="k">lambda</span> <span class="n">texts</span><span class="p">:</span> <span class="n">bi</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">texts</span><span class="p">,</span> <span class="n">normalize_embeddings</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>           <span class="n">reranker</span><span class="o">=</span><span class="n">order</span><span class="p">)</span>
 </code></pre></div>
-<h3 id="two-session-numbers">Two session numbers<a class="headerlink" href="#two-session-numbers" title="Permanent link">&para;</a></h3>
+<h3 id="the-session-numbers">The session numbers<a class="headerlink" href="#the-session-numbers" title="Permanent link">&para;</a></h3>
 <p>How hard a turn tries is a session attribute rather than a constructor
-argument, because it is about effort rather than voice. Both default to <strong>1</strong>,
-and both were measured down from higher numbers: the extra readings they
-bought stopped winning once retrieval improved.</p>
+argument, because it is about effort rather than voice. The first two
+default to <strong>1</strong>, and both were measured down from higher numbers: the
+extra readings they bought stopped winning once retrieval improved. The
+rest are wagers a corpus can settle for itself.</p>
+<div class="admonition note">
+<p class="admonition-title">Where a turn's calls actually go</p>
+<p>Measured per organ on fifteen questions, counting only the round
+trips the deterministic pool did not absorb: <strong>an answered turn costs
+3.5 calls and an abstaining one costs 9.0</strong>. A fifth of the turns
+spend two fifths of the budget, and they are the ones that end up
+saying "I don't know". A turn the quoted reading carries costs
+exactly <strong>two</strong>: the reading and its relation gate.</p>
+</div>
 <table>
 <thead>
 <tr>
@@ -1220,7 +1230,8 @@ bought stopped winning once retrieval improved.</p>
 </table>
 <p>Raise them on a corpus where retrieval is weak — they are insurance, and
 insurance is worth buying where the risk is real.</p>
-<p>| <code>m.session.QUOTED_RELATION</code> | True | whether a quoted turn still answers for its <strong>relation</strong>. Quoting replaces the read-back — the store checks the answer against lines it offered, for nothing — and replaces nothing for the other gate, because a quotation is not made relevant by being a quotation. Setting it <code>False</code> restores 0.8.1: measured on fifteen questions, the quoted reading then carries 9 turns instead of 7 at 58 calls instead of 86, and one genuinely wrong answer comes back instead of an honest abstention |</p>
+<p>| <code>m.session.WIDEN</code> | True | whether a turn that abstained buys one more retrieval, with words the engine proposes and the store approves. Attributed per organ on fifteen questions it ran on four turns and cost <strong>eight calls of sixty-nine</strong> (69 → 61, and 17% of the prompt), rescuing one turn whose answer was off-subject. The default stands because that is one slice and the widening was measured onto a corpus where a question and a document use different words for one thing |
+| <code>m.session.QUOTED_RELATION</code> | True | whether a quoted turn still answers for its <strong>relation</strong>. Quoting replaces the read-back — the store checks the answer against lines it offered, for nothing — and replaces nothing for the other gate, because a quotation is not made relevant by being a quotation. Setting it <code>False</code> restores 0.8.1: measured on fifteen questions, the quoted reading then carries 9 turns instead of 7 at 58 calls instead of 86, and one genuinely wrong answer comes back instead of an honest abstention |</p>
 <h2 id="a-judgment-is-a-seam">A judgment is a seam<a class="headerlink" href="#a-judgment-is-a-seam" title="Permanent link">&para;</a></h2>
 <p>Both gates ask one shape of question — <strong>does the evidence say this</strong>
 (<code>says</code>), <strong>does this answer what was asked</strong> (<code>answers</code>) — and both pay a
