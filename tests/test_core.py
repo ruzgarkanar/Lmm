@@ -11114,6 +11114,7 @@ def w171():
         return s._refuse(message)
 
     s._respond = inner
+    s.WIDEN = True                      # this rescue IS the subject (W178)
     s._store_words = lambda message: ["sermaye"]
     s._answer = lambda question, subject="", **kw: s._refuse(question)
     # THE WORD READING, FOOLED — as it was in the field.
@@ -11519,19 +11520,25 @@ def w178():
     wager either way: the words cost a call, the second answer costs
     another, and the gates cost more.
 
-    Attributed per organ on the fifteen-question slice, counting the
-    engine round trips the deterministic pool did NOT absorb: the
-    widening ran on four turns and cost eight calls of sixty-nine —
-    69 -> 61, and 17% of the prompt. It rescued exactly one turn, and
-    that turn was the slice's known off-subject answer: asked what
-    capital market INSTRUMENTS do, the rescued sentence is about
-    institutions. With the widening off it abstains instead.
+    It was never measured. What stood here was an ARGUMENT — lexical
+    retrieval's price is paraphrase — and the first measurements are
+    these, over three corpora and thirteen turns that refused:
 
-    That is one slice and one wobbling question, which is why the
-    DEFAULT DOES NOT MOVE. The widening was measured onto a corpus where
-    a question and a document use different words for one thing, and
-    this document is not one; flipping a default here would trade an
-    unmeasured corpus for a measured one.
+      * a Turkish legal guide, 15 questions: ran on four turns, 69 -> 61
+        calls and 17% of the prompt, and rescued ONE — the slice's known
+        off-subject answer.
+      * NIST SP 800-63B, 13 questions with a labelled PARAPHRASE class,
+        the very class this exists for: ran on five turns, 57 -> 52
+        calls, rescued NONE, verdicts identical question for question.
+      * an integrator's 44-cell catalogue, which they describe as almost
+        entirely paraphrase: six abstaining cells took 38.8% of the
+        run's calls and none came back answered.
+
+    The obvious explanation was tested and refused: with the meaning
+    channel off — the channel that arrived after this organ and might
+    have taken its job — it still rescued none. So the default moves and
+    the number stays, because the reading is right wherever retrieval is
+    weak in a way these three corpora are not.
 
     So it becomes a number, beside `CANDIDATES` and `VIEWS` and for the
     same reason: both of those were measured down from higher values
@@ -11556,16 +11563,17 @@ def w178():
     real = generate.refusal
     generate.refusal = lambda question, persona="": "no"
     try:
+        # OFF by default since the measurement: the turn abstains
+        # exactly as it did, and buys nothing.
         s.respond("what closes the arc", teach=False)
-        assert tried == ["words", "again"], tried
-
-        # OFF: the turn abstains exactly as it did, and buys nothing.
-        tried.clear()
-        s._widened = False
-        s.WIDEN = False
-        said = s.respond("what closes the arc", teach=False)
         assert tried == [], tried
-        assert s.last_abstained is True, said
+        assert s.last_abstained is True
+
+        # ON: the wager is still available to a corpus that wants it.
+        s._widened = False
+        s.WIDEN = True
+        said = s.respond("what closes the arc", teach=False)
+        assert tried == ["words", "again"], (tried, said)
     finally:
         generate.refusal = real
 

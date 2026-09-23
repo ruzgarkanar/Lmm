@@ -4579,21 +4579,31 @@ class Session:
     # wager either way: the words cost a call, the second answer costs
     # another, and the gates cost more.
     #
-    # Attributed per organ on the fifteen-question slice, counting only
-    # the round trips the deterministic pool did not absorb: it ran on
-    # four turns and cost eight calls of sixty-nine — 69 -> 61, and 17%
-    # of the prompt. It rescued exactly ONE turn, and that turn was the
-    # slice's known off-subject answer: asked what capital market
-    # INSTRUMENTS do, the rescued sentence is about institutions. With
-    # the widening off, it abstains.
+    # IT WAS NEVER MEASURED. The justification written here was an
+    # argument — lexical retrieval's price is paraphrase — and the first
+    # measurements of it are these, across three corpora and thirteen
+    # turns that refused:
     #
-    # THE DEFAULT DOES NOT MOVE ON THAT. It is one slice and one
-    # wobbling question, and the widening was measured onto a corpus
-    # where a question and a document use different words for one
-    # thing — which this document is not. It becomes a NUMBER, exactly
-    # as CANDIDATES and VIEWS did, so a corpus that has measured its own
-    # answer can say so.
-    WIDEN = True
+    #   * a Turkish legal guide, 15 questions: ran on 4 turns, 69 -> 61
+    #     calls and 17% of the prompt, and rescued ONE turn — the
+    #     slice's known off-subject answer (asked what capital market
+    #     INSTRUMENTS do, the rescued sentence is about institutions).
+    #   * NIST SP 800-63B, 13 questions with a labelled PARAPHRASE
+    #     class — the very class this exists for: ran on 5 turns,
+    #     57 -> 52 calls, rescued NONE, and the verdicts are identical
+    #     question for question.
+    #   * an integrator's 44-cell requirement catalogue, which they
+    #     describe as almost entirely paraphrase: 6 abstaining cells
+    #     took 38.8% of the run's calls and none came back answered.
+    #
+    # And the obvious explanation was tested and REFUSED: with the
+    # meaning channel switched off — the channel that arrived after this
+    # organ and might have taken over its job — it still rescued none.
+    #
+    # So the default moves, and the number stays. The reading is right
+    # wherever retrieval is weak in a way these corpora are not, and
+    # `WIDEN = True` restores it exactly.
+    WIDEN = False
 
     def _subsets(self, records, proof, fact_block):
         """The distinct EVIDENCE SUBSETS to answer from — at most CANDIDATES.

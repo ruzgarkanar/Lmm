@@ -8,6 +8,49 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The widening is off by default, because it was finally measured**
+  (W178). A turn that abstained used to buy one more retrieval with
+  words the engine proposes and the store approves. The justification
+  written into the code was an ARGUMENT — lexical retrieval's price is
+  paraphrase — and these are the first measurements of it, over three
+  corpora and thirteen turns that refused:
+
+  | corpus | turns it ran on | calls | rescued |
+  |---|---|---|---|
+  | Turkish legal guide, 15 questions | 4 | 69 → 61 (−17% prompt) | **1**, and it was the slice's known off-subject answer |
+  | NIST SP 800-63B, 13 questions, **labelled paraphrase class** | 5 | 57 → 52 | **0**, verdicts identical question for question |
+  | an integrator's 44-cell catalogue, "almost entirely paraphrase" | 6 | 38.8% of the run | **0** |
+
+  The second corpus is the test that matters: its question set labels a
+  `paraphrase` class, which is the very thing this organ exists for, and
+  the widening rescued none of it. The obvious explanation was tested
+  and **refused** — with the meaning channel switched off, the channel
+  that arrived after this organ and might have taken its job, it still
+  rescued none.
+
+  `m.session.WIDEN = True` restores it exactly. The reading is right
+  wherever retrieval is weak in a way these three corpora are not.
+
+### Measured, and answering a question that was put to us
+
+- *"Is there anything downstream of two refusals that can still
+  succeed?"* — asked by an integrator who had traced an abstaining turn
+  running a shape reader, a second answer, a fact checker, three
+  language calls, the widening's words and the plan organ, all after the
+  quoted reading and the relation judge had both declined.
+
+  Measured on NIST SP 800-63B: **five turns saw a refusal, none of them
+  was rescued by anything downstream, and those five took 41 of the
+  run's 57 calls — 72%.** The same shape held with the meaning channel
+  off. On the Turkish slice the one rescue was a wrong answer.
+
+  The widening is what changed above. The plan organ still runs there
+  and still rescued nothing on either corpus; it is left alone for now,
+  because one measured change at a time is how the other numbers here
+  were arrived at.
+
+### Changed
+
 - **The relation check's disciplines travel with the shape too** (W180).
   W165 gave the claim reading and the answer writer prompts that carry
   only the disciplines *this* evidence exercises. The relation check was
