@@ -687,12 +687,17 @@ class Session:
         if (said and self.last_abstained and message and message.strip()
                 and self.last_kind != extract.CHAT):
             shape = self._turn_shape(message)
-            if shape not in ("count", "order", "sum"):
+            if shape not in ("count", "order", "sum", "derive"):
                 # THE COMPOSER'S GENERAL DOOR: shapes nobody classified
                 # ("did A come before B?", "in which month most?") end
                 # abstained at the chain — one plan proposal before the
                 # turn closes, under the same law: the plan dies, the
                 # refusal stands.
+                #
+                # `derive` is excluded for the same reason the other
+                # three are: its own seat has already put the plan to
+                # this question and been refused, and a second proposal
+                # is a second call for the same answer.
                 planned = self._plan_answer(message)
                 if planned:
                     said = planned
@@ -1551,6 +1556,35 @@ class Session:
                         dated = self._plan_answer(message, want=("date",))
                         if dated:
                             return dated
+                    elif shape == "derive":
+                        # A DERIVED NUMBER NEVER MEETS THE SUMMING
+                        # ORGAN. That organ, handed a difference, ADDS:
+                        # measured, "how much more did I raise than my
+                        # initial goal" over a store saying 450 and 400
+                        # produced `850 (raised: 450 + initial goal:
+                        # 400)`. So this seat goes to the plan, which
+                        # composes what was actually asked and shows
+                        # both sides with their own figures.
+                        #
+                        # IT FALLS THROUGH, AND DOES NOT REFUSE — unlike
+                        # `count` and `sum` beside it. Their hard
+                        # refusal rests on a measurement: the chain
+                        # measurably cannot hold those shapes. No such
+                        # measurement exists for this one, and the first
+                        # cut of this seat refused anyway. It cost W63
+                        # immediately — the local engine reads "what is
+                        # the Redwood contract worth" as `derive`, one
+                        # thing's amount heard as arithmetic, and a
+                        # question the chain answers correctly was
+                        # refused for a misreading. Falling through
+                        # costs a retrieval; refusing costs the answer.
+                        # Nothing unsafe is inherited by falling
+                        # through: what waits below is the chain and its
+                        # exit gate, not the organ that adds.
+                        worked = self._plan_answer(
+                            message, want=("derived", "amount"))
+                        if worked:
+                            return worked
                     elif shape == "sum":
                         summed = (self._sum_answer(message)
                                   or self._plan_answer(
@@ -2595,7 +2629,18 @@ class Session:
         # anchors nothing, so on a store with no dated source at all this
         # seat can no longer answer "what is today's date". That is the
         # whole loss and it is bounded.
-        if not self._store_is_dated():
+        #
+        # ...AND THE GUARD IS NO LONGER THE WHOLE STORY, because the
+        # vocabulary is no longer wholly temporal. `amount:`, `minus:`,
+        # `ratio:` and `per:` read NUMBERS off lines and never touch a
+        # source stamp, so a store with no dated source can still
+        # execute a plan made of them — an undated spec sheet is exactly
+        # where "how much more does A cost than B" lives. The structural
+        # fact that says so is the store's own: it binds some token to a
+        # number. Both readings are free, and a store that has neither
+        # dates nor quantities can execute no primitive at all, so the
+        # call is still not bought there.
+        if not self._store_is_dated() and not self.evidence.quantities:
             return None
         try:
             steps = generate.plan_of(question)
@@ -2702,6 +2747,37 @@ class Session:
                     return None
                 best = max(sorted(tally), key=lambda k: tally[k])
                 value = ("month", best, tally[best])
+            elif op == "amount" and len(args) == 1:
+                got = self._plan_amount(args[0], question)
+                if got is None:
+                    return None
+                number, shown, item, home = got
+                value = ("amount", number, shown, item, home)
+            elif op in ("minus", "ratio", "per") and len(args) == 2:
+                left = env.get(args[0])
+                right = env.get(args[1])
+                # ARITHMETIC RUNS ON VERIFIED AMOUNTS, OR IT DOES NOT
+                # RUN — W103's rule for dates, said about numbers. Two
+                # amounts each written on a line the store holds may be
+                # subtracted or divided; anything else is two guesses
+                # wearing one sentence.
+                if not left or not right or left[0] != "amount" \
+                        or right[0] != "amount":
+                    return None
+                if op == "minus":
+                    value = ("derived", left[1] - right[1], "", left, right)
+                else:
+                    # A DIVISION BY NOTHING IS NOT A SMALL ANSWER, it is
+                    # no answer. The plan dies rather than speaking an
+                    # infinity or a zero it did not derive.
+                    if not right[1]:
+                        return None
+                    if op == "ratio":
+                        value = ("derived", 100.0 * left[1] / right[1], "%",
+                                 left, right)
+                    else:
+                        value = ("derived", left[1] / right[1], "",
+                                 left, right)
             else:
                 return None             # an operation the law does not know
             env[name] = value
@@ -2748,6 +2824,25 @@ class Session:
         elif out[0] == "count":
             said = "%d." % out[1]
             mark = ""
+        elif out[0] == "amount":
+            _k, _n, shown, item, home = out
+            said = "%s — %s." % (shown, item)
+            mark = home
+        elif out[0] == "derived":
+            # BOTH SIDES ARE NAMED WITH THEIR OWN FIGURES, because a
+            # derived number is the only kind this organ speaks that the
+            # store does not literally hold: nothing downstream can look
+            # it up, so the sentence carries its own audit. The figure
+            # is NOT made positive — "how much more A than B" answered
+            # with a minus sign is a plan that read the question
+            # backwards, and hiding the sign would turn a visible
+            # misreading into a confident wrong claim.
+            _k, number, unit, left, right = out
+            figure = ("%d" % number) if number == int(number) \
+                else ("%.2f" % number)
+            said = "%s%s — %s (%s), %s (%s)." % (
+                figure, unit, left[3], left[2], right[3], right[2])
+            mark = left[4]
         elif out[0] == "date":
             _k, when, src, phrase = out[0], out[1], out[2], out[3]
             said = "%s — %s." % (phrase, _shown(when))
@@ -2759,6 +2854,73 @@ class Session:
         self.last_from_graph = True
         self._mark = mark or ""
         return said
+
+    def _amount_home(self, value, item):
+        """The line that WRITES this amount beside this thing, or None.
+
+        The summing organ's survivor rule (W91), named so that the plan
+        organ's `amount:` obeys the same one instead of a second,
+        quietly different copy — the mistake this codebase has already
+        paid for four times over in the retrieval rules.
+
+        THE AMOUNT'S HOME MAY BE ANY LINE THE STORE HOLDS. The engine
+        can only name what the seats showed it, but a named amount is
+        verified against the WHOLE store: wider verification admits
+        nothing unwritten, and a true addend whose line missed a seat is
+        not thrown away for it.
+        """
+        item_words = [w for w in evidence._words(item)
+                      if any(c.isalpha() for c in w)]
+        for line, _origin in self.evidence.sentences:
+            if value not in line:
+                continue
+            held = set(evidence._words(line))
+            if item_words and not any(
+                    any(inflect.same_stem(w, h) for h in held)
+                    for w in item_words):
+                continue
+            return line
+        return None
+
+    def _plan_amount(self, phrase, question):
+        """ONE amount the store states for this phrase — `amount:`.
+
+        The plan organ's every other primitive reads a date off a source
+        stamp or counts lines; this one reads a NUMBER off a line, which
+        is the one thing a store can be made to lie about. So it does not
+        parse: it asks the same reader the summing organ asks
+        (`generate.amounts_of`, which names pairs and invents no totals)
+        and then keeps a pair only if `_amount_home` finds the digits
+        written on a line that also carries the thing's words. What is
+        returned is the number AND the line it was read from, so the
+        sentence can show its own evidence.
+
+        A phrase the store cannot price returns None, and the plan dies
+        — which is the whole law: a plan that misreads costs a
+        retrieval, never a claim.
+        """
+        lines = self._find(phrase, most=30, floor_share=0.0)
+        lines = [line for line in lines if any(c.isdigit() for c in line)]
+        if not lines:
+            return None
+        try:
+            offered = generate.amounts_of(phrase, "\n".join(lines))
+        except Exception:                                   # noqa: BLE001
+            return None
+        for item, amount in offered:
+            digits = re.findall(r"\d+(?:[.,]\d+)?", amount)
+            if len(digits) != 1:
+                continue
+            value = digits[0]
+            home = self._amount_home(value, item)
+            if home is None:
+                continue
+            try:
+                number = float(value.replace(",", "."))
+            except ValueError:
+                continue
+            return (number, value, item.strip(), home)
+        return None
 
     def _sum_answer(self, question):
         """A total is the sum of verified amounts, never a number (W91).
@@ -2795,26 +2957,11 @@ class Session:
             if len(digits) != 1:
                 continue
             value = digits[0]
-            item_words = [w for w in evidence._words(item)
-                          if any(c.isalpha() for c in w)]
-            home = None
-            # THE AMOUNT'S HOME MAY BE ANY LINE THE STORE HOLDS — the
-            # engine can only name what the seats showed it, but a
-            # named amount is verified against the WHOLE store: wider
-            # verification admits nothing unwritten, and a true addend
-            # whose line missed a seat is not thrown away for it.
-            for line, _origin in self.evidence.sentences:
-                if value not in line:
-                    continue
-                held = set(evidence._words(line))
-                if item_words and not any(
-                        any(inflect.same_stem(w, h) for h in held)
-                        for w in item_words):
-                    continue
-                home = line
-                break
+            home = self._amount_home(value, item)
             if home is None:
                 continue                # an amount nowhere written
+            item_words = [w for w in evidence._words(item)
+                          if any(c.isalpha() for c in w)]
             key = (value, " ".join(item_words))
             if key in seen:
                 continue
