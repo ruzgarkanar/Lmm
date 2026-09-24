@@ -159,6 +159,40 @@ in 0.8.0 (a refusal published with `abstained=False`), and the other is a
 true, sourced sentence answering a *different* question than the one asked.
 Which points at the limit that actually bites, below.
 
+## The conversation surface
+
+Every other number on this page is document question-answering. The half
+this project's name promises had no current figure at all — the last one
+was twelve releases old — so `benchmarks/chat` now carries a **synthetic**
+four-session conversation and fifteen labelled questions. It is small and
+it is invented; it is not a substitute for LongMemEval and it is not
+evidence about anyone's real corpus. What it does is exercise the classes
+recorded as open.
+
+**13/15, identical across two independent runs, zero flips:**
+
+| class | score | what it asks |
+|---|---|---|
+| facts | **6/6** | including a fact the speaker later supersedes |
+| traps | **3/3** | things the conversation never mentions — no fabrication |
+| paraphrase | 3/4 | the discriminating word never written in the store |
+| composition | 1/2 | a quantity that must be summed across two sessions |
+
+Both failures are honest. One abstains rather than guessing a sum. The
+other is the anchor defect recorded in the changelog: asked alone the
+question answers from the latest session, asked after a turn about an
+earlier one it inherits that turn's subject and answers from the older
+session — true, correctly stamped, and out of date.
+
+!!! warning "A run in the same process is not a run"
+    This harness reports a median across runs and a **flip count**, and
+    it was measured giving both for free: with `--runs 3` the second and
+    third runs took **zero seconds** and agreed with the first on every
+    question, because the engine pools its deterministic calls for the
+    life of the process. Three runs in one process are one run reported
+    three times. Each run now gets a fresh interpreter. Any flip count
+    published before 0.11.0 was read from one run.
+
 ## The scorer's own bugs
 
 A benchmark whose author only ever finds errors that flatter him is not
