@@ -12310,6 +12310,76 @@ def w190():
     assert not any(line in built for line in asked[0]), asked[0]
 
 
+@test("W191 a long line does not answer better for being long")
+def w191():
+    """THE SCORE HAD NO NOTION OF SIZE, SO SIZE WAS FREE. One weight is
+    added per matched stem group, over the union of that group's
+    sentences — there is no term frequency here, so BM25's saturation
+    half has nothing to saturate, and the half that was missing is the
+    one that matters: a long line touches more of the question for no
+    reason other than being long.
+
+    Measured on LongMemEval, asked "how long did I wait for the decision
+    on my asylum application": all six seats went to 6829 characters of
+    landlord advice, fishing rods, mattress returns, HR roles, JFK and
+    hologram concerts — the answer was inside the first of them, buried
+    in 780 characters about viewing apartments. Across thirty questions
+    the block cost 4972 characters and held the gold ten times; with the
+    divisor it costs 1765 and still holds it ten times, and the seats
+    stay full. Nothing is lost but length.
+
+    THE RANK OF THE GOLD LINE IS THE WRONG INSTRUMENT and no test here
+    uses it: a long window is likelier to CONTAIN a short gold string, so
+    that measure pays for burying the answer and reported this change as
+    a trade.
+
+    WHAT THIS TEST CANNOT SHOW, AND WHY IT DOES NOT PRETEND TO. The
+    saving is a property of a real distribution: in a store this small
+    the noise floor cuts the crowd whatever the constant is, so both
+    blocks hold the same two lines and cost the same characters. The
+    figures live with the constant, over two corpora, and the one claim
+    a built store CAN hold is the one that was actually wrong — a line
+    that answers in ten words must not lose to a line that answers in
+    three hundred while saying the same thing.
+
+    No model: the store is built here."""
+    from lmm import evidence
+    store = evidence.SentenceStore()
+    # The SAME answer, twice: once said plainly, once adrift in a long
+    # passage that also brushes the question's other words. Before the
+    # divisor the long one wins, because every word it brushes is another
+    # addend and nothing charges it for its size.
+    short = "The asylum decision took over a year to arrive."
+    padding = (" We also compared three fishing rods, two mattresses with "
+               "free returns, and a hologram concert, and agreed the "
+               "landlord should be contacted directly about the viewing "
+               "and the notes kept organised for the decision to arrive.")
+    long = ("The asylum decision took over a year to arrive." + padding * 3)
+    store.add(long, "#doc")
+    store.add(short, "#doc")
+    # ...and a crowd, so that neither line wins by being alone.
+    for nth in range(6):
+        store.add("The landlord asked about the viewing notes and the "
+                  "decision to arrive, and we kept the year organised "
+                  "with the rods and the mattresses, part %d." % nth, "#doc")
+    found = store.find("how long did the asylum decision take to arrive",
+                       most=3)
+    assert found, "nothing was retrieved at all"
+    assert found[0] == short, found
+    # AND THE DEFECT IS STILL THERE TO BE SEEN: with the divisor off, the
+    # same store hands back the padded line first. A test that only
+    # asserted the fixed behaviour could pass for a reason that has
+    # nothing to do with the fix.
+    was = evidence.LENGTH
+    try:
+        evidence.LENGTH = 0.0
+        before = store.find("how long did the asylum decision take to arrive",
+                            most=3)
+    finally:
+        evidence.LENGTH = was
+    assert before[0] != short, before
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

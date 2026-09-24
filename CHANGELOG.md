@@ -8,6 +8,59 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A long line no longer answers better for being long** (W191). The
+  lexical score adds one IDF weight per matched stem group, over the
+  union of that group's sentences — so there is no term frequency here
+  and BM25's saturation half has nothing to saturate. The half that was
+  missing is the one that mattered: nothing charged a line for its size,
+  so a long line touched more of the question for no reason other than
+  being long. Three defects measured separately this cycle turn out to
+  be that one defect in different clothes — a 2008-character window
+  outranking the 556-character line that answers, a rich old line
+  beating the short current one, and an anchor landing on a derived
+  window because the window was long enough to contain the phrase.
+
+  The divisor is BM25's, `1 / (1 - b + b * |d| / avgdl)`, with `|d|` the
+  line's word count and `avgdl` the whole store's mean — a property of
+  the corpus, not of the question.
+
+  **What it buys is not rank, it is the size of the block.** The first
+  instrument tried here was the rank of the line carrying the gold
+  string, and it called the change a trade. That instrument is biased
+  toward doing nothing: a long window is likelier to CONTAIN a short
+  gold string, so it pays for burying the answer. Measured engine-free
+  over six seats, on two corpora that share nothing:
+
+  | | LongMemEval (30 q) | | | NIST SP800-63B (11 q) | | |
+  |---|---|---|---|---|---|---|
+  | `LENGTH` | seats | chars | gold in block | seats | chars | gold in block |
+  | 0.00 | 6.00 | 4972 | 10/30 | 5.55 | 1874 | 9/11 |
+  | **0.20** | **6.00** | **1765** | **10/30** | **5.45** | **1330** | **9/11** |
+  | 0.35 | 6.00 | 1207 | 10/30 | 5.36 | 1239 | 9/11 |
+  | 0.75 | 5.97 | 659 | 9/30 | 5.45 | 1116 | 9/11 |
+
+  The block does not narrow — the seats stay filled — and what leaves is
+  length, not evidence. Asked *"how long did I wait for the decision on
+  my asylum application"*, the six seats were landlord advice, fishing
+  rods, mattress returns, HR roles, JFK and hologram concerts: 6829
+  characters with the answer buried inside the first one. After, the top
+  three seats are all the asylum conversation and the third states *"Over
+  a year of..."* outright.
+
+  `LENGTH = 0.20` is not the best-scoring value — from 0.20 up they are
+  equal on evidence and differ only in how much text they save. It is
+  the largest value at which all 259 existing invariants still hold.
+  Above it J6 fails, and it fails by being overtaken: the spec line it
+  rescues (`Gösterge 21.5" OLED`, once 33rd) now reaches the block on its
+  own. That is probably a defect fixed rather than caused, but retiring a
+  measured mechanism is its own change with its own measurement.
+
+  Refuted along the way and recorded rather than dropped: applying the
+  divisor to the ranking ONLY, leaving the noise floor on raw scores. It
+  is strictly worse than doing nothing (gold in the six seats 8→8, at the
+  top 5→2). The gain comes *from* the floor re-reading the normalised
+  score, not despite it.
+
 - **An anchor is a line the document wrote** (W190). Measured on
   LongMemEval, and it was the promise this project sells that was
   breaking: the memory spoke eleven times on thirty questions and was

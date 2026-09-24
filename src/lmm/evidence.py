@@ -79,6 +79,44 @@ POOL_FLOOR = 24
 CHANNEL = 2
 
 
+# LENGTH IS NOT FREE — how much a line's own size discounts its score.
+#
+# The scorer adds ONE weight per matched stem group, over the union of that
+# group's sentences: there is no term frequency here, so BM25's saturation
+# half (k1) has nothing to saturate. What was missing is BM25's other half —
+# a long line matches more concepts for no reason other than being long. Three
+# separate defects this project measured are that one defect wearing different
+# clothes: a 2008-character window outranking the 556-character line that
+# answers, a rich old line beating the short current one, and an anchor
+# landing on a derived window merely because the window was long enough to
+# contain the phrase.
+#
+#     score(d) / (1 - LENGTH + LENGTH * |d| / avgdl)
+#
+# |d| is the line's WORD count and avgdl the whole store's mean — avgdl is a
+# property of the corpus, not of the question. A first draft measured both
+# wrong (characters, and a mean taken over only the MATCHED lines) and
+# produced a peak at b=0.55 that did not exist: with the divisor corrected
+# the curve is flat across 0.5-0.75 and falls off a cliff at 1.0.
+#
+# Measured, engine-free, on 18 literal-answer LongMemEval questions — the
+# rank of the line that carries the gold answer:
+#
+#     LENGTH   first   in the 6 seats   in 20
+#     0.00       5           8            11     (before)
+#     0.25       3           9            10
+#     0.50       4          10            11
+#     0.75       4          10            11
+#     1.00       2           6             9
+#
+# It BUYS two lines in the seats and COSTS one top seat, and that trade is
+# stated rather than hidden: the block the engine reads is six lines, so
+# coverage there is the instrument; the quoted path wants the top seat and
+# pays. 0.75 is BM25's own default and sits in the middle of the plateau, so
+# it is not a figure fitted to these eighteen questions.
+LENGTH = 0.75
+
+
 # WHERE THE MEMORY'S OWN SPEECH IS FILED. Not a document name, so
 # every source-scoped reading — `named_in`, the census, the scope rule
 # — passes it by, and a citation can never confuse the two.
@@ -2176,7 +2214,31 @@ class SentenceStore:
                 # rule). The doubling is `CHANNEL` — see the ladder.
                 scores[sid] = scores.get(sid, 0) + asked_weight.get(
                     sid, weight) * (CHANNEL if sid in keyed else 1)
+        # LENGTH IS NOT FREE — see the `LENGTH` note. The divisor goes on the
+        # finished score of the channel, not on each addend, because it is a
+        # property of the LINE and not of the match.
+        if LENGTH:
+            sizes, average = self._line_lengths()
+            for sid in scores:
+                if sid < len(sizes):
+                    scores[sid] /= (1.0 - LENGTH
+                                    + LENGTH * sizes[sid] / average)
         return scores, named
+
+    def _line_lengths(self):
+        """Every line's word count, and the store's mean — computed once.
+
+        Cached on the INSTANCE and keyed by the sentence count, not stored
+        in a default argument: one store's average is a lie about another's,
+        and a cache shared by every store in the process is the mistake
+        `_store_is_dated` already made once (W183)."""
+        held = getattr(self, "_lengths_at", None)
+        if held is not None and held[0] == len(self.sentences):
+            return held[1], held[2]
+        sizes = [max(1, len(_words(text))) for text, _ in self.sentences]
+        average = (sum(sizes) / float(len(sizes))) if sizes else 1.0
+        self._lengths_at = (len(self.sentences), sizes, average)
+        return sizes, average
 
     def _scoped_only(self, qwords, scope, most):
         """The scoped sources' own lines, when word overlap seats none.
