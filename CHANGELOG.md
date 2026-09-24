@@ -58,15 +58,23 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   two failures**, and the widening costs five more calls to rescue
   nothing. A fourth corpus agreeing.
 
-- **Scope inheritance pins a later question to an earlier session.**
-  Asked alone, "which city is the user based in?" now answers Istanbul.
-  Asked eighth in a sequence, it still answers Ankara. The variable is
-  the conversation: after several turns answered from the March session,
-  a question that names no source inherits that scope (W109) and is
-  pinned to it. In a chat memory every session is a separate source and
-  later ones supersede earlier ones, so scope inheritance works against
-  the grain there. Diagnosed with its reproduction and **not fixed** —
-  W109 exists for a measured reason and its blast radius wants daylight.
+- **A follow-up inherits the previous turn's subject even when its own
+  words name a whole question.** Asked alone, "which city is the user
+  based in?" answers Istanbul; asked after "how many days did the
+  Foundation training course run?" it answers **Ankara**, because the
+  anchor label from that turn rides the query and the March session is
+  where the Foundation course and Ankara were written together. Asked
+  after a turn whose subject was the generic "user", it answers Istanbul
+  again — so the carrier is the ANCHOR, isolated in three probes.
+
+  *An earlier note in this file attributed it to scope inheritance
+  (W109). That was wrong and is corrected here: on the `ask()` door the
+  conversation's scope is not even computed — `_scope_now` is empty
+  unless the turn is conversational — and what travels is
+  `_prior_subject`.* Diagnosed and **not fixed**: the anchor exists for
+  a measured reason (a follow-up that says "the first one" names nothing
+  a search can hold), and telling a question that already names its
+  subject from one that does not is the whole of the work.
 
 - **How many lines the block seats is a number, and it was measured**
   (W185). The answering call is the largest single consumer of prompt in
