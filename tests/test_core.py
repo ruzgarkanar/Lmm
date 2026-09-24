@@ -12038,6 +12038,69 @@ def w186():
     assert s._by_day([], []) == []
 
 
+@test("W187 on a tie the ride ADDS, it does not replace")
+def w187():
+    """The ride is a challenger: a follow-up whose own words seat junk
+    borrows the previous turn's subject, and the ridden proof stands
+    "only if it covers the question at least as well". Measured, that
+    comparison never fires: `coverage(question, block)` came back
+    IDENTICAL for both queries on all five cases tried — three pointer
+    questions and two complete ones — because six lines of a small store
+    carry the question's common words either way. Every tie keeps the
+    ride, so the ride always wins and the guard is decoration.
+
+    What that costs was found by the conversation benchmark. Asked
+    "which city is the user based in?" after a turn about a training
+    course, the anchor rides, the course's session dominates retrieval,
+    and **the line naming the current city is not retrieved at all** —
+    so W186's day ordering cannot help, the answer being absent rather
+    than mis-ranked. The memory answers from the session before the move.
+
+    Flipping the tie to the turn's own query was the obvious repair and
+    is REFUSED here: on an eight-document corpus a pointer question's
+    own block carries **none** of the anchor's lines while the ridden
+    one carries them, and the tie is exactly what rescues it. The ride
+    is load-bearing.
+
+    So on a tie the ride neither wins nor loses: the two blocks are
+    interleaved best-first and capped at the same seats. The pointer
+    question keeps the anchor's line, the complete question keeps its
+    own, and the gates judge what comes back as they always did. A
+    strict winner still takes the whole block, unchanged."""
+    from lmm import evidence, session as lmm_session
+
+    # THE POINTER CASE: its own words seat nothing of the anchor.
+    many = lmm_session.Session(None)
+    for name, days in (("Alpha Sales", "two"), ("Beta Sales", "three"),
+                       ("Gamma Leadership", "four"), ("Delta Finance", "five"),
+                       ("Epsilon Safety", "six"), ("Zeta Coaching", "seven"),
+                       ("Eta Quality", "eight"), ("Theta Logistics", "nine")):
+        many.learn_text("COURSE LENGTH: %s days. The programme closes with "
+                        "a workshop." % days,
+                        source="#docx:%s.docx" % name, deep=False)
+    pointer = "how long is the first one"
+    own = many._find(pointer, most=evidence.WINDOW)
+    ridden = many._find("Alpha Sales " + pointer, most=evidence.WINDOW)
+    assert not any("two days" in line for line in own), (
+        "the fixture no longer needs the anchor")
+    assert any("two days" in line for line in ridden), ridden
+    assert (evidence.coverage(pointer, "\n".join(own))
+            == evidence.coverage(pointer, "\n".join(ridden))), \
+        "the fixture no longer ties, which is what this is about"
+
+    woven = many._woven(own, ridden, evidence.WINDOW)
+    assert any("two days" in line for line in woven), woven
+    assert len(woven) <= evidence.WINDOW, len(woven)
+
+    # ...AND THE COMPLETE QUESTION KEEPS WHAT ITS OWN WORDS FOUND.
+    kept = many._woven(["a", "b"], ["c", "d"], 4)
+    assert kept == ["a", "c", "b", "d"], kept
+    assert many._woven(["a", "b"], ["a", "c"], 4) == ["a", "b", "c"], \
+        many._woven(["a", "b"], ["a", "c"], 4)
+    assert many._woven([], ["c"], 4) == ["c"]
+    assert many._woven(["a"], [], 4) == ["a"]
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
