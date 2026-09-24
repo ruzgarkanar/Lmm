@@ -12101,6 +12101,62 @@ def w187():
     assert many._woven(["a"], [], 4) == ["a"]
 
 
+@test("W188 on a dated store, WHEN a line was written is a third vote")
+def w188():
+    """The defect the conversation benchmark kept finding, named at last.
+    Asked "who does the user report to?" the memory answers **Delia
+    Varga** — the manager replaced three months earlier — because the
+    March line reads "My manager is Delia Varga. She runs the reporting
+    team" and shares more words with the question than June's terse
+    "Kerem Aksoy is my manager now". True, correctly stamped, past every
+    gate, and out of date. Three carriers were measured and fixed or
+    ruled out (W186, W187); underneath them **nothing preferred a later
+    line in retrieval at all**.
+
+    Retrieval already fuses two rankings by RRF, and that function's own
+    reason is the design here: *no weights — a channel votes by ORDER,
+    which is the only thing two different scorings can honestly share.*
+    So recency is a third ranking, not a weight, not a threshold, not a
+    new constant: the same lines, ordered newest first, handed to the
+    same fusion.
+
+    IT DOES NOT OPEN ON A DOCUMENT. The channel exists only where every
+    retrieved line carries a day, by `stamp_day`'s rule — the one W186,
+    the counting organ and the telling seat already keep. NIST SP
+    800-63B has 12,253 sentences and not one dated source; there the
+    ranking is not even built.
+
+    AND IT IS ONE VOTE. A question about the past keeps every lexical
+    vote it had; the later line gains one. Where the words already
+    decide, they still decide."""
+    from lmm import evidence
+
+    store = evidence.SentenceStore()
+    old = "My manager is Delia Varga. She runs the reporting team."
+    new = "Kerem Aksoy is my manager now."
+    store.add(old, "#docx:2026-03-12")
+    store.add(new, "#docx:2026-06-21")
+
+    # THE RANKING ITSELF: newest first, and only when all of them carry a day.
+    assert store._by_recency([old, new],
+                             ["#docx:2026-03-12", "#docx:2026-06-21"]) == \
+        [new, old]
+    assert store._by_recency([old, new], ["#docx:2026-03-12", "#spec"]) is None
+    assert store._by_recency([old], ["#docx:2026-03-12"]) is None
+
+    # A DOCUMENT STORE NEVER BUILDS IT.
+    flat = evidence.SentenceStore()
+    flat.add("The verifier shall permit eight characters.", "#spec")
+    flat.add("Reauthentication is repeated every thirty minutes.", "#spec")
+    assert flat._by_recency(
+        ["The verifier shall permit eight characters.",
+         "Reauthentication is repeated every thirty minutes."],
+        ["#spec", "#spec"]) is None
+
+    # AND IT IS A NUMBER, so a corpus that measures otherwise can say so.
+    assert evidence.SentenceStore.RECENT is True
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

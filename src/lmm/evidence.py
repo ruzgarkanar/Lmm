@@ -1756,6 +1756,46 @@ class SentenceStore:
             return self._scoped_only(qwords, scope, most)
         return self._fused(query, found, most, scope, qwords)
 
+    # WHETHER *WHEN* A LINE WAS WRITTEN GETS A VOTE (W188). It is a
+    # number, beside the session's own, so a corpus that measures
+    # otherwise can say so. Setting it False restores 0.11.0 exactly.
+    RECENT = True
+
+    def _by_recency(self, found, stamps):
+        """These same lines, newest first — or None when that means
+        nothing here (W188).
+
+        Retrieval fuses its rankings by RRF, and that function's reason
+        is the whole design: *no weights — a channel votes by ORDER,
+        which is the only thing two different scorings can honestly
+        share*. So this is a third ranking handed to the same fusion,
+        not a weight and not a threshold, and it introduces no constant
+        of its own.
+
+        It answers None unless EVERY line carries a day, by
+        `stamp_day`'s rule — the one W186, the counting organ and the
+        telling seat already keep — so a document store never builds it:
+        NIST SP 800-63B has 12,253 sentences and not one dated source.
+        And None below two lines, where an order is not an opinion.
+
+        The defect it exists for: asked who the user reports to, the
+        memory answered with the manager replaced three months earlier,
+        because the older line reads "My manager is Delia Varga, she
+        runs the reporting team" and shares more words with the question
+        than the newer "Kerem Aksoy is my manager now". Nothing in
+        retrieval preferred the later line; the lexical channel was the
+        only voter.
+        """
+        if not self.RECENT or len(found) < 2:
+            return None
+        days = [stamp_day(stamps[at]) if at < len(stamps) else None
+                for at in range(len(found))]
+        if any(day is None for day in days):
+            return None
+        return [found[at] for at in
+                sorted(range(len(found)), key=lambda at: (days[at], -at),
+                       reverse=True)]
+
     def _fused(self, query, found, most, scope=None, qwords=()):
         """The words' answer and the meaning channel's, fused by rank.
 
@@ -1770,10 +1810,20 @@ class SentenceStore:
         it. With no channel attached this returns what the words found,
         byte for byte.
         """
-        if self._dense is None:
-            return found
         lexical_at = {line: src for line, src
                       in zip(found, list(self.last_sources or []))}
+        # WHEN A LINE WAS WRITTEN IS A THIRD VOTE (W188), and it is cast
+        # here whether or not the meaning channel is attached — a store
+        # built with `dense=False` is still a store whose lines may all
+        # carry a day.
+        recent = self._by_recency(found, list(self.last_sources or []))
+        if self._dense is None:
+            if recent is None:
+                return found
+            from lmm import dense                          # noqa: PLC0415
+            order = dense.fuse(list(found), recent, most=most)
+            self.last_sources = [lexical_at.get(line, "") for line in order]
+            return order
         from lmm import dense                              # noqa: PLC0415
         # AN ENCODER THAT FAILS TAKES THE CHANNEL DOWN, NOT THE ANSWER.
         # Somebody's own callable may raise, a vendor's endpoint may be
@@ -1884,7 +1934,9 @@ class SentenceStore:
         # either way. The lexical winners already come from the same
         # documents the channel proposed, so a second pass over the
         # fused list re-reads lines it has just read.
-        order = dense.fuse(list(found), proposed, most=most)
+        order = (dense.fuse(list(found), proposed, recent, most=most)
+                 if recent is not None
+                 else dense.fuse(list(found), proposed, most=most))
         # ...AND THE REGION CAP IS THE LAST WORD, AS IT IS IN `find`.
         # Measured on a 355-page study guide: asked a regulation's
         # number, FOUR of six seats went to overlapping windows of the
