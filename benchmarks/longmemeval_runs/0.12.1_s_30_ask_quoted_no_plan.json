@@ -1,0 +1,505 @@
+[
+ {
+  "id": "01493427",
+  "type": "knowledge-update",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 10,
+  "ingest_s": 2.6443469524383545,
+  "question": "How many new postcards have I added to my collection since I started collecting again?",
+  "gold": "25",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "00ca467f",
+  "type": "multi-session",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 10,
+  "ingest_s": 2.7402660846710205,
+  "question": "How many doctor's appointments did I go to in March?",
+  "gold": "2",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "0e5e2d1a",
+  "type": "single-session-assistant",
+  "abs": false,
+  "strict": true,
+  "judge": true,
+  "abstained": false,
+  "calls": 3,
+  "ingest_s": 2.5256402492523193,
+  "question": "I wanted to follow up on our previous conversation about binaural beats for anxiety and depression. Can you remind me how many subjects were in the study published in the journal Music and Medicine that found significant reductions in symptoms of depression, anxiety, and stress?",
+  "gold": "38 subjects",
+  "said": "The study involved 38 subjects who listened to binaural beats. (~ chat 2023/05/26 (Fri) 05:42)",
+  "route": [
+   "quoted"
+  ]
+ },
+ {
+  "id": "06878be2",
+  "type": "single-session-preference",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 9,
+  "ingest_s": 2.6551151275634766,
+  "question": "Can you suggest some accessories that would complement my current photography setup?",
+  "gold": "The user would prefer suggestions of Sony-compatible accessories or high-quality photography gear that can enhance their photography experience. They may not prefer suggestions of other brands' equipment or low-quality gear.",
+  "said": "I'm sorry, but I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "001be529",
+  "type": "single-session-user",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 9,
+  "ingest_s": 2.458568811416626,
+  "question": "How long did I wait for the decision on my asylum application?",
+  "gold": "over a year",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "08f4fc43",
+  "type": "temporal-reasoning",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 9,
+  "ingest_s": 2.4330060482025146,
+  "question": "How many days had passed between the Sunday mass at St. Mary's Church and the Ash Wednesday service at the cathedral?",
+  "gold": "30 days. 31 days (including the last day) is also acceptable.",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "031748ae",
+  "type": "knowledge-update",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": false,
+  "calls": 3,
+  "ingest_s": 2.564419984817505,
+  "question": "How many engineers do I lead when I just started my new role as Senior Software Engineer? How many engineers do I lead now?",
+  "gold": "When you just started your new role as Senior Software Engineer, you led 4 engineers. Now, you lead 5 engineers",
+  "said": "I now lead a team of five engineers. (~ chat 2023/10/24 (Tue) 13:53)",
+  "route": [
+   "quoted"
+  ]
+ },
+ {
+  "id": "0100672e",
+  "type": "multi-session",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 11,
+  "ingest_s": 2.5998289585113525,
+  "question": "How much did I spend on each coffee mug for my coworkers?",
+  "gold": "$12",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "1568498a",
+  "type": "single-session-assistant",
+  "abs": false,
+  "strict": true,
+  "judge": true,
+  "abstained": false,
+  "calls": 3,
+  "ingest_s": 2.4759390354156494,
+  "question": "I'm looking back at our previous chess game and I was wondering, what was the move you made after 27. Kg2 Bd5+?",
+  "gold": "28. Kg3",
+  "said": "28. Kg3 would be my move. (~ chat 2023/05/21 (Sun) 13:30)",
+  "route": [
+   "quoted"
+  ]
+ },
+ {
+  "id": "06f04340",
+  "type": "single-session-preference",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 8,
+  "ingest_s": 2.494072914123535,
+  "question": "What should I serve for dinner this weekend with my homegrown ingredients?",
+  "gold": "The user would prefer dinner suggestions that incorporate their homegrown cherry tomatoes and herbs like basil and mint, highlighting recipes that showcase their garden produce. They might not prefer suggestions that do not utilize these specific ingredients or do not emphasize the use of homegrown elements.",
+  "said": "I'm sorry, but I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "0862e8bf",
+  "type": "single-session-user",
+  "abs": false,
+  "strict": true,
+  "judge": true,
+  "abstained": false,
+  "calls": 3,
+  "ingest_s": 2.560364007949829,
+  "question": "What is the name of my cat?",
+  "gold": "Luna",
+  "said": "Your cat's name is Luna. (~ chat 2023/05/24 (Wed) 17:25)",
+  "route": [
+   "quoted"
+  ]
+ },
+ {
+  "id": "0bb5a684",
+  "type": "temporal-reasoning",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 9,
+  "ingest_s": 2.7455379962921143,
+  "question": "How many days before the team meeting I was preparing for did I attend the workshop on 'Effective Communication in the Workplace'?",
+  "gold": "7 days. 8 days (including the last day) is also acceptable.",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "031748ae_abs",
+  "type": "knowledge-update",
+  "abs": true,
+  "strict": true,
+  "judge": true,
+  "abstained": true,
+  "calls": 10,
+  "ingest_s": 2.5571188926696777,
+  "question": "How many engineers do I lead when I just started my new role as Software Engineer Manager?",
+  "gold": "The information provided is not enough. You mentioned starting the role as Senior Software Engineer but not Software Engineer Manager.",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "078150f1",
+  "type": "multi-session",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 9,
+  "ingest_s": 2.5063440799713135,
+  "question": "How much more money did I raise than my initial goal in the charity cycling event?",
+  "gold": "$50",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "16c90bf4",
+  "type": "single-session-assistant",
+  "abs": false,
+  "strict": false,
+  "judge": true,
+  "abstained": false,
+  "calls": 3,
+  "ingest_s": 2.4962940216064453,
+  "question": "I'm looking back at our previous conversation about the Seco de Cordero recipe from Ancash. You mentioned using a light or medium-bodied beer, but I was wondering if you could remind me what type of beer you specifically recommended?",
+  "gold": "I recommended using a Pilsner or Lager for the recipe.",
+  "said": "A pilsner or lager would work well. (~ chat 2023/05/28 (Sun) 13:04)",
+  "route": [
+   "quoted"
+  ]
+ },
+ {
+  "id": "07b6f563",
+  "type": "single-session-preference",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 7,
+  "ingest_s": 2.6051840782165527,
+  "question": "Can you suggest some useful accessories for my phone?",
+  "gold": "The user would prefer suggestions of accessories that are compatible with an iPhone 13 Pro, such as high-quality screen protectors, durable cases, portable power banks, or phone wallet cases. They may not prefer suggestions of accessories that are not compatible with Apple products or do not enhance the functionality or protection of their phone.",
+  "said": "I'm sorry, but I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "0862e8bf_abs",
+  "type": "single-session-user",
+  "abs": true,
+  "strict": true,
+  "judge": true,
+  "abstained": true,
+  "calls": 7,
+  "ingest_s": 2.4288320541381836,
+  "question": "What is the name of my hamster?",
+  "gold": "You did not mention this information. You mentioned your cat Luna but not your hamster.",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "0bc8ad92",
+  "type": "temporal-reasoning",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 10,
+  "ingest_s": 2.5848121643066406,
+  "question": "How many months have passed since I last visited a museum with a friend?",
+  "gold": "5",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "06db6396",
+  "type": "knowledge-update",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": false,
+  "calls": 3,
+  "ingest_s": 2.662720203399658,
+  "question": "How many projects have I completed since starting painting classes?",
+  "gold": "5",
+  "said": "You have completed 4 projects since starting painting classes. (~ chat 2023/08/16 (Wed) 09:37)",
+  "route": [
+   "quoted"
+  ]
+ },
+ {
+  "id": "099778bb",
+  "type": "multi-session",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 8,
+  "ingest_s": 2.5875189304351807,
+  "question": "What percentage of leadership positions do women hold in the my company?",
+  "gold": "20%",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "18dcd5a5",
+  "type": "single-session-assistant",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 7,
+  "ingest_s": 2.579118013381958,
+  "question": "I'm going back to our previous chat about the Lost Temple of the Djinn one-shot. Can you remind me how many mummies the party will face in the temple?",
+  "gold": "4",
+  "said": "I'm sorry, but I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "09d032c9",
+  "type": "single-session-preference",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 6,
+  "ingest_s": 2.5133421421051025,
+  "question": "I've been having trouble with the battery life on my phone lately. Any tips?",
+  "gold": "The user would prefer responses that build upon their previous mention of purchasing a portable power bank, such as suggestions on how to optimize its use, like ensuring it's fully charged before use. They might also appreciate tips on utilizing battery-saving features on their phone. The user may not prefer responses that suggest alternative solutions or unrelated advice.",
+  "said": "I'm sorry, but I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "118b2229",
+  "type": "single-session-user",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 8,
+  "ingest_s": 2.624849796295166,
+  "question": "How long is my daily commute to work?",
+  "gold": "45 minutes each way",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "0bc8ad93",
+  "type": "temporal-reasoning",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 10,
+  "ingest_s": 2.6537578105926514,
+  "question": "I mentioned visiting a museum two months ago. Did I visit with a friend or not?",
+  "gold": "No, you did not visit with a friend.",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "07741c44",
+  "type": "knowledge-update",
+  "abs": false,
+  "strict": true,
+  "judge": true,
+  "abstained": false,
+  "calls": 3,
+  "ingest_s": 2.639848232269287,
+  "question": "Where do I initially keep my old sneakers?",
+  "gold": "under my bed",
+  "said": "I've been keeping them under my bed for storage. (~ chat 2023/08/11 (Fri) 02:38)",
+  "route": [
+   "quoted"
+  ]
+ },
+ {
+  "id": "09ba9854",
+  "type": "multi-session",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 8,
+  "ingest_s": 2.7602779865264893,
+  "question": "How much will I save by taking the train from the airport to my hotel instead of a taxi?",
+  "gold": "$50",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "1903aded",
+  "type": "single-session-assistant",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 10,
+  "ingest_s": 2.443608283996582,
+  "question": "I think we discussed work from home jobs for seniors earlier. Can you remind me what was the 7th job in the list you provided?",
+  "gold": "Transcriptionist.",
+  "said": "I'm sorry, but I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "0a34ad58",
+  "type": "single-session-preference",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 7,
+  "ingest_s": 2.581529140472412,
+  "question": "I’m a bit anxious about getting around Tokyo. Do you have any helpful tips?",
+  "gold": "The user would prefer responses that utilize their existing resources, such as their Suica card and TripIt app, to provide personalized tips for navigating Tokyo's public transportation. They might not prefer general tips or recommendations that do not take into account their prior preparations.",
+  "said": "I'm sorry, but I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "15745da0",
+  "type": "single-session-user",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 10,
+  "ingest_s": 2.583214044570923,
+  "question": "How long have I been collecting vintage cameras?",
+  "gold": "three months",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "id": "0db4c65d",
+  "type": "temporal-reasoning",
+  "abs": false,
+  "strict": false,
+  "judge": false,
+  "abstained": true,
+  "calls": 9,
+  "ingest_s": 2.4708547592163086,
+  "question": "How many days had passed since I finished reading 'The Seven Husbands of Evelyn Hugo' when I attended the book reading event at the local library, where the author of 'The Silent Patient' is discussing her latest thriller novel?",
+  "gold": "18 days. 19 days (including the last day) is also acceptable.",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ]
+ }
+]

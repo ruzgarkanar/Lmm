@@ -53,3 +53,46 @@ use. Neither is called accuracy on its own.
 The slice is deterministic: questions sorted by id, taken round-robin
 across the six types, so `--most 30` is the same thirty questions on
 every machine and in every release.
+
+### What speaking costs here, and the plan organ's part in it
+
+Accuracy is not the sharp number on this corpus — **precision when the
+memory speaks is**. With `shape="ask", quoted=True` and the question's
+own date supplied, the memory spoke 11 times and was wrong 5 of them.
+The document side of this project measures zero fabrications in 44
+cells; this is a different corpus and a different picture, and it is the
+one that matters to the promise.
+
+Three of those five came from the **plan organ**, all on the route
+`chain · refuse · plan` — the chain refused, and the rescue seat then
+answered with a confident number: `212` where the gold is 25, `0 days`
+where it is 7, `14 days` where it is 18. Without the seat those three
+turns abstain.
+
+| | correct | spoke | wrong | abstained | calls |
+|---|---|---|---|---|---|
+| plan organ on | 8/30 | 11 | **5** | 19 | 247 |
+| plan organ off | 7/30 | 7 | **2** | 23 | 222 |
+
+It trades one right answer for three wrong ones and costs 25 more calls.
+The arithmetic is not the problem — that is ours and verified. The
+ANCHORING is: in a fifty-session store a phrase like "finished reading
+X" matches lines in several sessions, and the organ picks one. Measured
+on NIST two days earlier the same seat rescued **nothing**; here it
+rescues wrongly. Two corpora, two different harms, one organ.
+
+A separate pair, also wrong and not the plan organ's: two
+`knowledge-update` questions answered from the quoted path, one giving
+the CURRENT value where the past was asked and one the OLD value where
+the current was asked.
+
+`benchmarks/longmemeval.py --no-plan-rescue` reproduces the second row.
+
+### A harness bug, recorded because it moved a number
+
+Every instance carries a `question_date` in 2023 and the first runs did
+not pass it, so "how many months since I last visited a museum" was
+measured against the real calendar — the organ answered **1442 days
+(about 47 months)** where the gold is 5 months. `asked_at` exists for
+exactly this. Fixed, the slice went 7/30 to 8/30 and temporal-reasoning
+0/5 to 1/5: one cell, not the three the error looked like it was worth.
