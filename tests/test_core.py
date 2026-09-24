@@ -12223,6 +12223,93 @@ def w189():
     assert "<" in system and "::" in system, system
 
 
+@test("W190 an anchor is a line the document wrote")
+def w190():
+    """Measured on LongMemEval, and it is the promise this project sells
+    that was breaking. With the question's own date supplied the memory
+    spoke eleven times on thirty questions and was wrong five; **three of
+    the five came from the plan organ**, every one on the route
+    `chain · refuse · plan` — the chain had already refused, and the
+    rescue seat then answered with a confident, stamped number: `212`
+    where the gold is 25, `0 days` where it is 7, `14 days` where it is
+    18. Without the seat those three turns abstain. Turning the organ
+    off scores 7/30 against 8/30 and is wrong twice instead of five
+    times, so it was trading one right answer for three wrong ones.
+
+    The arithmetic was never the problem — that is ours and verified.
+    The ANCHORING was. `_anchored` walked every sentence the store holds
+    and took the earliest or latest one carrying the phrase, and most of
+    what the store holds it BUILT: counted on the three failing
+    questions, 10 of 11 candidates were derived windows, then 79 of 91,
+    then 24 of 30. A window spans several sentences — in a chat store,
+    several turns of one session — so it carries the phrase even when
+    the event is in a different turn, and it answers with the session's
+    date.
+
+    That is W174's law one level up: a thing this layer assembled is not
+    a thing the document wrote, and a claim may not rest on it where
+    nothing audits the claim afterwards. The plan organ builds its
+    sentence from a typed value by our own template, so there is no
+    read-back to catch a wrong anchor — which is exactly why the anchor
+    must be a line somebody actually wrote."""
+    from lmm import session as lmm_session
+
+    import datetime
+    from lmm import evidence
+
+    s = lmm_session.Session(None)
+    # MARCH says it in one sentence. SEPTEMBER says the same words across
+    # two, so only the WINDOW over them holds the phrase — which is the
+    # shape that misled the organ on the live corpus. The filler sessions
+    # are there so the information-majority reading (`_phrase_holds`) has
+    # a real distribution to weigh rather than a degenerate one.
+    s.learn_text("I finished the Evelyn Hugo novel yesterday.",
+                 source="chat 2023/03/01 (Wed) 10:00", deep=False)
+    s.learn_text("We finished the quarterly budget review early today.\n"
+                 "A poster of Evelyn Hugo hung above the table.",
+                 source="chat 2023/09/09 (Sat) 10:00", deep=False)
+    for day in ("2023/04/02", "2023/05/03", "2023/06/04", "2023/07/05"):
+        s.learn_text("We talked about the weather and the traffic in the city.",
+                     source="chat %s (Sun) 10:00" % day, deep=False)
+
+    phrase = "finished the Evelyn Hugo novel"
+    words = evidence._words(phrase)
+    built = s.evidence._window_texts()
+    holders = [(text in built, src) for text, src in s.evidence.sentences
+               if s._phrase_holds(words, set(evidence._words(text)))]
+    assert sorted(holders) == [
+        (False, "chat 2023/03/01 (Wed) 10:00"),
+        (True, "chat 2023/09/09 (Sat) 10:00")], holders
+    # ...so the LATEST holder is a window, and the latest line somebody
+    # actually wrote is March. That is the whole trap, in one fixture.
+
+    anchored = s._anchor_line(phrase, want_latest=True)
+    assert anchored is not None, "the organ lost an anchor it should hold"
+    assert anchored[0] == datetime.date(2023, 3, 1), anchored
+
+    # THE WINDOW IS STILL THERE AND STILL HOLDS THE PHRASE — it is
+    # skipped, not absent, which is what keeps the reading cheap.
+    assert any(t in built and s._phrase_holds(words, set(evidence._words(t)))
+               for t, _src in s.evidence.sentences)
+
+    # ...AND THE SAME LAW ON THE OTHER DOOR. A plan's `anchor:` step goes
+    # through `_event_anchor` and its `latest:` step through
+    # `_anchor_line`; the first cut of this guarded only the second and
+    # was measured changing NOTHING on the live corpus, because every
+    # failing plan anchors. Both doors, or neither.
+    from lmm import generate
+    asked = []
+    real = generate.event_date
+    generate.event_date = lambda phrase, rows, question="": (
+        asked.append([row[1] for row in rows]) or None)
+    try:
+        s._event_anchor(phrase, question="when did it happen")
+    finally:
+        generate.event_date = real
+    assert asked, "the event anchor never gathered candidates"
+    assert not any(line in built for line in asked[0]), asked[0]
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

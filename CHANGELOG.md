@@ -4,6 +4,56 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **An anchor is a line the document wrote** (W190). Measured on
+  LongMemEval, and it was the promise this project sells that was
+  breaking: the memory spoke eleven times on thirty questions and was
+  wrong five, and **three of the five came from the plan organ**, every
+  one on the route `chain · refuse · plan` — the chain had already
+  refused, and the rescue seat then answered with a confident, stamped
+  number (`212` where the gold is 25, `0 days` where it is 7, `14 days`
+  where it is 18).
+
+  The arithmetic was never the problem; it is ours and verified. The
+  ANCHORING was. Both anchor readings walked every sentence the store
+  holds and took the earliest or latest carrying the phrase — and most
+  of what a store holds it BUILT. Counted on the three failing
+  questions: 10 of 11 candidates were derived windows, then 79 of 91,
+  then 24 of 30. A window spans several sentences (in a chat store,
+  several turns of one session), so it carries the phrase even when the
+  event is in another turn, and it answers with the session's stamp.
+
+  That is W174's law one level up: the plan organ writes its sentence
+  from a typed value through our own template, so nothing reads the
+  result back — which is exactly why its anchor may not rest on
+  something this layer assembled.
+
+  | thirty questions, `shape="ask", quoted=True` | before | after |
+  |---|---|---|
+  | correct | 8/30 | **9/30** |
+  | spoke | 11 | 10 |
+  | **wrong** | **5** | **3** |
+  | precision when speaking | 55% | **70%** |
+  | calls | 247 | 248 |
+
+### Refuted on the way, by the measurement
+
+- **The first cut of W190 was correct and inert.** It guarded
+  `_anchor_line`, which serves a plan's `latest:` step — and every
+  failing plan uses `anchor:`, which goes through `_event_anchor`. The
+  slice came back byte-identical: same 8/30, same five wrong answers,
+  same three numbers. The law now sits on both doors and the invariant
+  pins both, because a law on one door is not a law. (This is W172's
+  lesson repeated: right rule, wrong door, and only the measurement
+  could tell.)
+
+- **One of the three is still wrong**, and differently: the workshop
+  span moved from `0 days` to `3 days` where the gold is 7. The anchor
+  moved but has not landed. Recorded rather than claimed closed.
+
 ## [0.12.1] — 2026-09-24
 
 ### Fixed

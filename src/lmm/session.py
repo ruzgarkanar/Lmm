@@ -2373,8 +2373,18 @@ class Session:
         words = evidence._words(phrase)
         if not words:
             return None
+        # AN ANCHOR IS A LINE THE DOCUMENT WROTE (W190), here as in
+        # `_anchor_line`. The `anchor:` step comes through this function
+        # and the `latest:` step through that one, and the first fix
+        # landed only on the second — measured, it changed nothing on
+        # the live corpus, because every failing plan anchors. A window
+        # spans several sentences, so it carries a phrase whose event is
+        # in another turn, and it answers with the session's stamp.
+        built = self.evidence._window_texts()
         rows = []
         for text, src in self.evidence.sentences:
+            if text in built:
+                continue                # a thing we assembled, not a line
             held = set(evidence._words(text))
             if not self._phrase_holds(words, held):
                 continue
@@ -2508,6 +2518,56 @@ class Session:
             self._dated_at = seen
         return seen[0]
 
+    def _anchor_line(self, phrase, want_latest=False):
+        """The dated line a phrase belongs to — and it must be a line the
+        DOCUMENT WROTE (W190).
+
+        Measured on LongMemEval: of the five wrong answers the memory
+        spoke, three came from this organ, every one on the route
+        `chain · refuse · plan` — the chain had refused and this seat
+        then answered with a confident stamped number (`212` where the
+        gold is 25, `0 days` where it is 7, `14 days` where it is 18).
+
+        The arithmetic was never the problem; it is ours and verified.
+        The anchoring was. This walked every sentence the store holds and
+        took the earliest or latest carrying the phrase — and most of
+        what a store holds it BUILT. Counted on those three questions,
+        10 of 11 candidates were derived windows, then 79 of 91, then 24
+        of 30. A window spans several sentences (in a chat store, several
+        turns of one session), so it carries the phrase even when the
+        event is in another turn, and it answers with the session's date.
+
+        That is W174's law one level up. The plan organ writes its
+        sentence from a typed value through our own template, so nothing
+        reads the result back — which is exactly why its anchor may not
+        rest on something this layer assembled. Where only a window
+        carries the phrase there is no anchor, the plan dies, and the
+        caller's refusal stands.
+        """
+        words = evidence._words(phrase)
+        if not words:
+            return None
+        built = self.evidence._window_texts()
+        best = None
+        for text, src in self.evidence.sentences:
+            if text in built:
+                continue                # a thing we assembled, not a line
+            held = set(evidence._words(text))
+            if not self._phrase_holds(words, held):
+                continue
+            digits = [int(d) for d in re.findall(r"\d+", src or "")]
+            if len(digits) < 3:
+                continue
+            try:
+                import datetime as _dt
+                when = _dt.date(digits[0], digits[1], digits[2])
+            except ValueError:
+                continue
+            if (best is None
+                    or (when > best[0] if want_latest else when < best[0])):
+                best = (when, src, phrase)
+        return best
+
     def _plan_answer(self, question, want=None):
         """A plan is a proposal; the primitives are the law (W94).
 
@@ -2546,25 +2606,7 @@ class Session:
         import datetime as _dt
 
         def _anchored(phrase, want_latest=False):
-            words = evidence._words(phrase)
-            if not words:
-                return None
-            best = None
-            for text, src in self.evidence.sentences:
-                held = set(evidence._words(text))
-                if not self._phrase_holds(words, held):
-                    continue
-                digits = [int(d) for d in re.findall(r"\d+", src or "")]
-                if len(digits) < 3:
-                    continue
-                try:
-                    when = _dt.date(digits[0], digits[1], digits[2])
-                except ValueError:
-                    continue
-                if (best is None
-                        or (when > best[0] if want_latest else when < best[0])):
-                    best = (when, src, phrase)
-            return best
+            return self._anchor_line(phrase, want_latest=want_latest)
 
         env, out = {}, None
         for step in steps:
