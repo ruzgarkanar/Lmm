@@ -648,12 +648,17 @@ def telling_answer(question, block):
 # words the reader uses. It was written only inside the prompt below,
 # which meant a declaration outside it was accepted in silence: the turn
 # reported that shape forever, every seat that asks `shape in (...)`
-# said no, and the organ behind that door simply never ran. Measured on
-# LongMemEval, where the harness declared `"ask"` — not a shape at all —
-# for all thirty questions: the counting organ was off for the entire
-# benchmark, and the five `multi-session` questions, every one of them
-# arithmetic over several sessions, abstained five times out of five
-# with the answer sitting in the block.
+# said no, and the organ behind that door simply never ran. Our own
+# LongMemEval harness declared `"ask"` — not a shape at all — for all
+# thirty questions.
+#
+# WHAT THIS IS NOT. It is not why `multi-session` scores 0/5; that was
+# the first attribution and the probe refuted it. With the declaration
+# gone and the shape pinned to "count", the route over those questions
+# is unchanged, because the counting organ counts RECORDS and that
+# store's graph holds none — the harness learns with `deep=False`, so
+# 13,307 sentences of evidence sit beside an empty graph. A silently
+# honoured declaration is a defect on its own; it is not that one.
 SHAPES = ("material", "count", "sum", "order", "when", "recap", "none")
 
 

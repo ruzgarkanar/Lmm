@@ -640,9 +640,12 @@ class Memory:
         # word as its shape forever, every door that asks `shape in
         # ("count", "order", "sum")` answered no, and the organ behind
         # it never ran. Our own benchmark declared `"ask"` — a turn
-        # KIND, from a different vocabulary — for thirty questions, and
-        # so measured this library for weeks with the counting organ
-        # switched off. W157 says a wrong declaration costs the organ it
+        # KIND, from a different vocabulary — for thirty questions. (It
+        # is NOT why that benchmark's `multi-session` questions abstain:
+        # measured, the route is unchanged with the declaration gone and
+        # the shape pinned, because the counting organ counts records
+        # and that store's graph holds none.) W157 says a wrong
+        # declaration costs the organ it
         # would have reached exactly as a wrong reading would; that is
         # true of `"count"` for a question that counts nothing, and it
         # is not a licence for a word that names no organ at all.
