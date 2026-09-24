@@ -8,6 +8,45 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **On a dated store, WHEN a line was written is a third vote** (W188).
+  The defect the conversation benchmark kept finding, fixed at its root.
+  Asked "who does the user report to?" the memory answered **Delia
+  Varga** — the manager replaced three months earlier — because the
+  March line reads *"My manager is Delia Varga. She runs the reporting
+  team"* and shares more words with the question than June's terse
+  *"Kerem Aksoy is my manager now"*. True, correctly stamped, past every
+  gate, out of date. Two carriers were fixed or ruled out (W186, W187);
+  underneath them **nothing preferred a later line in retrieval at all**.
+
+  Retrieval already fuses its rankings by RRF, and that function's own
+  reason is the whole design: *no weights — a channel votes by ORDER,
+  which is the only thing two different scorings can honestly share.*
+  So recency is a **third ranking**, not a weight, not a threshold, and
+  not a new constant: the same lines, newest first, handed to the same
+  fusion. It is cast whether or not the meaning channel is attached.
+
+  **It does not open on a document.** The ranking is built only where
+  every retrieved line carries a day, by `stamp_day`'s rule — the one
+  W186, the counting organ and the telling seat already keep. NIST SP
+  800-63B has 12,253 sentences and not one dated source.
+
+  | | before | after |
+  |---|---|---|
+  | conversation, independent questions | 13/15 | **14/15** (paraphrase 3/4 → **4/4**) |
+  | conversation, one running session | 13/15 | 13/15 |
+  | NIST SP 800-63B, 13 questions | 10/13 · 42 calls | **identical, zero verdicts changed** |
+
+  **What it does not reach**, and why the conversational arm does not
+  move: a vote can only reorder what was retrieved. In one running
+  session the consultation's accumulated terms ride the query and the
+  current line is not retrieved at all — the brief carrier, measured
+  engine-free and still open. `standalone=True` clears it.
+
+  **A limit stated before it was measured, and still unmeasured**: a
+  speaker who repeats themselves will have the terse latest repetition
+  preferred over a richer earlier telling. No question in this benchmark
+  has that shape. `m.session.evidence.RECENT = False` restores 0.11.0.
+
 - **On a tie the ride ADDS, it does not replace** (W187). A follow-up
   whose own words seat junk borrows the previous turn's subject, and the
   ridden proof was to stand "only if it covers the question at least as
