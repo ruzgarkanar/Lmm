@@ -47,6 +47,8 @@ from collections import Counter, defaultdict
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "src"))
 
+from lmm.generate import SHAPES                              # noqa: E402
+
 TYPES = ("knowledge-update", "multi-session", "single-session-assistant",
          "single-session-preference", "single-session-user",
          "temporal-reasoning")
@@ -140,9 +142,17 @@ def main():
     ap.add_argument("--judge", action="store_true",
                     help="also ask the engine whether the answer matches")
     ap.add_argument("--save")
-    ap.add_argument("--shape", default=None,
-                    help='declare the turn kind, e.g. "ask" — a declared '
-                         'shape also skips the count/span door (W93)')
+    ap.add_argument("--shape", default=None, choices=SHAPES,
+                    help="declare the turn's shape for every question. A "
+                         "DECLARATION IS A READING THE CALLER MAKES, so it "
+                         "has to be one of `turn_shape`'s own answers, and "
+                         "these questions are of six kinds — one declaration "
+                         "for all of them is wrong for most of them. This "
+                         "harness used to pass \"ask\", which is a turn KIND "
+                         "and not a shape at all: it was honoured in silence "
+                         "and switched the counting organ off for the whole "
+                         "benchmark, which is where `multi-session` 0/5 came "
+                         "from. The library now refuses it.")
     ap.add_argument("--quoted", action="store_true",
                     help="answer from one line the store holds")
     ap.add_argument("--no-plan-rescue", action="store_true",
@@ -154,6 +164,10 @@ def main():
     args = ap.parse_args()
 
     from lmm import runtime
+    if args.shape:
+        print("# WARNING: one shape declared for six kinds of question — "
+              "every question this shape is wrong for loses the organ it "
+              "would have reached (W192).", file=sys.stderr)
     if args.no_plan_rescue:
         from lmm.session import Session
         Session._plan_answer = lambda self, question, want=None: None

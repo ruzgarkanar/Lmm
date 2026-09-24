@@ -27,6 +27,7 @@ import os
 import re
 
 from lmm import extract
+from lmm import generate
 from lmm.core.dataset import fold
 from lmm.session import Session
 
@@ -623,6 +624,34 @@ class Memory:
         rather than repeated: see `_state`. `Memory(..., cache=False)` turns it
         off entirely.
         """
+        # A DECLARATION MUST BE IN THE VOCABULARY IT DECLARES INTO, and
+        # it is checked HERE, before anything else this turn — before
+        # the kept-answer replay especially. An argument that is not
+        # valid is not made valid by the same question having been asked
+        # once already; checked after the cache, the second call came
+        # back from the cache and the mistake went on being invisible
+        # exactly where a batch would meet it.
+        #
+        # The shape is READ by `generate.turn_shape`, whose answers are
+        # `generate.SHAPES`; a declaration is that reading made by the
+        # caller instead, so a word the reader could never produce is
+        # not a declaration, it is a mistake. It used to be honoured in
+        # silence, and the cost was invisible: the turn reported that
+        # word as its shape forever, every door that asks `shape in
+        # ("count", "order", "sum")` answered no, and the organ behind
+        # it never ran. Our own benchmark declared `"ask"` — a turn
+        # KIND, from a different vocabulary — for thirty questions, and
+        # so measured this library for weeks with the counting organ
+        # switched off. W157 says a wrong declaration costs the organ it
+        # would have reached exactly as a wrong reading would; that is
+        # true of `"count"` for a question that counts nothing, and it
+        # is not a licence for a word that names no organ at all.
+        if shape is not None and shape not in generate.SHAPES:
+            raise ValueError(
+                "shape=%r is not a shape: %s. A declared shape is the "
+                "reading `turn_shape` would have made, so it has to be "
+                "one of that reader's own answers."
+                % (shape, ", ".join(generate.SHAPES)))
         session = self.session
         key = (fold(question), bool(fluent))
         # A KEPT ANSWER IS NOT AN ANSWER TO "SHALL I?". While a research offer

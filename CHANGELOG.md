@@ -8,6 +8,42 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A declared shape is a word the reader could have said** (W192).
+  `ask(shape=...)` exists so a batch of one kind does not pay, once per
+  question, for the engine to read a kind the caller already knows
+  (W157). What was never checked is that the caller declared into the
+  right vocabulary. `turn_shape` answers with one of
+  `generate.SHAPES` — `material`, `count`, `sum`, `order`, `when`,
+  `recap`, `none` — and anything else was stored and honoured in
+  silence. The cost was invisible from outside: the turn reported that
+  word as its shape for the rest of its life, every door that asks
+  `shape in ("count", "order", "sum")` answered no, and the organ
+  behind that door never ran.
+
+  **We did this to ourselves, and it cost a whole category.** Our own
+  LongMemEval harness passed `shape="ask"` — a turn KIND, out of
+  `extract`'s vocabulary, not a shape at all — for all thirty
+  questions, so every measurement taken through it ran with the
+  counting organ switched off. The five `multi-session` questions are
+  arithmetic over several sessions ("how many appointments in March",
+  "how much did I spend on each mug", "how much more than my goal") and
+  they abstained **5/5 in every configuration measured**. Retrieval was
+  never the reason, and this is what makes the diagnosis certain rather
+  than plausible: measured engine-free, the answer session is in the
+  six seats **5/5** for that type and the gold answer is covered by the
+  block **5/5**. The evidence was there every time and the organ that
+  could use it was off.
+
+  An out-of-vocabulary declaration now raises at the door, naming the
+  words it should have been, and it is checked before the kept-answer
+  replay — an invalid argument is not made valid by the same question
+  having been asked once already, and checked after the cache the
+  mistake stayed invisible exactly where a batch would meet it.
+
+  `benchmarks/longmemeval.py` takes `--shape` from the vocabulary now,
+  and warns that one declaration over six kinds of question is wrong
+  for most of them.
+
 - **A long line no longer answers better for being long** (W191). The
   lexical score adds one IDF weight per matched stem group, over the
   union of that group's sentences — so there is no term frequency here

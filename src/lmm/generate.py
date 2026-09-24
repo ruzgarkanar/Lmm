@@ -643,6 +643,20 @@ def telling_answer(question, block):
     return out
 
 
+# THE SHAPES THERE ARE — the classifier's whole vocabulary, named once
+# so that a CALLER who declares a shape (W157) can be held to the same
+# words the reader uses. It was written only inside the prompt below,
+# which meant a declaration outside it was accepted in silence: the turn
+# reported that shape forever, every seat that asks `shape in (...)`
+# said no, and the organ behind that door simply never ran. Measured on
+# LongMemEval, where the harness declared `"ask"` — not a shape at all —
+# for all thirty questions: the counting organ was off for the entire
+# benchmark, and the five `multi-session` questions, every one of them
+# arithmetic over several sessions, abstained five times out of five
+# with the answer sitting in the block.
+SHAPES = ("material", "count", "sum", "order", "when", "recap", "none")
+
+
 def turn_shape(message):
     """What KIND of turn this message asks for — one reading, at the
     door. Replaces three separate yes/no classifiers (material, count,

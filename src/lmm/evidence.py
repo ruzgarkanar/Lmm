@@ -95,26 +95,45 @@ CHANNEL = 2
 #
 # |d| is the line's WORD count and avgdl the whole store's mean — avgdl is a
 # property of the corpus, not of the question. A first draft measured both
-# wrong (characters, and a mean taken over only the MATCHED lines) and
-# produced a peak at b=0.55 that did not exist: with the divisor corrected
-# the curve is flat across 0.5-0.75 and falls off a cliff at 1.0.
+# wrong (characters, and a mean over only the MATCHED lines) and produced a
+# peak at 0.55 that did not exist.
 #
-# Measured, engine-free, on 18 literal-answer LongMemEval questions — the
-# rank of the line that carries the gold answer:
+# WHAT IT ACTUALLY BUYS IS NOT RANK, IT IS THE SIZE OF THE BLOCK. The first
+# instrument here was the rank of the line carrying the gold string, and it
+# said the change was a trade (two more lines in the seats, one fewer at the
+# top). That instrument is biased toward doing nothing: a long window is more
+# likely to CONTAIN a short gold string, so burying the answer inside 900
+# characters of unrelated advice scores better than stating it in 100. The
+# block itself is the honest instrument. Measured engine-free, six seats:
 #
-#     LENGTH   first   in the 6 seats   in 20
-#     0.00       5           8            11     (before)
-#     0.25       3           9            10
-#     0.50       4          10            11
-#     0.75       4          10            11
-#     1.00       2           6             9
+#                      LongMemEval (30 q, chat)       NIST SP800-63B (11 q)
+#     LENGTH    seats   chars    gold in block   seats   chars   gold in block
+#     0.00      6.00     4972        10/30       5.55    1874        9/11
+#     0.20      6.00     1765        10/30       5.45    1330        9/11
+#     0.35      6.00     1207        10/30       5.36    1239        9/11
+#     0.50      6.00      863         9/30       5.45    1181        9/11
+#     0.75      5.97      659         9/30       5.45    1116        9/11
 #
-# It BUYS two lines in the seats and COSTS one top seat, and that trade is
-# stated rather than hidden: the block the engine reads is six lines, so
-# coverage there is the instrument; the quoted path wants the top seat and
-# pays. 0.75 is BM25's own default and sits in the middle of the plateau, so
-# it is not a figure fitted to these eighteen questions.
-LENGTH = 0.75
+# The block does not narrow — the seats stay filled — and what leaves is
+# length, not evidence. Asked "how long did I wait for the decision on my
+# asylum application", the six seats before this were landlord advice,
+# fishing rods, mattress returns, HR roles, JFK and hologram concerts, 6829
+# characters with the answer buried inside the first one; after, the top
+# three seats are all the asylum conversation and the third states "Over a
+# year of..." outright.
+#
+# WHY 0.20 AND NOT BM25's OWN 0.75. Not because 0.20 scores best — on these
+# corpora every value from 0.20 up is equal on evidence and only differs in
+# how much text it saves. 0.20 is the largest value at which all of the
+# existing invariants still hold. Above it H4 loses the second seat its
+# region is guaranteed for corroboration, and J6 fails by being overtaken:
+# the spec line it rescues (`Gösterge 21.5" OLED`, which once ranked 33rd)
+# now reaches the block on its own, so the rescue has nothing left to append.
+# The second of those is probably a defect fixed rather than a defect caused
+# — but retiring a measured mechanism is its own change with its own
+# measurement, and until that is done this constant stops where the evidence
+# already gathered stops.
+LENGTH = 0.20
 
 
 # WHERE THE MEMORY'S OWN SPEECH IS FILED. Not a document name, so
