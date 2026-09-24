@@ -116,11 +116,22 @@ def main():
     ap.add_argument("--judge", action="store_true",
                     help="also ask the engine whether the answer matches")
     ap.add_argument("--save")
+    ap.add_argument("--shape", default=None,
+                    help='declare the turn kind, e.g. "ask" — a declared '
+                         'shape also skips the count/span door (W93)')
+    ap.add_argument("--quoted", action="store_true",
+                    help="answer from one line the store holds")
+    ap.add_argument("--conversational", action="store_true",
+                    help="do NOT pass standalone, so the turn is classified "
+                         "and carries a subject")
     args = ap.parse_args()
 
     from lmm import runtime
     data = json.load(open(args.data, encoding="utf-8"))
     chosen = slice_of(data, args.most)
+    print("# %d questions · shape=%s quoted=%s standalone=%s"
+          % (len(chosen), args.shape, args.quoted,
+             not args.conversational), file=sys.stderr)
     print("# %d questions · %s" % (len(chosen),
                                    dict(Counter(r["question_type"]
                                                 for r in chosen))),
@@ -133,7 +144,9 @@ def main():
         built = time.time()
         m = learn_instance(row)
         ingest = time.time() - built
-        said = m.ask(row["question"], explain=True, standalone=True)
+        said = m.ask(row["question"], explain=True,
+                     standalone=not args.conversational,
+                     shape=args.shape, quoted=args.quoted)
         gold = row["answer"]
         strict = (said.abstained if absent
                   else _plain(str(gold)) in _plain(str(said)))
