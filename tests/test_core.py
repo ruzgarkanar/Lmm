@@ -12393,16 +12393,20 @@ def w192():
     `shape in ("count", "order", "sum")` answered no, and the organ
     behind that door never ran at all.
 
-    WE DID THIS TO OURSELVES, AND IT COST A WHOLE CATEGORY. Our own
-    LongMemEval harness passed `shape="ask"` — a turn KIND, out of
-    `extract`'s vocabulary, not a shape — for all thirty questions, so
-    every measurement taken through it ran with the counting organ
-    switched off. The five `multi-session` questions are arithmetic over
-    several sessions ("how many appointments in March", "how much did I
-    spend on each mug", "how much more than my goal"), and they abstained
-    5/5 in every configuration measured. Retrieval was never the reason:
-    the answer session is in the six seats 5/5 for that type, and the
-    gold answer is covered by the block 5/5.
+    WE DID THIS TO OURSELVES. Our own LongMemEval harness passed
+    `shape="ask"` — a turn KIND, out of `extract`'s vocabulary, not a
+    shape — for all thirty questions.
+
+    AND IT IS NOT WHY `multi-session` SCORES 0/5. That was the first
+    attribution and the probe refuted it: with the declaration removed
+    AND `turn_shape` pinned to "count", the route over those five
+    questions is unchanged and the organ still never runs, because it
+    counts RECORDS and that store's graph holds none — the harness
+    learns with `deep=False`, so 13,307 sentences of evidence sit beside
+    an empty graph. Retrieval was not the reason either: the answer
+    session is in the six seats 5/5 for that type and the gold answer is
+    covered by the block 5/5. This invariant holds a real defect closed;
+    it does not claim that score.
 
     W157 says a WRONG declaration costs the organ it would have reached,
     exactly as a wrong reading by the engine would. That is the price of

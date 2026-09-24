@@ -150,9 +150,11 @@ def main():
                          "for all of them is wrong for most of them. This "
                          "harness used to pass \"ask\", which is a turn KIND "
                          "and not a shape at all: it was honoured in silence "
-                         "and switched the counting organ off for the whole "
-                         "benchmark, which is where `multi-session` 0/5 came "
-                         "from. The library now refuses it.")
+                         "for the whole benchmark. The library now refuses "
+                         "it. That is NOT where `multi-session` 0/5 comes "
+                         "from — measured, the route is unchanged without it, "
+                         "because the counting organ counts records and "
+                         "`deep=False` leaves the graph empty.")
     ap.add_argument("--quoted", action="store_true",
                     help="answer from one line the store holds")
     ap.add_argument("--no-plan-rescue", action="store_true",

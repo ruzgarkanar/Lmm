@@ -20,19 +20,30 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `shape in ("count", "order", "sum")` answered no, and the organ
   behind that door never ran.
 
-  **We did this to ourselves, and it cost a whole category.** Our own
-  LongMemEval harness passed `shape="ask"` — a turn KIND, out of
-  `extract`'s vocabulary, not a shape at all — for all thirty
-  questions, so every measurement taken through it ran with the
-  counting organ switched off. The five `multi-session` questions are
-  arithmetic over several sessions ("how many appointments in March",
-  "how much did I spend on each mug", "how much more than my goal") and
-  they abstained **5/5 in every configuration measured**. Retrieval was
-  never the reason, and this is what makes the diagnosis certain rather
-  than plausible: measured engine-free, the answer session is in the
-  six seats **5/5** for that type and the gold answer is covered by the
-  block **5/5**. The evidence was there every time and the organ that
-  could use it was off.
+  **We did this to ourselves.** Our own LongMemEval harness passed
+  `shape="ask"` — a turn KIND, out of `extract`'s vocabulary, not a
+  shape at all — for all thirty questions, so every measurement taken
+  through it ran with that declaration standing.
+
+  **AND IT IS NOT WHY `multi-session` SCORES 0/5 — that was this
+  author's first attribution and the probe refuted it.** With the
+  declaration removed AND `turn_shape` pinned to `"count"`, the route
+  over those five questions is unchanged and the counting organ still
+  never runs. The reason is one level down: the organ counts RECORDS,
+  and the graph holds **0 of them**. The harness learns with
+  `deep=False` — which is what makes a 50-session ingest affordable at
+  all — so nothing is extracted, and 13,307 sentences of evidence sit
+  beside an empty graph. Retrieval was never the problem either:
+  engine-free, the answer session is in the six seats **5/5** for that
+  type and the gold answer is covered by the block **5/5**.
+
+  So the real gap that category names is **arithmetic organs that only
+  work over the graph, in a configuration that has no graph** — and
+  four of those five questions ask for a difference, a ratio or a
+  per-unit amount, which `count` and `sum` do not cover even with a
+  graph present. That is the next piece of work, correctly stated. W192
+  is a genuine defect fixed on its own merits, not the cause of that
+  score.
 
   An out-of-vocabulary declaration now raises at the door, naming the
   words it should have been, and it is checked before the kept-answer
