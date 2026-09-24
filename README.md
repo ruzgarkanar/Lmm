@@ -939,8 +939,15 @@ Kept current, and deliberately specific.
   variance, not architecture: extraction at temperature 0 is not
   byte-stable across processes, and a 30-question score moves ±2 with it.
 - On a fixed 30-question LongMemEval slice (5 per category, gpt-4o-mini as
-  the engine), 0.7 measures **57-60%**, from 43% at the start of the cycle;
-  the full 500-question run has not been repeated since. Published
+  the engine), 0.7 measured **57-60%**, from 43% at the start of the cycle.
+  **That figure is no longer reproducible and should not be relied on**:
+  its harness and its question list lived outside this repository and are
+  gone, so which data variant it used is unknown. 0.12.1 re-measured with
+  a harness that is now IN the repo (`benchmarks/longmemeval.py`, a
+  deterministic slice) and scores **43% on the oracle variant and 10% on
+  `longmemeval_s`**, judged by an engine as the benchmark intends. The
+  33-point gap between those two is distractor sessions, and it is the
+  honest shape of this weakness. Published
   chat-memory figures (Zep's current claim is ~71% under a GPT-4o judge)
   use different engines and protocols. That benchmark is a
   long-personal-conversation exam, not a document exam; the same code
