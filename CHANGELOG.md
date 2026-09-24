@@ -4,7 +4,32 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.12.0] — 2026-09-24
+
+0.11.0 gave the conversation surface its first number and the benchmark
+immediately found a defect; this release fixes it at the root.
+
+**The claim is a mechanism, not a percentage, and that is deliberate.**
+The first run after the fix scored 14/15 against 13/15 — and the repeat
+scored 13/15. One cell is exactly the variance an integrator warned us
+about, and publishing it as the headline is the mistake their report
+was about. So the evidence is the cell the change was built to move,
+asked on its own and repeated: **"who does the user report to?" answers
+the current manager 3 times out of 3 with the vote, and the manager
+replaced three months earlier 3 times out of 3 without it.** Asked
+individually, all four paraphrase cells are stable; the aggregate's
+wobble is a different cell and is not this mechanism's.
+
+Document question-answering is byte-for-byte unchanged — the vote does
+not open on an undated store, and thirteen NIST questions came back with
+zero verdicts changed.
+
+The defect was one class with three carriers, chased in order over two
+days. A paraphrased question whose discriminating word the store never
+writes retrieves on its remaining generic words, and a **richer OLD line
+beats a terser NEW one** — true, correctly stamped, past every gate, and
+out of date. Two of the carriers are fixed below; the third is named,
+measured and still open.
 
 ### Fixed
 
@@ -30,10 +55,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   W186, the counting organ and the telling seat already keep. NIST SP
   800-63B has 12,253 sentences and not one dated source.
 
-  | | before | after |
+  | | without the vote | with it |
   |---|---|---|
-  | conversation, independent questions | 13/15 | **14/15** (paraphrase 3/4 → **4/4**) |
-  | conversation, one running session | 13/15 | 13/15 |
+  | *"who does the user report to?"*, asked alone, ×3 | the **replaced** manager, 3/3 | the **current** one, 3/3 |
+  | conversation benchmark, independent questions | 13/15 | 13–14/15 (one cell of wobble, not this one) |
   | NIST SP 800-63B, 13 questions | 10/13 · 42 calls | **identical, zero verdicts changed** |
 
   **What it does not reach**, and why the conversational arm does not
@@ -68,34 +93,20 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   so no seat is attested by another line's source. A strict winner still
   takes the whole block, unchanged. NIST: 42 calls, verdicts identical.
 
-### Measured, and open — one defect with three carriers
+### Measured, and open
 
-  The conversation benchmark's remaining failure is a single class:
-  **a paraphrased question whose discriminating word the store never
-  writes retrieves on its remaining generic words, and a richer OLD line
-  beats a terser NEW one.** The answer is true, correctly stamped, past
-  every gate, and out of date. Three things carry it, found in order:
+- **The brief still carries it in one running session.** A vote can only
+  reorder what was retrieved, and when the consultation's accumulated
+  terms ride the query the current line is not retrieved at all —
+  measured engine-free: with the brief appended it **disappears from the
+  block entirely**. The brief exists for a consultation whose turns
+  build on each other, and a batch of independent questions is not that;
+  `standalone=True` clears it, and is what a matrix of cells should use.
 
-  1. **The anchor** — the previous turn's subject rides the query. Fixed
-     above for the tie case; verified in isolation (the block regains
-     the current line).
-  2. **The brief** — the consultation's accumulated terms ride BOTH
-     queries, so interleaving cannot help. Measured engine-free: with
-     the brief appended the current line **disappears from the block
-     entirely**. It exists for a consultation whose turns build on each
-     other, and a batch of independent questions is not that.
-  3. **Retrieval itself** — with `standalone=True`, which clears both of
-     the above, the failure simply **moves to another question** of the
-     same class: "who does the user report to?" answers with the manager
-     replaced three months earlier. 13/15 either way, at 94 calls
-     instead of 118.
-
-  So the carriers are amplifiers and the defect is underneath them:
-  **on a wholly dated store, nothing prefers a later line in RETRIEVAL.**
-  W186 orders a dated block newest-first, which only helps when the
-  newer line is in the block at all. The fix touches ranking, which is
-  the part of this system most carefully argued, so it is recorded here
-  rather than attempted between two measurements.
+- **Composition across sessions.** The one remaining benchmark failure:
+  asked how long two courses took altogether, where the two durations
+  are stated in two different sessions, the memory **abstains** rather
+  than guessing a sum. Honest, and still a gap.
 
 ## [0.11.0] — 2026-09-24
 

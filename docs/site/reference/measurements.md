@@ -169,20 +169,28 @@ it is invented; it is not a substitute for LongMemEval and it is not
 evidence about anyone's real corpus. What it does is exercise the classes
 recorded as open.
 
-**13/15, identical across two independent runs, zero flips:**
+**13–14/15** asking each question independently — the aggregate moves by
+one cell between runs, which is the variance to expect at this size:
 
 | class | score | what it asks |
 |---|---|---|
 | facts | **6/6** | including a fact the speaker later supersedes |
 | traps | **3/3** | things the conversation never mentions — no fabrication |
-| paraphrase | 3/4 | the discriminating word never written in the store |
+| paraphrase | **4/4** | the discriminating word never written in the store |
 | composition | 1/2 | a quantity that must be summed across two sessions |
 
-Both failures are honest. One abstains rather than guessing a sum. The
-other is the anchor defect recorded in the changelog: asked alone the
-question answers from the latest session, asked after a turn about an
-earlier one it inherits that turn's subject and answers from the older
-session — true, correctly stamped, and out of date.
+Read the cell, not the total. 0.12.0's recency vote was built to move one
+of these, and the evidence for it is that cell repeated rather than the
+aggregate: asked *"who does the user report to?"* the memory answers the
+**current** manager 3 times out of 3 with the vote, and the one replaced
+three months earlier 3 times out of 3 without it. The remaining failure
+is honest — asked for a total whose two parts are stated in two different
+sessions, the memory abstains rather than guessing.
+
+Asked as **one running session** rather than independently, the score is
+13/15: the consultation's accumulated terms ride the query and the
+current line is not retrieved at all, which no reordering can reach.
+A batch of independent questions wants `standalone=True`.
 
 !!! warning "A run in the same process is not a run"
     This harness reports a median across runs and a **flip count**, and
