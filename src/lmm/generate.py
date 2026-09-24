@@ -934,10 +934,19 @@ def amounts_of(question, block):
     and the TOTAL is arithmetic over what survives — asked for a sum a
     model estimates, asked for the addends it hands over claims that
     can be checked one by one."""
+    # A PLACEHOLDER IS NOT AN ITEM (W189). This instruction used to read
+    # "List each as ITEM :: NUMBER", and the engine copied the word: it
+    # answered `ITEM :: 2 days`, every pair died in verification because
+    # nothing in the store says "item", and the organ returned None —
+    # a capability reported as absence. Every other contract in this
+    # file writes its placeholders in angle brackets, and this one now
+    # does too.
     system = ("The EVIDENCE lines mention zero or more amounts of the "
               "kind the question asks about. List each as "
-              "ITEM :: NUMBER, one per line, the number copied exactly "
-              "as the evidence writes it, no currency signs, no totals. "
+              "<what it is> :: <the number>, one per line, the number "
+              "copied exactly as the evidence writes it, using the "
+              "evidence's own name for the thing and never the words "
+              "in the brackets, no currency signs, no totals. "
               "Name nothing the evidence does not contain. If none, "
               "output NONE.")
     out = runtime.generate("EVIDENCE:\n%s\n\nQUESTION: %s" % (block, question),
@@ -947,10 +956,22 @@ def amounts_of(question, block):
         return []
     pairs = []
     for line in out.splitlines():
-        if "::" in line:
-            item, _sep, amount = line.partition("::")
-            if item.strip() and amount.strip():
-                pairs.append((item.strip(), amount.strip()))
+        if "::" not in line:
+            continue
+        item, _sep, amount = line.partition("::")
+        item, amount = item.strip(), amount.strip()
+        if not item or not amount:
+            continue
+        # A PAIR THAT NAMES THE PLACEHOLDER BROKE THE CONTRACT (W184's
+        # rule, applied where it was missing). It cannot be verified —
+        # the organ looks for a stored line carrying the amount AND the
+        # item's own words, and no store says "item" — so dropping it
+        # silently turned a broken reply into an absence. Refused, and
+        # counted.
+        if item.strip("<> ").upper() in ("ITEM", "WHAT", "NUMBER"):
+            runtime.malformed(line)
+            continue
+        pairs.append((item, amount))
     return pairs
 
 

@@ -4,6 +4,52 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A placeholder is not an item, and a silent drop is counted** (W189).
+  The conversation benchmark's last failing cell, and the missing thing
+  was not the capability. Asked how long two courses took altogether —
+  the durations stated in two different sessions — the memory abstained.
+  The router was right (`turn_shape` → sum), both numbers were in the
+  retrieved lines, and the organ still produced nothing.
+
+  The engine was answering `ITEM :: 2 days`, copying the word out of the
+  instruction *"List each as ITEM :: NUMBER"*. Every pair then died in
+  verification, because the organ looks for a stored line carrying the
+  amount AND **the item's own words**, and no store says "item". Each
+  drop was silent, so the organ returned None and the turn refused — a
+  capability reported as an absence.
+
+  The placeholders are now bracketed, as every other contract in this
+  file writes them, and a pair that names the placeholder is a **broken
+  contract**: refused and counted (W184's rule, applied where it was
+  missing) rather than dropped in silence. Asked three times, the memory
+  now answers **"5 (Foundation training course: 2 + Advanced training
+  course: 3)"** — the total with its addends, by the store's own
+  arithmetic.
+
+### Refuted on the way, by the suite
+
+- The first wording put the placeholders on their own line with a fuller
+  explanation. It fixed the hosted engine and **broke the local one**:
+  the small model returned nothing parseable at all, the sum organ went
+  silent, and a question the chain used to answer refused instead. W63
+  caught it. The wording that shipped keeps the original sentence's
+  shape and changes only the placeholders — measured on both engines.
+
+### A fixture corrected, and said plainly
+
+- `benchmarks/chat` wrote two durations as words ("Two solid days"). The
+  summing organ reads only lines carrying a digit, on purpose: *an
+  amount lives only if its value is written, digit for digit, on a line
+  the store holds.* Reading "two" as 2 would need a numeral list per
+  language, which this project forbids itself. So the corpus now writes
+  the digits and the cell tests **composition** rather than
+  numeral-reading. **Summing written-out numbers is not supported, and
+  will not be.**
+
 ## [0.12.0] — 2026-09-24
 
 0.11.0 gave the conversation surface its first number and the benchmark

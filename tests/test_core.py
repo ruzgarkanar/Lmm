@@ -12157,6 +12157,72 @@ def w188():
     assert evidence.SentenceStore.RECENT is True
 
 
+@test("W189 a placeholder is not an item, and a silent drop is counted")
+def w189():
+    """The conversation benchmark's last failing cell, and it was not the
+    capability that was missing. Asked how long two courses took
+    altogether — the two durations stated in two different sessions —
+    the memory abstained. The router was right (`turn_shape` → sum), the
+    lines carrying both numbers were retrieved, and the organ still
+    produced nothing.
+
+    The engine was answering `ITEM :: 2 days`, copying the word out of
+    the instruction "List each as ITEM :: NUMBER". Every pair then died
+    in verification, because the organ looks for a stored line carrying
+    both the amount and the ITEM'S OWN WORDS and nothing in the store
+    says "item". Each drop was silent, so the organ returned None and
+    the turn refused — a capability reported as absence.
+
+    Two repairs, and the first is the house's own style: every other
+    contract in this file writes a placeholder in angle brackets
+    (`ANSWER: <one short sentence>`, `LINES: <the number>`); this one
+    wrote a bare word and got the word back. And the second is W184's
+    rule applied where it was missing — a pair whose item is the
+    placeholder is a BROKEN CONTRACT, refused and counted, not dropped
+    in silence."""
+    from lmm import generate, runtime
+
+    real = runtime.generate
+    before = runtime.MALFORMED
+    try:
+        # THE PLACEHOLDER IS NOT AN ITEM.
+        runtime.generate = lambda *a, **k: "ITEM :: 2 days\nITEM :: 3 days"
+        assert generate.amounts_of("how long altogether", "x") == []
+        assert runtime.MALFORMED > before, runtime.MALFORMED
+
+        # A NAMED ITEM IS ONE.
+        was = runtime.MALFORMED
+        runtime.generate = (lambda *a, **k:
+                            "Foundation course :: 2 days\n"
+                            "Advanced course :: 3 days")
+        assert generate.amounts_of("how long altogether", "x") == [
+            ("Foundation course", "2 days"),
+            ("Advanced course", "3 days")]
+        assert runtime.MALFORMED == was, "a good reply was counted broken"
+
+        # AND A DECLINE IS STILL A DECLINE.
+        runtime.generate = lambda *a, **k: "NONE"
+        assert generate.amounts_of("how long altogether", "x") == []
+        assert runtime.MALFORMED == was, "a decline was counted broken"
+    finally:
+        runtime.generate = real
+
+    # THE INSTRUCTION ITSELF NO LONGER OFFERS A WORD TO COPY — read off
+    # the call rather than off the source, which quotes the old wording
+    # in the comment that explains why it changed.
+    seen = []
+    real = runtime.generate
+    runtime.generate = (lambda prompt, system=None, **k:
+                        seen.append(system) or "NONE")
+    try:
+        generate.amounts_of("how long altogether", "x")
+    finally:
+        runtime.generate = real
+    system = seen[0] or ""
+    assert "ITEM :: NUMBER" not in system, system
+    assert "<" in system and "::" in system, system
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
