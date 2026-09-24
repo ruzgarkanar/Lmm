@@ -2423,6 +2423,39 @@ class Session:
                             return (when, src, phrase, True)
         return fallback
 
+    def _woven(self, own, ridden, most):
+        """Two blocks, best-first from each, capped at the same seats.
+
+        The ride is a challenger and the comparison that was meant to
+        settle it never fires: `coverage(question, block)` came back
+        identical for both queries on every case tried, because a
+        handful of lines carries a question's common words either way.
+        Every tie kept the ride, so the ride always won.
+
+        What that cost was found by the conversation benchmark: after a
+        turn about a training course, "which city is the user based in?"
+        rides that course's subject, the course's session takes the
+        seats, and the line naming the current city IS NOT RETRIEVED —
+        so the day ordering (W186) cannot help, the answer being absent
+        rather than mis-ranked.
+
+        Flipping the tie to the turn's own query was measured and
+        REFUSED: on an eight-document corpus a pointer question's own
+        block carries none of the anchor's lines while the ridden one
+        carries them, and the tie is exactly what rescues it. The ride
+        is load-bearing.
+
+        So on a tie neither wins. Interleaving keeps each block's own
+        ranking and lets the better-placed line of either arrive early;
+        the cap is the seats the turn already had, so nothing grows.
+        """
+        out = []
+        for at in range(max(len(own), len(ridden))):
+            for side in (own, ridden):
+                if at < len(side) and side[at] not in out:
+                    out.append(side[at])
+        return out[:most]
+
     def _by_day(self, lines, stamps):
         """A wholly dated block, newest first (W186).
 
@@ -3975,6 +4008,7 @@ class Session:
             # the ride; the follow-up keeps its fix.
             own_query = f"{question_query} {consult}".strip()
             own = self._find(own_query, most=seats)
+            own_from = list(self.evidence.last_sources[:len(own)])
             cov_own = (evidence.coverage(question, "\n".join(own))
                        if own else 0.0)
             ridden_query = f"{anchor_label} {question_query} {consult}".strip()
@@ -3985,8 +4019,29 @@ class Session:
                 # re-run the winner LAST: last_sources / last_census must
                 # describe the proof everything downstream reads
                 proof = self._find(own_query, most=seats)
-            else:
+            elif cov_ridden > cov_own:
                 proof = ridden
+            else:
+                # ON A TIE THE RIDE ADDS, IT DOES NOT REPLACE (W187).
+                # Measured: this comparison never fires — the two
+                # coverages came back IDENTICAL on every case tried, so
+                # every tie kept the ride and the guard was decoration.
+                # What that cost: a complete question asked after a turn
+                # about something else rides that subject, and the line
+                # its own words would have found is not retrieved at all.
+                # Flipping the tie the other way was measured and
+                # refused — a pointer question's own block carries none
+                # of the anchor's lines, and the tie is what rescues it.
+                #
+                # So neither wins. The stamps are woven with the lines,
+                # by the same walk, or a seat would be attested by
+                # another line's source.
+                ridden_from = list(self.evidence.last_sources[:len(ridden)])
+                proof = self._woven(own, ridden, seats)
+                where = dict(zip(own, own_from))
+                where.update(zip(ridden, ridden_from))
+                self.evidence.last_sources = [where.get(line, "")
+                                              for line in proof]
         else:
             proof = self._find(
                 f"{anchor_label or ''} {question_query} {consult}".strip(),

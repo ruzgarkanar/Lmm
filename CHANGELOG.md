@@ -4,6 +4,60 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **On a tie the ride ADDS, it does not replace** (W187). A follow-up
+  whose own words seat junk borrows the previous turn's subject, and the
+  ridden proof was to stand "only if it covers the question at least as
+  well as the turn's own". **Measured, that comparison never fires**:
+  `coverage(question, block)` came back identical for both queries on
+  every case tried — three pointer questions and two complete ones —
+  because a handful of lines carries a question's common words either
+  way. Every tie kept the ride, so the ride always won and the guard was
+  decoration.
+
+  Flipping the tie to the turn's own query was the obvious repair and is
+  **refused, measured**: on an eight-document corpus a pointer
+  question's own block carries **none** of the anchor's lines while the
+  ridden one carries them, and the tie is exactly what rescues it. The
+  ride is load-bearing.
+
+  So on a tie neither wins: the two blocks are interleaved best-first
+  and capped at the same seats, with the stamps woven by the same walk
+  so no seat is attested by another line's source. A strict winner still
+  takes the whole block, unchanged. NIST: 42 calls, verdicts identical.
+
+### Measured, and open — one defect with three carriers
+
+  The conversation benchmark's remaining failure is a single class:
+  **a paraphrased question whose discriminating word the store never
+  writes retrieves on its remaining generic words, and a richer OLD line
+  beats a terser NEW one.** The answer is true, correctly stamped, past
+  every gate, and out of date. Three things carry it, found in order:
+
+  1. **The anchor** — the previous turn's subject rides the query. Fixed
+     above for the tie case; verified in isolation (the block regains
+     the current line).
+  2. **The brief** — the consultation's accumulated terms ride BOTH
+     queries, so interleaving cannot help. Measured engine-free: with
+     the brief appended the current line **disappears from the block
+     entirely**. It exists for a consultation whose turns build on each
+     other, and a batch of independent questions is not that.
+  3. **Retrieval itself** — with `standalone=True`, which clears both of
+     the above, the failure simply **moves to another question** of the
+     same class: "who does the user report to?" answers with the manager
+     replaced three months earlier. 13/15 either way, at 94 calls
+     instead of 118.
+
+  So the carriers are amplifiers and the defect is underneath them:
+  **on a wholly dated store, nothing prefers a later line in RETRIEVAL.**
+  W186 orders a dated block newest-first, which only helps when the
+  newer line is in the block at all. The fix touches ranking, which is
+  the part of this system most carefully argued, so it is recorded here
+  rather than attempted between two measurements.
+
 ## [0.11.0] — 2026-09-24
 
 The half this project's name promises had no current number:
