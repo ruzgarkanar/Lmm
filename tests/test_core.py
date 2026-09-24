@@ -12380,6 +12380,69 @@ def w191():
     assert before[0] != short, before
 
 
+@test("W192 a declared shape is a word the reader could have said")
+def w192():
+    """A CALLER'S DECLARATION IS A READING, NOT A LABEL. `ask(shape=...)`
+    exists so a batch of forty-four questions of one kind does not pay
+    forty-four times for the engine to read a kind the caller already
+    knows (W157). What was never checked is that the caller declared
+    into the RIGHT VOCABULARY. `turn_shape` answers with one of
+    `generate.SHAPES`; anything else was stored and honoured in silence,
+    and the cost was invisible from the outside — the turn reported that
+    word as its shape for the rest of its life, every door that asks
+    `shape in ("count", "order", "sum")` answered no, and the organ
+    behind that door never ran at all.
+
+    WE DID THIS TO OURSELVES, AND IT COST A WHOLE CATEGORY. Our own
+    LongMemEval harness passed `shape="ask"` — a turn KIND, out of
+    `extract`'s vocabulary, not a shape — for all thirty questions, so
+    every measurement taken through it ran with the counting organ
+    switched off. The five `multi-session` questions are arithmetic over
+    several sessions ("how many appointments in March", "how much did I
+    spend on each mug", "how much more than my goal"), and they abstained
+    5/5 in every configuration measured. Retrieval was never the reason:
+    the answer session is in the six seats 5/5 for that type, and the
+    gold answer is covered by the block 5/5.
+
+    W157 says a WRONG declaration costs the organ it would have reached,
+    exactly as a wrong reading by the engine would. That is the price of
+    saying "count" about a question that counts nothing. It is not a
+    licence for a word that names no organ at all — that is not a
+    reading anyone could have made.
+
+    No model: the declaration is refused before any engine is reached."""
+    from lmm import generate
+    from lmm.api import Memory
+
+    m = Memory(None)
+    m.learn("The cat is named Luna.", deep=False, source="#doc")
+    # THE VOCABULARY IS THE READER'S OWN ANSWERS, and the reader's
+    # docstring names them — so the two cannot drift apart silently.
+    assert "count" in generate.SHAPES and "none" in generate.SHAPES
+    assert "ask" not in generate.SHAPES, generate.SHAPES
+    for word in generate.SHAPES:
+        m.session.declared_shape = None
+        try:
+            m.ask("what is the cat named", shape=word)
+        except ValueError:                              # pragma: no cover
+            raise AssertionError("%r is a shape and was refused" % word)
+        except Exception:                               # noqa: BLE001
+            pass                    # no engine here; only the door matters
+    # ...and a word from any other vocabulary is refused AT THE DOOR,
+    # loudly, naming what it should have been.
+    for wrong in ("ask", "question", "COUNT", "fact"):
+        try:
+            m.ask("what is the cat named", shape=wrong)
+        except ValueError as broke:
+            assert "is not a shape" in str(broke), broke
+            assert "count" in str(broke), broke     # it names the vocabulary
+        else:
+            raise AssertionError("shape=%r was accepted in silence" % wrong)
+    # AND THE DECLARATION DOES NOT SURVIVE THE REFUSAL. A turn that was
+    # refused never began, so nothing of it may ride into the next one.
+    assert m.session.declared_shape in (None, ""), m.session.declared_shape
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
