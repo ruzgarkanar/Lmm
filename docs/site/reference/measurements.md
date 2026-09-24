@@ -177,15 +177,24 @@ one cell between runs, which is the variance to expect at this size:
 | facts | **6/6** | including a fact the speaker later supersedes |
 | traps | **3/3** | things the conversation never mentions — no fabrication |
 | paraphrase | **4/4** | the discriminating word never written in the store |
-| composition | 1/2 | a quantity that must be summed across two sessions |
+| composition | **2/2** | a quantity that must be summed across two sessions |
 
 Read the cell, not the total. 0.12.0's recency vote was built to move one
 of these, and the evidence for it is that cell repeated rather than the
 aggregate: asked *"who does the user report to?"* the memory answers the
 **current** manager 3 times out of 3 with the vote, and the one replaced
-three months earlier 3 times out of 3 without it. The remaining failure
-is honest — asked for a total whose two parts are stated in two different
-sessions, the memory abstains rather than guessing.
+three months earlier 3 times out of 3 without it. Composition closed in 0.12.1: asked for a total whose two parts are
+stated in two different sessions, the memory answers **"5 (Foundation
+training course: 2 + Advanced training course: 3)"** — the total with its
+addends, by its own arithmetic over amounts each verified against a
+stored line. It had been abstaining because the engine echoed a
+placeholder out of the instruction and every pair died in verification,
+silently.
+
+**Summing written-out numbers is not supported and will not be.** An
+amount lives only if its value is written digit for digit on a line the
+store holds; reading "two" as 2 would need a numeral list per language,
+which this project forbids itself.
 
 Asked as **one running session** rather than independently, the score is
 13/15: the consultation's accumulated terms ride the query and the
