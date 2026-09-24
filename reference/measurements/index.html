@@ -1417,7 +1417,8 @@ four-session conversation and fifteen labelled questions. It is small and
 it is invented; it is not a substitute for LongMemEval and it is not
 evidence about anyone's real corpus. What it does is exercise the classes
 recorded as open.</p>
-<p><strong>13/15, identical across two independent runs, zero flips:</strong></p>
+<p><strong>13–14/15</strong> asking each question independently — the aggregate moves by
+one cell between runs, which is the variance to expect at this size:</p>
 <table>
 <thead>
 <tr>
@@ -1439,7 +1440,7 @@ recorded as open.</p>
 </tr>
 <tr>
 <td>paraphrase</td>
-<td>3/4</td>
+<td><strong>4/4</strong></td>
 <td>the discriminating word never written in the store</td>
 </tr>
 <tr>
@@ -1449,11 +1450,17 @@ recorded as open.</p>
 </tr>
 </tbody>
 </table>
-<p>Both failures are honest. One abstains rather than guessing a sum. The
-other is the anchor defect recorded in the changelog: asked alone the
-question answers from the latest session, asked after a turn about an
-earlier one it inherits that turn's subject and answers from the older
-session — true, correctly stamped, and out of date.</p>
+<p>Read the cell, not the total. 0.12.0's recency vote was built to move one
+of these, and the evidence for it is that cell repeated rather than the
+aggregate: asked <em>"who does the user report to?"</em> the memory answers the
+<strong>current</strong> manager 3 times out of 3 with the vote, and the one replaced
+three months earlier 3 times out of 3 without it. The remaining failure
+is honest — asked for a total whose two parts are stated in two different
+sessions, the memory abstains rather than guessing.</p>
+<p>Asked as <strong>one running session</strong> rather than independently, the score is
+13/15: the consultation's accumulated terms ride the query and the
+current line is not retrieved at all, which no reordering can reach.
+A batch of independent questions wants <code>standalone=True</code>.</p>
 <div class="admonition warning">
 <p class="admonition-title">A run in the same process is not a run</p>
 <p>This harness reports a median across runs and a <strong>flip count</strong>, and
