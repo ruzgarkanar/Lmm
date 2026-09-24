@@ -75,10 +75,34 @@ def slice_of(data, most):
     return out
 
 
+def _day(stamp):
+    """The (y, m, d) a LongMemEval stamp attests — its first three
+    numbers, the same reading `evidence.stamp_day` keeps."""
+    import re
+    digits = re.findall(r"\d+", stamp or "")
+    if len(digits) < 3:
+        return None
+    import datetime
+    try:
+        return datetime.date(*(int(x) for x in digits[:3]))
+    except ValueError:
+        return None
+
+
 def learn_instance(row):
-    """One instance, as a memory: a session per source, stamped by day."""
+    """One instance, as a memory: a session per source, stamped by day.
+
+    THE DAY THE QUESTION IS ASKED IS THE BENCHMARK'S, NOT THE CALENDAR'S.
+    Every instance carries a `question_date` in 2023, and "how many
+    months since I last visited a museum" is measured from it. Left
+    unset, `now` is the real today and the same organ answered **1442
+    days (about 47 months)** where the gold is 5 months — three years of
+    error, contributed entirely by the harness. `asked_at` exists for
+    exactly this (W142) and is set here.
+    """
     from lmm.api import Memory
     m = Memory(None)
+    m.session.asked_at = _day(row.get("question_date"))
     dates = row.get("haystack_dates") or []
     for nth, session in enumerate(row["haystack_sessions"]):
         said = []
@@ -121,12 +145,18 @@ def main():
                          'shape also skips the count/span door (W93)')
     ap.add_argument("--quoted", action="store_true",
                     help="answer from one line the store holds")
+    ap.add_argument("--no-plan-rescue", action="store_true",
+                    help="do not let the plan seat answer a turn the chain "
+                         "already refused")
     ap.add_argument("--conversational", action="store_true",
                     help="do NOT pass standalone, so the turn is classified "
                          "and carries a subject")
     args = ap.parse_args()
 
     from lmm import runtime
+    if args.no_plan_rescue:
+        from lmm.session import Session
+        Session._plan_answer = lambda self, question, want=None: None
     data = json.load(open(args.data, encoding="utf-8"))
     chosen = slice_of(data, args.most)
     print("# %d questions · shape=%s quoted=%s standalone=%s"
