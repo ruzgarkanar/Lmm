@@ -6,7 +6,74 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **A difference is composed, not guessed — and never added instead**
+  (W193). The plan organ's vocabulary was wholly temporal: every one of
+  its ten primitives read a date off a source stamp or counted lines.
+  Not one read a NUMBER off a line, so a question about two quantities
+  could not be composed at all and the plan answered `NONE`.
+
+  Four of LongMemEval's five `multi-session` questions ask for exactly
+  that — a difference, a share, or a per-unit amount ("how much MORE
+  than my goal", "what PERCENTAGE", "how much did I spend on EACH mug",
+  "how much will I SAVE") — and `count` (how many) and `sum` (how much
+  in total) cover none of them.
+
+  **The absence was not silence, it was a wrong answer.** Having nowhere
+  else to file it, the shape reader put *"how much more money did I
+  raise than my initial goal"* under `sum` — measured — and the summing
+  organ, over a store saying 450 and 400, answers
+  `850 (raised: 450 + initial goal: 400)` to a question whose answer is
+  50. An overloaded category does not abstain; it computes the
+  neighbour's arithmetic and states it with a straight face. That is
+  verified in the invariant, not asserted.
+
+  So: `amount:`, `minus:`, `ratio:` and `per:` are primitives, and
+  `derive` is a shape with its own seat that never meets the summing
+  organ. The arithmetic runs under the law the dates already run under
+  (W103) — on verified values or not at all. `amount:` does not parse a
+  line; it asks the reader the summing organ asks and keeps a pair only
+  if the digits are written on a line that also carries the thing's
+  words, which is now `_amount_home`, **one rule shared by both organs**
+  rather than two copies that drift. The sign is not hidden: a
+  difference answered with a minus sign is a plan that read the question
+  backwards, and making it positive would turn a visible misreading into
+  a confident wrong claim.
+
+  Two things this cost, both kept in view:
+
+  - The dated-store guard was no longer the whole story. `amount:` and
+    its arithmetic never touch a stamp, so a store with no dated source
+    can still execute a plan made of them — an undated spec sheet is
+    where "how much more does A cost than B" lives. The guard now also
+    passes when the store binds tokens to numbers; both readings are
+    free, and a store with neither still buys no call.
+  - The `derive` seat **falls through** rather than refusing, unlike
+    `count` and `sum` beside it. Their hard refusal rests on a
+    measurement — the chain measurably cannot hold those shapes. No such
+    measurement exists for this one, and the first cut refused anyway:
+    it cost W63 immediately, because the local engine reads "what is the
+    Redwood contract worth" as `derive` and a question the chain answers
+    correctly was refused for a misreading.
+
+  Measured on the readings themselves (16 + 11 engine calls, not a
+  benchmark run): all four derive-shaped questions now read `derive`,
+  the counting one still reads `count`, and six control questions that
+  must stay `sum`, `count`, `none` and `when` all do.
+
 ### Fixed
+
+- **One shape vocabulary, read from one place.** `turn_shape` matched
+  its reply against a hand-written tuple of its own —
+  `("material", "count", "order", "sum", "when", "recap")` — beside the
+  list in its prompt. The two drifted the moment a category was added:
+  the prompt offered `derive`, the engine answered `derive`, and the
+  reader threw the word away and returned `none`. It took three rounds
+  of measurement to find, because every symptom pointed at the
+  classifier rather than at the reader of its answer. It is W192 one
+  level down — a vocabulary written twice is a vocabulary that will
+  disagree with itself — and the loop now reads `SHAPES`.
 
 - **A declared shape is a word the reader could have said** (W192).
   `ask(shape=...)` exists so a batch of one kind does not pay, once per

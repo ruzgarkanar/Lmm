@@ -659,7 +659,8 @@ def telling_answer(question, block):
 # store's graph holds none — the harness learns with `deep=False`, so
 # 13,307 sentences of evidence sit beside an empty graph. A silently
 # honoured declaration is a defect on its own; it is not that one.
-SHAPES = ("material", "count", "sum", "order", "when", "recap", "none")
+SHAPES = ("material", "count", "sum", "derive", "order", "when", "recap",
+          "none")
 
 
 def turn_shape(message):
@@ -688,8 +689,34 @@ def turn_shape(message):
               # need several things to work over; with one, there is
               # nothing to add up and the record already holds the
               # answer.
-              "an amount that is simply WRITTEN somewhere (one thing's "
+              "an amount that is simply WRITTEN somewhere (ONE thing's "
               "price, duration or size) is not count and not sum -> none\n"
+              # ...AND THE ESCAPE HATCH HAD TO BE NARROWED WHEN `derive`
+              # arrived, or it swallowed it whole. Measured: with the
+              # new category defined below but this line still reading
+              # "one thing's price", all four two-amount questions came
+              # back `none` — the rule fires first and "how much more
+              # did I raise than my goal" is, word for word, a question
+              # about an amount. The boundary it was always drawing is
+              # ONE amount against SEVERAL; that is now said out loud.
+              "but a number worked out from TWO amounts is not none -> "
+              "derive\n"
+              # THE SHAPE THAT WAS MISSING, and whose absence was not
+              # silence but a WRONG ANSWER. `count` asks how many and
+              # `sum` how much in total; neither covers a number derived
+              # from TWO amounts. Having nowhere else to file it, this
+              # reader put "how much MORE money did I raise than my
+              # initial goal" under `sum` — measured — and the summing
+              # organ duly answered `850 (raised: 450 + initial goal:
+              # 400)` for a question whose answer is 50. An overloaded
+              # category does not abstain; it computes the neighbour's
+              # arithmetic and states it with a straight face.
+              "derive - asks for a number worked out from TWO amounts "
+              "THE QUESTION ITSELF NAMES BOTH OF: how much MORE or LESS "
+              "one is than another, what SHARE or percentage one is of "
+              "another, or how much EACH one of several costs or "
+              "weighs. Naming ONE thing and asking its amount is never "
+              "derive, however the asking is worded\n"
               "order - asks which of two things came FIRST or LATER in "
               "time\n"
               "when - asks WHEN something happened, or the first/last "
@@ -710,6 +737,16 @@ def turn_shape(message):
               "how many weeks did it take to finish the series -> sum\n"
               "toplam ka\u00e7 saat yol gittim -> sum\n"
               "wie viel habe ich insgesamt ausgegeben -> sum\n"
+              # ...and the boundary it shares with `sum`, in both
+              # directions and in four languages: a TOTAL adds several
+              # things up, a DERIVED number compares exactly two.
+              "how much more did I raise than my initial goal -> derive\n"
+              "hedefimden ne kadar fazla topladım -> derive\n"
+              "what percentage of the seats do women hold -> derive\n"
+              "¿qué porcentaje del total es eso -> derive\n"
+              "how much did I spend on each mug -> derive\n"
+              "her birine ne kadar harcadım -> derive\n"
+              "wie viel spare ich mit dem Zug -> derive\n"
               "which did I attend first, the workshop or the webinar -> order\n"
               "hangisine \u00f6nce kat\u0131ld\u0131m -> order\n"
               "when did I last go hiking -> when\n"
@@ -732,8 +769,17 @@ def turn_shape(message):
     out = runtime.generate(message, system=system, max_tokens=4,
                            temperature=0.0, small=True)
     word = (out or "").strip().lower()
-    for shape in ("material", "count", "order", "sum", "when", "recap"):
-        if shape in word:
+    # ONE VOCABULARY, READ FROM ONE PLACE. This loop used to carry its
+    # own copy of the list — `("material", "count", "order", "sum",
+    # "when", "recap")` — and the two drifted the moment a category was
+    # added: the prompt offered `derive`, the engine answered `derive`,
+    # and this line threw the word away and returned `none`. It cost
+    # three rounds of measurement to find, because every symptom pointed
+    # at the classifier rather than at the reader of its answer, and it
+    # is the same defect as W192 one level down — a vocabulary written
+    # twice is a vocabulary that will disagree with itself.
+    for shape in SHAPES:
+        if shape != "none" and shape in word:
             return shape
     return "none"
 
@@ -780,7 +826,22 @@ PLAN_OPS = (
     "before_lines: L, A -> only the lines dated before anchor A\n"
     "after_lines: L, A -> only the lines dated after anchor A\n"
     "count: L -> how many lines\n"
-    "month_tally: L -> the month with the most lines")
+    "month_tally: L -> the month with the most lines\n"
+    # THE AMOUNTS. Every operation above reads a DATE or counts LINES:
+    # the whole vocabulary was temporal, so a question about two
+    # quantities could not be composed at all and the plan answered
+    # NONE. Measured on LongMemEval's `multi-session` questions, where
+    # four of five ask for a difference, a ratio or a per-unit amount
+    # ("how much MORE than my goal", "what PERCENTAGE", "how much did I
+    # spend on EACH mug", "how much will I SAVE") — none of which
+    # `count` (how many) or `sum` (how much in total) covers. Asked to
+    # file them anyway, the shape reader put "how much more than my
+    # goal" under `sum`, which would have ADDED the two amounts and
+    # spoken a confident wrong number the moment a graph existed.
+    "amount: PHRASE -> the amount the store states for the phrase\n"
+    "minus: A, B -> amount A less amount B\n"
+    "ratio: A, B -> amount A as a percentage of amount B\n"
+    "per: A, B -> amount A divided by amount B")
 
 
 def plan_of(question):
@@ -827,7 +888,27 @@ def plan_of(question):
               "out = latest: water the orchids\n"
               "Example:\n"
               "Q: when was the first shipment?\n"
-              "out = anchor: the shipment")
+              "out = anchor: the shipment\n"
+              # THE THREE ARITHMETICS THE VOCABULARY USED TO LACK, one
+              # example each and in four question-words, because a
+              # difference, a share and a per-unit are three different
+              # compositions of the same two amounts and the reader had
+              # no way to tell them apart before.
+              "Example:\n"
+              "Q: how much more did I raise than my goal?\n"
+              "a = amount: raised\n"
+              "b = amount: my goal\n"
+              "out = minus: a, b\n"
+              "Example:\n"
+              "Q: what percentage of the seats did women hold?\n"
+              "a = amount: seats women hold\n"
+              "b = amount: the seats\n"
+              "out = ratio: a, b\n"
+              "Example:\n"
+              "Q: how much did each ticket cost?\n"
+              "a = amount: the tickets cost\n"
+              "b = amount: tickets\n"
+              "out = per: a, b")
     raw = runtime.generate("Q: %s" % question, system=system,
                            max_tokens=120, temperature=0.0)
     raw = (raw or "").strip()

@@ -12447,6 +12447,129 @@ def w192():
     assert m.session.declared_shape in (None, ""), m.session.declared_shape
 
 
+@test("W193 a difference is composed, not guessed, and never added instead")
+def w193():
+    """THE PLAN'S VOCABULARY WAS WHOLLY TEMPORAL. Every primitive read a
+    date off a source stamp or counted lines — `anchor`, `latest`, `now`,
+    `lines`, `span`, `before`, `before_lines`, `after_lines`, `count`,
+    `month_tally`. Not one of them read a NUMBER off a line, so a
+    question about two quantities could not be composed at all and the
+    plan answered NONE.
+
+    Measured on LongMemEval's `multi-session` questions: four of the five
+    ask for a difference, a ratio or a per-unit amount — "how much MORE
+    than my goal", "what PERCENTAGE", "how much did I spend on EACH mug",
+    "how much will I SAVE" — and `count` (how many) and `sum` (how much
+    in total) cover none of them. Asked to file them anyway, the shape
+    reader put "how much more money did I raise than my initial goal"
+    under `sum`, which is the dangerous answer rather than the empty one:
+    the summing organ would have ADDED the goal to the raised amount and
+    spoken a confident wrong number. It is masked today only because that
+    store's graph is empty; with `deep=True` it would fire.
+
+    So the three arithmetics are primitives now, and they run under the
+    law the dates already run under (W103): on VERIFIED values or not at
+    all. `amount:` does not parse a line — it asks the same reader the
+    summing organ asks and then keeps the pair only if the digits are
+    written on a line that also carries the thing's words, which is
+    `_amount_home`, one rule shared by both organs rather than two copies
+    that drift.
+
+    THE SIGN IS NOT HIDDEN. A difference answered with a minus sign is a
+    plan that read the question backwards; making it positive would turn
+    a visible misreading into a confident wrong claim.
+
+    No model: the plan is pinned, so what is exercised is the
+    interpreter, the verification and the sentence — never a proposal."""
+    from lmm import generate, session as lmm_session
+
+    s = lmm_session.Session(None)
+    s.learn_text("The charity cycle ride raised 450 pounds in total.\n"
+                 "My initial goal for the charity ride was 400 pounds.\n"
+                 "Women hold 6 of the leadership positions.\n"
+                 "The company has 30 leadership positions altogether.",
+                 source="notes", deep=False)
+    # THE STORE PRICES WHAT IT WROTE, and nothing else. The reader is
+    # pinned to name pairs; `_amount_home` is what actually admits them.
+    # `_plan_amount` asks the reader about ONE phrase at a time, so the
+    # pinned reader answers per phrase — and for `raised` it offers the
+    # real figure AND a figure nobody wrote, so that what admits the one
+    # and refuses the other is `_amount_home` and not the pin.
+    real = generate.amounts_of
+    priced = {
+        "raised": [("raised", "999"), ("raised", "450")],
+        "initial goal": [("initial goal", "400")],
+        "leadership positions women hold": [("women hold", "6")],
+        "leadership positions": [("leadership positions", "30")],
+    }
+    generate.amounts_of = lambda phrase, block: priced.get(phrase, [])
+    plans = {}
+    generate.plan_of = lambda question: plans[question]
+    try:
+        # A DIFFERENCE — and the summing organ's answer (850) is exactly
+        # what this test exists to prevent being spoken.
+        asked = "how much more did I raise than my initial goal"
+        plans[asked] = [("a", "amount", "raised"),
+                        ("b", "amount", "initial goal"),
+                        ("out", "minus", "a", "b")]
+        said = s._plan_answer(asked)
+        assert said, "the plan did not execute"
+        assert "50" in said, said
+        assert "850" not in said, said          # never added instead
+        assert "450" in said and "400" in said, said   # both sides shown
+        # A SHARE.
+        asked = "what percentage of leadership positions do women hold"
+        plans[asked] = [("a", "amount", "leadership positions women hold"),
+                        ("b", "amount", "leadership positions"),
+                        ("out", "ratio", "a", "b")]
+        said = s._plan_answer(asked)
+        assert said and "20" in said and "%" in said, said
+        # A FIGURE NOBODY WROTE IS NOT AN AMOUNT. `_amount_home` is the
+        # gate, and it reads the whole store, not the offered pair.
+        assert s._amount_home("999", "raised") is None
+        assert s._amount_home("450", "raised") is not None
+        # DIVISION BY NOTHING IS NO ANSWER, not a small one.
+        s.learn_text("The trial had 0 participants.", source="notes",
+                     deep=False)
+        asked = "how much did each participant raise"
+        plans[asked] = [("a", "amount", "raised"),
+                        ("b", "amount", "participants"),
+                        ("out", "per", "a", "b")]
+        priced["participants"] = [("participants", "0")]
+        assert s._plan_answer(asked) is None
+    finally:
+        generate.amounts_of = real
+    # AND THE SEAT ONLY SPEAKS WHAT IT ASKED FOR (W94): a turn that
+    # wanted a date does not receive a difference.
+    generate.amounts_of = lambda phrase, block: priced.get(phrase, [])
+    generate.plan_of = lambda question: [
+        ("a", "amount", "raised"), ("b", "amount", "initial goal"),
+        ("out", "minus", "a", "b")]
+    try:
+        assert s._plan_answer("when did it happen", want=("date",)) is None
+    finally:
+        generate.amounts_of = real
+
+    # THE DANGER WAS NEVER SILENCE, IT WAS THE NEIGHBOUR'S ARITHMETIC.
+    # Verified rather than asserted: handed the difference question, the
+    # SUMMING organ adds, and says so with a straight face.
+    s2 = lmm_session.Session(None)
+    s2.learn_text("The charity cycle ride raised 450 pounds in total.\n"
+                  "My initial goal for the charity ride was 400 pounds.",
+                  source="notes", deep=False)
+    generate.amounts_of = lambda phrase, block: [("raised", "450"),
+                                                 ("initial goal", "400")]
+    try:
+        added = s2._sum_answer("how much more did I raise than my goal")
+        assert added and "850" in added, added
+    finally:
+        generate.amounts_of = real
+    # ...which is why `derive` is a shape of its own, and why its seat
+    # does not fall back to that organ. The vocabulary must hold the
+    # word, or the reader has nowhere to put the question but next door.
+    assert "derive" in generate.SHAPES, generate.SHAPES
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
