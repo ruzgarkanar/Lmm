@@ -25,11 +25,19 @@ thirty questions on every machine and in every release. The full set is
 
 TWO SCORES, BECAUSE THEY MEASURE DIFFERENT THINGS. `strict` asks whether
 the gold string is in the answer — free, side-blind, and harsh on a
-correct answer worded differently. `judge` asks an engine whether the
-answer says what the gold says — one extra call per question, and it is
-what published LongMemEval figures use, so it is the comparable one. A
-run reports both and says which is which; neither is called accuracy on
-its own.
+correct answer worded differently; it reads the reply before its source
+mark, because a stamp's digits once satisfied a numeric gold. `judge` asks
+an engine whether the answer says what the gold says — one extra call per
+question. A run reports both and says which is which; neither is called
+accuracy on its own.
+
+THE JUDGE IS THE CONFIGURED ENGINE, and that limits what the figure can be
+compared with. Published LongMemEval results use their own judge model;
+this harness uses whatever engine the run is configured with, which is
+usually the same model that produced the answers. The judged figure is
+therefore a measurement of this system under this configuration, useful
+for comparing its own cells, and not a number to set beside published
+leaderboards.
 
 ABSTENTION QUESTIONS (`_abs`) ARE SCORED AS ABSTENTIONS, not by their
 gold sentence: the benchmark's own gold for them is a paragraph
