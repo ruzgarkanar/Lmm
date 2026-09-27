@@ -8,6 +8,36 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **How long is its own question, and `order` does not answer it**
+  (W194). Asking HOW LONG between two moments and asking WHICH of them
+  came first are different questions with different answers — a number
+  of days against a name — and only the second was a category in the
+  shape vocabulary.
+
+  It cost nothing while the LongMemEval harness declared one shape for
+  every question, because nothing was read. The moment the declaration
+  was refused (W192) and the shape was actually read, *"how many days had
+  passed since I finished reading 'The Seven Husbands'"* read as `order`,
+  whose seat accepts only a verdict or a date from the plan — so the
+  `days` the plan had **correctly composed**, 18, the gold answer, was
+  refused by the seat and the turn abstained. It had been right in the
+  previous cell. That is the one question the W191-193 cell lost, and it
+  is why the cell is reported with its regression rather than without.
+
+  Widening `order`'s seat to take `days` would have been the patch, and
+  it would have been wrong: a seat for "which came first" that accepts a
+  number of days answers the wrong question whenever it is right. What
+  lacked the word was the vocabulary. So `span` is a shape with its own
+  seat, and `order`'s definition now says out loud that its answer is a
+  name and never a number of days.
+
+  Measured on the readings (12 engine calls): four of the five
+  temporal-reasoning questions read `span`, the fifth — *"I mentioned
+  visiting a museum two months ago. Did I visit one?"*, a verification
+  and not a duration — correctly reads `none`, and seven controls hold at
+  `order`, `sum`, `count`, `none`, `when` and `derive`. `order` matters
+  most there, because `span` was cut from directly beside it.
+
 - **A difference is composed, not guessed — and never added instead**
   (W193). The plan organ's vocabulary was wholly temporal: every one of
   its ten primitives read a date off a source stamp or counted lines.

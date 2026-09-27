@@ -687,7 +687,7 @@ class Session:
         if (said and self.last_abstained and message and message.strip()
                 and self.last_kind != extract.CHAT):
             shape = self._turn_shape(message)
-            if shape not in ("count", "order", "sum", "derive"):
+            if shape not in ("count", "order", "sum", "derive", "span"):
                 # THE COMPOSER'S GENERAL DOOR: shapes nobody classified
                 # ("did A come before B?", "in which month most?") end
                 # abstained at the chain — one plan proposal before the
@@ -1542,7 +1542,24 @@ class Session:
                                    or self._plan_answer(
                                        message, want=("count", "days")))
                         return counted if counted else self._refuse(message)
-                    if shape == "order":
+                    if shape == "span":
+                        # HOW LONG IS ITS OWN QUESTION (see `SHAPES`).
+                        # This seat exists because `order` was answering
+                        # it: measured, once the shape was read instead
+                        # of declared, "how many days had passed since I
+                        # finished reading X" read as `order`, whose seat
+                        # takes only a verdict or a date, and the `days`
+                        # the plan had correctly composed was refused —
+                        # a question answered right in the previous cell
+                        # abstained. It falls through rather than
+                        # refusing, for the reason `derive` does: the
+                        # hard refusals of `count` and `sum` were earned
+                        # by measurement and this shape has none.
+                        spanned = self._plan_answer(
+                            message, want=("days", "date"))
+                        if spanned:
+                            return spanned
+                    elif shape == "order":
                         ordered = (self._order_answer(message)
                                    or self._plan_answer(
                                        message, want=("bool", "date")))

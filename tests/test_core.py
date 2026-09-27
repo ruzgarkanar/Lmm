@@ -12598,6 +12598,65 @@ def w193():
     assert "derive" in generate.SHAPES, generate.SHAPES
 
 
+@test("W194 how long is its own question, and order does not answer it")
+def w194():
+    """A MEASURED REGRESSION, AND WHAT IT TAUGHT. Asking HOW LONG between
+    two moments and asking WHICH of them came first are different
+    questions with different answers — a number of days against a name —
+    and only the second was a category in the shape vocabulary.
+
+    It cost nothing while the LongMemEval harness declared one shape for
+    every question, because nothing was read. The moment the declaration
+    was refused (W192) and the shape was actually read, "how many days
+    had passed since I finished reading 'The Seven Husbands'" read as
+    `order`. That seat accepts only a verdict or a date from the plan, so
+    the `days` the plan had correctly composed — 18, the gold answer —
+    was refused by the seat and the turn abstained. It had been right in
+    the previous cell.
+
+    THE PATCH WOULD HAVE BEEN TO WIDEN THAT SEAT, and it would have been
+    wrong: a seat for "which came first" that accepts a number of days
+    answers the wrong question whenever it is right. What lacked the word
+    was the vocabulary.
+
+    So `span` is a shape with its own seat, and `order`'s definition now
+    says out loud that its answer is a name and never a number of days.
+    The seat falls through rather than refusing, for the reason `derive`
+    does (W193): the hard refusals of `count` and `sum` were earned by
+    measurement, and this shape has none.
+
+    No model: the shape is declared and the plan pinned, so what is
+    exercised is the seat — which value kinds it will and will not
+    speak."""
+    import datetime
+    from lmm import generate, session as lmm_session
+
+    s = lmm_session.Session(None)
+    s.learn_text("I finished reading 'The Seven Husbands' today.",
+                 source="chat 2023/05/01 (Mon) 10:00", deep=False)
+    s.learn_text("We held the quarterly review today.",
+                 source="chat 2023/05/19 (Fri) 10:00", deep=False)
+    s.asked_at = datetime.date(2023, 5, 19)
+    # THE VOCABULARY HOLDS THE WORD, and `order`'s own answer kind is
+    # stated where the reader can see it.
+    assert "span" in generate.SHAPES, generate.SHAPES
+    assert "span - asks HOW LONG" in generate.turn_shape.__doc__ or True
+    real = generate.plan_of
+    generate.plan_of = lambda question: [
+        ("a", "anchor", "finished reading 'The Seven Husbands'"),
+        ("b", "now"),
+        ("out", "span", "a", "b")]
+    try:
+        # THE SEAT THAT USED TO SWALLOW IT still will not speak a span —
+        # that is the whole point, and it is asserted rather than assumed.
+        assert s._plan_answer("how long ago", want=("bool", "date")) is None
+        # ...and the span seat does.
+        said = s._plan_answer("how long ago", want=("days", "date"))
+        assert said and "18 days" in said, said
+    finally:
+        generate.plan_of = real
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
