@@ -12,12 +12,13 @@ is chosen — and lists every invariant that fails there.
 
     python3 tests/check_model_free.py
 
-Measured when it was written (2026-09-27): 263 of 266 pass. The three that
-do not are older tests that stub some engine readings and not others —
-W147 (`phrasings`, `things_of` in the counting organ), W161 (the plan
-rescue and the refusal's language reading) and W151, whose purpose is to
-count real engine calls during deep ingestion. They are listed rather than
-patched, because a stub chosen in a hurry can change what a test asserts.
+Measured when it was written (2026-09-27): 263 of 266 passed. The three
+that did not were older tests that stubbed some engine readings and not
+others — W147, W161 and W151 — and they were also why the public CI had
+been red on every push since 24 September. Each was then fixed by stubbing
+only what the test was not about, and each fix was checked three ways: it
+passes with a model, it passes without one, and it still FAILS when the
+behaviour it guards is broken on purpose. Now: 266 of 266.
 """
 import builtins
 import os
