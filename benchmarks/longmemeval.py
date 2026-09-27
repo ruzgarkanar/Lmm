@@ -194,8 +194,17 @@ def main():
                      standalone=not args.conversational,
                      shape=args.shape, quoted=args.quoted)
         gold = row["answer"]
+        # THE STAMP IS NOT PART OF THE ANSWER. A reply ends with its
+        # source mark — "(~ chat 2023/03/27 (Mon) 12:32)" — and strict
+        # containment used to read it: asked how many doctor's
+        # appointments in March, the memory answered "3: Dr. Johnson, Dr.
+        # Smith, Dr. Thompson." and the gold "2" was found in the stamp's
+        # 2023. The judge said no; strict said yes, and every figure that
+        # counted a question correct when EITHER scorer accepted it was
+        # one too high and one wrong answer too low, from 9af01b8 on.
+        claimed = str(said).split("(~", 1)[0]
         strict = (said.abstained if absent
-                  else _plain(str(gold)) in _plain(str(said)))
+                  else _plain(str(gold)) in _plain(claimed))
         verdict = None
         if args.judge:
             verdict = (bool(said.abstained) if absent

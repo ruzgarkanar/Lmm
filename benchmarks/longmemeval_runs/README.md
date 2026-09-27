@@ -38,18 +38,29 @@ spoke and matched neither.
 
 | file | change measured | judged | either | spoke | wrong | calls | `multi-session` |
 |---|---|---|---|---|---|---|---|
-| `9af01b8_s_30_quoted_shape_read.json` | W191–W193: length normalisation, shape vocabulary, derived arithmetic | 12 | 13 | 13 | 2 | 262 | 2/5 |
-| `0951639_s_30_quoted_shape_read.json` | + W194 `span` shape | 12 | 13 | 16 | 4 | 241 | 2/5 |
-| `e9424d6_s_30_quoted_shape_read.json` | + W195 one item is not a census | 12 | 13 | 15 | 4 | 246 | 2/5 |
-| `62ea676_s_30_quoted_shape_read.json` | + W196 a count shows what it counted | 11 | 12 | 16 | 5 | 240 | 2/5 |
-| `bc8f5b8_s_30_quoted_shape_read.json` | + W197 one breath is not a series, in the plan organ | 13 | 14 | 15 | 3 | 248 | 2/5 |
+| `9af01b8_s_30_quoted_shape_read.json` | W191–W193: length normalisation, shape vocabulary, derived arithmetic | 12 | 12 | 13 | 3 | 262 | 1/5 |
+| `0951639_s_30_quoted_shape_read.json` | + W194 `span` shape | 12 | 12 | 16 | 5 | 241 | 1/5 |
+| `e9424d6_s_30_quoted_shape_read.json` | + W195 one item is not a census | 12 | 12 | 15 | 5 | 246 | 1/5 |
+| `62ea676_s_30_quoted_shape_read.json` | + W196 a count shows what it counted | 11 | 11 | 16 | 6 | 240 | 1/5 |
+| `bc8f5b8_s_30_quoted_shape_read.json` | + W197 one breath is not a series, in the plan organ | 13 | 13 | 15 | 4 | 248 | 1/5 |
+
+**These figures were corrected after this table was first written.** The
+files' `strict` field was computed by an older harness that searched the
+whole reply, including its source stamp, so a wrong count — `3: Dr.
+Johnson, Dr. Smith, Dr. Thompson.` against a gold of `2` — passed on the 2
+in `chat 2023/03/27`. The judge had rejected it. The table above rescores
+strict on the reply before its `(~` source mark; the JSON files are left
+as the harness wrote them, and the harness itself now does the same. With
+the stamp excluded, `either` equals `judged` in every row.
 
 Against the best earlier cell, the last row gains one question and loses
 none. The intermediate rows are kept because they are where the costs were
 found: W196 made a count show its evidence, and the evidence showed twelve
 lines of one conversation being counted as twelve things, which W197 fixed.
 
-**`multi-session` moved from 0/5 to 2/5** once derived arithmetic existed.
+**`multi-session` moved from 0/5 to 1/5** once derived arithmetic existed:
+the derived difference `50 — ... (250) ... $200` is right. The other
+question it seemed to gain was the scoring error described above.
 The paragraph below was written before that and is kept as the record of
 what was believed then; its explanation of `multi-session` was wrong. The
 zero was not a composition limit alone: the harness learns with
