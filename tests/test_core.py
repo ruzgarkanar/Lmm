@@ -12642,10 +12642,18 @@ def w194():
     assert "span" in generate.SHAPES, generate.SHAPES
     assert "span - asks HOW LONG" in generate.turn_shape.__doc__ or True
     real = generate.plan_of
+    real_date = generate.event_date
     generate.plan_of = lambda question: [
         ("a", "anchor", "finished reading 'The Seven Husbands'"),
         ("b", "now"),
         ("out", "span", "a", "b")]
+    # THE EVENT'S DATE IS THE ENGINE'S READING (W95), so it is pinned
+    # here, to the stamp of the line that tells it. Unpinned, this test
+    # passed only where a local model happened to be installed and to
+    # answer: with none, the anchor falls back to an unverified envelope,
+    # W103 correctly refuses the span, and the assertion below failed —
+    # found by running the suite as a machine with no model would.
+    generate.event_date = lambda phrase, rows, question="": "2023/05/01"
     try:
         # THE SEAT THAT USED TO SWALLOW IT still will not speak a span —
         # that is the whole point, and it is asserted rather than assumed.
@@ -12655,6 +12663,7 @@ def w194():
         assert said and "18 days" in said, said
     finally:
         generate.plan_of = real
+        generate.event_date = real_date
 
 
 @test("W195 one item is a lookup, not a census")
