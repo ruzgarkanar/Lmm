@@ -8,6 +8,35 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A bare number is not an auditable answer** (W196). Every typed value
+  the plan organ speaks carries its own evidence — a span names both
+  anchors and their dates, a derived number names both amounts and the
+  lines they came from, a date names its phrase and its stamp — except
+  one. A count spoke the figure alone, because the `count` primitive kept
+  the length and threw the lines away.
+
+  Measured on LongMemEval: asked how many mummies the party will face,
+  this seat answered **`12.`** — nothing named, nothing dated, nothing a
+  reader could check, and the gold is 4. The figure was ours and derived,
+  which is the part this project promises; what was missing was the
+  showing. **A number nobody can audit is exactly what the rest of this
+  organ exists to refuse.** The count now names the days of the lines it
+  counted, capped at four so a large count states its size rather than
+  reciting itself.
+
+  **How it was found, and what was wrong on the way** — recorded because
+  the method is the point. It surfaced when W195 silenced a one-item
+  count and the plan seat answered in its place. The first reading was
+  that `4 — Mummies. (~ * Mummies (4):)` had been a stated tally broken
+  by the census rule, and the attempted fix looked for the number on the
+  verifying LINE rather than in the item's name. The suite refused that
+  at once: *"I lead a team of 5 engineers"* is a line with a number too,
+  so the widening would have made every numbered line a tally. The route
+  said the rest — `chain · refuse · plan`, never `count`. The counting
+  organ was not involved at all, and the defect was in what the PLAN
+  speaks. Two wrong attributions in one afternoon, both caught by
+  reading the route instead of the answer.
+
 - **One item is a lookup, not a census** (W195). The counting organ's own
   rule, which two of its three exits did not keep: the source-counting
   exit states it (`len(matched) >= 2`, *"one name is a lookup, not a

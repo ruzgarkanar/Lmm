@@ -12740,6 +12740,57 @@ def w195():
         "the stated tally was silenced by the census rule: %r" % said)
 
 
+@test("W196 a bare number is not an auditable answer")
+def w196():
+    """EVERY TYPED VALUE THIS ORGAN SPEAKS CARRIES ITS OWN EVIDENCE —
+    except one. A span names both anchors and their dates; a derived
+    number names both amounts and the lines they were read from; a date
+    names its phrase and its stamp. A count spoke the figure alone,
+    because the `count` primitive kept the length and threw the lines
+    away.
+
+    Measured on LongMemEval: asked how many mummies the party will face,
+    this seat answered `12.` — nothing named, nothing dated, nothing a
+    reader could check, and the gold is 4. The figure was ours and
+    derived, which is the part this project promises; what was missing
+    was the showing, and a number nobody can audit is exactly what the
+    rest of this organ refuses to produce.
+
+    HOW IT WAS FOUND, AND WHAT WAS WRONG ON THE WAY. It surfaced when
+    W195 silenced a one-item count and the plan seat answered in its
+    place. The first reading of that was `4 — Mummies. (~ * Mummies (4):)`
+    is a stated tally the census rule had broken, and the fix attempted
+    was to look for the number on the verifying LINE rather than in the
+    item's name. The suite refused it at once: "I lead a team of 5
+    engineers" is a line with a number too, so that widening made every
+    numbered line a tally. The route said the rest — `chain · refuse ·
+    plan`, not `count`. The counting organ was never involved, and the
+    real defect was in what the PLAN speaks.
+
+    No model: the plan is pinned and the store is built here."""
+    from lmm import generate, session as lmm_session
+
+    s = lmm_session.Session(None)
+    s.learn_text("The party will face mummies in the antechamber.",
+                 source="chat 2023/02/01 (Wed) 09:00", deep=False)
+    s.learn_text("More mummies guard the inner temple door.",
+                 source="chat 2023/02/08 (Wed) 09:00", deep=False)
+    real = generate.plan_of
+    generate.plan_of = lambda question: [("l", "lines", "mummies"),
+                                         ("out", "count", "l")]
+    try:
+        said = s._plan_answer("how many mummies will the party face",
+                              want=("count",))
+    finally:
+        generate.plan_of = real
+    assert said, "the plan did not execute"
+    assert said.strip().startswith("2"), said
+    # THE SHOWING: the count names the dated lines it counted, so the
+    # figure can be checked rather than believed.
+    assert said.strip() != "2.", "the count spoke a bare number: %r" % said
+    assert "2023/02" in said, said
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

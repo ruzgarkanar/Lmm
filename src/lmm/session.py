@@ -2361,7 +2361,7 @@ class Session:
         except Exception:                               # noqa: BLE001
             return None
         line_word_sets = [set(evidence._words(line)) for line in lines]
-        kept, seen = [], set()
+        kept, seen, homes = [], set(), []
         for item in offered:
             words = evidence._words(item)
             if not words:
@@ -2387,15 +2387,18 @@ class Session:
             # must sit on a line that also carries the item's words. One
             # line must carry the whole name, or the name was never
             # written.
-            if not any(all(any(inflect.same_stem(w, h) for h in line_words)
-                           for w in words)
-                       for line_words in line_word_sets):
+            home = next((nth for nth, line_words in enumerate(line_word_sets)
+                         if all(any(inflect.same_stem(w, h)
+                                    for h in line_words)
+                                for w in words)), None)
+            if home is None:
                 continue                # a name the evidence never wrote
             key = " ".join(words)
             if key in seen:
                 continue
             seen.add(key)
             kept.append(item.strip())
+            homes.append(lines[home])
         # ONE ITEM IS A LOOKUP, NOT A CENSUS — see the rule above, kept
         # at this exit too; an empty list was already an abstention.
         if len(kept) < 2 and not (
@@ -2787,7 +2790,14 @@ class Session:
                 got = env.get(args[0])
                 if not got or got[0] != "lines":
                     return None
-                value = ("count", len(got[1]))
+                # THE COUNT CARRIES WHAT IT COUNTED. The value used to
+                # be the number alone, and the template below then spoke
+                # it alone — `12.` — a bare figure with nothing shown.
+                # Every other typed value this organ speaks carries its
+                # own evidence: a span names both anchors and their
+                # dates, a derived number names both amounts and their
+                # lines. A count could not, because it did not keep them.
+                value = ("count", len(got[1]), got[1])
             elif op == "month_tally" and len(args) == 1:
                 got = env.get(args[0])
                 if not got or got[0] != "lines":
@@ -2893,8 +2903,26 @@ class Session:
             said = "%s (%d lines)." % (month, n)
             mark = ""
         elif out[0] == "count":
-            said = "%d." % out[1]
-            mark = ""
+            # A BARE NUMBER IS NOT AN AUDITABLE ANSWER. Measured: asked
+            # how many mummies the party faces, this seat answered `12.`
+            # — nothing named, nothing dated, nothing a reader could
+            # check, and the gold was 4. The figure is still ours and
+            # still derived; what was missing is the showing. The lines
+            # counted are named by their own stamps, capped so a large
+            # count states its size rather than reciting itself.
+            # THE DAY, WHICH IS WHAT A COUNTED LINE CAN BE CHECKED BY.
+            # `_source_name` is for DOCUMENT names and returns nothing
+            # useful from a chat stamp — measured, it produced `2 — 00,
+            # 00.` — while the day each counted line was written is
+            # already in hand from the `lines` primitive.
+            rows = out[2] if len(out) > 2 else []
+            stamps = [when.strftime("%Y/%m/%d")
+                      for when, _src, _text in rows if when is not None]
+            shown = ", ".join(stamps[:4])
+            if len(stamps) > 4:
+                shown += ", …"
+            said = "%d%s." % (out[1], (" — %s" % shown) if shown else "")
+            mark = rows[0][1] if rows else ""
         elif out[0] == "amount":
             _k, _n, shown, item, home = out
             said = "%s — %s." % (shown, item)
