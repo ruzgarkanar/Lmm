@@ -6168,7 +6168,7 @@ def w151():
     watching the bill. What a reading cost is now beside what it
     gained, counted at the engine's one door and only on real
     dispatches."""
-    from lmm import api, generate, runtime
+    from lmm import api, extract, generate, runtime
 
     m = api.Memory(None, dense=False)
     # a file-shaped reading pays nothing, and says so
@@ -6179,18 +6179,43 @@ def w151():
 
     # deep=True mines each sentence: the calls are counted and shown
     real = generate.is_causal
+    real_read = extract.reextract
+    real_second = extract.extract
     seen = {"n": 0}
 
     def fake(text):
         seen["n"] += 1
         runtime.CALLS += 1              # what a real call would do
         return ""
+
+    # THE OTHER READINGS DEEP INGESTION MAKES, faked the same way. The
+    # test already stood in for `is_causal` with a stub that counts like a
+    # real call; the claim reader beside it, and the second reader that
+    # runs when the first finds nothing, were left to the engine. Where
+    # a model was installed it answered and the count merely grew; with
+    # none — CI — it raised inside `learn`, and this test errored on every
+    # push from 24 September. It is counted exactly as `fake` counts, so
+    # what is measured — that a reading reports what it cost — is
+    # unchanged, and now measured without an engine.
+    def fake_read(sentence):
+        seen["n"] += 1
+        runtime.CALLS += 1
+        return []
+
+    def fake_second(sentence):
+        seen["n"] += 1
+        runtime.CALLS += 1
+        return {"kind": extract.ASK, "triples": []}
     generate.is_causal = fake
+    extract.reextract = fake_read
+    extract.extract = fake_second
     try:
         told = m.learn("The Alpha engine drives the Bornt rotor.",
                        deep=True)
     finally:
         generate.is_causal = real
+        extract.reextract = real_read
+        extract.extract = real_second
     assert seen["n"], "deep=True mined nothing — test is not exercising it"
     assert told.calls >= seen["n"], (told.calls, seen["n"])
     assert "engine calls" in repr(told), repr(told)
@@ -6589,8 +6614,27 @@ def w161():
     An engine that DECLINED outright falls back either way — it never
     offered anything for the store to refuse, and the three absence
     questions in that run reached their honest abstention through it."""
-    from lmm import api, generate
+    from lmm import api, extract, generate
     from lmm.session import Session
+
+    # WHAT THIS TEST IS NOT ABOUT, held still. Three readings sat on the
+    # engine unstubbed: the extractor that reads the turn as a question,
+    # the plan organ's rescue after a refusal, and the language the
+    # refusal is spoken in. With a model installed they answered and the
+    # assertions below held; with none — CI — the extractor raised, the
+    # turn ended as an engine error before it could reach either path this
+    # test compares, and the suite went red from 24 September. None of the
+    # three bears on whether a store's refusal stands.
+    still = (extract.extract, generate.plan_of, generate.refusal)
+
+    def hold_still():
+        extract.extract = lambda message: {"kind": extract.ASK,
+                                           "triples": []}
+        generate.plan_of = lambda question: []
+        generate.refusal = lambda message, **kw: "Das weiss ich nicht."
+
+    def release():
+        extract.extract, generate.plan_of, generate.refusal = still
 
     # cache=False: the same question is asked twice here, and a
     # remembered answer would hide the difference being measured
@@ -6611,12 +6655,14 @@ def w161():
         "Kurumsal Yonetim Tebligi ist unter 96 veroeffentlicht.",
         next(i for i, x in enumerate(b.splitlines()) if "II-17.1" in x))
     Session._answer = counted
+    hold_still()
     try:
         loose = m.ask(asked, explain=True, quoted=True, shape="none")
         strict = m.ask(asked, explain=True, quoted="only", shape="none")
     finally:
         generate.quoted_answer = real
         Session._answer = real_answer
+        release()
     assert chain["n"] == 1, (
         "strict mode fell back anyway: %d chain calls" % chain["n"])
     assert "96" in loose, loose
@@ -6627,11 +6673,13 @@ def w161():
     generate.quoted_answer = lambda q, b: ("", -1)
     Session._answer = counted
     chain["n"] = 0
+    hold_still()
     try:
         m.ask(asked, explain=True, quoted="only", shape="none")
     finally:
         generate.quoted_answer = real
         Session._answer = real_answer
+        release()
     assert chain["n"] == 1, "a decline was treated as a refusal"
 
 
@@ -7295,17 +7343,31 @@ def w147():
     from the lines or the question, so a claim the telling never
     wrote is structurally impossible. Undated stores refuse exactly
     as before; so does anything too large to read whole."""
-    from lmm import generate
+    from lmm import extract, generate
     from lmm.session import Session
 
     real = (generate.turn_shape, generate.items_of, generate.plan_of,
             generate.telling_answer, generate.supported)
+    # THE REST OF THE ORGANS THAT MUST DIE, and the turn's own reading.
+    # This test stubbed four of the readings its dead organs make and
+    # left three to the engine: the counting organ's two-dates reading
+    # (`things_of`), its rewording pass (`phrasings`), and the extractor
+    # that reads the turn as a question. Where a model was installed they
+    # returned nothing useful and the test passed; where none is — CI —
+    # they raised, the turn ended as an engine error (W149), the telling
+    # organ never ran, and the suite went red on every push from 24
+    # September. Stubbing them states what `dead_organs` always meant.
+    also = (generate.things_of, generate.phrasings, extract.extract)
 
     def dead_organs():
         generate.turn_shape = lambda message: "count"
         generate.items_of = lambda q, b, **kw: []
         generate.plan_of = lambda q: []
         generate.supported = lambda answer, block: True
+        generate.things_of = lambda q, **kw: []
+        generate.phrasings = lambda *a, **kw: []
+        extract.extract = lambda message: {"kind": extract.ASK,
+                                           "triples": []}
 
     # the telling is read whole, in time order, and the answer speaks
     s = Session(None, dense=False)
@@ -7327,6 +7389,7 @@ def w147():
     finally:
         (generate.turn_shape, generate.items_of, generate.plan_of,
          generate.telling_answer, generate.supported) = real
+        generate.things_of, generate.phrasings, extract.extract = also
     assert "Photography and cooking" in said, said
     assert "telling" in s.last_route, s.last_route
     # time order: the March line sits above the April line
@@ -7348,6 +7411,7 @@ def w147():
     finally:
         (generate.turn_shape, generate.items_of, generate.plan_of,
          generate.telling_answer, generate.supported) = real
+        generate.things_of, generate.phrasings, extract.extract = also
     assert "7" not in (said2 or ""), said2
     assert s2.last_abstained, said2
 
@@ -7368,6 +7432,7 @@ def w147():
     finally:
         (generate.turn_shape, generate.items_of, generate.plan_of,
          generate.telling_answer, generate.supported) = real
+        generate.things_of, generate.phrasings, extract.extract = also
     assert called["n"] == 0, "an undated store was read whole"
 
 
