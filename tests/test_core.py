@@ -12537,6 +12537,34 @@ def w193():
                         ("out", "per", "a", "b")]
         priced["participants"] = [("participants", "0")]
         assert s._plan_answer(asked) is None
+        # ONE FIGURE READ TWICE IS NOT TWO AMOUNTS — the first thing
+        # this organ got wrong once it ran for real. Asked "how much did
+        # I spend on each coffee mug" over a store saying "The FOUR
+        # coffee mugs for my coworkers cost 48 pounds", both steps
+        # resolved to the same 48 on the same line — the count is a WORD
+        # and this reader reads digits — and `per` answered 1. Two
+        # readings of one quantity are not two quantities.
+        s.learn_text("The four coffee mugs for my coworkers cost 48 pounds.",
+                     source="notes", deep=False)
+        priced["the coffee mugs cost"] = [("coffee mugs", "48")]
+        priced["coffee mugs"] = [("coffee mugs", "48")]
+        asked = "how much did I spend on each coffee mug"
+        plans[asked] = [("a", "amount", "the coffee mugs cost"),
+                        ("b", "amount", "coffee mugs"),
+                        ("out", "per", "a", "b")]
+        assert s._plan_answer(asked) is None
+        # ...AND A GENUINE ZERO IS STILL SPOKEN, because the test is the
+        # figure AND its line together. Two equal amounts written on two
+        # different lines are two amounts.
+        s.learn_text("The raffle took 400 pounds.", source="notes",
+                     deep=False)
+        priced["the raffle"] = [("raffle", "400")]
+        asked = "how much more was the goal than the raffle"
+        plans[asked] = [("a", "amount", "initial goal"),
+                        ("b", "amount", "the raffle"),
+                        ("out", "minus", "a", "b")]
+        said = s._plan_answer(asked)
+        assert said and said.startswith("0 "), said
     finally:
         generate.amounts_of = real
     # AND THE SEAT ONLY SPEAKS WHAT IT ASKED FOR (W94): a turn that

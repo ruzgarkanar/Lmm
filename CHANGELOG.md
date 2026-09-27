@@ -62,6 +62,27 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the counting one still reads `count`, and six control questions that
   must stay `sum`, `count`, `none` and `when` all do.
 
+  **Then it was run end to end, nothing pinned — and it got one wrong,
+  which is now a rule.** Two of three live questions came back right
+  through the `plan` route: `50 — charity cycle ride raised (450), my
+  initial goal (400)` and `20% — Women hold 6 ... (6), leadership
+  positions (30)`. The third, *"how much did I spend on each coffee
+  mug"* over a store saying "The **four** coffee mugs for my coworkers
+  cost 48 pounds", resolved BOTH steps to the same 48 on the same line —
+  the count is a word and this reader reads digits — and `per` answered
+  **1**. One figure read twice is not two amounts, and a derivation over
+  it is arithmetic on a single fact pretending to be two. The guard
+  tests the figure AND its line together, so a genuine zero ("I raised
+  exactly my goal", two separate lines) is still spoken. That question
+  now abstains.
+
+  Two contract fixes came out of the same live run: the plan contract
+  never SAID that `A, B` operations take the names of earlier steps
+  (the examples always showed it), and a weaker reader wrote
+  `out = minus: amount: raised, amount: my goal` and `out = ratio: a, b`
+  with no `a` or `b` defined. The interpreter refuses both correctly, so
+  the organ simply never ran.
+
 ### Fixed
 
 - **One shape vocabulary, read from one place.** `turn_shape` matched

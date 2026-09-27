@@ -862,6 +862,20 @@ def plan_of(question):
               "separated; PHRASE args copied from the question's own "
               "words; the final step must be named out). If the "
               "question does not fit these operations, output NONE.\n"
+              # AN ARGUMENT IS EITHER A PHRASE OR A NAME, NEVER A
+              # NESTED CALL. The examples always showed it and the
+              # contract never said it, so a weaker reader wrote
+              # `out = minus: amount: raised, amount: my goal` — one
+              # step doing three things — and `out = ratio: a, b`
+              # with no `a` and no `b` defined anywhere. The
+              # interpreter refuses both, correctly, and the organ
+              # then never runs at all. Saying the rule costs
+              # nothing and is what the examples were already
+              # demonstrating.
+              "Operations taking A, B take the NAMES of earlier "
+              "steps, never another operation: write each amount or "
+              "anchor as its own named step first. Every name used "
+              "must be defined on an earlier line.\n"
               "Example:\n"
               "Q: did I adopt the cat before I moved house?\n"
               "a = anchor: adopt the cat\n"

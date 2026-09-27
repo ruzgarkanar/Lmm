@@ -2764,6 +2764,23 @@ class Session:
                 if not left or not right or left[0] != "amount" \
                         or right[0] != "amount":
                     return None
+                # ONE FIGURE READ TWICE IS NOT TWO AMOUNTS. Measured
+                # live, the first thing this organ got wrong: asked "how
+                # much did I spend on each coffee mug" over a store
+                # saying "The FOUR coffee mugs for my coworkers cost 48
+                # pounds", both steps resolved to the same 48 on the
+                # same line — the count is a WORD and this reader reads
+                # digits — and `per` duly answered 1. The two readings
+                # were never two quantities; they were one quantity
+                # asked for twice, and a derivation over it is
+                # arithmetic on a single fact pretending to be two.
+                #
+                # The test is the figure AND its line together, not the
+                # figure alone: two amounts that are genuinely equal and
+                # genuinely separate ("I raised exactly my goal") are a
+                # real zero and must still be spoken.
+                if left[2] == right[2] and left[4] == right[4]:
+                    return None
                 if op == "minus":
                     value = ("derived", left[1] - right[1], "", left, right)
                 else:
