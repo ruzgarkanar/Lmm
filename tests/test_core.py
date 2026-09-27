@@ -12657,6 +12657,89 @@ def w194():
         generate.plan_of = real
 
 
+@test("W195 one item is a lookup, not a census")
+def w195():
+    """THIS ORGAN'S OWN RULE, WHICH TWO OF ITS THREE EXITS DID NOT KEEP.
+    The source-counting exit states it — `len(matched) >= 2`, "one name
+    is a lookup, not a census" — and the two list exits spoke whatever
+    survived verification, down to a single name.
+
+    Measured on LongMemEval, and it is the failure this project minds
+    most: asked "how many engineers do I lead when I just started my new
+    role", whose gold is *"the information provided is not enough"* — so
+    the right answer is SILENCE — the engine offered one item, it
+    verified against a real line, and the organ answered
+    `1: 5 engineers.` A count that finds one thing has not counted; it
+    has found a line, and a line is what the ordinary chain is for,
+    under a read-back this organ does not run.
+
+    THE COST IS STATED: a genuine count of one is unreachable at this
+    seat. "How many cats do I have" over a store holding one cat abstains
+    here and is answered, if at all, as the plain fact it is.
+
+    AND ONE EXCEPTION THE MEASUREMENT HANDED BACK. W145 exists because
+    the store may SAY the number — "I have 20 playlists in total" — and
+    enumerating the three the graph happens to hold is the error it
+    guards. But a stated tally survives verification as a SINGLE item, so
+    the first cut of this rule silenced the very reading W145 protects
+    and the suite said so immediately. The distinction is structural and
+    reads no word of any language: a lone survivor that CARRIES A NUMBER
+    OF ITS OWN is the store's stated tally and may be spoken; a lone
+    survivor without one is a lookup wearing counting grammar.
+
+    No model: the item reader is pinned, so what is exercised is the
+    organ's decision about how many survivors make a count."""
+    from lmm import generate
+    from lmm.session import Session
+
+    real = generate.items_of
+    # ONE VERIFIED ITEM, NO NUMBER IN IT — a lookup, and the seat is
+    # silent so the chain may answer it.
+    s = Session(None, dense=False)
+    s.asker = "user"
+    s.evidence.add("User: I lead a team of 5 engineers.",
+                   "chat 2023/04/26 · user", speaker="user")
+    generate.items_of = lambda question, block, **kw: ["engineers"]
+    try:
+        said = s._count_answer("how many engineers do I lead when I just "
+                               "started my new role?")
+    finally:
+        generate.items_of = real
+    assert not said, "one item was spoken as a tally: %r" % said
+
+    # TWO VERIFIED ITEMS — a census, and it speaks.
+    s2 = Session(None, dense=False)
+    s2.asker = "user"
+    # BOTH LINES MUST BE REACHABLE, or the second item fails
+    # verification and the case under test never arises — an item is
+    # kept only when the evidence gathered for the question writes it.
+    s2.evidence.add("User: I saw the doctor Johnson for my appointment.",
+                    "chat 2023/03/04 · user", speaker="user")
+    s2.evidence.add("User: I saw the doctor Smith for my appointment.",
+                    "chat 2023/03/21 · user", speaker="user")
+    generate.items_of = lambda question, block, **kw: ["doctor Johnson",
+                                                      "doctor Smith"]
+    try:
+        said = s2._count_answer("how many doctor appointments did I see?")
+    finally:
+        generate.items_of = real
+    assert said and said.strip().startswith("2:"), said
+
+    # ONE ITEM THAT CARRIES ITS OWN NUMBER — the store's stated tally,
+    # which W145 protects, and which must survive this rule.
+    s3 = Session(None, dense=False)
+    s3.asker = "user"
+    s3.evidence.add("User: I have 20 playlists on my account in total.",
+                    "chat 2023/05/20 · user", speaker="user")
+    generate.items_of = lambda question, block, **kw: ["20 playlists"]
+    try:
+        said = s3._count_answer("how many playlists do I have?")
+    finally:
+        generate.items_of = real
+    assert said and "20" in said, (
+        "the stated tally was silenced by the census rule: %r" % said)
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
