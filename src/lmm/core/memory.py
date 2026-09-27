@@ -3,7 +3,10 @@
 There is NOT A SINGLE THING belonging to language in this file. No word list,
 no suffix, no syllable, no pattern, no template, no vowel rule. Every name here
 is the name of a DATA FIELD — like a database column name. Language enters the
-system only through the two trained networks.
+system only through the engine, whose readings (`extract.py`) reach the gate
+as candidates and never write here directly. (An earlier design read language
+with two small trained networks; they were replaced and nothing in this
+package is trained.)
 
 Where the old memory broke was that a node was a STRING: `kartal` was both the
 bird and the district, and the two collided in the same node. It was measured —
