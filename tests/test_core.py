@@ -12725,10 +12725,17 @@ def w195():
         generate.items_of = real
     assert said and said.strip().startswith("2:"), said
 
-    # ONE ITEM THAT CARRIES ITS OWN NUMBER — the store's stated tally,
-    # which W145 protects, and which must survive this rule.
+    # ONE ITEM, WHERE A COUNT EXISTED TO BE OUTRANKED — W145's reading,
+    # which must survive this rule. Its premise is that an enumeration
+    # EXISTS and is wrong: the graph holds two told playlists and the
+    # store says twenty, so the tally wins. That is the separation, and
+    # it lives in the store rather than in the engine's wording.
     s3 = Session(None, dense=False)
     s3.asker = "user"
+    s3.memory.write("Focus Flow playlist", "event", "made it",
+                    source="chat 2023/03/02 · user")
+    s3.memory.write("Morning Boost playlist", "event", "made it",
+                    source="chat 2023/04/09 · user")
     s3.evidence.add("User: I have 20 playlists on my account in total.",
                     "chat 2023/05/20 · user", speaker="user")
     generate.items_of = lambda question, block, **kw: ["20 playlists"]
@@ -12738,6 +12745,36 @@ def w195():
         generate.items_of = real
     assert said and "20" in said, (
         "the stated tally was silenced by the census rule: %r" % said)
+    # ...AND THE SAME LINE WITH NO ENUMERATION TO OUTRANK IS SILENT.
+    # There is no count to prefer the tally to; there is one line, and a
+    # line is what the chain is for.
+    s4 = Session(None, dense=False)
+    s4.asker = "user"
+    s4.evidence.add("User: I have 20 playlists on my account in total.",
+                    "chat 2023/05/20 · user", speaker="user")
+    generate.items_of = lambda question, block, **kw: ["20 playlists"]
+    try:
+        said = s4._count_answer("how many playlists do I have?")
+    finally:
+        generate.items_of = real
+    assert not said, said
+    # THE OUTCOME DOES NOT MOVE WITH THE ENGINE'S WORDING. The first two
+    # cuts of this exception read a digit — in the item's name, then on
+    # the verifying line — and both made the answer depend on how the
+    # proposal was phrased: measured, "engineers" abstained while
+    # "5 engineers" spoke, from one line and one code path.
+    for wording in ("engineers", "5 engineers", "team of 5 engineers"):
+        s5 = Session(None, dense=False)
+        s5.asker = "user"
+        s5.evidence.add("User: I lead a team of 5 engineers.",
+                        "chat 2023/04/26 · user", speaker="user")
+        generate.items_of = lambda question, block, **kw: [wording]
+        try:
+            said = s5._count_answer("how many engineers do I lead when I "
+                                    "just started my new role?")
+        finally:
+            generate.items_of = real
+        assert not said, "%r spoke: %r" % (wording, said)
 
 
 @test("W196 a bare number is not an auditable answer")
@@ -12789,6 +12826,55 @@ def w196():
     # figure can be checked rather than believed.
     assert said.strip() != "2.", "the count spoke a bare number: %r" % said
     assert "2023/02" in said, said
+
+
+@test("W197 one breath is not a series, in the plan organ too")
+def w197():
+    """W145's FIRST GUARD, WHICH LIVED IN ONLY ONE ORGAN. Candidates that
+    all wear one stamp are one telling, not a series — the counting organ
+    keeps that rule and the plan organ's `count` primitive did not.
+
+    Showing the evidence (W196) is what exposed it. Asked how many
+    mummies the party will face, the plan seat answered
+    `12 — 2023/05/29, 2023/05/29, 2023/05/29, 2023/05/29, …` — twelve
+    lines of ONE conversation counted as twelve things, where the gold is
+    4. While the count spoke a bare `12.` the error was invisible; the
+    dates made it obvious. A telling is prose, and prose is the chain's
+    to read.
+
+    The guard counts DISTINCT DAYS and reads no word of any language. It
+    is the third repair this cycle to one rule written in two places —
+    after the declared shape (W192) and the `turn_shape` reply parser
+    that threw `derive` away.
+
+    No model: the plan is pinned and the store is built here."""
+    from lmm import generate, session as lmm_session
+
+    # ONE CONVERSATION, MANY LINES — one telling, and not a count.
+    s = lmm_session.Session(None)
+    s.learn_text("The party will face mummies in the antechamber.\n"
+                 "More mummies wait behind the false door.\n"
+                 "The last mummies guard the inner sanctum.",
+                 source="chat 2023/05/29 (Mon) 19:00", deep=False)
+    real = generate.plan_of
+    generate.plan_of = lambda question: [("l", "lines", "mummies"),
+                                         ("out", "count", "l")]
+    try:
+        said = s._plan_answer("how many mummies will the party face",
+                              want=("count",))
+        assert said is None, "one telling was counted as a series: %r" % said
+        # ...AND THE SAME LINES ACROSS DIFFERENT DAYS ARE A SERIES.
+        s2 = lmm_session.Session(None)
+        s2.learn_text("The party will face mummies in the antechamber.",
+                      source="chat 2023/05/29 (Mon) 19:00", deep=False)
+        s2.learn_text("More mummies wait behind the false door.",
+                      source="chat 2023/06/05 (Mon) 19:00", deep=False)
+        said = s2._plan_answer("how many mummies will the party face",
+                               want=("count",))
+        assert said and said.strip().startswith("2"), said
+        assert "2023/05/29" in said and "2023/06/05" in said, said
+    finally:
+        generate.plan_of = real
 
 
 def main():

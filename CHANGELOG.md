@@ -8,6 +8,38 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **One breath is not a series — in the plan organ too** (W197). W145's
+  first guard says that candidates all wearing one stamp are one telling,
+  not a series, and it lived only in the counting organ. Showing the
+  evidence (W196) is what exposed its absence next door: asked how many
+  mummies the party will face, the plan seat answered
+  `12 — 2023/05/29, 2023/05/29, 2023/05/29, 2023/05/29, …` — twelve lines
+  of ONE conversation counted as twelve things, where the gold is 4. A
+  telling is prose, and prose is the chain's to read. The guard counts
+  distinct days and reads no word of any language.
+
+  **This is the third time this cycle that one rule written in two places
+  disagreed with itself** — after W192 (the declared shape) and the
+  `turn_shape` reply parser that threw `derive` away. The same lesson
+  applies to the stated-tally reading, which was about to be written a
+  second time and is now `_store_states_a_tally`, shared.
+
+  The measured cell, against the best previous one — one question gained,
+  **none lost**:
+
+  | 30 questions, `quoted=True`, shape READ | W190 | W191-193 | now |
+  |---|---|---|---|
+  | correct | 9/30 | 13/30 | **14/30** |
+  | wrong | 3 | 2 | 3 |
+  | precision when speaking | 70% | 85% | 80% |
+  | calls | 248 | 262 | 248 |
+
+  The one remaining regression in precision is a turn that used to
+  abstain and now speaks `3 days` where the gold is 7. That is not a new
+  defect: it is the anchoring defect open since W190 — the plan composes
+  correctly and one of its two anchors lands on the wrong line — made
+  visible by the seat that now lets a span be spoken.
+
 - **A bare number is not an auditable answer** (W196). Every typed value
   the plan organ speaks carries its own evidence — a span names both
   anchors and their dates, a derived number names both amounts and the

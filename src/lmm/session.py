@@ -2008,6 +2008,54 @@ class Session:
         paired.sort(key=lambda pair: by_text.get(pair[0]) != self.asker)
         return [p[0] for p in paired], [p[1] for p in paired]
 
+    def _store_states_a_tally(self, question):
+        """Does a line of the ASKER's own writing state the number this
+        question asks for — W145's second guard, named.
+
+        The store may SAY the tally: "I have 20 playlists on my account
+        in total". Enumerating the three the graph happens to hold and
+        answering 3 is the error, so every reading that counts stands
+        down when this is true and the readings that can cite the number
+        speak instead.
+
+        No word of any language is read — only digit adjacency: a number
+        whose neighbours within two words include one the question also
+        uses, by stem.
+
+        THE TALLY THAT OUTRANKS LIVES IN THE ASKER'S LINE (W98's doctrine
+        as a filter): an assistant's chatty digit beside a question-word
+        ("...its current mix and 1...") was measured silencing a correct
+        two-entity count. With no asker or no voices, every line may
+        carry it.
+
+        FACTORED OUT BECAUSE IT WAS ABOUT TO BE WRITTEN TWICE. The census
+        rule (W195) needed the same question — is this one survivor the
+        store's stated tally? — and the first cut answered it by looking
+        for a digit in the ITEM'S NAME. That made the outcome depend on
+        the engine's wording: measured, `"engineers"` abstained and
+        `"5 engineers"` spoke `1: 5 engineers.` from the same line and
+        the same code, which is exactly the determinism this layer claims
+        over embedding similarity. The reading belongs to the store, not
+        to a proposal, and there is one of it.
+        """
+        qw = set(evidence._words(question))
+        speaker_of = {}
+        if self.asker and self.evidence.speakers:
+            for sid, (text, _src) in enumerate(self.evidence.sentences):
+                speaker_of.setdefault(text, self.evidence.speakers.get(sid))
+        for line in self.evidence.find(question, most=60, floor_share=0.0):
+            if speaker_of and speaker_of.get(line) != self.asker:
+                continue
+            lw = list(evidence._words(line))
+            for pos, w in enumerate(lw):
+                if not any(c.isdigit() for c in w):
+                    continue
+                near = [x for x in lw[max(0, pos - 2):pos + 3]
+                        if x != w and not any(c.isdigit() for c in x)]
+                if any(inflect.same_stem(q, x) for q in qw for x in near):
+                    return True
+        return False
+
     def _count_answer(self, question):
         """A count is the length of a verified list, never a number.
 
@@ -2190,34 +2238,8 @@ class Session:
         # all four). Neither guard reads a word of any language: one
         # counts distinct stamps, the other reads digit adjacency.
         spread = len({src for src, _v in told.values()}) >= 2
-        tallied = False
-        if len(told) >= 2 and spread:
-            # THE TALLY THAT OUTRANKS LIVES IN THE ASKER'S LINE —
-            # W98's doctrine, read here as a filter: an assistant's
-            # chatty digit beside a question-word ("...its current mix
-            # and 1...") was measured silencing a correct two-entity
-            # count. With no asker or no voices, every line may carry
-            # the tally, exactly as before.
-            speaker_of = {}
-            if self.asker and self.evidence.speakers:
-                for sid, (text, _src) in enumerate(self.evidence.sentences):
-                    speaker_of.setdefault(text, self.evidence.speakers.get(sid))
-            for line in self.evidence.find(question, most=60,
-                                           floor_share=0.0):
-                if speaker_of and speaker_of.get(line) != self.asker:
-                    continue
-                lw = list(evidence._words(line))
-                for pos, w in enumerate(lw):
-                    if not any(c.isdigit() for c in w):
-                        continue
-                    near = [x for x in lw[max(0, pos - 2):pos + 3]
-                            if x != w and not any(c.isdigit() for c in x)]
-                    if any(inflect.same_stem(q, x)
-                           for q in qw for x in near):
-                        tallied = True
-                        break
-                if tallied:
-                    break
+        tallied = self._store_states_a_tally(question) \
+            if len(told) >= 2 and spread else False
         if len(told) >= 2 and spread and not tallied:
             # THE GRAPH GATHERS, THE ENGINE READS ENDINGS, THE STORE
             # DISPOSES (W141). A told fact can END — "canceled my
@@ -2290,8 +2312,7 @@ class Session:
         # survivor that CARRIES A NUMBER OF ITS OWN is the store's stated
         # tally and may be spoken; a lone survivor without one is a
         # lookup wearing counting grammar, and belongs to the chain.
-            if len(names) < 2 and not (
-                    names and any(c.isdigit() for c in names[0])):
+            if len(names) < 2:
                 return None
             self._step("count")
             self.last_abstained = False
@@ -2361,7 +2382,7 @@ class Session:
         except Exception:                               # noqa: BLE001
             return None
         line_word_sets = [set(evidence._words(line)) for line in lines]
-        kept, seen, homes = [], set(), []
+        kept, seen = [], set()
         for item in offered:
             words = evidence._words(item)
             if not words:
@@ -2398,11 +2419,44 @@ class Session:
                 continue
             seen.add(key)
             kept.append(item.strip())
-            homes.append(lines[home])
         # ONE ITEM IS A LOOKUP, NOT A CENSUS — see the rule above, kept
         # at this exit too; an empty list was already an abstention.
+        # ONE SURVIVOR IS SILENCE HERE, WITH NO EXCEPTION — and the
+        # exception attempted twice is recorded because both failed.
+        #
+        # W145 protects a real reading: the store may SAY the number ("I
+        # have 20 playlists in total") and enumerating the three the
+        # graph holds answers 3 with a straight face. A stated tally
+        # survives verification as ONE item, so it looked as though this
+        # rule needed to let one item through.
+        #
+        # (1) A digit in the ITEM'S NAME. It made the outcome depend on
+        #     the engine's wording: measured, `"engineers"` abstained and
+        #     `"5 engineers"` spoke `1: 5 engineers.` from the same line
+        #     and the same code. That is the determinism this layer
+        #     claims over embedding similarity, broken by the fix.
+        # (2) `_store_states_a_tally`, the reading W145 itself uses. It
+        #     answers a different question than it looks like it does: a
+        #     digit beside a question word. "I lead a team of 5
+        #     engineers" is exactly that, so every numbered line became a
+        #     tally and all three wordings spoke again.
+        #
+        # (3) WHAT ACTUALLY SEPARATES THE TWO, and it is in the store
+        #     rather than in any proposal: whether there was a COUNT TO
+        #     OUTRANK. W145's whole premise is that an enumeration exists
+        #     and is wrong — its store holds two told records of
+        #     playlists, and the stated tally beats counting them. The
+        #     engineers store holds NONE: nothing enumerated anything, so
+        #     there is no tally to prefer, only one line, and one line is
+        #     what the chain is for. Measured: 2 records against 0.
+        #
+        # So a lone survivor speaks only where the graph could have
+        # counted and was overruled. No digit is read, no wording
+        # consulted, and the outcome cannot move with the engine's choice
+        # of words.
         if len(kept) < 2 and not (
-                kept and any(c.isdigit() for c in kept[0])):
+                len(self.memory.records) >= 2
+                and self._store_states_a_tally(question)):
             return None
         self._step("count")
         self.last_abstained = False
@@ -2797,7 +2851,22 @@ class Session:
                 # own evidence: a span names both anchors and their
                 # dates, a derived number names both amounts and their
                 # lines. A count could not, because it did not keep them.
-                value = ("count", len(got[1]), got[1])
+                #
+                # ONE BREATH IS NOT A SERIES (W145's first guard, which
+                # lived only in the counting organ). Showing the evidence
+                # is what exposed this: the answer came back `12 —
+                # 2023/05/29, 2023/05/29, 2023/05/29, 2023/05/29, …` —
+                # twelve lines of ONE conversation, counted as twelve
+                # things, where the gold is 4. Lines that all wear one
+                # stamp are one telling; a telling is prose, and prose is
+                # the chain's to read. The guard counts distinct days and
+                # reads no word of any language.
+                rows = got[1]
+                days = {when for when, _src, _text in rows
+                        if when is not None}
+                if len(rows) > 1 and len(days) < 2:
+                    return None
+                value = ("count", len(rows), rows)
             elif op == "month_tally" and len(args) == 1:
                 got = env.get(args[0])
                 if not got or got[0] != "lines":
