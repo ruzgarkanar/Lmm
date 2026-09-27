@@ -2454,9 +2454,17 @@ class Session:
         # counted and was overruled. No digit is read, no wording
         # consulted, and the outcome cannot move with the engine's choice
         # of words.
+        # AN ENUMERATION THE QUESTION COULD HAVE MADE, not any two
+        # records anywhere. The first cut of (3) counted the whole graph
+        # (`len(self.memory.records) >= 2`), which is not what W145's
+        # premise is about: on a deep store holding two records about
+        # anything at all, "I lead a team of 5 engineers" would have
+        # spoken `1: 5 engineers.` again. `told` is W145's own set —
+        # dated, not inferred, and meeting the question's words — so the
+        # exception now opens exactly where that guard would have stood
+        # an enumeration down.
         if len(kept) < 2 and not (
-                len(self.memory.records) >= 2
-                and self._store_states_a_tally(question)):
+                len(told) >= 2 and self._store_states_a_tally(question)):
             return None
         self._step("count")
         self.last_abstained = False
