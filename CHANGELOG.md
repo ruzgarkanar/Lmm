@@ -29,10 +29,22 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   | 30 questions, `quoted=True`, shape READ | W190 | W191-193 | now |
   |---|---|---|---|
-  | correct | 9/30 | 13/30 | **14/30** |
-  | wrong | 3 | 2 | 3 |
-  | precision when speaking | 70% | 85% | 80% |
+  | correct | 9/30 | 12/30 | **13/30** |
+  | wrong | 3 | 3 | 4 |
+  | precision when speaking | 70% | 77% | 73% |
   | calls | 248 | 262 | 248 |
+
+  **Corrected after it was first published.** This table first read 13/30
+  and 14/30, with 2 and 3 wrong. The harness's strict scorer searched the
+  whole reply, including its source stamp, and one wrong count — `3: Dr.
+  Johnson, Dr. Smith, Dr. Thompson.` against a gold of 2 — was accepted
+  because the stamp `chat 2023/03/27` contains a 2. The engine judge had
+  rejected it. Counting a question correct when either scorer accepted it
+  therefore added one false correct answer and hid one wrong one, in every
+  cell from 9af01b8 on. The harness now reads only the reply before its
+  source mark. The same correction makes `multi-session` 1/5, not 2/5:
+  the one real gain there is the derived difference (`50 — ... (250) ...
+  $200`), and the counting organ's `3` for a gold of 2 is a wrong answer.
 
   The one remaining regression in precision is a turn that used to
   abstain and now speaks `3 days` where the gold is 7. That is not a new
