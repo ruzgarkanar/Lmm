@@ -945,9 +945,15 @@ Kept current, and deliberately specific.
   gone, so which data variant it used is unknown. 0.12.1 re-measured with
   a harness that is now IN the repo (`benchmarks/longmemeval.py`, a
   deterministic slice) and scores **43% on the oracle variant and 10% on
-  `longmemeval_s`**, judged by an engine as the benchmark intends. The
-  33-point gap between those two is distractor sessions, and it is the
-  honest shape of this weakness. Published
+  `longmemeval_s`**, judged by an engine. The 33-point gap between those
+  two is distractor sessions, and it is the honest shape of this weakness.
+  **0.13.0 measures 13/30 on `longmemeval_s`** (`quoted=True`, the shape
+  read rather than declared), where 0.12.1 measured 7/30 in the nearest
+  comparable configuration; the per-question files are in
+  `benchmarks/longmemeval_runs/`. Two things limit what that figure says:
+  thirty of five hundred questions, so one question is more than three
+  points; and the judge is the configured engine, `gpt-4o-mini`, the same
+  model that wrote the answers. Published
   chat-memory figures (Zep's current claim is ~71% under a GPT-4o judge)
   use different engines and protocols. That benchmark is a
   long-personal-conversation exam, not a document exam; the same code
@@ -958,6 +964,14 @@ Kept current, and deliberately specific.
   the bare engine handed the same lines also misses, and misses
   confidently where this memory abstains.
 
+- **A count verifies that its items exist, not that they meet the question.**
+  Asked how many doctor's appointments the user went to in March, the
+  counting organ named three doctors; the answer is two. Every name was
+  written in the evidence, so every name passed — but one appointment was
+  scheduled for April and, in another run, one doctor the user was only
+  considering. Existence in the text is checked; membership in the set the
+  question describes (attended, in March) is not. Every organ that
+  verifies items against lines inherits this.
 - **Relevance is the dominant failure mode, and the gate does not touch it.**
   The gate guarantees non-fabrication, not perfect relevance — and a field
   integration measured that this is not one limit among several but *the* one:
@@ -1031,7 +1045,7 @@ that make this project what it is: **no document-specific constants** and **no
 hand-written language rules**. Both are stated with what enforcing them cost.
 
 ```bash
-python3.11 tests/test_core.py     # 182 tests · no model · no GPU · no network
+python3.11 tests/test_core.py     # 266 invariants · no model · no GPU · no network
 ```
 
 Every test is a pathology that was measured on this code, written back as an

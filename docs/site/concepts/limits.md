@@ -78,15 +78,23 @@ marketing; this one is part of the measurement.
   (`session.CANDIDATES`, `session.VIEWS`), so a corpus that proves us wrong
   can put them back in one line.
 
-- **Chat memory is measured mid-climb, not conquered.** On a fixed
-  30-question LongMemEval slice (gpt-4o-mini as engine) 0.7 measures
-  57-60%, from 43% at the cycle's start; published chat-memory products
-  claim ~71% under stronger engines and different protocols. The
-  remainder is named, not mysterious: summing durations across records,
-  ordering THREE events, reflecting a stored preference in a
-  recommendation, a ±1-day anchor — and roughly half of what is still
-  missed, the bare engine handed the same lines also misses, confidently,
-  where this memory abstains.
+- **Chat memory is this project's weaker ground.** On a fixed 30-question
+  LongMemEval slice with the harness in this repository, 0.13.0 measures
+  **13/30** on `longmemeval_s` (0.12.1: 7/30 in the nearest comparable
+  configuration). An earlier figure of 57-60% for 0.7 cannot be reproduced
+  and should not be relied on: its harness lived outside the repository.
+  Thirty of five hundred questions is a small slice, and the judge is the
+  configured engine, `gpt-4o-mini`, the same model that answered, so the
+  figure compares this system's own versions and not published
+  leaderboards (Zep reports ~71% under a GPT-4o judge). Of the questions
+  it stays silent on, the answer's session was in the evidence block for
+  most: the remaining loss is between having the evidence and stating a
+  conclusion from it.
+- **A count verifies that its items exist, not that they meet the
+  question.** Asked how many appointments the user went to in March, the
+  counting organ named three doctors where the answer is two: every name
+  was written in the evidence, but one appointment was scheduled for
+  April. Membership in the set the question describes is not checked.
 - **Extraction is not byte-stable across processes.** At temperature
   zero, the same passage can distil into slightly different record sets
   run to run, and a 30-question score moves ±2 with it. The 0.7 guards
