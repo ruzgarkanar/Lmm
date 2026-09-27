@@ -12775,6 +12775,26 @@ def w195():
         finally:
             generate.items_of = real
         assert not said, "%r spoke: %r" % (wording, said)
+    # ...AND RECORDS THE QUESTION COULD NOT HAVE COUNTED DO NOT OPEN IT.
+    # The exception is for an enumeration that exists and is overruled;
+    # two records about something else entirely are not one. The first
+    # cut of this rule counted the whole graph and would have spoken
+    # here.
+    s6 = Session(None, dense=False)
+    s6.asker = "user"
+    s6.memory.write("Focus Flow playlist", "event", "made it",
+                    source="chat 2023/03/02 · user")
+    s6.memory.write("Morning Boost playlist", "event", "made it",
+                    source="chat 2023/04/09 · user")
+    s6.evidence.add("User: I lead a team of 5 engineers.",
+                    "chat 2023/04/26 · user", speaker="user")
+    generate.items_of = lambda question, block, **kw: ["5 engineers"]
+    try:
+        said = s6._count_answer("how many engineers do I lead when I just "
+                                "started my new role?")
+    finally:
+        generate.items_of = real
+    assert not said, "unrelated records opened the exception: %r" % said
 
 
 @test("W196 a bare number is not an auditable answer")
