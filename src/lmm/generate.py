@@ -659,8 +659,8 @@ def telling_answer(question, block):
 # store's graph holds none — the harness learns with `deep=False`, so
 # 13,307 sentences of evidence sit beside an empty graph. A silently
 # honoured declaration is a defect on its own; it is not that one.
-SHAPES = ("material", "count", "sum", "derive", "order", "when", "recap",
-          "none")
+SHAPES = ("material", "count", "sum", "derive", "span", "order",
+          "when", "recap", "none")
 
 
 def turn_shape(message):
@@ -717,8 +717,26 @@ def turn_shape(message):
               "another, or how much EACH one of several costs or "
               "weighs. Naming ONE thing and asking its amount is never "
               "derive, however the asking is worded\n"
+              # THE DURATION, WHICH `order` WAS SWALLOWING. Asking
+              # HOW LONG between two moments and asking WHICH of
+              # them came first are different questions with
+              # different answers — a number of days against a
+              # name — and only the second was a category. Measured:
+              # once the shape was actually read rather than
+              # declared, "how many days had passed since I
+              # finished reading X" read as `order`, whose seat
+              # accepts only a verdict or a date from the plan, so
+              # the `days` the plan had correctly composed was
+              # refused and a question answered right in the
+              # previous cell abstained. Widening that seat to take
+              # `days` would have been the patch: it would answer
+              # "which came first" with a number of days. The
+              # vocabulary was what lacked the word.
+              "span - asks HOW LONG or HOW MANY DAYS, WEEKS, MONTHS "
+              "or YEARS between two moments, or since one, or until "
+              "one\n"
               "order - asks which of two things came FIRST or LATER in "
-              "time\n"
+              "time — a NAME for an answer, never a number of days\n"
               "when - asks WHEN something happened, or the first/last "
               "time it did\n"
               "recap - asks about what YOU (the assistant) just said or "
@@ -747,6 +765,11 @@ def turn_shape(message):
               "how much did I spend on each mug -> derive\n"
               "her birine ne kadar harcadım -> derive\n"
               "wie viel spare ich mit dem Zug -> derive\n"
+              "how many days had passed since I finished the book -> span\n"
+              "kitab\u0131 bitirdi\u011fimden beri ka\u00e7 g\u00fcn ge\u00e7ti -> span\n"
+              "how long was it between the recital and the gala -> span\n"
+              "wie viele Monate seit meinem letzten Besuch -> span\n"
+              "\u00bfcu\u00e1ntos d\u00edas faltan para la entrega -> span\n"
               "which did I attend first, the workshop or the webinar -> order\n"
               "hangisine \u00f6nce kat\u0131ld\u0131m -> order\n"
               "when did I last go hiking -> when\n"
