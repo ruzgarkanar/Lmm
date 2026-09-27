@@ -6,6 +6,45 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **One item is a lookup, not a census** (W195). The counting organ's own
+  rule, which two of its three exits did not keep: the source-counting
+  exit states it (`len(matched) >= 2`, *"one name is a lookup, not a
+  census"*) and the two list exits spoke whatever survived verification,
+  down to a single name.
+
+  Measured on LongMemEval, and it is the failure this project minds most:
+  asked *"how many engineers do I lead when I just started my new role"*,
+  whose gold is **"the information provided is not enough"** — so the
+  right answer is silence — the engine offered one item, it verified
+  against a real line, and the organ answered `1: 5 engineers.` A count
+  that finds one thing has not counted; it has found a line, and a line
+  is what the ordinary chain is for, under a read-back this organ does
+  not run.
+
+  **The cost is stated:** a genuine count of one is unreachable at this
+  seat. "How many cats do I have" over a store holding one cat abstains
+  here and is answered, if at all, as the plain fact it is.
+
+  And one exception the suite handed back immediately. W145 exists
+  because the store may SAY the number — *"I have 20 playlists in
+  total"* — and enumerating the three the graph happens to hold is the
+  error it guards. But a stated tally survives verification as a SINGLE
+  item, so the first cut of this rule silenced the very reading W145
+  protects. The distinction is structural and reads no word of any
+  language: a lone survivor that CARRIES A NUMBER OF ITS OWN is the
+  store's stated tally and may be spoken; a lone survivor without one is
+  a lookup wearing counting grammar.
+
+  **What this cost to find, recorded because it is the method:** the
+  first hypothesis was that adding an eighth shape had shifted the
+  classifier. It had not — measured on eight questions including the
+  class the earlier control sets were missing (counting grammar with no
+  answer in the store), every boundary held, `count` included. Reading
+  this question as `count` is correct. The defect was one level below the
+  reading, in what the organ does with one survivor.
+
 ### Added
 
 - **How long is its own question, and `order` does not answer it**

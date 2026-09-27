@@ -2259,6 +2259,40 @@ class Session:
                         kept.append(hit)
                 if kept:
                     names = sorted(kept)
+        # ONE ITEM IS A LOOKUP, NOT A CENSUS — this organ's own rule,
+        # which two of its three exits did not keep. The source-counting
+        # exit above states it (`len(matched) >= 2`, "one name is a
+        # lookup, not a census") and the list exits spoke whatever
+        # survived, down to a single name.
+        #
+        # Measured on LongMemEval: asked "how many engineers do I lead
+        # when I just started my new role" — whose gold is "the
+        # information provided is not enough", so the right answer is
+        # SILENCE — the engine offered one item, it verified, and the
+        # organ said `1: 5 engineers.` A count that finds one thing has
+        # not counted; it has found a line, and a line is what the
+        # ordinary chain is for, under a read-back this organ does not
+        # run. So one survivor is handed back to the chain rather than
+        # spoken as a tally.
+        #
+        # A GENUINE COUNT OF ONE IS THEREFORE UNREACHABLE HERE, and that
+        # is the stated cost: "how many cats do I have" over a store
+        # holding one cat abstains at this seat and is answered, if at
+        # all, as the plain fact it is.
+        # ...WITH ONE EXCEPTION THE MEASUREMENT HANDED BACK: A STATED
+        # TALLY IS ALWAYS ONE ITEM. W145 exists because the store may
+        # SAY the number — "I have 20 playlists on my account in total" —
+        # and enumerating the three the graph happens to hold and
+        # answering 3 is the error it guards. But a stated tally survives
+        # verification as a SINGLE item ("20 playlists"), so the rule
+        # above silenced exactly the reading W145 was written to protect.
+        # The distinction is structural and needs no language: a lone
+        # survivor that CARRIES A NUMBER OF ITS OWN is the store's stated
+        # tally and may be spoken; a lone survivor without one is a
+        # lookup wearing counting grammar, and belongs to the chain.
+            if len(names) < 2 and not (
+                    names and any(c.isdigit() for c in names[0])):
+                return None
             self._step("count")
             self.last_abstained = False
             self.last_from_graph = True
@@ -2362,7 +2396,10 @@ class Session:
                 continue
             seen.add(key)
             kept.append(item.strip())
-        if not kept:
+        # ONE ITEM IS A LOOKUP, NOT A CENSUS — see the rule above, kept
+        # at this exit too; an empty list was already an abstention.
+        if len(kept) < 2 and not (
+                kept and any(c.isdigit() for c in kept[0])):
             return None
         self._step("count")
         self.last_abstained = False
