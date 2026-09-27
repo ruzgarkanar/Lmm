@@ -834,6 +834,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#0130-length-shapes-and-derived-arithmetic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.13.0 — length, shapes and derived arithmetic
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-scorers-own-bugs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1011,6 +1022,17 @@
     <span class="md-ellipsis">
       
         The conversation surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0130-length-shapes-and-derived-arithmetic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.13.0 — length, shapes and derived arithmetic
       
     </span>
   </a>
@@ -1479,16 +1501,103 @@ life of the process. Three runs in one process are one run reported
 three times. Each run now gets a fresh interpreter. Any flip count
 published before 0.11.0 was read from one run.</p>
 </div>
+<h2 id="0130-length-shapes-and-derived-arithmetic">0.13.0 — length, shapes and derived arithmetic<a class="headerlink" href="#0130-length-shapes-and-derived-arithmetic" title="Permanent link">&para;</a></h2>
+<p><strong>Length is no longer free.</strong> The lexical score added one weight per
+matched word and nothing charged a line for its size, so a long window
+touched more of the question for being long. BM25's length normalisation
+(<code>b = 0.20</code>) now divides it. Measured without any engine, over six seats:</p>
+<table>
+<thead>
+<tr>
+<th><code>b</code></th>
+<th>LongMemEval (30 q): characters</th>
+<th>answer in block</th>
+<th>NIST SP 800-63B (11 q): characters</th>
+<th>answer in block</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.00</td>
+<td>4,972</td>
+<td>10/30</td>
+<td>1,874</td>
+<td>9/11</td>
+</tr>
+<tr>
+<td><strong>0.20</strong></td>
+<td><strong>1,765</strong></td>
+<td><strong>10/30</strong></td>
+<td><strong>1,330</strong></td>
+<td><strong>9/11</strong></td>
+</tr>
+<tr>
+<td>0.75</td>
+<td>659</td>
+<td>9/30</td>
+<td>1,116</td>
+<td>9/11</td>
+</tr>
+</tbody>
+</table>
+<p>The block keeps its seats; what leaves is length, not evidence. 0.20 is
+the largest value at which every invariant still holds.</p>
+<p><strong>A difference is composed, not guessed.</strong> The plan organ gained <code>amount</code>,
+<code>minus</code>, <code>ratio</code> and <code>per</code>, and the shape reader gained <code>derive</code> and
+<code>span</code>. Without them, "how much more did I raise than my goal" was filed
+under <code>sum</code>, and the summing organ answered <code>850 (450 + 400)</code> to a question
+whose answer is 50. Now: <code>50 — charity cycle ride raised (450), my initial
+goal (400).</code></p>
+<p><strong>LongMemEval, thirty questions, <code>quoted=True</code>, shape read:</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>0.12.1 (<code>shape="ask"</code> declared)</th>
+<th>0.13.0 (shape read)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>correct</td>
+<td>7/30</td>
+<td><strong>13/30</strong></td>
+</tr>
+<tr>
+<td>answered, and wrong</td>
+<td>6</td>
+<td>4</td>
+</tr>
+<tr>
+<td>engine calls</td>
+<td>248</td>
+<td>248</td>
+</tr>
+</tbody>
+</table>
+<p>Thirty of five hundred questions, judged by the configured engine
+(<code>gpt-4o-mini</code>, the model that answered): a comparison between this
+project's own versions, not with published leaderboards. Per-question
+files, named by commit, are in <code>benchmarks/longmemeval_runs/</code>.</p>
 <h2 id="the-scorers-own-bugs">The scorer's own bugs<a class="headerlink" href="#the-scorers-own-bugs" title="Permanent link">&para;</a></h2>
 <p>A benchmark whose author only ever finds errors that flatter him is not
-evidence. Two defects were found in this project's scorer, both moving
-points <strong>away</strong> from the competitor; both fixes were published with the
+evidence. Three defects have been found in this project's scorers. The
+first two moved points <strong>away</strong> from the competitor; the third moved
+points <strong>toward</strong> this project. All three fixes were published with the
 corrected numbers:</p>
 <ol>
 <li>Abstention detection was a Turkish-only phrase list; GraphRAG's four
    correct English refusals scored as fabrications. Fix: 13/17 → 16/17.</li>
 <li>The fabricated-value check read the question's own echoed subject as an
    invented designation, scoring an honest refusal as a fabrication.</li>
+<li>The LongMemEval harness searched the whole reply for the gold string,
+   including the reply's own source stamp. Asked how many doctor's
+   appointments in March, the memory answered "3: Dr. Johnson, Dr. Smith,
+   Dr. Thompson." and the gold "2" was found in the stamp's <code>2023</code>. The
+   engine judge had rejected it. Every cell measured over several days was
+   one question too high and one wrong answer too low; the harness now
+   reads the reply before its source mark, and the corrected figures are
+   the ones above.</li>
 </ol>
 
 
