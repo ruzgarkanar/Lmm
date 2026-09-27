@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use LMM, please cite the report below."
+title: "Living Memory Model"
+abstract: "A memory layer for language models that does not state what its evidence does not support."
+type: software
+authors:
+  - family-names: "KANAR"
+    given-names: "Ruzgar Ersin"
+version: "0.13.0"
+date-released: "2026-09-27"
+license: Apache-2.0
+repository-code: "https://github.com/ruzgarkanar/Lmm"
+url: "https://ruzgarkanar.github.io/Lmm/"
+keywords:
+  - large language models
+  - hallucination
+  - retrieval-augmented generation
+  - grounding
+  - provenance
+  - abstention
+preferred-citation:
+  type: report
+  title: "Living Memory Model: A Memory Layer That Does Not Say What Its Evidence Does Not Support"
+  authors:
+    - family-names: "KANAR"
+      given-names: "Ruzgar Ersin"
+  year: 2026
+  month: 9
+  publisher:
+    name: "Zenodo"
+  doi: "10.5281/zenodo.22999474"
+  url: "https://doi.org/10.5281/zenodo.22999474"

@@ -10,7 +10,7 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.9"
-authors = [{ name = "Rüzgar Kanar" }]
+authors = [{ name = "Ruzgar Ersin KANAR" }]
 keywords = [
     "rag", "retrieval", "knowledge-graph", "llm", "memory",
     "hallucination", "grounding", "provenance", "question-answering",

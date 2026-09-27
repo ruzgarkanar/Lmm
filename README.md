@@ -8,6 +8,7 @@ the system.
 [![Docs](https://img.shields.io/badge/docs-ruzgarkanar.github.io%2FLmm-0E7C86)](https://ruzgarkanar.github.io/Lmm/)
 [![PyPI](https://img.shields.io/pypi/v/living-memory-model.svg)](https://pypi.org/project/living-memory-model/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22999474.svg)](https://doi.org/10.5281/zenodo.22999474)
 [![Python](https://img.shields.io/badge/python-3.9%20%E2%80%93%203.13-blue.svg)](https://pypi.org/project/living-memory-model/)
 
 📚 **[Documentation](https://ruzgarkanar.github.io/Lmm/)** — concepts, guides, the full API surface, and every measurement with its receipts.
@@ -1051,6 +1052,19 @@ python3.11 tests/test_core.py     # 266 invariants · no model · no GPU · no n
 Every test is a pathology that was measured on this code, written back as an
 assertion so it cannot return.
 
+## Citing
+
+The design, the measurements and their corrections are written up in a
+report with a permanent DOI:
+
+> KANAR, Ruzgar Ersin (2026). *Living Memory Model: A Memory Layer That Does
+> Not Say What Its Evidence Does Not Support.* Zenodo.
+> https://doi.org/10.5281/zenodo.22999474
+
+That DOI always resolves to the latest version of the report. GitHub's
+"Cite this repository" button reads the same entry from
+[`CITATION.cff`](CITATION.cff).
+
 ## Licence and attribution
 
 Apache 2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
@@ -1058,7 +1072,8 @@ Apache 2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
 **LMM is not a language model trained from scratch.** It is a memory and
 reasoning layer on top of one. The default engine is
 [Qwen2.5-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct) (Apache
-2.0, Alibaba Cloud), downloaded by the user from its own source; any LoRA
-adapter this project trains is a derivative of it. What is original here is the
+2.0, Alibaba Cloud), downloaded by the user from its own source. The local
+engine can also load a LoRA adapter the user supplies; none ships with the
+package and nothing in this repository trains one. What is original here is the
 layer — the graph, the gate, the evidence index and the adapters. The base model
 is credited, never hidden.
