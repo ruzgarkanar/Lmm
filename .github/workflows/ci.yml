@@ -30,12 +30,20 @@ jobs:
       - name: Run the suite
         run: python tests/test_core.py
 
-  # THE CLAIM UNDER TEST: `pip install living-memory-model` pulls in nothing. This is a design
-  # statement in the README and in pyproject, so it gets an assertion rather
-  # than a promise — a stray top-level `import pandas` would pass the suite
-  # above (the runner has it) and silently break the claim.
+  # THE CLAIM UNDER TEST: `pip install living-memory-model` pulls in exactly
+  # one thing, numpy, and nothing else. This is a design statement in the
+  # README ("one dependency, and it is named rather than hidden") and in
+  # pyproject, so it gets an assertion rather than a promise — a stray
+  # top-level `import pandas` would pass the suite above (the runner has it)
+  # and silently break the claim.
+  #
+  # IT USED TO SAY "NOTHING", and the claim moved without the check. numpy
+  # became the core's one dependency when the meaning channel started
+  # shipping in the wheel (0.7), and from then on this job failed on every
+  # push by reporting the intended dependency as a stray one — a red check
+  # asserting a design the project had deliberately left.
   dependency-free:
-    name: the core install has no dependencies
+    name: the core install pulls in numpy and nothing else
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +66,8 @@ jobs:
           # can act on is a check nobody reads.
           installed=$(pip list --format=freeze \
             | grep -viE '^(pip|setuptools|wheel|build|packaging|pyproject.hooks)=' \
-            | grep -viE '^(living-memory-model|lmm)=' || true)
+            | grep -viE '^(living-memory-model|lmm)=' \
+            | grep -viE '^numpy=' || true)
           if [ -n "$installed" ]; then
             echo "the core install pulled in dependencies:"; echo "$installed"; exit 1
           fi
