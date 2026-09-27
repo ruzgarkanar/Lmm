@@ -671,7 +671,7 @@ def turn_shape(message):
     to the counting organ the way a record-shaped one goes to the
     record path — never gambled on the factual chain first (W88).
 
-    Returns "material", "count", "order" or "none". Few-shot in four
+    Returns one word of `SHAPES`. Few-shot in four
     languages on both sides of each boundary — calibration, not rules;
     no word of any language is matched in code. Small-road eligible."""
     system = ("Classify the message into EXACTLY one word:\n"

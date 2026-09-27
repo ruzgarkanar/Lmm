@@ -6,6 +6,24 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — read before upgrading
+
+- **`ask(shape=...)` now refuses a word that is not a shape** (W192). It
+  raises `ValueError`, naming the valid words, where it used to accept
+  any string in silence. This breaks callers that passed something other
+  than a shape — `shape="ask"`, for instance, which is a kind of turn and
+  not a shape, and which is what this project's own benchmark harness
+  passed. Such a call never did what it appeared to: the organ doors that
+  check for `count`, `sum`, `order` and the rest stayed shut for the whole
+  turn. The valid words are `generate.SHAPES`: `material`, `count`, `sum`,
+  `derive`, `span`, `order`, `when`, `recap`, `none`. Passing no `shape`
+  at all is unchanged, and so is every valid word.
+- **Two new shapes, `derive` and `span`** (W193, W194). Questions that ask
+  for a difference, a share, a per-unit amount, or how long between two
+  moments are now classified as such and answered by the plan organ where
+  they used to be filed under a neighbouring shape. A caller that declared
+  one of the older shapes for such questions keeps its declaration.
+
 ### Fixed
 
 - **One breath is not a series — in the plan organ too** (W197). W145's

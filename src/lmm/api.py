@@ -623,6 +623,22 @@ class Memory:
         document, a `sleep()` that fades one — and the kept answer is dropped
         rather than repeated: see `_state`. `Memory(..., cache=False)` turns it
         off entirely.
+
+        `shape=` declares what kind of question this is, for a caller that
+        already knows, and saves the call that would classify it. It must be
+        one of `lmm.generate.SHAPES` — "material", "count", "sum", "derive",
+        "span", "order", "when", "recap" or "none" — and anything else raises
+        `ValueError`. A declared shape is trusted: declaring "count" for a
+        question that counts nothing costs the organ it would have reached.
+
+        `standalone=True` says the question has no conversation before or
+        after it: the turn inherits no subject, leaves none behind, and is
+        not classified as a conversational turn.
+
+        `quoted=True` asks the engine to answer from lines it names, which
+        the store then checks word by word, and falls back to the ordinary
+        path when that reading cannot be trusted; `quoted="only"` lets the
+        store's refusal stand instead.
         """
         # A DECLARATION MUST BE IN THE VOCABULARY IT DECLARES INTO, and
         # it is checked HERE, before anything else this turn — before
