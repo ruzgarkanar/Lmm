@@ -13030,6 +13030,184 @@ def w198():
         generate.runtime.generate = real
 
 
+@test("W199 a turn that speaks names where it spoke from")
+def w199():
+    """THE GUARANTEE IS PLUMBED THROUGH THE PRINTED TEXT, and one path
+    spoke without printing. `Answer.sources` is not carried as data: it
+    is read back OUT of the sentence by `api._stamps_in`, so a turn that
+    sets `last_abstained = False` without setting its mark ships a claim
+    with `abstained=False` and `sources=()` — an assertion that names
+    nowhere, which is the one thing this library says it does not do.
+
+    The informed refusal (W8) was such a path. Its offer is built from
+    datelined lines and the census tally, it passes a gate that admits no
+    name or number the tally does not carry, and it was then spoken
+    unsigned. W8 checked that the offer SPEAKS and never that it signs,
+    so the hole sat under a passing test. Reported from an integration
+    against 0.12.1, as a declarative question answering `abstained=False`
+    with `sources=()` on the route `chain · refuse`.
+
+    The stamp is not decoration here. The offer's whole content is WHICH
+    DOCUMENTS speak to the topic, so a reader who cannot see which
+    documents those were has been told nothing he can check.
+
+    What is signed is what was NAMED: a census source whose name the
+    offer actually spoke, by the same stem-folded reading the gate above
+    uses to credit it. No model: every engine reading is pinned."""
+    from lmm import generate, extract
+    from lmm.api import _stamps_in
+    from lmm.session import Session
+
+    s = Session(None)
+    s.learn_text("The trust circle closes the morning block.",
+                 source="#docx:Alpha.docx", deep=False)
+    s.learn_text("Trust pairs open the afternoon walk.",
+                 source="#docx:Beta.docx", deep=False)
+    real_ex, real_ans = extract.extract, generate.answer
+    real_shape = generate.turn_shape
+    generate.turn_shape = lambda message: "none"
+    extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
+    calls = {"n": 0}
+
+    def fake_answer(question, block_, warmth=0.2, persona="", **kw):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return "I do not know."          # the path refuses first
+        return "Alpha and Beta both touch on trust."
+    generate.answer = fake_answer
+    try:
+        said = s.respond("which sessions would you recommend for trust",
+                         teach=False)
+        assert not s.last_abstained, said
+        stamps = _stamps_in(said)
+        assert stamps, "spoke a claim and named nowhere: %r" % said
+        # ...AND THE STAMPS ARE THE DOCUMENTS IT SPOKE OF, not whichever
+        # the store happened to hold.
+        assert any("Alpha" in stamp for stamp in stamps), stamps
+        assert any("Beta" in stamp for stamp in stamps), stamps
+
+        # THE OTHER SIDE OF THE SAME RULE: a turn that asserts nothing
+        # carries no stamp, so the mark never qualifies a silence.
+        calls["n"] = 0
+
+        def declines(question, block_, warmth=0.2, persona="", **kw):
+            return "I do not know."
+        generate.answer = declines
+        said = s.respond("which sessions would you recommend for trust",
+                         teach=False)
+        assert s.last_abstained, said
+        assert not _stamps_in(said), said
+    finally:
+        extract.extract, generate.answer = real_ex, real_ans
+        generate.turn_shape = real_shape
+
+
+@test("W200 a source is what the turn stamped, not what starts with a hash")
+def w200():
+    """THE PROVENANCE FIELD READ ONLY ONE SPELLING OF A SOURCE. A turn
+    writes its mark in one place and one way — `"%s (~ %s)" % (said,
+    self._mark)` in `respond` — and `self._mark` is always a source, or
+    several joined by the tally's separator. Inside that mark everything
+    IS a stamp, by construction: this library wrote it.
+
+    `api._stamps_in` asked for more. It kept only chunks beginning with
+    "#", which is the shape `learn` builds for a FILE ("#docx:Tower.docx")
+    and the default for a text ("#document") — but nothing enforces it
+    and nothing documents it, so a caller who names a source the obvious
+    way, `learn_text(..., source="Proposal A")`, got answers that were
+    stamped for a reader and empty for a program. The claim was
+    attributed on screen and unattributed in `Answer.sources`, and
+    nothing failed.
+
+    The "#" test still earns its place OUTSIDE the mark, where loose
+    words are scanned and a stamp has to be told apart from ordinary
+    prose. Inside the mark there is nothing to tell apart.
+
+    No model: a string is read."""
+    from lmm.api import _stamps_in
+
+    # A PLAIN NAME IS A SOURCE — the case that was silently dropped.
+    assert _stamps_in("It is 91 metres. (~ tower notes)") == ["tower notes"]
+    assert _stamps_in("Alpha covers it. (~ Proposal A \u00b7 Proposal B)") == [
+        "Proposal A", "Proposal B"]
+
+    # ...AND THE HASHED NAME STILL READS AS IT ALWAYS DID.
+    assert _stamps_in("It is 91 metres. (~ #docx:Tower.docx)") == [
+        "#docx:Tower.docx"]
+    assert _stamps_in("A. (~ #docx:A.docx \u00b7 #docx:B.docx)") == [
+        "#docx:A.docx", "#docx:B.docx"]
+
+    # OUTSIDE THE MARK, A STAMP IS STILL TOLD APART BY ITS HASH — a
+    # composed line carries its source bare, and ordinary prose must not
+    # be mistaken for provenance.
+    assert _stamps_in("Alpha \u2014 the trust walk #docx:A.docx") == [
+        "#docx:A.docx"]
+    assert _stamps_in("He left (the room) and said nothing.") == []
+    assert _stamps_in("I don't have that information yet.") == []
+
+    # AN EMPTY MARK NAMES NOBODY.
+    assert _stamps_in("Something. (~ )") == []
+    assert _stamps_in("") == []
+
+
+@test("W201 provenance is written down, not read back off the sentence")
+def w201():
+    """THE GUARANTEE DEPENDED ON A SIDE EFFECT OF PRINTING. `Answer.sources`
+    was `api._stamps_in(said)` — the stamps parsed back out of the text the
+    turn produced — so a turn that spoke without printing a mark reported a
+    claim resting on nowhere, and nothing failed.
+
+    The mark cannot carry that weight, because it is doing another job
+    already: `UNCERTAIN` is the DOUBT mark, attached only below CERTAIN
+    (`_graph_answer`). Provenance hung off it, so the surer the memory
+    was, the less it could say about where it got the answer. That is the
+    wrong way round, and it cannot be fixed by printing the mark anyway:
+    a '~' on a certain answer tells the reader the opposite of the truth.
+
+    So the two are separated. `_mark` stays what gets PRINTED, unchanged,
+    and every assignment to it is also written down in `last_signed`;
+    the paths that are sure write down without printing. `Answer.sources`
+    reads the record, and falls back to the text only for the stamps a
+    COMPOSED document carries on its own lines, which no turn marks.
+
+    No model: the record path makes no engine call at all."""
+    from lmm import Memory
+    from lmm.session import Session
+
+    # THE LEDGER IS KEPT BY THE MARK ITSELF — every site that marks, and
+    # there are eight, writes down without being asked.
+    s = Session.__new__(Session)
+    s._mark = "#docx:A.docx \u00b7 #docx:B.docx"
+    assert s.last_signed == ["#docx:A.docx", "#docx:B.docx"], s.last_signed
+    assert s._mark == "#docx:A.docx \u00b7 #docx:B.docx", s._mark
+    # ...and a turn whose mark is cleared names nobody, which is what
+    # clearing it means (the refusal door does exactly this).
+    s._mark = ""
+    assert s.last_signed == [], s.last_signed
+
+    m = Memory(None)
+    m.learn("SPANWIDTH: 91 metres.", source="tower notes", deep=False)
+    m.learn("SPANWIDTH: 44 metres.", source="bridge notes", deep=False)
+    said = m.ask("what is the SPANWIDTH of the tower notes?", explain=True)
+    assert said.route and said.route[0] == "record", said.route
+    assert said.sources == ("tower notes",), said.sources
+
+    # THE HEART OF IT: with the hedge disabled — no mark recorded, as on a
+    # record at full trust — the answer still says where it came from.
+    real = Session._hedge
+    Session._hedge = lambda self, answer, record, message: answer
+    try:
+        m2 = Memory(None)
+        m2.learn("SPANWIDTH: 91 metres.", source="tower notes", deep=False)
+        m2.learn("SPANWIDTH: 44 metres.", source="bridge notes", deep=False)
+        said = m2.ask("what is the SPANWIDTH of the tower notes?",
+                      explain=True)
+        assert said.sources == ("tower notes",), (
+            "provenance was lost with the hedge: %r" % (said.sources,))
+    finally:
+        Session._hedge = real
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

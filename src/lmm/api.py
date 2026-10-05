@@ -134,8 +134,18 @@ def _stamps_in(said):
     for chunk in re.findall(r"\((?:%s)\s*([^()]*)\)" % re.escape(UNCERTAIN),
                             said or ""):
         for stamp in chunk.split(" \u00b7 "):          # several, when several
+            # INSIDE THE MARK, EVERYTHING IS A STAMP (W200). The mark is
+            # written in one place, `respond`, and what it carries is
+            # always `self._mark` — a source, or several joined by this
+            # separator. Asking the chunk to begin with "#" asked for the
+            # shape `learn` happens to build for a file, and a caller who
+            # names a source the obvious way, `source="Proposal A"`, was
+            # answered with a stamp a reader could see and a `sources`
+            # tuple a program could not. The "#" still earns its place in
+            # the bare scan below, where a stamp must be told apart from
+            # ordinary words; here there is nothing to tell apart.
             stamp = stamp.strip().rstrip(".,;:")
-            if stamp.startswith("#") and len(stamp) > 1:
+            if stamp:
                 out.append(stamp)
     if out:
         return out
@@ -815,7 +825,14 @@ class Memory:
             # documents apart is not provenance. The mark is the
             # parenthesis the turn appends: "(~ #stamp)", stamp running
             # to the closing bracket.
-            sources=_stamps_in(said),
+            # WHAT THE TURN WROTE DOWN, AND THE TEXT ONLY AS A FALLBACK
+            # (W201). The session records every source it rested on while
+            # answering, whether or not the sentence ended up printing a
+            # mark — so a certain graph answer, which prints none because
+            # '~' means doubt, still reports where it came from. The text
+            # is still read for the stamps a COMPOSED document carries on
+            # its own lines, which the session never marks.
+            sources=tuple(getattr(session, "last_signed", ())) or _stamps_in(said),
             subject=session.last_subject,
             kind=session.last_kind,
             wrote=tuple(session.last_written),

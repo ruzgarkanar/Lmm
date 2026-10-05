@@ -243,6 +243,46 @@ class Session:
         self.topic = topic.Topic(self.evidence)
         self._scope_now = set()         # this turn's scope; see respond()
 
+    # PROVENANCE IS DATA, NOT A READING OF THE PRINTED SENTENCE (W201).
+    # `Answer.sources` was reconstructed by `api._stamps_in`, which parses
+    # the mark back out of the text the turn produced. That made the
+    # guarantee depend on a side effect of printing: a path that spoke
+    # without setting its mark reported a claim with `sources=()`, and the
+    # graph path — the cheapest and most trusted one there is — prints its
+    # stamp ONLY below CERTAIN, because the mark it shares is the
+    # UNCERTAINTY mark. So the surer the memory was, the less provenance
+    # it could report, which is the wrong way round.
+    #
+    # The two jobs are separated here. `_mark` stays what gets PRINTED,
+    # unchanged, and every assignment to it is also written down. What is
+    # written down is what the turn may be asked about afterwards. A turn
+    # whose mark is cleared names nobody, which is what clearing it means.
+    @property
+    def _mark(self):
+        return getattr(self, "_mark_text", "")
+
+    @_mark.setter
+    def _mark(self, value):
+        self._mark_text = value or ""
+        self._sign(value, clearing=not value)
+
+    def _sign(self, source, clearing=False):
+        """Write down a source this turn rests on — printing is separate.
+
+        Called for every mark, and by the paths that are SURE: a record
+        at full trust is spoken plainly, with no '~' anywhere, and it
+        still rests on the document that stated it."""
+        signed = getattr(self, "last_signed", None)
+        if signed is None:
+            signed = self.last_signed = []
+        if clearing:
+            del signed[:]
+            return
+        for one in str(source or "").split(" \u00b7 "):
+            one = one.strip()
+            if one and one not in signed:
+                signed.append(one)
+
     def _seed_identity(self):
         """IDENTITY as a fact in the graph: (lmm → creator → the operator's name). This way
         identity too is 'known knowledge' — it passes through the gate and is
@@ -510,7 +550,7 @@ class Session:
         self._prior_subject = self.last_subject
         self.last_subject = ""
         self.last_from_graph = False
-        self._mark = ""
+        self._mark = ""         # ...which also clears `last_signed` (W201)
         self._last_proof = []
         self._widened = False
         self._conversational = True
@@ -816,12 +856,65 @@ class Session:
                                          for w in allowed):
                         sound = False
                         break
+                # ...AND WHAT IT NAMED IS WHAT IT SIGNS (W199).
+                # `Answer.sources` is read back out of the printed
+                # sentence (`api._stamps_in`), so a path that speaks
+                # without setting its mark ships a claim with
+                # `abstained=False` and `sources=()` — an assertion that
+                # names nowhere, which is the one thing this library says
+                # it does not do. It sat under a passing test for a
+                # cycle: W8 checked that this offer SPEAKS and never that
+                # it signs.
+                #
+                # The stamp is not decoration on this turn. The offer's
+                # whole content is WHICH DOCUMENTS speak to the topic, so
+                # a reader who is not told which they were has been told
+                # nothing he can check. Signed are the census sources the
+                # sentence actually NAMED — by the same stem-folded,
+                # accent-blind reading that credited them above — and
+                # never the whole tally, which would sign for documents
+                # the sentence never mentioned.
+                # WHICH TALLY THIS READS IS THE ONE THE GATE READS —
+                # `census_line`, the tally the answering path built,
+                # NOT the fresh `find` above. Measured here: that find
+                # returns an empty census for the very question the
+                # rescue exists for, so a signature taken from it signs
+                # nothing and the turn falls silent with a good offer in
+                # hand. The gate credits names against `tally_words`;
+                # the signature is read off the same words, or the two
+                # could disagree about what was named.
+                spoke = {_plain(fold(m.group()))
+                         for m in re.finditer(r"\w+", offered, re.UNICODE)}
+                signed = []
+                for src in self.evidence.by_source:
+                    words = [_plain(w) for w in
+                             evidence._words(evidence._source_name(src))]
+                    # EVERY WORD, NOT ANY — a source is signed when its
+                    # whole name stands in the tally AND stands in the
+                    # sentence. Siblings share a family word, and signing
+                    # on one shared word would attribute the claim to a
+                    # document the sentence never named, which is a worse
+                    # failure than the silence that an unsignable offer
+                    # falls back to.
+                    if not words:
+                        continue
+                    if all(any(inflect.same_stem(w, t) for t in tally_words)
+                           for w in words) and \
+                       all(any(inflect.same_stem(w, t) for t in spoke)
+                           for w in words):
+                        signed.append(src)
+                signed.sort(key=lambda s: census_line.find(
+                    evidence._source_name(s)))
                 # an offer that names no member offers nothing — the honest
                 # refusal stands (an engine can decline twice, and a second
                 # refusal must not be spoken as if it were a tally)
-                if sound and names_spoken:
+                # ...and an offer whose names resolve to no source of the
+                # tally cannot be signed, so it is not said: a claim this
+                # turn cannot attribute is a claim it does not make.
+                if sound and names_spoken and signed:
                     said = offered
                     self.last_abstained = False
+                    self._mark = " \u00b7 ".join(signed)
         # THE MARK GOES ON LAST, AND ONLY ON A STATEMENT. Provenance qualifies a
         # claim; there is nothing to qualify in "I don't know", and the field
         # trial's four fabrications were all text appended to exactly that. So
@@ -1122,6 +1215,12 @@ class Session:
         record = min(held, key=lambda r: r.trust)
         self.last_subject = link.label_of(self.memory, record.subject)
         said = lookup.render(self.memory, held if len(held) > 1 else record)
+        # IT SIGNS WHETHER OR NOT IT HEDGES (W201). The hedge is about
+        # DOUBT and prints '~'; the signature is about WHERE, and a
+        # record at full trust has a source like any other. Printing the
+        # uncertainty mark on a certain answer would tell the reader the
+        # opposite of the truth, so only the writing-down is shared.
+        self._sign(record.source or UNKNOWN_SOURCE)
         if record.trust < CERTAIN:
             said = self._hedge(said, record, message) or said
         return said
