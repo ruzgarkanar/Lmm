@@ -1,0 +1,155 @@
+[
+ {
+  "question": "How many days had passed between the Sunday mass at St. Mary's Church and the Ash Wednesday service at the cathedral?",
+  "shape": "span",
+  "gold": "30 days. 31 days (including the last day) is also acceptable.",
+  "said": "I don't have that information yet.",
+  "right": false,
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "calls": 12,
+  "was": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "question": "How much did I spend on each coffee mug for my coworkers?",
+  "shape": "derive",
+  "gold": "$12",
+  "said": "I don't have that information yet.",
+  "right": false,
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "calls": 10,
+  "was": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "question": "How many days before the team meeting I was preparing for did I attend the workshop on 'Effective Communication in the Workplace'?",
+  "shape": "span",
+  "gold": "7 days. 8 days (including the last day) is also acceptable.",
+  "said": "3 days (4 including the last day) — the workshop on 'Effective Communication in the Workplace' (2023/01/10) → the team meeting (2023/01/13). (~ chat 2023/01/13 (Fri) 01:02)",
+  "right": false,
+  "route": [
+   "plan"
+  ],
+  "calls": 4,
+  "was": [
+   "plan"
+  ]
+ },
+ {
+  "question": "How much more money did I raise than my initial goal in the charity cycling event?",
+  "shape": "derive",
+  "gold": "$50",
+  "said": "50 — charity cycling event (250), initially aimed to raise $200 in donations for the local children's hospital (200). (~ I recently participated in a charity cycling event and raised $250 in donations, which was a great experience.)",
+  "right": false,
+  "route": [
+   "plan"
+  ],
+  "calls": 4,
+  "was": [
+   "plan"
+  ]
+ },
+ {
+  "question": "How many projects have I completed since starting painting classes?",
+  "shape": "derive",
+  "gold": "5",
+  "said": "I don't have that information yet.",
+  "right": false,
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "calls": 12,
+  "was": [
+   "quoted"
+  ]
+ },
+ {
+  "question": "What percentage of leadership positions do women hold in the my company?",
+  "shape": "derive",
+  "gold": "20%",
+  "said": "I don't have that information yet.",
+  "right": false,
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "calls": 8,
+  "was": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "question": "How long is my daily commute to work?",
+  "shape": "span",
+  "gold": "45 minutes each way",
+  "said": "I don't have that information yet.",
+  "right": false,
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "calls": 9,
+  "was": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "question": "How much will I save by taking the train from the airport to my hotel instead of a taxi?",
+  "shape": "derive",
+  "gold": "$50",
+  "said": "I don't have that information yet.",
+  "right": false,
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "calls": 6,
+  "was": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "question": "How long have I been collecting vintage cameras?",
+  "shape": "span",
+  "gold": "three months",
+  "said": "I don't have that information yet.",
+  "right": false,
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "calls": 9,
+  "was": [
+   "chain",
+   "refuse"
+  ]
+ },
+ {
+  "question": "How many days had passed since I finished reading 'The Seven Husbands of Evelyn Hugo' when I attended the book reading event at the local library, where the author of 'The Silent Patient' is discussing her latest thriller novel?",
+  "shape": "span",
+  "gold": "18 days. 19 days (including the last day) is also acceptable.",
+  "said": "18 days (about 1 months) (19 including the last day) — finished reading 'The Seven Husbands of Evelyn Hugo' (2022/12/28) → attended the book reading event at the local library (2023/01/15). (~ chat 2023/01/15 (Sun) 08:32)",
+  "right": false,
+  "route": [
+   "plan"
+  ],
+  "calls": 4,
+  "was": [
+   "plan"
+  ]
+ }
+]

@@ -930,7 +930,7 @@ PLAN_OPS = (
     "per: A, B -> amount A divided by amount B")
 
 
-def plan_of(question):
+def plan_of(question, block=""):
     """A PLAN over the verified primitives — the composer's one call.
 
     The end of the hand-written organ queue (W94): instead of one organ
@@ -1009,8 +1009,34 @@ def plan_of(question):
               "a = amount: the tickets cost\n"
               "b = amount: tickets\n"
               "out = per: a, b")
-    raw = runtime.generate("Q: %s" % question, system=system,
-                           max_tokens=120, temperature=0.0)
+    # THE PLANNER IS SHOWN THE STORE (W203). It used to be given the
+    # QUESTION and nothing else, and so had to decide how to compute an
+    # answer without knowing whether the store held the figures a plan
+    # would need. Measured on 5 October 2026 over eight derivation
+    # questions from LongMemEval that the memory had failed: asked blind
+    # it proposed a plan for three, and with the retrieved lines in front
+    # of it for SIX. The three it gained are exactly the operations
+    # 0.13.0 added — "how much did I spend on EACH mug" (`per`), "what
+    # PERCENTAGE of positions" (`ratio`), "how much will I SAVE"
+    # (`minus`) — and one of them is almost word for word an example in
+    # the instructions above. The vocabulary was there; what was missing
+    # was any way to see that the store could feed it.
+    #
+    # It is the second instance of one pattern. `phrasings` is asked how
+    # else a question might be WRITTEN and is never shown the document,
+    # so it proposes only words the question already used; the vocabulary
+    # gap in `concepts/limits.md` is that defect. Asking the engine about
+    # the store without showing it the store is the shape of both.
+    #
+    # The lines cost nothing: retrieval has already run and makes no
+    # engine call. What grows is one prompt.
+    raw = runtime.generate(
+        ("EVIDENCE:\n%s\n\nQ: %s" % (block, question)) if block
+        else ("Q: %s" % question),
+        system=(system + "\nThe store holds the EVIDENCE lines above; "
+                "plan only over what they could supply.") if block
+        else system,
+        max_tokens=120, temperature=0.0)
     raw = (raw or "").strip()
     if not raw or raw.upper().startswith("NONE"):
         return []

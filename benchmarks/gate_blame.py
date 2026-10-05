@@ -39,8 +39,14 @@ import longmemeval as lme                               # noqa: E402
 from lmm.session import Session                         # noqa: E402
 
 
+import lme_score as score                                         # noqa: E402
+
+
 def _carries(text, gold):
-    """The weakest honest reading of "this held the answer"."""
+    """Did this candidate hold the answer? Used for CANDIDATES, where no
+    judge is available — a rejected candidate is scored strictly on
+    purpose, since the question is whether the gate threw away something
+    that contained the answer."""
     low = (text or "").lower()
     return all(part.lower() in low for part in gold) if gold else False
 
@@ -76,7 +82,10 @@ def main():
             gold = [str(row.get("answer") or "")]
             seen["tried"] = []
             said = m.ask(row["question"], explain=True, quoted=True)
-            right = _carries(str(said), gold)
+            absent = score.is_absent(row)
+            right, _strict = score.accepted(
+                row["question"], row.get("answer"), said,
+                absent=absent, abstained=bool(said.abstained))
             refused = bool(said.abstained) or not right
             rejected = [t for t in seen["tried"] if not _carries(str(said), [t])]
             had = [t for t in rejected if _carries(t, gold)]
@@ -85,6 +94,8 @@ def main():
             elif refused:
                 starved += 1
             out.append({
+                "question_id": row.get("question_id"),
+                "absent": absent,
                 "question": row["question"],
                 "gold": row.get("answer"),
                 "said": str(said),

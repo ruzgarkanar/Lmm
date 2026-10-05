@@ -1,0 +1,298 @@
+[
+ {
+  "question": "How many days had passed between the Sunday mass at St. Mary's Church and the Ash Wednesday service at the cathedral?",
+  "gold": "30 days. 31 days (including the last day) is also acceptable.",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "plan_proposed": [
+   [
+    [
+     "a",
+     "anchor",
+     "Sunday mass at St. Mary's Church"
+    ],
+    [
+     "b",
+     "anchor",
+     "Ash Wednesday service at the cathedral"
+    ],
+    [
+     "out",
+     "span",
+     "a",
+     "b"
+    ]
+   ]
+  ],
+  "amounts_read": null,
+  "events_read": null,
+  "plan_answer": [
+   null
+  ],
+  "right_strict": false,
+  "right": false
+ },
+ {
+  "question": "How much did I spend on each coffee mug for my coworkers?",
+  "gold": "$12",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "plan_proposed": [
+   []
+  ],
+  "amounts_read": null,
+  "events_read": null,
+  "plan_answer": [
+   null
+  ],
+  "right_strict": false,
+  "right": false
+ },
+ {
+  "question": "How many days before the team meeting I was preparing for did I attend the workshop on 'Effective Communication in the Workplace'?",
+  "gold": "7 days. 8 days (including the last day) is also acceptable.",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "plan_proposed": [
+   [
+    [
+     "a",
+     "anchor",
+     "the workshop on 'Effective Communication in the Workplace'"
+    ],
+    [
+     "b",
+     "anchor",
+     "the team meeting"
+    ],
+    [
+     "out",
+     "span",
+     "a",
+     "b"
+    ]
+   ]
+  ],
+  "amounts_read": null,
+  "events_read": null,
+  "plan_answer": [
+   null
+  ],
+  "right_strict": false,
+  "right": false
+ },
+ {
+  "question": "How much more money did I raise than my initial goal in the charity cycling event?",
+  "gold": "$50",
+  "said": "50 — charity cycling event (250), initially aimed to raise $200 in donations for the local children's hospital (200). (~ I recently participated in a charity cycling event and raised $250 in donations, which was a great experience.)",
+  "route": [
+   "plan"
+  ],
+  "plan_proposed": [
+   [
+    [
+     "a",
+     "amount",
+     "raised"
+    ],
+    [
+     "b",
+     "amount",
+     "my initial goal"
+    ],
+    [
+     "out",
+     "minus",
+     "a",
+     "b"
+    ]
+   ]
+  ],
+  "amounts_read": [
+   [
+    [
+     "charity cycling event",
+     "250"
+    ],
+    [
+     "charity cycling event",
+     "200"
+    ]
+   ],
+   [
+    [
+     "initially aimed to raise $200 in donations for the local children's hospital",
+     "200"
+    ]
+   ]
+  ],
+  "events_read": null,
+  "plan_answer": [
+   "50 — charity cycling event (250), initially aimed to raise $200 in donations for the local children's hospital (200)."
+  ],
+  "right_strict": false,
+  "right": true
+ },
+ {
+  "question": "How many projects have I completed since starting painting classes?",
+  "gold": "5",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "plan_proposed": [
+   [
+    [
+     "a",
+     "anchor",
+     "starting painting classes"
+    ],
+    [
+     "l",
+     "lines",
+     "projects completed"
+    ],
+    [
+     "b",
+     "after_lines",
+     "l",
+     "a"
+    ],
+    [
+     "out",
+     "count",
+     "b"
+    ]
+   ]
+  ],
+  "amounts_read": null,
+  "events_read": null,
+  "plan_answer": [
+   null
+  ],
+  "right_strict": false,
+  "right": false
+ },
+ {
+  "question": "What percentage of leadership positions do women hold in the my company?",
+  "gold": "20%",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "plan_proposed": [
+   []
+  ],
+  "amounts_read": null,
+  "events_read": null,
+  "plan_answer": [
+   null
+  ],
+  "right_strict": false,
+  "right": false
+ },
+ {
+  "question": "How long is my daily commute to work?",
+  "gold": "45 minutes each way",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "plan_proposed": [
+   []
+  ],
+  "amounts_read": null,
+  "events_read": null,
+  "plan_answer": [
+   null
+  ],
+  "right_strict": false,
+  "right": false
+ },
+ {
+  "question": "How much will I save by taking the train from the airport to my hotel instead of a taxi?",
+  "gold": "$50",
+  "said": "I'm sorry, but I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "plan_proposed": [
+   []
+  ],
+  "amounts_read": null,
+  "events_read": null,
+  "plan_answer": [
+   null
+  ],
+  "right_strict": false,
+  "right": false
+ },
+ {
+  "question": "How long have I been collecting vintage cameras?",
+  "gold": "three months",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "plan_proposed": [
+   []
+  ],
+  "amounts_read": null,
+  "events_read": null,
+  "plan_answer": [
+   null
+  ],
+  "right_strict": false,
+  "right": false
+ },
+ {
+  "question": "How many days had passed since I finished reading 'The Seven Husbands of Evelyn Hugo' when I attended the book reading event at the local library, where the author of 'The Silent Patient' is discussing her latest thriller novel?",
+  "gold": "18 days. 19 days (including the last day) is also acceptable.",
+  "said": "I don't have that information yet.",
+  "route": [
+   "chain",
+   "refuse"
+  ],
+  "plan_proposed": [
+   [
+    [
+     "a",
+     "anchor",
+     "finished reading 'The Seven Husbands of Evelyn Hugo'"
+    ],
+    [
+     "b",
+     "anchor",
+     "attended the book reading event at the local library"
+    ],
+    [
+     "out",
+     "span",
+     "a",
+     "b"
+    ]
+   ]
+  ],
+  "amounts_read": null,
+  "events_read": null,
+  "plan_answer": [
+   null
+  ],
+  "right_strict": false,
+  "right": false
+ }
+]

@@ -6630,7 +6630,7 @@ def w161():
     def hold_still():
         extract.extract = lambda message: {"kind": extract.ASK,
                                            "triples": []}
-        generate.plan_of = lambda question: []
+        generate.plan_of = lambda question, block="": []
         generate.refusal = lambda message, **kw: "Das weiss ich nicht."
 
     def release():
@@ -7362,7 +7362,7 @@ def w147():
     def dead_organs():
         generate.turn_shape = lambda message: "count"
         generate.items_of = lambda q, b, **kw: []
-        generate.plan_of = lambda q: []
+        generate.plan_of = lambda q, block="": []
         generate.supported = lambda answer, block: True
         generate.things_of = lambda q, **kw: []
         generate.phrasings = lambda *a, **kw: []
@@ -7684,7 +7684,7 @@ def w142():
                    "from the balcony garden.", "chat 2023/03/10 · user")
     real_plan, real_event = generate.plan_of, generate.event_date
     try:
-        generate.plan_of = lambda q: [("a", "anchor", "harvested the herbs"),
+        generate.plan_of = lambda q, block="": [("a", "anchor", "harvested the herbs"),
                                       ("b", "now"),
                                       ("out", "span", "a", "b")]
         # the anchor's date is the envelope's own stamp, verified
@@ -7936,7 +7936,7 @@ def w133():
     extract_mod.reextract = lambda text: []          # a greeting claims nothing
     generate.chat = lambda message, *a, **kw: "Selam!"
     generate.is_identity_question = lambda m: False
-    generate.plan_of = lambda q: seen.append("plan") or []
+    generate.plan_of = lambda q, block="": seen.append("plan") or []
     generate.turn_shape = lambda m: seen.append("shape") or "none"
     try:
         said = s.respond("selam", teach=False)
@@ -9242,7 +9242,7 @@ def w103():
     try:
         got = s._event_anchor("the gala")
         assert got is not None and got[3] is False, got   # unverified
-        generate.plan_of = lambda q: [("a", "anchor", "the gala"),
+        generate.plan_of = lambda q, block="": [("a", "anchor", "the gala"),
                                       ("b", "anchor", "the audit"),
                                       ("out", "span", "a", "b")]
         span = s._plan_answer("how many days between the gala and the audit?")
@@ -9251,7 +9251,7 @@ def w103():
     assert span is None, (
         "arithmetic ran on unverified dates: %r" % span)
     # ...and a WHEN still answers from the envelope, which is its job
-    generate.plan_of = lambda q: [("out", "latest", "the gala")]
+    generate.plan_of = lambda q, block="": [("out", "latest", "the gala")]
     said = s._plan_answer("when was the gala?", want=("date",))
     assert said and "2023/05/02" in said, said
 
@@ -9522,7 +9522,7 @@ def w96():
     real_plan = generate.plan_of
     real_read = generate.event_date
     generate.event_date = lambda phrase, rows, **kw: ""
-    generate.plan_of = (lambda q: [
+    generate.plan_of = (lambda q, block="": [
         ("l", "lines", "charity"),
         ("a", "anchor", "the big gala fundraiser"),
         ("f", "before_lines", "l", "a"),
@@ -9621,7 +9621,7 @@ def w94():
     # the stamp of the line that holds it.
     real, real_date = generate.plan_of, generate.event_date
     generate.event_date = lambda phrase, rows, **kw: rows[0][0] if rows else ""
-    generate.plan_of = (lambda q: [
+    generate.plan_of = (lambda q, block="": [
         ("a", "anchor", "dentist visit"),
         ("b", "anchor", "the new job"),
         ("out", "before", "a", "b")])
@@ -9634,7 +9634,7 @@ def w94():
     assert "yes" in said.lower(), said
     assert "2023/03/14" in said and "2023/05/02" in said, said
     # a tally shape, no organ anywhere near it
-    generate.plan_of = (lambda q: [
+    generate.plan_of = (lambda q, block="": [
         ("l", "lines", "hiking"),
         ("out", "month_tally", "l")])
     try:
@@ -9644,7 +9644,7 @@ def w94():
     assert said2 is not None, "the tally plan did not speak"
     assert "2023/07" in said2 and "3" in said2, said2
     # a poisoned plan: an operation that does not exist kills it silently
-    generate.plan_of = (lambda q: [("x", "summon_demon", "the answer"),
+    generate.plan_of = (lambda q, block="": [("x", "summon_demon", "the answer"),
                                    ("out", "before", "x", "x")])
     try:
         none = s._plan_answer("did the ritual work?")
@@ -9655,7 +9655,7 @@ def w94():
     # too: a "how many weddings" turn once answered "2023/10 (426
     # lines)" — a month tally, correct arithmetic, absurd answer. The
     # seat says which value types it will speak; the rest are refused.
-    generate.plan_of = (lambda q: [("l", "lines", "hiking"),
+    generate.plan_of = (lambda q, block="": [("l", "lines", "hiking"),
                                    ("out", "month_tally", "l")])
     try:
         misfit = s._plan_answer("how many hikes did I take?",
@@ -11920,7 +11920,7 @@ def w183():
     asked = []
     real = (generate.plan_of, generate.answer, generate.refusal,
             generate.supported, generate.answers_asked, generate.turn_shape)
-    generate.plan_of = lambda question: asked.append(question) or []
+    generate.plan_of = lambda question, block="": asked.append(question) or []
     generate.answer = (lambda q, block, warmth=0.2, persona="",
                        max_tokens=None, **kw: "I do not know.")
     generate.refusal = (lambda message, persona="", warmth=0.0,
@@ -12569,7 +12569,7 @@ def w193():
     }
     generate.amounts_of = lambda phrase, block: priced.get(phrase, [])
     plans = {}
-    generate.plan_of = lambda question: plans[question]
+    generate.plan_of = lambda question, block="": plans[question]
     try:
         # A DIFFERENCE — and the summing organ's answer (850) is exactly
         # what this test exists to prevent being spoken.
@@ -12635,7 +12635,7 @@ def w193():
     # AND THE SEAT ONLY SPEAKS WHAT IT ASKED FOR (W94): a turn that
     # wanted a date does not receive a difference.
     generate.amounts_of = lambda phrase, block: priced.get(phrase, [])
-    generate.plan_of = lambda question: [
+    generate.plan_of = lambda question, block="": [
         ("a", "amount", "raised"), ("b", "amount", "initial goal"),
         ("out", "minus", "a", "b")]
     try:
@@ -12708,7 +12708,7 @@ def w194():
     assert "span - asks HOW LONG" in generate.turn_shape.__doc__ or True
     real = generate.plan_of
     real_date = generate.event_date
-    generate.plan_of = lambda question: [
+    generate.plan_of = lambda question, block="": [
         ("a", "anchor", "finished reading 'The Seven Husbands'"),
         ("b", "now"),
         ("out", "span", "a", "b")]
@@ -12907,7 +12907,7 @@ def w196():
     s.learn_text("More mummies guard the inner temple door.",
                  source="chat 2023/02/08 (Wed) 09:00", deep=False)
     real = generate.plan_of
-    generate.plan_of = lambda question: [("l", "lines", "mummies"),
+    generate.plan_of = lambda question, block="": [("l", "lines", "mummies"),
                                          ("out", "count", "l")]
     try:
         said = s._plan_answer("how many mummies will the party face",
@@ -12951,7 +12951,7 @@ def w197():
                  "The last mummies guard the inner sanctum.",
                  source="chat 2023/05/29 (Mon) 19:00", deep=False)
     real = generate.plan_of
-    generate.plan_of = lambda question: [("l", "lines", "mummies"),
+    generate.plan_of = lambda question, block="": [("l", "lines", "mummies"),
                                          ("out", "count", "l")]
     try:
         said = s._plan_answer("how many mummies will the party face",
@@ -13294,6 +13294,67 @@ def w202():
     finally:
         extract.extract, generate.answer = real_ex, real_ans
         generate.turn_shape, generate.enough = real_shape, real_enough
+
+
+@test("W203 the planner is shown the store it must plan over")
+def w203():
+    """ASKING THE ENGINE ABOUT THE STORE WITHOUT SHOWING IT THE STORE.
+    `plan_of` was given the QUESTION and nothing else, so it had to decide
+    how to compute an answer with no way of knowing whether the store held
+    the figures a plan would need — and it declined rather than propose
+    one it could not justify.
+
+    Measured on 5 October 2026, over eight derivation questions from
+    LongMemEval that this memory had failed: asked blind the engine
+    proposed a plan for THREE, and with the retrieved lines in front of it
+    for SIX. The three it gained are the operations 0.13.0 added — "how
+    much did I spend on EACH mug" (`per`), "what PERCENTAGE of positions"
+    (`ratio`), "how much will I SAVE" (`minus`) — and the percentage
+    question is almost word for word an example inside the planner's own
+    instructions. The vocabulary was never the problem.
+
+    It is the second instance of one pattern, and the first is still open:
+    `phrasings` is asked how else a question might be WRITTEN and is never
+    shown the document, so it proposes only words the question already
+    used (`concepts/limits.md`).
+
+    The lines are free — retrieval has already run and makes no engine
+    call — so what this spends is prompt, not a round trip. A store that
+    seats nothing sends nothing, and the planner is asked exactly as it
+    was before.
+
+    No model: the call is intercepted."""
+    from lmm import generate
+    from lmm.session import Session
+
+    seen = {}
+    real = generate.plan_of
+    generate.plan_of = (lambda question, block="":
+                        seen.update(question=question, block=block) or [])
+    try:
+        s = Session(None)
+        s.learn_text("User: I raised 250 for the charity ride.\n"
+                     "User: my initial goal was 200.",
+                     source="chat 2024/03/04", deep=False)
+        s._plan_answer("how much more did I raise than my goal",
+                       want=("derived",))
+        assert seen.get("question"), "the planner was never asked"
+        assert seen["block"], "the planner was asked blind"
+        # ...AND WHAT IT SEES IS THE STORE'S OWN LINES.
+        assert "250" in seen["block"] or "200" in seen["block"], seen["block"]
+
+        # A STORE THAT SEATS NOTHING SENDS NOTHING, and the planner is
+        # asked exactly as it always was.
+        seen.clear()
+        bare = Session(None)
+        bare.learn_text("User: the weather was lovely.",
+                        source="chat 2024/03/04", deep=False)
+        bare._plan_answer("how much more did I raise than my goal",
+                          want=("derived",))
+        if seen:
+            assert isinstance(seen.get("block", ""), str), seen
+    finally:
+        generate.plan_of = real
 
 
 def main():

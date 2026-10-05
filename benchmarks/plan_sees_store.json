@@ -1,0 +1,204 @@
+[
+ {
+  "question": "How many days had passed between the Sunday mass at St. Mary's Church and the Ash Wednesday service at the cathedral?",
+  "blind": [
+   [
+    "a",
+    "anchor",
+    "Sunday mass at St. Mary's Church"
+   ],
+   [
+    "b",
+    "anchor",
+    "Ash Wednesday service at the cathedral"
+   ],
+   [
+    "out",
+    "span",
+    "a",
+    "b"
+   ]
+  ],
+  "seeing": [
+   [
+    "a",
+    "anchor",
+    "the Sunday mass at St. Mary's Church"
+   ],
+   [
+    "b",
+    "anchor",
+    "the Ash Wednesday service at the cathedral"
+   ],
+   [
+    "out",
+    "span",
+    "a",
+    "b"
+   ]
+  ]
+ },
+ {
+  "question": "How much did I spend on each coffee mug for my coworkers?",
+  "blind": [],
+  "seeing": [
+   [
+    "a",
+    "amount",
+    "spent on some coffee mugs"
+   ],
+   [
+    "b",
+    "amount",
+    "5 coffee mugs"
+   ],
+   [
+    "out",
+    "per",
+    "a",
+    "b"
+   ]
+  ]
+ },
+ {
+  "question": "How many days before the team meeting I was preparing for did I attend the workshop on 'Effective Communication in the Workplace'?",
+  "blind": [
+   [
+    "a",
+    "anchor",
+    "the workshop on 'Effective Communication in the Workplace'"
+   ],
+   [
+    "b",
+    "anchor",
+    "the team meeting"
+   ],
+   [
+    "out",
+    "span",
+    "a",
+    "b"
+   ]
+  ],
+  "seeing": [
+   [
+    "a",
+    "anchor",
+    "the team meeting"
+   ],
+   [
+    "b",
+    "anchor",
+    "the workshop on 'Effective Communication in the Workplace'"
+   ],
+   [
+    "out",
+    "span",
+    "b",
+    "a"
+   ]
+  ]
+ },
+ {
+  "question": "How many projects have I completed since starting painting classes?",
+  "blind": [
+   [
+    "a",
+    "anchor",
+    "starting painting classes"
+   ],
+   [
+    "b",
+    "now"
+   ],
+   [
+    "l",
+    "lines",
+    "projects completed"
+   ],
+   [
+    "f",
+    "after_lines",
+    "l",
+    "a"
+   ],
+   [
+    "out",
+    "count",
+    "f"
+   ]
+  ],
+  "seeing": [
+   [
+    "a",
+    "amount",
+    "completed 4 projects since starting painting classes"
+   ],
+   [
+    "b",
+    "amount",
+    "completed 5 projects since starting painting classes"
+   ],
+   [
+    "out",
+    "count",
+    "a",
+    "b"
+   ]
+  ]
+ },
+ {
+  "question": "What percentage of leadership positions do women hold in the my company?",
+  "blind": [],
+  "seeing": [
+   [
+    "a",
+    "amount",
+    "leadership positions women hold"
+   ],
+   [
+    "b",
+    "amount",
+    "leadership positions"
+   ],
+   [
+    "out",
+    "ratio",
+    "a",
+    "b"
+   ]
+  ]
+ },
+ {
+  "question": "How long is my daily commute to work?",
+  "blind": [],
+  "seeing": []
+ },
+ {
+  "question": "How much will I save by taking the train from the airport to my hotel instead of a taxi?",
+  "blind": [],
+  "seeing": [
+   [
+    "a",
+    "amount",
+    "taxi from the airport to my hotel"
+   ],
+   [
+    "b",
+    "amount",
+    "train from the airport to my hotel"
+   ],
+   [
+    "out",
+    "minus",
+    "a",
+    "b"
+   ]
+  ]
+ },
+ {
+  "question": "How long have I been collecting vintage cameras?",
+  "blind": [],
+  "seeing": []
+ }
+]

@@ -2864,7 +2864,11 @@ class Session:
         if not self._store_is_dated() and not self.evidence.quantities:
             return None
         try:
-            steps = generate.plan_of(question)
+            # what retrieval already seated, so the planner can see
+            # whether the store could feed the plan (W203). Free: `find`
+            # makes no engine call.
+            steps = generate.plan_of(
+                question, block="\n".join(self.evidence.find(question, most=6)))
         except Exception:                               # noqa: BLE001
             return None
         if not steps:

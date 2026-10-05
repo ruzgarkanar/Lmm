@@ -1,0 +1,344 @@
+[
+ {
+  "question": "Can you suggest some accessories that would complement my current photography setup?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/27 (Sat) 03:28"
+  ],
+  "seated_sources": [
+   "chat 2023/05/28 (Sun) 14:39",
+   "chat 2023/05/28 (Sun) 15:35",
+   "chat 2023/05/21 (Sun) 20:15",
+   "chat 2023/05/24 (Wed) 18:27",
+   "chat 2023/05/27 (Sat) 11:48",
+   "chat 2023/05/27 (Sat) 03:28"
+  ]
+ },
+ {
+  "question": "How many days had passed between the Sunday mass at St. Mary's Church and the Ash Wednesday service at the cathedral?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/02/20 (Mon) 04:43",
+   "chat 2023/02/20 (Mon) 16:20"
+  ],
+  "seated_sources": [
+   "chat 2023/02/20 (Mon) 16:20",
+   "chat 2023/02/20 (Mon) 04:43",
+   "chat 2023/02/20 (Mon) 04:43",
+   "chat 2023/02/20 (Mon) 23:11",
+   "chat 2023/02/20 (Mon) 19:29",
+   "chat 2023/02/20 (Mon) 02:32"
+  ]
+ },
+ {
+  "question": "How many engineers do I lead when I just started my new role as Senior Software Engineer? How many engineers do I lead now?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/11 (Thu) 02:02",
+   "chat 2023/10/24 (Tue) 13:53"
+  ],
+  "seated_sources": [
+   "chat 2023/05/11 (Thu) 02:02",
+   "chat 2023/05/11 (Thu) 02:02",
+   "chat 2023/10/24 (Tue) 13:53",
+   "chat 2023/10/24 (Tue) 13:53",
+   "chat 2023/10/24 (Tue) 13:53",
+   "chat 2023/05/11 (Thu) 02:02"
+  ]
+ },
+ {
+  "question": "How much did I spend on each coffee mug for my coworkers?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/27 (Sat) 22:31",
+   "chat 2023/05/28 (Sun) 19:13"
+  ],
+  "seated_sources": [
+   "chat 2023/05/28 (Sun) 19:13",
+   "chat 2023/05/27 (Sat) 22:31",
+   "chat 2023/05/28 (Sun) 19:13",
+   "chat 2023/05/27 (Sat) 22:31",
+   "chat 2023/05/28 (Sun) 22:48",
+   "chat 2023/05/27 (Sat) 22:31"
+  ]
+ },
+ {
+  "question": "What should I serve for dinner this weekend with my homegrown ingredients?",
+  "seated": false,
+  "answer_sources": [
+   "chat 2023/05/23 (Tue) 00:29"
+  ],
+  "seated_sources": [
+   "chat 2023/05/27 (Sat) 15:58",
+   "chat 2023/05/25 (Thu) 00:06",
+   "chat 2023/05/26 (Fri) 03:32",
+   "chat 2023/05/27 (Sat) 15:58",
+   "chat 2023/05/25 (Thu) 20:34",
+   "chat 2023/05/21 (Sun) 05:53"
+  ]
+ },
+ {
+  "question": "How many days before the team meeting I was preparing for did I attend the workshop on 'Effective Communication in the Workplace'?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/01/13 (Fri) 01:02",
+   "chat 2023/01/13 (Fri) 13:59"
+  ],
+  "seated_sources": [
+   "chat 2023/01/13 (Fri) 13:59",
+   "chat 2023/01/13 (Fri) 13:59",
+   "chat 2023/01/13 (Fri) 01:02",
+   "chat 2023/01/13 (Fri) 01:02",
+   "chat 2023/01/13 (Fri) 03:10",
+   "chat 2023/01/13 (Fri) 15:53"
+  ]
+ },
+ {
+  "question": "How many engineers do I lead when I just started my new role as Software Engineer Manager?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/25 (Thu) 19:20",
+   "chat 2023/05/27 (Sat) 10:13"
+  ],
+  "seated_sources": [
+   "chat 2023/05/25 (Thu) 19:20",
+   "chat 2023/05/27 (Sat) 10:13",
+   "chat 2023/05/27 (Sat) 10:13",
+   "chat 2023/05/17 (Wed) 04:16",
+   "chat 2023/05/05 (Fri) 13:54",
+   "chat 2023/05/13 (Sat) 16:43"
+  ]
+ },
+ {
+  "question": "How much more money did I raise than my initial goal in the charity cycling event?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/20 (Sat) 03:00",
+   "chat 2023/05/28 (Sun) 14:28"
+  ],
+  "seated_sources": [
+   "chat 2023/05/20 (Sat) 03:00",
+   "chat 2023/05/28 (Sun) 14:28",
+   "chat 2023/05/29 (Mon) 03:47",
+   "chat 2023/05/20 (Sat) 03:00",
+   "chat 2023/05/28 (Sun) 14:28",
+   "chat 2023/05/20 (Sat) 03:00"
+  ]
+ },
+ {
+  "question": "I'm looking back at our previous conversation about the Seco de Cordero recipe from Ancash. You mentioned using a light or medium-bodied beer, but I was wondering if you could remind me what type of beer you specifically recommended?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/28 (Sun) 13:04"
+  ],
+  "seated_sources": [
+   "chat 2023/05/21 (Sun) 04:09",
+   "chat 2023/05/28 (Sun) 13:04",
+   "chat 2023/05/28 (Sun) 13:04",
+   "chat 2023/05/26 (Fri) 13:20",
+   "chat 2023/05/26 (Fri) 15:46",
+   "chat 2023/05/28 (Sun) 13:04"
+  ]
+ },
+ {
+  "question": "Can you suggest some useful accessories for my phone?",
+  "seated": false,
+  "answer_sources": [
+   "chat 2023/05/27 (Sat) 13:52"
+  ],
+  "seated_sources": [
+   "chat 2023/05/25 (Thu) 20:51",
+   "chat 2023/05/30 (Tue) 08:44",
+   "chat 2023/05/25 (Thu) 05:48",
+   "chat 2023/05/30 (Tue) 08:44",
+   "chat 2023/05/22 (Mon) 03:30",
+   "chat 2023/05/24 (Wed) 21:45"
+  ]
+ },
+ {
+  "question": "What is the name of my hamster?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/24 (Wed) 11:29"
+  ],
+  "seated_sources": [
+   "chat 2023/05/30 (Tue) 17:48",
+   "chat 2023/05/27 (Sat) 02:52",
+   "chat 2023/05/30 (Tue) 09:07",
+   "chat 2023/05/24 (Wed) 03:09",
+   "chat 2023/05/26 (Fri) 21:46",
+   "chat 2023/05/24 (Wed) 11:29"
+  ]
+ },
+ {
+  "question": "How many projects have I completed since starting painting classes?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/08/16 (Wed) 09:37",
+   "chat 2023/10/09 (Mon) 07:00"
+  ],
+  "seated_sources": [
+   "chat 2023/08/16 (Wed) 09:37",
+   "chat 2023/08/16 (Wed) 09:37",
+   "chat 2023/10/09 (Mon) 07:00",
+   "chat 2023/08/16 (Wed) 09:37",
+   "chat 2023/10/09 (Mon) 07:00",
+   "chat 2023/08/16 (Wed) 09:37"
+  ]
+ },
+ {
+  "question": "What percentage of leadership positions do women hold in the my company?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/21 (Sun) 02:21",
+   "chat 2023/05/30 (Tue) 17:22"
+  ],
+  "seated_sources": [
+   "chat 2023/05/21 (Sun) 02:21",
+   "chat 2023/05/30 (Tue) 17:22",
+   "chat 2023/05/21 (Sun) 02:21",
+   "chat 2023/05/30 (Tue) 17:22",
+   "chat 2023/05/21 (Sun) 02:21",
+   "chat 2023/05/21 (Sun) 02:21"
+  ]
+ },
+ {
+  "question": "I'm going back to our previous chat about the Lost Temple of the Djinn one-shot. Can you remind me how many mummies the party will face in the temple?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/29 (Mon) 22:33"
+  ],
+  "seated_sources": [
+   "chat 2023/05/29 (Mon) 22:33",
+   "chat 2023/05/30 (Tue) 00:42",
+   "chat 2023/05/30 (Tue) 11:36",
+   "chat 2023/05/29 (Mon) 22:33",
+   "chat 2023/05/30 (Tue) 03:19",
+   "chat 2023/05/24 (Wed) 15:45"
+  ]
+ },
+ {
+  "question": "I've been having trouble with the battery life on my phone lately. Any tips?",
+  "seated": false,
+  "answer_sources": [
+   "chat 2023/05/27 (Sat) 05:53"
+  ],
+  "seated_sources": [
+   "chat 2023/05/22 (Mon) 07:08",
+   "chat 2023/05/23 (Tue) 00:40",
+   "chat 2023/05/27 (Sat) 14:59",
+   "chat 2023/05/21 (Sun) 02:11",
+   "chat 2023/05/23 (Tue) 00:40",
+   "chat 2023/05/21 (Sun) 02:11"
+  ]
+ },
+ {
+  "question": "How long is my daily commute to work?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/22 (Mon) 21:18"
+  ],
+  "seated_sources": [
+   "chat 2023/05/26 (Fri) 11:34",
+   "chat 2023/05/20 (Sat) 03:29",
+   "chat 2023/05/22 (Mon) 21:18",
+   "chat 2023/05/27 (Sat) 23:28",
+   "chat 2023/05/25 (Thu) 22:55",
+   "chat 2023/05/20 (Sat) 03:29"
+  ]
+ },
+ {
+  "question": "I mentioned visiting a museum two months ago. Did I visit with a friend or not?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2022/10/22 (Sat) 23:02",
+   "chat 2023/01/11 (Wed) 06:16",
+   "chat 2023/02/18 (Sat) 00:56"
+  ],
+  "seated_sources": [
+   "chat 2022/10/22 (Sat) 23:02",
+   "chat 2023/01/29 (Sun) 15:23",
+   "chat 2023/02/13 (Mon) 14:30",
+   "chat 2023/01/26 (Thu) 07:05",
+   "chat 2023/02/18 (Sat) 02:41",
+   "chat 2023/01/29 (Sun) 15:23"
+  ]
+ },
+ {
+  "question": "How much will I save by taking the train from the airport to my hotel instead of a taxi?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/22 (Mon) 05:10",
+   "chat 2023/05/26 (Fri) 22:35"
+  ],
+  "seated_sources": [
+   "chat 2023/05/26 (Fri) 22:35",
+   "chat 2023/05/26 (Fri) 22:35",
+   "chat 2023/05/22 (Mon) 05:10",
+   "chat 2023/05/23 (Tue) 11:17",
+   "chat 2023/05/20 (Sat) 18:28",
+   "chat 2023/05/26 (Fri) 22:35"
+  ]
+ },
+ {
+  "question": "I think we discussed work from home jobs for seniors earlier. Can you remind me what was the 7th job in the list you provided?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/26 (Fri) 12:40"
+  ],
+  "seated_sources": [
+   "chat 2023/05/26 (Fri) 12:40",
+   "chat 2023/05/26 (Fri) 12:40",
+   "chat 2023/05/20 (Sat) 11:07",
+   "chat 2023/05/22 (Mon) 03:21",
+   "chat 2023/05/26 (Fri) 12:40",
+   "chat 2023/05/26 (Fri) 12:40"
+  ]
+ },
+ {
+  "question": "I’m a bit anxious about getting around Tokyo. Do you have any helpful tips?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/22 (Mon) 23:46"
+  ],
+  "seated_sources": [
+   "chat 2023/05/22 (Mon) 23:46",
+   "chat 2023/05/22 (Mon) 23:46",
+   "chat 2023/05/24 (Wed) 11:43",
+   "chat 2023/05/23 (Tue) 15:28",
+   "chat 2023/05/21 (Sun) 14:29",
+   "chat 2023/05/22 (Mon) 10:36"
+  ]
+ },
+ {
+  "question": "How long have I been collecting vintage cameras?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2023/05/21 (Sun) 22:01"
+  ],
+  "seated_sources": [
+   "chat 2023/05/29 (Mon) 15:56",
+   "chat 2023/05/21 (Sun) 22:01",
+   "chat 2023/05/29 (Mon) 15:56",
+   "chat 2023/05/21 (Sun) 22:01",
+   "chat 2023/05/21 (Sun) 22:01",
+   "chat 2023/05/21 (Sun) 22:01"
+  ]
+ },
+ {
+  "question": "How many days had passed since I finished reading 'The Seven Husbands of Evelyn Hugo' when I attended the book reading event at the local library, where the author of 'The Silent Patient' is discussing her latest thriller novel?",
+  "seated": true,
+  "answer_sources": [
+   "chat 2022/12/28 (Wed) 06:50",
+   "chat 2023/01/15 (Sun) 08:32"
+  ],
+  "seated_sources": [
+   "chat 2023/01/15 (Sun) 08:32",
+   "chat 2023/01/15 (Sun) 08:32",
+   "chat 2023/01/15 (Sun) 08:32",
+   "chat 2023/01/15 (Sun) 08:32",
+   "chat 2022/12/28 (Wed) 06:50",
+   "chat 2022/12/28 (Wed) 06:50"
+  ]
+ }
+]
