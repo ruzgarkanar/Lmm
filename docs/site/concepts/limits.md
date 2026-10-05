@@ -219,3 +219,36 @@ confirmation `anchor` already applies. Until that exists, every count
 and every window over a conversation is a count of MENTIONS, and this
 page says so rather than the number pretending otherwise.
 
+## The vocabulary gap has two halves, and only one is reachable
+
+Measured on NIST SP 800-63B, 5 October 2026, after the rewording pass
+was repaired to see the document (W211).
+
+**Where retrieval is close, rewording now works.** Asked "what is the
+shortest password a user may choose", the lines retrieval returns do
+contain *memorized secret*, and shown them the engine proposes "secret"
+where it used to propose only "password", a word the question had
+already used. The widened search still does not seat the answering line,
+because "secret" is written on 1,630 of this document's 12,253 lines and
+a word the document uses everywhere narrows nothing.
+
+**Where retrieval is lost, nothing downstream can help.** Asked "who
+currently heads NIST", the lines retrieval returns are about
+*"publications currently under development"*. Shown those, the engine
+proposes "head, leader, chief, administrat" — generic synonyms, none of
+which this document writes — and the widening cannot run. Yet handed the
+right words by hand (*director, acting, Kent, Rochford*) the same search
+seats the answering line immediately.
+
+So the gap is not one problem. The second half is a retrieval problem
+and it cannot be solved by rewording, because a reworder shown the wrong
+lines has nothing to read. It needs a signal that is not lexical.
+
+The meaning channel is that signal, and the one this package bundles is
+not strong enough: measured, the answering lines rank 410th and 930th of
+12,253 by the bundled static table, and for the word "heads" that table
+ranks "hash" and "captcha" above "director". A stronger encoder would
+close it and would cost the thing this library advertises — one
+dependency, no GPU, 1.1 MB. That is a trade to decide rather than a
+defect to fix, and it is written here so the decision is visible.
+
