@@ -13815,6 +13815,97 @@ def w210():
         generate.event_dates = real
 
 
+@test("W212 a count keeps only what falls in the stretch of time asked for")
+def w212():
+    """A COUNT CAN BE WRONG WITHOUT INVENTING ANYTHING. Asked how many
+    doctor's appointments the user went to IN MARCH, the organ named
+    three where the answer is two: every name was written in the
+    evidence, so every name passed verification, and one appointment was
+    on April 1st. Existence in the text is checked; membership in the set
+    the question describes is not. Published as this organ's own limit,
+    and inherited by every organ that verifies items against lines.
+
+    A WORD-LEVEL REPAIR WAS TRIED FIRST AND REFUSED. Treating any demand
+    that MOST home lines carry as the condition being selected on is
+    right on the doctors — "march" sits on two home lines of three — and
+    wrong by identical arithmetic on W84, where "lead" sits on two of
+    three and the third project is one the user leads. A qualifier the
+    question adds and a relation the question names are both just words a
+    line may omit, and no lexical signal tells them apart.
+
+    What separates them is that the April line states an ALTERNATIVE —
+    another date, in the slot the question constrains — and dates are the
+    one kind of value this store reads as values. So: dates read as
+    dates. The engine reads each line's own date (W210) and the
+    question's stretch of time; both come back as DATES and the LIBRARY
+    compares them. Neither reading is asked which items count — the count
+    is still the length of a list the store verified.
+
+    Nothing is bought where it cannot matter: under two survivors there
+    is no set to narrow, and a question that names no stretch of time
+    changes nothing, which is most questions.
+
+    No model: every reading is pinned."""
+    from lmm import generate
+    from lmm.session import Session
+
+    def build():
+        s = Session(None)
+        s.learn_text("The user: I had an appointment with my primary care "
+                     "doctor, Dr Johnson, on April 1st.",
+                     source="chat 2023/03/27 (Mon) 08:05", deep=False)
+        s.learn_text("The user: I saw my pulmonologist, Dr Smith, on "
+                     "March 3rd, and he diagnosed me with bronchitis.",
+                     source="chat 2023/03/27 (Mon) 20:56", deep=False)
+        s.learn_text("The user: I had a follow-up with my orthopedic "
+                     "surgeon, Dr Thompson, on March 20th, and my knee is "
+                     "healing well.",
+                     source="chat 2023/03/27 (Mon) 00:55", deep=False)
+        return s
+
+    def dates(rows):
+        return ["2023/04/01" if "April 1st" in text else
+                "2023/03/03" if "March 3rd" in text else
+                "2023/03/20" if "March 20th" in text else "-"
+                for _stamp, text in rows]
+
+    real = (generate.items_of, generate.asked_window, generate.event_dates)
+    generate.items_of = lambda q, block, **kw: ["Dr Johnson", "Dr Smith",
+                                                "Dr Thompson"]
+    generate.event_dates = dates
+    asked = {"n": 0}
+
+    def window(question, today=""):
+        asked["n"] += 1
+        return "2023/03/01..2023/03/31"
+    generate.asked_window = window
+    try:
+        said = build()._count_answer(
+            "How many doctor's appointments did I go to in March?")
+        assert said, "the counting organ did not speak"
+        low = said.lower()
+        assert said.startswith("2"), said
+        assert "johnson" not in low, (
+            "an appointment outside the month was counted: %r" % said)
+        assert "smith" in low and "thompson" in low, said
+
+        # A QUESTION THAT NAMES NO STRETCH OF TIME CHANGES NOTHING.
+        generate.asked_window = lambda question, today="": ""
+        said = build()._count_answer("How many doctors did I see?")
+        assert said and said.startswith("3"), said
+
+        # A READING THAT FAILS CHANGES NOTHING EITHER.
+        def broken(question, today=""):
+            raise RuntimeError("no engine")
+        generate.asked_window = broken
+        said = build()._count_answer(
+            "How many doctor's appointments did I go to in March?")
+        assert said and said.startswith("3"), said
+    finally:
+        (generate.items_of, generate.asked_window,
+         generate.event_dates) = real
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

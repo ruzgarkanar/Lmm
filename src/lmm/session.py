@@ -2547,7 +2547,8 @@ class Session:
         except Exception:                               # noqa: BLE001
             return None
         line_word_sets = [set(evidence._words(line)) for line in lines]
-        kept, seen = [], set()
+        kept, seen, homes = [], set(), []      # homes: the line that wrote it
+
         for item in offered:
             words = evidence._words(item)
             if not words:
@@ -2584,6 +2585,40 @@ class Session:
                 continue
             seen.add(key)
             kept.append(item.strip())
+            homes.append(home)              # W212
+        # MEMBERSHIP, NOT ONLY EXISTENCE — WHERE THE SET IS A STRETCH OF
+        # TIME (W212). Verification asks whether the evidence WROTE this
+        # name, which is the question a fabrication gate asks and not the
+        # question a count asks. Measured and published as this organ's
+        # own limit: asked how many doctor's appointments the user went
+        # to IN MARCH, three doctors were named where the answer is two,
+        # because one appointment was in April and the name was written
+        # all the same.
+        #
+        # A WORD-LEVEL REPAIR WAS TRIED FIRST AND REFUSED, and it is
+        # recorded in `concepts/limits.md`: treating any demand that most
+        # home lines carry as the condition being selected on is right on
+        # the doctors ("march" sits on two of three) and wrong by the
+        # same arithmetic on W84, where "lead" sits on two of three and
+        # the third project is one the user leads. A qualifier the
+        # question adds and a relation the question names are both just
+        # words a line may omit.
+        #
+        # What separates them is that the April line states an
+        # ALTERNATIVE — another date, in the slot the question
+        # constrains — and dates are the one kind of value this store can
+        # read as values. So: dates read as dates, not demands read as
+        # words. The engine reads each line's own date (W210) and the
+        # question's stretch of time (`asked_window`), and the LIBRARY
+        # does the comparing. Neither reading decides what counts; the
+        # count is still the length of a list the store verified.
+        #
+        # NOTHING IS BOUGHT WHERE IT CANNOT MATTER: under two survivors
+        # there is no set to narrow, and if every survivor's line already
+        # falls on one day no window can separate them.
+        if len(kept) > 1 and len(set(homes)) > 1:
+            kept, homes = self._in_the_asked_window(question, kept, homes,
+                                                    lines, sources)
         # ONE ITEM IS A LOOKUP, NOT A CENSUS — see the rule above, kept
         # at this exit too; an empty list was already an abstention.
         # ONE SURVIVOR IS SILENCE HERE, WITH NO EXCEPTION — and the
@@ -2750,6 +2785,63 @@ class Session:
                         if day_written and abs(when.year - stamp.year) <= 1:
                             return (when, src, phrase, True)
         return fallback
+
+    def _in_the_asked_window(self, question, kept, homes, lines, sources):
+        """These survivors, minus the ones outside the stretch of time
+        the question asked for (W212).
+
+        Dates read as dates. Each survivor's HOME LINE is given its own
+        event date by the reading W210 added — the date the sentence
+        states, not the date its envelope carries — and the question is
+        read once for the stretch it restricts the answer to. Both
+        readings come back as DATES, and the comparing is arithmetic the
+        library does: no reading is ever asked which items count.
+
+        A question that names no stretch of time changes nothing, which
+        is most questions. A reading that fails changes nothing. And a
+        survivor whose line states no date of its own is KEPT: the
+        question narrowed the set, it did not make silence disqualifying.
+        """
+        import datetime as _dt                            # noqa: PLC0415
+        rows = []
+        for at in homes:
+            src = sources[at] if at < len(sources) else ""
+            digits = [int(d) for d in re.findall(r"\d+", src or "")]
+            when = None
+            if len(digits) >= 3:
+                try:
+                    when = _dt.date(digits[0], digits[1], digits[2])
+                except ValueError:
+                    when = None
+            rows.append((when, src, lines[at] if at < len(lines) else ""))
+        if sum(1 for when, _s, _t in rows if when) < 2:
+            return kept, homes
+        try:
+            window = generate.asked_window(
+                question, today=(self.asked_at or _dt.date.today()
+                                 ).strftime("%Y/%m/%d"))
+        except Exception:                                   # noqa: BLE001
+            return kept, homes
+        found = re.findall(r"\d{4}\D\d{1,2}\D\d{1,2}", window or "")
+        if len(found) != 2:
+            return kept, homes                  # no stretch was asked for
+        edge = []
+        for one in found:
+            parts = [int(d) for d in re.findall(r"\d+", one)]
+            try:
+                edge.append(_dt.date(parts[0], parts[1], parts[2]))
+            except (ValueError, IndexError):
+                return kept, homes
+        rows = self._dated_by_text(rows)
+        inside, kept_homes = [], []
+        for item, home, (when, _src, _text) in zip(kept, homes, rows):
+            if when is None or edge[0] <= when <= edge[1]:
+                inside.append(item)
+                kept_homes.append(home)
+        # AN EMPTY SET IS NOT AN ANSWER THIS ORGAN MAY SPEAK, and it is
+        # not a reason to speak the unfiltered one either: the turn falls
+        # back to the paths below, which end in an honest refusal.
+        return (inside, kept_homes) if inside else (kept, homes)
 
     def _dated_by_text(self, rows):
         """These lines, each carrying the date IT states (W210).

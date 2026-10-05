@@ -909,6 +909,48 @@ def turn_shape(message):
     return "none"
 
 
+def asked_window(question, today=""):
+    """The stretch of time this question asks about, or "" (W212).
+
+    A count can be wrong without inventing anything. Asked how many
+    doctor's appointments the user went to IN MARCH, the counting organ
+    named three where the answer is two: every name was written in the
+    evidence, so every name passed verification, and one appointment was
+    in April. Existence in the text is checked; membership in the set the
+    question describes is not.
+
+    The window cannot be read without reading language, and no list of
+    month names may be written in this codebase — so the engine reads it
+    and answers in DATES, which the library can compare. What comes back
+    is never a decision about which items count: it is two dates, and the
+    counting is still the length of a list the store verified.
+
+    Returns "YYYY/MM/DD..YYYY/MM/DD", or "" where the question names no
+    stretch of time at all — which is most questions, and where the
+    caller then changes nothing.
+    """
+    system = ("Does this question restrict its answer to a stretch of "
+              "time? Answer with that stretch as two dates:\n"
+              "YYYY/MM/DD..YYYY/MM/DD\n"
+              "covering the whole of it, first day and last day. If the "
+              "question names no stretch of time, answer NONE. Nothing "
+              "else.\n"
+              "how many appointments did I go to in March -> "
+              "2023/03/01..2023/03/31\n"
+              "how many books did I read last year -> "
+              "2022/01/01..2022/12/31\n"
+              "kaç toplantı yaptım şubat ayında -> 2023/02/01..2023/02/28\n"
+              "how many projects do I lead -> NONE\n"
+              "what is the capital -> NONE")
+    asked = ("Today is %s.\n%s" % (today, question)) if today else question
+    out = (runtime.generate(asked, system=system, max_tokens=24,
+                            temperature=0.0, small=True) or "").strip()
+    if not out or out.upper().startswith("NONE"):
+        return ""
+    found = re.findall(r"\d{4}\D\d{1,2}\D\d{1,2}", out)
+    return "%s..%s" % (found[0], found[1]) if len(found) == 2 else ""
+
+
 def event_dates(rows):
     """When each of these lines says its event happened — one call (W210).
 
