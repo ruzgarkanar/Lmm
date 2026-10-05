@@ -133,6 +133,8 @@ class Session:
         # benchmark replays last year's questions, a letter is answered
         # a week late; with none set, `now` is the calendar's today.
         self.asked_at = None
+        self.last_signed = []   # the sources this turn rests on (W201),
+        #                         seeded here like every other `last_`
         self._mark = ""         # this turn's provenance mark (see UNCERTAIN):
         #                         recorded while answering, attached in
         #                         `respond` and ONLY to a turn that asserted
@@ -1218,6 +1220,15 @@ class Session:
         """
         self._step("refuse")
         self.last_abstained = True
+        # A TURN THAT DECLINES NAMES NOBODY (W208). The rule was written
+        # for the mark — "a turn whose mark is cleared names nobody" —
+        # and enforced only where the text came back empty. A refusal
+        # with a sentence left whatever an earlier step had signed in
+        # place, and since W201 that record IS `Answer.sources`, so an
+        # abstention could ship the sources of the answer it declined to
+        # give. Every refusal leaves by this door, so it is the one place
+        # that has to say it.
+        self._mark = ""
         # HOW MANY TIMES THIS TURN LEFT BY THIS DOOR (W171). A pass that
         # refused did not answer, and a caller that wraps another pass —
         # the widened rescue — must read that as the FACT it is rather
@@ -1269,7 +1280,13 @@ class Session:
         # record at full trust has a source like any other. Printing the
         # uncertainty mark on a certain answer would tell the reader the
         # opposite of the truth, so only the writing-down is shared.
-        self._sign(record.source or UNKNOWN_SOURCE)
+        # ...AND A RECORD WITH NO STAMP SIGNS NOTHING (W208). The hedge
+        # may still PRINT `UNKNOWN_SOURCE`, where a reader takes "#source"
+        # for the shrug it is; in `Answer.sources` a caller takes it for a
+        # document id and goes looking for a file that does not exist.
+        # No provenance is an honest answer; invented provenance is not.
+        if record.source:
+            self._sign(record.source)
         if record.trust < CERTAIN:
             said = self._hedge(said, record, message) or said
         return said
@@ -2913,8 +2930,15 @@ class Session:
             # what retrieval already seated, so the planner can see
             # whether the store could feed the plan (W203). Free: `find`
             # makes no engine call.
+            # ...THROUGH `_find`, SO THE TURN'S SCOPE BINDS IT (W208).
+            # Every other gather here goes through it for the reason
+            # W109/W114/W130 record: when the conversation has handed
+            # this turn its documents, nothing outside them may enter.
+            # Reaching `evidence.find` directly would have shown the
+            # planner lines the turn is not allowed to read, and the plan
+            # it proposed would be shaped by them.
             steps = generate.plan_of(
-                question, block="\n".join(self.evidence.find(question, most=6)))
+                question, block="\n".join(self._find(question, most=6)))
         except Exception:                               # noqa: BLE001
             return None
         if not steps:

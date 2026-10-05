@@ -13605,6 +13605,82 @@ def w207():
     assert again.from_graph == first.from_graph
 
 
+@test("W208 scope binds the planner, a decline names no line, a refusal names nobody")
+def w208():
+    """FOUR SMALLER HOLES, from reviewing the day's own repairs.
+
+    THE PLANNER IS BOUND BY THE TURN'S SCOPE. W203 gave it the retrieved
+    lines, and reached `evidence.find` directly — the one gather in this
+    file that did. Every other goes through `_find`, whose whole job is
+    W109/W114/W130: when the conversation has handed this turn its
+    documents, nothing outside them may enter. The planner would have
+    been shown lines the turn may not read.
+
+    A RECORD WITH NO STAMP SIGNS NOTHING. W201 made `_graph_answer` sign
+    whether or not it hedges, and a sourceless record signed
+    `UNKNOWN_SOURCE`. Printed, "#source" reads as the shrug it is; in
+    `Answer.sources` a caller reads it as a document id and goes looking
+    for a file that does not exist. No provenance is honest; invented
+    provenance is not.
+
+    A TURN THAT DECLINES NAMES NOBODY. The rule was enforced only where
+    the text came back empty, so a refusal WITH a sentence kept whatever
+    an earlier step had signed — and since W201 that record is
+    `Answer.sources`, so an abstention could ship the sources of the
+    answer it declined to give.
+
+    A DECLINE NAMES NO LINE. W198 read a bare `ANSWER: NONE` as a
+    refusal, and "None" is also a value documents write — "Default:
+    None". Asked what the default is, the honest reply names its line,
+    and the contract separates the two for us.
+
+    No model: every engine reading is pinned."""
+    from lmm import generate
+    from lmm.session import Session
+
+    # --- a decline names no line; a value cites one ---
+    real = generate.runtime.generate
+    try:
+        generate.runtime.generate = lambda *a, **k: "LINES:\nANSWER: NONE"
+        assert generate.quoted_answer("q", "[0] x") == ("", None)
+        generate.runtime.generate = lambda *a, **k: 'ANSWER: "NONE"'
+        assert generate.quoted_answer("q", "[0] x") == ("", None)
+        # ...but a NAMED line makes it a value the store can check
+        generate.runtime.generate = lambda *a, **k: "LINES: 0\nANSWER: None"
+        answer, held = generate.quoted_answer("what is the default",
+                                              "[0] Default: None")
+        assert answer == "None" and held == [0], (answer, held)
+    finally:
+        generate.runtime.generate = real
+
+    # --- a sourceless record signs nothing ---
+    s = Session(None)
+    assert s.last_signed == [], s.last_signed      # seeded, not lazy
+    s._sign("")
+    assert s.last_signed == [], s.last_signed
+
+    # --- a refusal names nobody (the shrug's wording is the engine's,
+    # and this is not about the wording) ---
+    s._mark = "#docx:A.docx"
+    assert s.last_signed == ["#docx:A.docx"], s.last_signed
+    real_refusal = generate.refusal
+    generate.refusal = lambda question, persona="": "I don't know."
+    try:
+        s._refuse("what is it")
+    finally:
+        generate.refusal = real_refusal
+    assert s.last_signed == [], (
+        "a refusal kept the sources of the answer it declined: %r"
+        % (s.last_signed,))
+
+    # --- the planner is gathered through the scope-binding door ---
+    import inspect
+    body = inspect.getsource(Session._plan_answer)
+    assert "self._find(question" in body, (
+        "the planner's gather bypasses the scope")
+    assert "self.evidence.find(question" not in body, body[:200]
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

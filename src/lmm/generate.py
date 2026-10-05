@@ -677,7 +677,15 @@ def quoted_answer(question, block):
     # system. It refuses only STANDING ALONE: "none of the valves
     # opened" is an answer, and a reply that merely contains the word is
     # left to the checks that read every other answer.
-    if answer.strip(" .\t").upper() == "NONE":
+    # ...AND A DECLINE NAMES NO LINE (W208). "None" is also a value a
+    # document writes — "Default: None", "Timeout: none" — and asked what
+    # the default is, the honest reply is `LINES: 3` / `ANSWER: None`.
+    # Reading that as a refusal threw away a true answer the store could
+    # have checked. The contract separates them for us: a decline has no
+    # line to name, so the token refuses only when it stands alone with
+    # nothing behind it. Quotes come off too, since an engine asked for
+    # one word sometimes gives it one.
+    if held is None and answer.strip(" .!;\t\"\u2019'").upper() == "NONE":
         return "", None
     return answer, held
 
