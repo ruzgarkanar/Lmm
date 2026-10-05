@@ -889,25 +889,71 @@ class Session:
                 spoke = {_plain(fold(m.group()))
                          for m in re.finditer(r"\w+", offered, re.UNICODE)}
                 signed = []
-                for src in self.evidence.by_source:
-                    words = [_plain(w) for w in
-                             evidence._words(evidence._source_name(src))]
-                    # EVERY WORD, NOT ANY — a source is signed when its
-                    # whole name stands in the tally AND stands in the
-                    # sentence. Siblings share a family word, and signing
-                    # on one shared word would attribute the claim to a
-                    # document the sentence never named, which is a worse
-                    # failure than the silence that an unsignable offer
-                    # falls back to.
+                # THE TALLY IS THE POPULATION, AND A NAME IS CALLED BY
+                # WHAT ONLY IT ANSWERS TO (W206). The first cut walked
+                # every source the STORE holds and asked whether each
+                # name's words all appeared among the tally's words —
+                # two mistakes in one reading. A document outside the
+                # census was signed whenever its name happened to be
+                # spelled out of the tally's vocabulary, so a file about
+                # bicycle maintenance was printed as the source of a
+                # claim about trust. And a name contained in another
+                # ("Alpha" inside "Alpha Advanced") has every word of the
+                # longer one, so speaking the long name signed the short
+                # one too.
+                #
+                # The census line IS the population: it is written
+                # "Name ×3 · Name ×1" by this session, so its members are
+                # read back from it rather than guessed at from the
+                # store. And a member is called by a word that NARROWS —
+                # one no other member answers to — which is the rule
+                # `find` already keeps in the other direction, where a
+                # word that narrows nothing may not vote. A whole name
+                # spoken is always enough; a shared family word never is.
+                members = []
+                for entry in census_line.split(" \u00b7 "):
+                    name = entry.rsplit(" \u00d7", 1)[0].strip()
+                    if name:
+                        members.append(name)
+                owned = {}
+                for name in members:
+                    for w in evidence._words(name):
+                        owned.setdefault(_plain(w), set()).add(name)
+                called = set()
+                for name in members:
+                    words = [_plain(w) for w in evidence._words(name)]
                     if not words:
                         continue
-                    if all(any(inflect.same_stem(w, t) for t in tally_words)
-                           for w in words) and \
-                       all(any(inflect.same_stem(w, t) for t in spoke)
-                           for w in words):
+                    whole = all(any(inflect.same_stem(w, t) for t in spoke)
+                                for w in words)
+                    apart = any(len(owned.get(w, ())) == 1
+                                and any(inflect.same_stem(w, t) for t in spoke)
+                                for w in words)
+                    if whole or apart:
+                        called.add(name)
+                # ...AND A NAME INSIDE ANOTHER NAME IS NOT A SECOND
+                # DOCUMENT. "Alpha" is wholly spoken by anyone who says
+                # "Alpha Advanced", so the whole-name reading calls it
+                # too; the longer name is the one the sentence meant.
+                # Only a name the sentence distinguished on its own —
+                # which the rule above has already recorded — survives
+                # being contained in a called sibling.
+                inside = set()
+                for name in called:
+                    mine = {_plain(w) for w in evidence._words(name)}
+                    for other in called:
+                        if other == name:
+                            continue
+                        theirs = {_plain(w) for w in evidence._words(other)}
+                        if mine < theirs:
+                            inside.add(name)
+                called -= inside
+                for src in self.evidence.by_source:
+                    if evidence._source_name(src) in called:
                         signed.append(src)
-                signed.sort(key=lambda s: census_line.find(
-                    evidence._source_name(s)))
+                signed.sort(key=lambda s: members.index(
+                    evidence._source_name(s))
+                    if evidence._source_name(s) in members else len(members))
                 # an offer that names no member offers nothing — the honest
                 # refusal stands (an engine can decline twice, and a second
                 # refusal must not be spoken as if it were a tally)
@@ -2998,8 +3044,10 @@ class Session:
                 got = self._plan_amount(args[0], question)
                 if got is None:
                     return None
-                number, shown, item, home = got
-                value = ("amount", number, shown, item, home)
+                # index 4 is the LINE (what the twice-read guard reads),
+                # index 5 the SOURCE (what the turn signs with) — W205
+                number, shown, item, line, source = got
+                value = ("amount", number, shown, item, line, source)
             elif op in ("minus", "ratio", "per") and len(args) == 2:
                 left = env.get(args[0])
                 right = env.get(args[1])
@@ -3028,8 +3076,12 @@ class Session:
                 # real zero and must still be spoken.
                 if left[2] == right[2] and left[4] == right[4]:
                     return None
+                # THE SENTENCE CARRIES THE OPERATION, NOT ONLY THE
+                # OPERANDS (W204). The sign travels with the value so the
+                # template can show what was done to what.
                 if op == "minus":
-                    value = ("derived", left[1] - right[1], "", left, right)
+                    value = ("derived", left[1] - right[1], "", left, right,
+                             "\u2212")
                 else:
                     # A DIVISION BY NOTHING IS NOT A SMALL ANSWER, it is
                     # no answer. The plan dies rather than speaking an
@@ -3038,10 +3090,10 @@ class Session:
                         return None
                     if op == "ratio":
                         value = ("derived", 100.0 * left[1] / right[1], "%",
-                                 left, right)
+                                 left, right, "\u00f7")
                     else:
                         value = ("derived", left[1] / right[1], "",
-                                 left, right)
+                                 left, right, "\u00f7")
             else:
                 return None             # an operation the law does not know
             env[name] = value
@@ -3107,9 +3159,9 @@ class Session:
             said = "%d%s." % (out[1], (" — %s" % shown) if shown else "")
             mark = rows[0][1] if rows else ""
         elif out[0] == "amount":
-            _k, _n, shown, item, home = out
+            _k, _n, shown, item = out[:4]
             said = "%s — %s." % (shown, item)
-            mark = home
+            mark = out[5] if len(out) > 5 else out[4]   # the source (W205)
         elif out[0] == "derived":
             # BOTH SIDES ARE NAMED WITH THEIR OWN FIGURES, because a
             # derived number is the only kind this organ speaks that the
@@ -3119,12 +3171,41 @@ class Session:
             # with a minus sign is a plan that read the question
             # backwards, and hiding the sign would turn a visible
             # misreading into a confident wrong claim.
-            _k, number, unit, left, right = out
+            # ...AND IT SAYS WHAT WAS DONE (W204). The first cut named
+            # both sides and their figures and nothing else:
+            #
+            #     12 — coffee mugs (60), coffee mugs (5).
+            #
+            # Measured on LongMemEval, that is the true answer to "how
+            # much did I spend on EACH coffee mug" — 60 over 5 — and it
+            # reads as a muddle. The two operands came from one phrase,
+            # so the labels are identical, and nothing tells the reader
+            # that a division happened. A judge refused it, which costs a
+            # point; a person cannot audit it, which costs the thing this
+            # library is for. Written with the figures first and the sign
+            # between them, the arithmetic is checkable whatever the
+            # labels say:
+            #
+            #     12 — 60 (coffee mugs) ÷ 5 (coffee mugs).
+            #
+            # The sign is a symbol, not a word, so the sentence stays as
+            # language-free as the rest of this template. The figure is
+            # still NOT made positive: a negative answer to "how much
+            # more A than B" is a plan that read the question backwards,
+            # and hiding the sign would turn a visible misreading into a
+            # confident wrong claim.
+            _k, number, unit, left, right = out[:5]
+            sign = out[5] if len(out) > 5 else ""
+            # index 4 is the LINE (the twice-read guard reads it); the
+            # stamp is the SOURCE at index 5 (W205)
             figure = ("%d" % number) if number == int(number) \
                 else ("%.2f" % number)
-            said = "%s%s — %s (%s), %s (%s)." % (
-                figure, unit, left[3], left[2], right[3], right[2])
-            mark = left[4]
+            said = ("%s%s — %s (%s) %s %s (%s)." % (
+                figure, unit, left[2], left[3], sign, right[2], right[3])
+                if sign else
+                "%s%s — %s (%s), %s (%s)." % (
+                    figure, unit, left[3], left[2], right[3], right[2]))
+            mark = left[5] if len(left) > 5 else left[4]
         elif out[0] == "date":
             _k, when, src, phrase = out[0], out[1], out[2], out[3]
             said = "%s — %s." % (phrase, _shown(when))
@@ -3138,7 +3219,24 @@ class Session:
         return said
 
     def _amount_home(self, value, item):
-        """The line that WRITES this amount beside this thing, or None.
+        """The line that WRITES this amount beside this thing, and the
+        SOURCE that line came from — `(line, source)`, or None.
+
+        IT RETURNS THE SOURCE BECAUSE THE SOURCE IS WHAT A STAMP IS
+        (W205). The line alone was returned, and the plan organ used it
+        as the turn's provenance mark, so a derived answer signed itself
+        with a sentence:
+
+            12 — 60 (coffee mugs) ÷ 5 (coffee mugs).
+            (~ By the way, speaking of gifts, I once spent $60 on some
+            coffee mugs for my coworkers, …)
+
+        Before `api._stamps_in` was repaired (W200) that mark was read as
+        no source at all, so the claim went out unattributed; afterwards
+        it was read as a source NAMED by the whole sentence. Both are
+        wrong, and the second is worse, because a reader is told
+        confidently where the figure came from and the answer is a line
+        of chat rather than a document.
 
         The summing organ's survivor rule (W91), named so that the plan
         organ's `amount:` obeys the same one instead of a second,
@@ -3161,7 +3259,7 @@ class Session:
                     any(inflect.same_stem(w, h) for h in held)
                     for w in item_words):
                 continue
-            return line
+            return line, _origin
         return None
 
     def _plan_amount(self, phrase, question):
@@ -3201,7 +3299,15 @@ class Session:
                 number = float(value.replace(",", "."))
             except ValueError:
                 continue
-            return (number, value, item.strip(), home)
+            # BOTH, and they are not interchangeable (W205). The LINE
+            # is what tells two readings of one quantity apart — W193's
+            # rule, that two equal amounts on two different lines are
+            # two amounts and their difference is a real zero. The
+            # SOURCE is what the turn signs with. Collapsing them either
+            # way loses something: stamping with the line names a
+            # sentence as a document, and guarding with the source makes
+            # every pair from one file look like one figure read twice.
+            return (number, value, item.strip(), home[0], home[1])
         return None
 
     def _sum_answer(self, question):

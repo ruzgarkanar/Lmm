@@ -13357,6 +13357,254 @@ def w203():
         generate.plan_of = real
 
 
+@test("W204 a derived number says what was done to what")
+def w204():
+    """A DERIVED NUMBER IS THE ONE FIGURE THIS ORGAN SPEAKS THAT THE STORE
+    DOES NOT HOLD, so nothing downstream can look it up and the sentence
+    has to carry its own audit. It named both sides and their figures:
+
+        12 — coffee mugs (60), coffee mugs (5).
+
+    Measured on LongMemEval, that is the RIGHT answer to "how much did I
+    spend on each coffee mug" — sixty over five — and it reads as a
+    muddle. Both operands came from one phrase, so the two labels are the
+    same word, and nothing says a division happened. A judge refused it,
+    which costs a point; a reader cannot check it, which costs the thing
+    this library exists for.
+
+    The operation now travels with the value, and the sentence is written
+    figures-first with the sign between them, so the arithmetic is
+    checkable whatever the labels say:
+
+        12 — 60 (coffee mugs) ÷ 5 (coffee mugs).
+
+    The sign is a symbol, not a word. And the figure is still not made
+    positive: a negative answer to "how much more A than B" is a plan
+    that read the question backwards, and hiding the sign would turn a
+    visible misreading into a confident wrong claim.
+
+    No model: the plan and the amounts are pinned."""
+    from lmm import generate
+    from lmm.session import Session
+
+    def ask(plan, text, reads):
+        s = Session(None)
+        s.learn_text(text, source="chat 2024/03/04", deep=False)
+        real_plan, real_amounts = generate.plan_of, generate.amounts_of
+        generate.plan_of = lambda q, block="": plan
+        # the amount reader is asked about ONE phrase at a time, and
+        # answers from the lines that phrase reaches
+        generate.amounts_of = lambda phrase, block: reads.get(phrase, [])
+        try:
+            return s._plan_answer("how much did I spend on each",
+                                  want=("derived",))
+        finally:
+            generate.plan_of, generate.amounts_of = real_plan, real_amounts
+
+    # TWO OPERANDS, ONE WORD IN COMMON — the shape that produced the
+    # muddle: both labels come back "coffee mugs".
+    said = ask([("a", "amount", "spent on coffee mugs"),
+                ("b", "amount", "number of coffee mugs"),
+                ("out", "per", "a", "b")],
+               "User: I spent 60 on coffee mugs.\n"
+               "User: there were 5 coffee mugs in the set.",
+               {"spent on coffee mugs": [("coffee mugs", "60")],
+                "number of coffee mugs": [("coffee mugs", "5")]})
+    assert said, "the plan organ did not speak"
+    assert said.startswith("12"), said
+    # THE OPERATION IS IN THE SENTENCE, and the operands are figures-first
+    assert "\u00f7" in said, ("the division is not shown: %r" % said)
+    assert "60" in said and "5" in said, said
+
+    # A SUBTRACTION SHOWS ITS OWN SIGN, and the answer is not made positive
+    said = ask([("a", "amount", "taxi"), ("b", "amount", "train"),
+                ("out", "minus", "a", "b")],
+               "User: the taxi was 60.\nUser: the train was 10.",
+               {"taxi": [("taxi", "60")], "train": [("train", "10")]})
+    assert said and said.startswith("50"), said
+    assert "\u2212" in said, ("the subtraction is not shown: %r" % said)
+
+
+@test("W205 a derived figure is stamped with its source, not with its line")
+def w205():
+    """THE PLAN ORGAN SIGNED ITSELF WITH A SENTENCE. `_amount_home`
+    returned the LINE an amount was written on, and `amount:` passed that
+    line on as the turn's provenance mark, so a derived answer went out
+    stamped with a paragraph of chat:
+
+        12 — 60 (coffee mugs) ÷ 5 (coffee mugs).
+        (~ By the way, speaking of gifts, I once spent $60 on some coffee
+        mugs for my coworkers, …)
+
+    Before `api._stamps_in` was repaired (W200) that mark read as no
+    source at all and the claim went out unattributed. Afterwards it read
+    as a source whose NAME is the whole sentence, which is worse: the
+    reader is told confidently where the figure came from, and told a
+    line of chat instead of a document.
+
+    Measured on LongMemEval, on a turn whose arithmetic was right.
+
+    `_amount_home` now returns the line AND its source, and the organ
+    stamps with the source. Nothing displays the line — both callers used
+    it as a mark or as a truth test — so this takes nothing away.
+
+    No model: the plan and the amount readings are pinned."""
+    from lmm import generate
+    from lmm.session import Session
+
+    s = Session(None)
+    s.learn_text("User: I spent 60 on coffee mugs.\n"
+                 "User: there were 5 coffee mugs in the set.",
+                 source="#chat:2024-03-04", deep=False)
+    real_plan, real_amounts = generate.plan_of, generate.amounts_of
+    generate.plan_of = lambda q, block="": [
+        ("a", "amount", "spent on coffee mugs"),
+        ("b", "amount", "number of coffee mugs"),
+        ("out", "per", "a", "b")]
+    generate.amounts_of = lambda phrase, block: {
+        "spent on coffee mugs": [("coffee mugs", "60")],
+        "number of coffee mugs": [("coffee mugs", "5")]}.get(phrase, [])
+    try:
+        said = s._plan_answer("how much did I spend on each",
+                              want=("derived",))
+        assert said and said.startswith("12"), said
+        assert s._mark == "#chat:2024-03-04", (
+            "the turn signed itself with something else: %r" % s._mark)
+        assert s.last_signed == ["#chat:2024-03-04"], s.last_signed
+        # ...AND THE SENTENCE IS NOT THE STAMP: no line of the store
+        # travels in the mark.
+        assert "coffee mugs in the set" not in s._mark, s._mark
+    finally:
+        generate.plan_of, generate.amounts_of = real_plan, real_amounts
+
+    # THE HOME READING RETURNS BOTH, which is what let the organ choose.
+    home = s._amount_home("60", "coffee mugs")
+    assert home and len(home) == 2, home
+    assert "60" in home[0] and home[1] == "#chat:2024-03-04", home
+
+
+@test("W206 provenance names the document the sentence meant, and only that")
+def w206():
+    """THREE HOLES IN ONE DAY'S REPAIRS, found by reviewing them. W199,
+    W200 and W201 moved provenance from a reading of the printed sentence
+    to a thing the turn writes down, and each left a way for a source to
+    be named that the sentence never meant.
+
+    1. THE TALLY IS THE POPULATION. The signing walked every source the
+       STORE holds and asked whether a name's words all appeared among
+       the tally's words, so a document outside the census was signed
+       whenever its name happened to be spelled out of the tally's
+       vocabulary — measured, a file about bicycle maintenance printed as
+       the source of a claim about trust.
+
+    2. A NAME INSIDE ANOTHER NAME IS NOT A SECOND DOCUMENT. "Alpha" is
+       wholly spoken by anyone who says "Alpha Advanced", so speaking the
+       long name signed the short one too.
+
+    3. THE MARK IS THE LAST THING THE TURN WROTE. Once W200 let a mark
+       name a source any way its owner named it, every "(~ …)" in the
+       text came with it: a document writing "the tank holds (~5 kg) of
+       fuel" became a claim sourced to "5 kg" — and because the bare scan
+       runs only when nothing was found, that invention also SUPPRESSED
+       the real stamp a composed draft carries on its own lines.
+
+    And the repair for 1 and 2 must not silence the honest offer: a
+    member is called by a word that NARROWS, one no other member answers
+    to, which is `find`'s own rule in the other direction. A document
+    named "Alpha Basics" is named by "Alpha".
+
+    No model: every engine reading is pinned."""
+    from lmm import extract, generate
+    from lmm.api import _stamps_in
+    from lmm.session import Session
+
+    # --- 3: the mark is read at the END, and prose is not a source ---
+    assert _stamps_in("The battery weighs about (~5 kg) in total.") == []
+    assert _stamps_in("Day 1 - #docx:Plan.docx\n"
+                      "The tank holds (~5 kg) of fuel.") == ["#docx:Plan.docx"]
+    assert _stamps_in("It is (~ approximately) two metres. "
+                      "(~ #docx:A.docx)") == ["#docx:A.docx"]
+    assert _stamps_in("It is 91 metres. (~ tower notes)") == ["tower notes"]
+
+    def offer(docs, text):
+        s = Session(None)
+        for src, line in docs:
+            s.learn_text(line, source=src, deep=False)
+        real_ex, real_ans = extract.extract, generate.answer
+        real_shape = generate.turn_shape
+        generate.turn_shape = lambda m: "none"
+        extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
+        calls = {"n": 0}
+
+        def fake(q, b, warmth=0.2, persona="", **kw):
+            calls["n"] += 1
+            return "I do not know." if calls["n"] == 1 else text
+        generate.answer = fake
+        try:
+            return _stamps_in(s.respond(
+                "which sessions would you recommend for trust", teach=False))
+        finally:
+            extract.extract, generate.answer = real_ex, real_ans
+            generate.turn_shape = real_shape
+
+    TRUST = "The trust circle closes the morning block."
+    PAIRS = "Trust pairs open the afternoon walk."
+
+    # --- 1: a document outside the census is never signed ---
+    stamps = offer([("#docx:Alpha.docx", "Bicycle maintenance happens "
+                                         "in the shed on Fridays."),
+                    ("#docx:Alpha Advanced.docx", TRUST),
+                    ("#docx:Beta.docx", PAIRS)],
+                   "Alpha Advanced and Beta touch on trust.")
+    assert "#docx:Alpha.docx" not in stamps, (
+        "a document the census never named was signed: %r" % (stamps,))
+    assert any("Advanced" in s for s in stamps), stamps
+    assert any("Beta" in s for s in stamps), stamps
+
+    # --- 2: the contained name is not a second document ---
+    stamps = offer([("#docx:Alpha.docx", TRUST),
+                    ("#docx:Alpha Advanced.docx", PAIRS)],
+                   "Alpha Advanced touches on trust.")
+    assert stamps == ["#docx:Alpha Advanced.docx"], stamps
+
+    # --- and the honest offer still speaks, and still signs ---
+    stamps = offer([("#docx:Alpha Basics.docx", TRUST),
+                    ("#docx:Beta Basics.docx", PAIRS)],
+                   "Alpha and Beta both touch on trust.")
+    assert len(stamps) == 2 and all("Basics" in s for s in stamps), stamps
+
+
+@test("W207 a cached turn reports the sources the paid turn reported")
+def w207():
+    """`_replay` exists so that a caller cannot tell a kept answer from a
+    paid one — every benchmark here reads `last_abstained` after `ask`,
+    and the two are the same turn. `sources` is a field a caller reads
+    too, and it was not kept.
+
+    It did not matter while provenance was parsed back out of the printed
+    sentence, because the sentence was kept. Since W201 the turn writes
+    it down instead, and `_replay` clears the mark — which clears the
+    record. So for exactly the turns W201 exists for, a graph answer at
+    full trust that prints no mark, the replay shipped an assertion with
+    `sources=()` where the first telling had named its document.
+
+    No model: the record path makes no engine call."""
+    from lmm import Memory
+
+    m = Memory(None)
+    m.learn("SPANWIDTH: 91 metres.", source="tower notes", deep=False)
+    m.learn("SPANWIDTH: 44 metres.", source="bridge notes", deep=False)
+    first = m.ask("what is the SPANWIDTH of the tower notes?", explain=True)
+    again = m.ask("what is the SPANWIDTH of the tower notes?", explain=True)
+    assert str(first) == str(again), (str(first), str(again))
+    assert first.sources, first.sources
+    assert again.sources == first.sources, (
+        "a cached turn lost its provenance: %r vs %r"
+        % (again.sources, first.sources))
+    assert again.abstained == first.abstained
+    assert again.from_graph == first.from_graph
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

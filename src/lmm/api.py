@@ -131,7 +131,18 @@ def _stamps_in(said):
     """
     from lmm.session import UNCERTAIN
     out = []
-    for chunk in re.findall(r"\((?:%s)\s*([^()]*)\)" % re.escape(UNCERTAIN),
+    # THE MARK IS THE LAST THING THE TURN WROTE, and only that (W206).
+    # Reading every "(~ …)" in the text was safe only while a chunk had
+    # to begin with "#"; once W200 let the mark name a source any way its
+    # owner named it, ordinary prose came with it — a document writing
+    # "the tank holds (~5 kg) of fuel" became a claim sourced to "5 kg",
+    # and because the bare scan below runs only when nothing was found,
+    # that invention also SUPPRESSED the real stamp a composed draft
+    # carries on its own lines. `respond` appends the mark to the end of
+    # the sentence and nothing follows it, so the end is what tells the
+    # library's own mark from the document's parentheses. No word is
+    # read: it is a position.
+    for chunk in re.findall(r"\((?:%s)\s*([^()]*)\)\s*$" % re.escape(UNCERTAIN),
                             said or ""):
         for stamp in chunk.split(" \u00b7 "):          # several, when several
             # INSIDE THE MARK, EVERYTHING IS A STAMP (W200). The mark is
@@ -752,9 +763,19 @@ class Memory:
                 and not session.last_written
                 and session._pending is None
                 and self._state() == before):
+            # THE SOURCES ARE PART OF WHAT THE TURN SAID (W206). They
+            # used not to be kept, because they were read back out of the
+            # printed sentence and the sentence was kept. Since W201 they
+            # are written down instead, and `_replay` clears the mark —
+            # so a replayed turn reported `sources=()` for exactly the
+            # turns W201 exists for: a graph answer at full trust prints
+            # no mark, so there was nothing in the text to fall back to.
+            # A caller must not be able to tell a cached turn from a paid
+            # one, and `sources` is a field a caller reads.
             self._cache[key] = (before, (
                 said, session.last_abstained, session.last_from_graph,
-                session.last_subject, session.last_kind))
+                session.last_subject, session.last_kind,
+                list(getattr(session, "last_signed", ()))))
             while len(self._cache) > self.CACHE_KEEP:
                 del self._cache[next(iter(self._cache))]
         return self._told(said, question) if explain else said
@@ -776,13 +797,15 @@ class Memory:
         state stamp is what decides that and `sleep()` moves it.
         """
         session = self.session
-        said, abstained, from_graph, subject, kind = kept
+        said, abstained, from_graph, subject, kind = kept[:5]
+        signed = list(kept[5]) if len(kept) > 5 else []
         session.last_written = []
         session.last_abstained = abstained
         session.last_from_graph = from_graph
         session.last_subject = subject
         session.last_kind = kind
-        session._mark = ""
+        session._mark = ""              # ...which clears `last_signed`,
+        session.last_signed = signed    # so the kept ones go back (W206)
         session.history.append({"role": "user", "content": question})
         session.history.append({"role": "assistant", "content": said})
         session.history = session.history[-12:]
