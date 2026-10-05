@@ -142,3 +142,39 @@ neither "director" nor "acting".
 So this is an open limit with a known mechanism, which is a better place
 to be than an open limit without one, and it is not closed.
 
+## Counting membership, and a repair that was refused
+
+A count verifies that its items exist, not that they meet the question.
+Asked how many doctor's appointments the user went to in March, the
+organ named three doctors where the answer is two: every name was
+written in the evidence, so every name passed, and one appointment was
+in April. Every organ that verifies items against lines inherits this.
+
+The obvious repair was built and measured on 5 October 2026, and it does
+not work. `find` already refuses to let a word that narrows nothing vote;
+the converse seemed sound — after the survivors are verified, ask each
+demand of the question how many of their home lines carry it, and treat
+a demand that MOST carry but not all as the condition the question is
+selecting on. On the doctors it is right: "march" sits on two home lines
+of three, and the April appointment leaves the count.
+
+It is wrong by exactly the same arithmetic on the invariant that has
+guarded this organ since 0.7. Asked how many projects the user leads,
+three lines answer, and one of them reads *"my second project, Quiet
+Lantern, started well"* — a project the user leads, written without the
+word "lead". The demand "lead" sits on two home lines of three, so the
+rule drops a true item with the same confidence that it drops the false
+one. The two cases have the same shape, and no lexical signal separates
+them: a qualifier the question adds ("in March") and a relation the
+question names ("lead") are both just words the lines may or may not
+carry.
+
+What distinguishes them is that the April line states an ALTERNATIVE —
+another date, in the slot the question constrains — while the Quiet
+Lantern line states nothing instead of "lead". Reading that difference
+means knowing which words are values of the same kind, and the only
+instrument here that knows it is the store's own date machinery. So the
+repair, if there is one, is narrower than the rule tried: dates checked
+as dates, not demands checked as words. The limit stands until that is
+built and measured.
+
