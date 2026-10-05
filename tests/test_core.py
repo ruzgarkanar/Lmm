@@ -12971,6 +12971,65 @@ def w197():
         generate.plan_of = real
 
 
+@test("W198 an obedient decline is a decline, in the quoted contract too")
+def w198():
+    """A CONTRACT THAT ASKS FOR TWO THINGS GETS BOTH, AND THE PARSER READ
+    ONLY ONE. `quoted_answer` tells the engine to reply in exactly two
+    lines, `LINES:` then `ANSWER:`, and in the next breath to reply NONE
+    when no line answers. An engine that honours both writes
+    `ANSWER: NONE` — and the reader recognised a decline only when the
+    reply STARTED with the word, so the obedient refusal arrived as an
+    answer whose whole text was the protocol's own token for refusing.
+
+    What that costs is a turn: the caller sees a sentence, checks it
+    against the lines it was supposed to name, finds no number, and
+    discards it as a broken contract. A decline and a violation are not
+    the same fact, and only one of them is worth retrying.
+
+    NONE is this protocol's word, not any language's, so reading it in
+    the field the contract itself invites adds no vocabulary to the
+    system. Reported by an integrator against 0.12.0 and 0.12.1.
+
+    No model: the reply is pinned."""
+    from lmm import generate
+
+    real = generate.runtime.generate
+    try:
+        # THE OBEDIENT DECLINE — the contract's own two-line shape.
+        generate.runtime.generate = lambda *a, **k: "LINES:\nANSWER: NONE"
+        answer, held = generate.quoted_answer("who signed it", "[0] a line")
+        assert (answer, held) == ("", None), (answer, held)
+
+        # ...with no LINES line at all, which the same engine also writes.
+        generate.runtime.generate = lambda *a, **k: "ANSWER: NONE"
+        answer, held = generate.quoted_answer("who signed it", "[0] a line")
+        assert (answer, held) == ("", None), (answer, held)
+
+        # THE BARE DECLINE STILL DECLINES — the shape that already worked.
+        generate.runtime.generate = lambda *a, **k: "NONE"
+        assert generate.quoted_answer("who signed it", "[0] a line") == ("", None)
+
+        # ...AND AN ANSWER IS STILL AN ANSWER. A reply that names its line
+        # is untouched by any of this.
+        generate.runtime.generate = (
+            lambda *a, **k: "LINES: 0\nANSWER: Mehmet Ak signed it")
+        answer, held = generate.quoted_answer("who signed it",
+                                              "[0] Mehmet Ak signed it")
+        assert answer == "Mehmet Ak signed it", answer
+        assert held == [0], held
+
+        # ...INCLUDING ONE THAT MERELY SPEAKS OF NONE. The token refuses
+        # only when it stands alone as the whole answer.
+        generate.runtime.generate = (
+            lambda *a, **k: "LINES: 0\nANSWER: none of the valves opened")
+        answer, held = generate.quoted_answer("which valve opened",
+                                              "[0] none of the valves opened")
+        assert answer == "none of the valves opened", answer
+        assert held == [0], held
+    finally:
+        generate.runtime.generate = real
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

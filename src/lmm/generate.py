@@ -616,6 +616,22 @@ def quoted_answer(question, block):
                 held = [int(d) for d in digits[:3]]
         elif head == "ANSWER" and not answer:
             answer = rest.strip()
+    # A DECLINE WEARS THE SHAPE THIS CONTRACT ASKED FOR (W198). The
+    # system prompt above requires two labelled lines AND offers NONE as
+    # the way out, so an engine obeying both writes `ANSWER: NONE` — and
+    # reading the decline only at the START of the reply turned the most
+    # obedient refusal there is into a sentence whose entire text was
+    # this protocol's word for refusing. The caller then found no line
+    # number behind it and discarded it as a broken contract, which is a
+    # different fact from a decline and worth a different response.
+    #
+    # The token is the protocol's, not a language's, so reading it in
+    # the field the contract itself invites adds no vocabulary to the
+    # system. It refuses only STANDING ALONE: "none of the valves
+    # opened" is an answer, and a reply that merely contains the word is
+    # left to the checks that read every other answer.
+    if answer.strip(" .\t").upper() == "NONE":
+        return "", None
     return answer, held
 
 
