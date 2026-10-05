@@ -235,6 +235,53 @@ def supported(answer, block):
     return out.strip().lower().startswith("yes")
 
 
+def enough(question, block):
+    """Does this evidence carry an answer to this question? (W202)
+
+    The question the field calls SUFFICIENT CONTEXT, asked ONCE and
+    BEFORE anything is written. The gates this library already has judge
+    a sentence after it exists — which is the right discipline and the
+    wrong moment to discover that the store never held the answer. On a
+    turn that ends in a refusal the whole ladder is paid first: a shape
+    reading, an extraction, a candidate per evidence subset, a read-back
+    on each, a relation check, then the rescues. Measured over this
+    repository's recorded runs, turns whose route contains `refuse` take
+    80% of all engine calls and about ten calls each.
+
+    Asked here, one judgement stands in for all of them.
+
+    WHY NOT FOR FREE. A structural reading was measured first, on 4
+    October 2026 — of the question's demands THIS STORE KNOWS, how many
+    the retrieved block actually carries. It is scale-free, which the
+    index reading is not (a 123-line store has never written "what", so
+    reading the index flagged 14 of 17 answerable questions; this reading
+    flagged none). But it does not SEPARATE: on NIST SP 800-63B the
+    refused questions scored 1.00, 0.86, 0.86 and 1.00 — at or above the
+    answered ones. Asked what a hardware authenticator costs, every known
+    word of the question is in the block and no price is anywhere in the
+    document. Whether a block CONTAINS the question's words is not
+    whether it ANSWERS the question, and only a judgement sees that.
+
+    Strict, like every other reading here: anything but a plain yes is
+    taken as no, because a false yes costs a wasted ladder and a false no
+    costs an answer. The caller decides what that trade is worth — see
+    `Session.ENOUGH`, which is off until it has been measured.
+    """
+    system = ("You are given EVIDENCE and a QUESTION. Decide only whether "
+              "the evidence contains what is needed to answer that "
+              "question — not whether the answer is correct, and not "
+              "whether you could guess it from your own knowledge.\n"
+              "Answer YES if the evidence states it, or if it states the "
+              "parts an answer would be derived from.\n"
+              "Answer NO if the evidence is about the subject but never "
+              "states the thing asked for.\n"
+              "Reply with one word: YES or NO.")
+    out = runtime.generate("EVIDENCE:\n%s\n\nQUESTION: %s" % (block, question),
+                           system=system, max_tokens=4, temperature=0.0,
+                           small=True)
+    return (out or "").strip().lower().startswith("yes")
+
+
 def answers_asked(question, answer, block):
     """THE RELATION READ-BACK: does the evidence state the relation THE QUESTION
     ASKS — not merely everything the answer happens to assert.

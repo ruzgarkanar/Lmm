@@ -13208,6 +13208,94 @@ def w201():
         Session._hedge = real
 
 
+@test("W202 the evidence is asked whether it holds an answer, before one is written")
+def w202():
+    """THE LADDER IS PAID TO DISCOVER THE STORE NEVER HELD IT. Every gate
+    here judges a sentence AFTER it exists, which is the right discipline
+    and the wrong moment: on a turn that ends in a refusal the shape
+    reading, the extraction, a candidate per evidence subset, a read-back
+    on each and then the rescues are all bought first. Measured over the
+    recorded runs in `benchmarks/longmemeval_runs`, turns whose route
+    contains `refuse` take 80% of every engine call, about ten each.
+
+    So the evidence is asked once, before the first candidate is written
+    — the question the field calls sufficient context. A NO ends the turn
+    for one call.
+
+    THE FREE READING WAS TRIED FIRST and is recorded in
+    `generate.enough`: of the demands this store KNOWS, how many the
+    retrieved block carries. It is scale-free, unlike reading the index,
+    which flagged 14 of 17 answerable questions on a 123-line store
+    because that store had never written "what". But it does not
+    separate — on NIST the refused questions scored at or above the
+    answered ones — so the decision costs a judgement.
+
+    Three properties are pinned here: it is OFF by default, a NO ends the
+    turn without writing anything, and it goes through the judge seam so
+    an operator can pay nothing for it. No model: every reading is pinned."""
+    from lmm import generate, extract
+    from lmm.session import Session
+
+    def build():
+        s = Session(None)
+        s.learn_text("The trust circle closes the morning block.",
+                     source="#docx:Alpha.docx", deep=False)
+        return s
+
+    real_ex, real_ans = extract.extract, generate.answer
+    real_shape, real_enough = generate.turn_shape, generate.enough
+    generate.turn_shape = lambda message: "none"
+    extract.extract = lambda m: {"kind": extract.ASK, "triples": []}
+    spoke = {"n": 0}
+
+    def answered(question, block_, warmth=0.2, persona="", **kw):
+        spoke["n"] += 1
+        return "The trust circle closes the morning block."
+    generate.answer = answered
+    try:
+        # OFF BY DEFAULT: the reading is not even consulted.
+        asked = {"n": 0}
+        generate.enough = lambda q, b: asked.__setitem__("n", asked["n"] + 1) or True
+        s = build()
+        assert s.ENOUGH is False, "the switch ships on"
+        s.respond("what closes the morning block", teach=False)
+        assert asked["n"] == 0, "it was asked while switched off"
+
+        # ON AND SAYING NO: the turn ends, and nothing was written.
+        s = build()
+        s.ENOUGH = True
+        spoke["n"] = 0
+        generate.enough = lambda q, b: False
+        said = s.respond("what closes the morning block", teach=False)
+        assert s.last_abstained, said
+        assert spoke["n"] == 0, "a candidate was written after a NO"
+        assert "not-enough" in (s.last_route or []), s.last_route
+
+        # ON AND SAYING YES: the turn runs exactly as it always did.
+        s = build()
+        s.ENOUGH = True
+        spoke["n"] = 0
+        generate.enough = lambda q, b: True
+        said = s.respond("what closes the morning block", teach=False)
+        assert spoke["n"] > 0, "the answer path never ran"
+
+        # THROUGH THE JUDGE SEAM: a caller's judge decides, and the
+        # engine is not asked at all.
+        s = build()
+        s.ENOUGH = True
+        spoke["n"] = 0
+        generate.enough = lambda q, b: (_ for _ in ()).throw(
+            AssertionError("the engine was asked despite a judge"))
+        s.judge = lambda kind, question, answer, view: (
+            0.0 if kind == "enough" else None)
+        said = s.respond("what closes the morning block", teach=False)
+        assert s.last_abstained, said
+        assert spoke["n"] == 0, "a candidate was written after the judge's NO"
+    finally:
+        extract.extract, generate.answer = real_ex, real_ans
+        generate.turn_shape, generate.enough = real_shape, real_enough
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

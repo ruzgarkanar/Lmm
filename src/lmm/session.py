@@ -551,6 +551,7 @@ class Session:
         self.last_subject = ""
         self.last_from_graph = False
         self._mark = ""         # ...which also clears `last_signed` (W201)
+        self._not_enough = False            # the evidence's verdict (W202)
         self._last_proof = []
         self._widened = False
         self._conversational = True
@@ -628,6 +629,7 @@ class Session:
         # reads the question as it was asked.
         if (self.WIDEN and self.last_abstained and not self._widened
                 and not teach and self.evidence.sentences
+                and not getattr(self, "_not_enough", False)   # W202
                 and self.last_kind == extract.ASK):
             self._widened = True
             words = self._store_words(message)
@@ -668,6 +670,7 @@ class Session:
         # claim the telling never wrote still dies; an undated store
         # or an answered turn pays nothing at all.
         if (said and self.last_abstained and not teach
+                and not getattr(self, "_not_enough", False)   # W202
                 and self.last_kind == extract.ASK):
             told = self._telling_answer(message)
             if told:
@@ -5061,6 +5064,27 @@ class Session:
         proof_block = self._labelled(proof) if proof else ""
         block = ((proof_block + "\n" + fact_block) if proof_block and fact_block
                  else (proof_block or fact_block))
+        # IS THERE AN ANSWER IN HERE AT ALL? (W202) The evidence is
+        # complete here and nothing has been written yet, so this is the
+        # cheapest moment the question can be asked — and it is asked
+        # ABOVE every answering path below, not just the first, because a
+        # verdict that only closed one door would be paid and walked
+        # around. It goes through the judge seam like every other
+        # judgement, so an operator with a cheap local model pays nothing
+        # for it; with no judge the engine is asked, once.
+        #
+        # THE LADDER DOES NOT RUN EITHER — `_not_enough` is read by the
+        # widened pass and the telling seat, which would otherwise
+        # re-attempt the same question and spend exactly what this
+        # existed to save. The informed refusal is NOT suppressed: it
+        # answers a different question, which documents speak to this
+        # topic, and reads the tally rather than the block judged here.
+        if self.ENOUGH and block and not self._judged(
+                "enough", question, "", block,
+                lambda: generate.enough(question, block)):
+            self._step("not-enough")
+            self._not_enough = True
+            return self._refuse(question)
         # GENERATE AND SELECT AT THE GATE (see `_select`). One generation
         # bound the answer to a single sample of a sampling process; the
         # measured residue was not missing knowledge but an unstable CHOICE.
@@ -5230,6 +5254,22 @@ class Session:
     # `WIDEN = True` restores it exactly.
     WIDEN = False
 
+    # WHETHER THE EVIDENCE IS ASKED IF IT HOLDS AN ANSWER, BEFORE ONE IS
+    # WRITTEN (W202) — "sufficient context", and the one lever measured
+    # to sit on the biggest waste this library has. Over the recorded
+    # runs in `benchmarks/longmemeval_runs`, turns whose route contains
+    # `refuse` take 80% of every engine call and about ten calls each:
+    # the ladder is paid in full to discover the store never held it.
+    # This asks once, before the first candidate is written, and a NO
+    # ends the turn there.
+    #
+    # OFF until it is measured on a corpus, like every other switch in
+    # this file. What it trades is explicit: a false NO costs an answer
+    # the ladder would have found, a false YES costs nothing but the one
+    # call. The free reading was tried first and does not separate (see
+    # `generate.enough`), so this one call is the price of the decision.
+    ENOUGH = False
+
     # HOW MANY EVIDENCE LINES THE ANSWERING BLOCK SEATS. `evidence.WINDOW`
     # is the scale the store itself is built at, and the answering path
     # has always borrowed it. Whether it is the right number for a BLOCK
@@ -5307,6 +5347,11 @@ class Session:
         """Generate one answer per evidence subset, choose by GATE SCORE.
 
         Returns `(chosen | None, [raw answers])`.
+
+        Before any of that, and only when the operator asked for it, the
+        evidence is asked whether it holds an answer at all (W202). It is
+        the cheapest possible place for that question — nothing has been
+        written yet, so a NO costs one call instead of the ladder.
 
             score = digit × coverage_ratio × evidence_use × supported
 
