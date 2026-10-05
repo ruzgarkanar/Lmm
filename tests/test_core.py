@@ -13738,6 +13738,83 @@ def w209():
     assert asked[0] == "" and asked[1], asked
 
 
+@test("W210 a line carries the date it states, not the date it was written on")
+def w210():
+    """A STAMP IS WHEN A LINE WAS WRITTEN. A conversation reports events
+    that happened elsewhere in time, and several of them can arrive in
+    one message — so every primitive built on `lines` was reading one
+    date for events that do not share one.
+
+    Measured on LongMemEval: asked how many doctor's appointments the
+    user went to in March, the memory answered THREE where the answer is
+    two. The three lines say "on April 1st", "on March 3rd" and "on March
+    20th", and all three were mentioned in messages stamped the same day,
+    so by the stamps all three fall in March. The organ counted mentions
+    correctly and appointments wrongly — the one confidently wrong number
+    in that run, which is worse than any silence.
+
+    `anchor` has preferred the date a sentence states to the date on its
+    envelope since W95, and it resolves ONE event. This is that reading
+    over a set, bought in one call rather than one per line.
+
+    THE ARITHMETIC IS W95's, UNCHANGED, and it is what makes a guess safe
+    to use: a proposed date is kept only when it equals the line's own
+    stamp, or when its day-of-month is written as a number in that line's
+    own text and its year is within one of the stamp's. A date invented
+    whole fails both and the stamp stands. No word of any language is
+    read.
+
+    No model: the reading is pinned."""
+    from lmm import generate
+    from lmm.session import Session
+
+    s = Session(None)
+    s.learn_text("The user: I saw Dr Smith on March 3rd about the cough.\n"
+                 "The user: I saw Dr Thompson on March 20th about my knee.\n"
+                 "The user: I have an appointment with Dr Johnson "
+                 "on April 1st.",
+                 source="chat 2023/03/27 (Mon) 12:32", deep=False)
+    real = generate.event_dates
+    try:
+        # THE ENGINE READS EACH LINE'S OWN DATE, and the store confirms
+        generate.event_dates = lambda rows_: ["2023/03/03", "2023/03/20",
+                                              "2023/04/01"]
+        import datetime as dt
+        given = [(dt.date(2023, 3, 27), "chat 2023/03/27",
+                  "The user: I saw Dr Smith on March 3rd about the cough."),
+                 (dt.date(2023, 3, 27), "chat 2023/03/27",
+                  "The user: I saw Dr Thompson on March 20th about my knee."),
+                 (dt.date(2023, 3, 27), "chat 2023/03/27",
+                  "The user: I have an appointment with Dr Johnson "
+                  "on April 1st.")]
+        out = s._dated_by_text(given)
+        assert [w.month for w, _s, _t in out] == [3, 3, 4], out
+        assert [w.day for w, _s, _t in out] == [3, 20, 1], out
+
+        # A DATE INVENTED WHOLE FAILS THE ARITHMETIC — its day is written
+        # nowhere in the line — and the stamp stands.
+        generate.event_dates = lambda rows_: ["2023/07/09"] * 3
+        out = s._dated_by_text(given)
+        assert all(w == dt.date(2023, 3, 27) for w, _s, _t in out), out
+
+        # A READER THAT FAILS TAKES NOTHING WITH IT.
+        def broken(rows_):
+            raise RuntimeError("no engine")
+        generate.event_dates = broken
+        assert s._dated_by_text(given) == given
+
+        # ONE LINE IS NOT A SET, and an undated store is left alone.
+        asked = {"n": 0}
+        generate.event_dates = lambda rows_: asked.__setitem__(
+            "n", asked["n"] + 1) or []
+        s._dated_by_text(given[:1])
+        s._dated_by_text([(None, "notes", "no stamp here"),
+                          (None, "notes", "nor here")])
+        assert asked["n"] == 0, "the reader was bought where it had no set"
+    finally:
+        generate.event_dates = real
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.

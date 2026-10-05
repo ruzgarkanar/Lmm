@@ -878,6 +878,59 @@ def turn_shape(message):
     return "none"
 
 
+def event_dates(rows):
+    """When each of these lines says its event happened — one call (W210).
+
+    `event_date` reads ONE event out of the lines that mention it. Every
+    primitive that works over a SET of lines — `lines` and the filters
+    built on it — instead takes each line's date by reading the digits
+    out of its SOURCE STAMP, which is when the line was WRITTEN.
+
+    Measured on LongMemEval: asked how many doctor's appointments the
+    user went to in March, the memory answers three where the answer is
+    two. One appointment is "on April 1st", and all three were mentioned
+    in messages stamped the same day, so by the stamps all three fall in
+    March. The organ counted mentions correctly and appointments wrongly.
+
+    So the lines are read once, together, and each is asked for its own
+    date. One call for the set rather than one per line: the question
+    "when did each of these happen" is one reading of one block.
+
+    `rows` is a list of `(stamp, text)`, stamps written "YYYY/MM/DD".
+    Returns a list the same length and order, each entry a date string
+    or "" where the line states none. NOTHING HERE IS TRUSTED: the caller
+    confirms every date by the arithmetic `_event_anchor` already keeps —
+    the date equals the stamp, or its day is written as a number in that
+    line's own text with the year within one of the stamp's — and keeps
+    the stamp where it does not.
+    """
+    if not rows:
+        return []
+    block = "\n".join("[%d] (%s) %s" % (i, stamp, text)
+                       for i, (stamp, text) in enumerate(rows))
+    system = ("Each numbered line was WRITTEN on the date in brackets, "
+              "and may also report an event that happened on a "
+              "different date.\n"
+              "For every line, give the date of the EVENT the line "
+              "reports, as\n"
+              "<number>: YYYY/MM/DD\n"
+              "one per line, in order. Where the line states no date of "
+              "its own, give\n"
+              "<number>: -\n"
+              "Use the bracketed date to resolve a date written without "
+              "a year. Report nothing else.")
+    out = runtime.generate(block, system=system,
+                           max_tokens=16 * len(rows) + 32, temperature=0.0)
+    said = {}
+    for line in (out or "").splitlines():
+        head, _sep, rest = line.partition(":")
+        digits = re.findall(r"\d+", head)
+        if not digits:
+            continue
+        said[int(digits[0])] = rest.strip()
+    return [said.get(i, "") for i in range(len(rows))]
+
+
 def event_date(phrase, rows, question=""):
     """WHEN did this event happen — read off the candidate lines.
 

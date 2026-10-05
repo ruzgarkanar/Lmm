@@ -2751,6 +2751,63 @@ class Session:
                             return (when, src, phrase, True)
         return fallback
 
+    def _dated_by_text(self, rows):
+        """These lines, each carrying the date IT states (W210).
+
+        A line's stamp is when it was WRITTEN. A conversation reports
+        events that happened elsewhere in time, and several of them can
+        arrive in one message — so every primitive built on `lines` was
+        reading one date for events that do not share one. Measured on
+        LongMemEval: asked how many doctor's appointments the user went
+        to in March, the memory answered three where the answer is two,
+        because one appointment is "on April 1st" and all three were
+        mentioned on the same day.
+
+        `anchor` has always preferred the date a sentence states to the
+        date on its envelope — that is W95 — and it resolves ONE event.
+        This is the same reading over a set, bought in one call rather
+        than one per line.
+
+        THE ARITHMETIC IS W95's, UNCHANGED, and it is what makes an
+        engine's guess safe to use: a proposed date is kept only when it
+        equals the line's own stamp, or when its day-of-month is written
+        as a number in that line's own text and its year is within one of
+        the stamp's. Neither check reads a word of any language, and a
+        date invented whole fails both — the stamp stands, and the organ
+        behaves exactly as it did before this existed.
+
+        A store whose lines carry no stamps is left alone, and so is a
+        single line: one date is not a set.
+        """
+        import datetime as _dt                          # noqa: PLC0415
+        dated = [(when, src, text) for when, src, text in rows if when]
+        if len(dated) < 2:
+            return rows
+        try:
+            offered = generate.event_dates(
+                [(when.strftime("%Y/%m/%d"), text)
+                 for when, _src, text in dated])
+        except Exception:                                   # noqa: BLE001
+            return rows
+        moved = {}
+        for (stamp, src, text), said in zip(dated, offered):
+            digits = [int(d) for d in re.findall(r"\d+", said or "")]
+            if len(digits) != 3:
+                continue
+            try:
+                when = _dt.date(digits[0], digits[1], digits[2])
+            except ValueError:
+                continue
+            if when == stamp:
+                continue                    # the stamp already said it
+            day_written = str(when.day) in set(re.findall(r"\d+", text))
+            if day_written and abs(when.year - stamp.year) <= 1:
+                moved[(stamp, src, text)] = when
+        if not moved:
+            return rows
+        return [(moved.get((when, src, text), when), src, text)
+                for when, src, text in rows]
+
     def _woven(self, own, ridden, most):
         """Two blocks, best-first from each, capped at the same seats.
 
@@ -3009,6 +3066,7 @@ class Session:
                         rows.append((when, src, text))
                 if not rows:
                     return None
+                rows = self._dated_by_text(rows)
                 value = ("lines", rows)
             elif op in ("span", "before") and len(args) == 2:
                 left = env.get(args[0])
