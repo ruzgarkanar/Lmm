@@ -1512,8 +1512,33 @@ class SentenceStore:
         """
         from lmm import generate                          # noqa: PLC0415
         first = self.find(text, most=most, **kw)
+        # THE READER IS SHOWN WHAT THIS COLLECTION WRITES (W211).
+        # `phrasings` has carried a `sample` since it was written and
+        # nothing ever passed one, so the engine was asked how else a
+        # question might be WRITTEN without being shown a word of the
+        # document — and measured on NIST, it proposed only words the
+        # question had already used: asked for "the shortest password" it
+        # offered "password", which the store already had, so the widened
+        # search was the first search. Rescued 0, broken 0, recall 8 of 11
+        # either way (`benchmarks/widen_recall.py`).
+        #
+        # It is the same defect `plan_of` had, repaired the same day and
+        # the same way: asking the engine about the store without showing
+        # it the store. The lines the first search DID return are the
+        # sample — they are on the question's topic even when they miss
+        # its answer, and that is exactly the case this exists for. The
+        # NIST block for "the shortest password" contains "memorized
+        # secret"; the block for "who heads NIST" contains neither
+        # "director" nor "acting", so this is measured to help where
+        # retrieval was already close and not where it was lost.
+        #
+        # THE LINES, NOT A SUMMARY OF THEM. A word list was tried first
+        # and did not work — see `generate.phrasings`. The lines cost
+        # nothing: the search has run and makes no engine call. What is
+        # proposed is still filtered against the index below, so a word
+        # nobody wrote still cannot enter.
         try:
-            proposed = generate.phrasings(text)
+            proposed = generate.phrasings(text, lines=first[:6])
         except Exception:                                  # noqa: BLE001
             return first
         known = []

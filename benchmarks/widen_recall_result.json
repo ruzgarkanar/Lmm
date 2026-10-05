@@ -4,7 +4,11 @@
   "before": true,
   "after": true,
   "added": [
-   "minimum"
+   "character",
+   "secret",
+   "memorized",
+   "length",
+   "subscriber"
   ]
  },
  {
@@ -12,9 +16,11 @@
   "before": true,
   "after": true,
   "added": [
-   "long",
+   "length",
    "secret",
-   "permit"
+   "memorized",
+   "permit",
+   "verifiers"
   ]
  },
  {
@@ -27,15 +33,20 @@
   "soru": "what is the series number of this publication",
   "before": true,
   "after": true,
-  "added": []
+  "added": [
+   "series",
+   "number",
+   "publication"
+  ]
  },
  {
   "soru": "how often should reauthentication be repeated at AAL1",
   "before": true,
   "after": true,
   "added": [
-   "per",
-   "time"
+   "reauthentication",
+   "aal",
+   "1"
   ]
  },
  {
@@ -45,7 +56,9 @@
   "added": [
    "authentication",
    "aal",
-   "2"
+   "2",
+   "session",
+   "period"
   ]
  },
  {
@@ -53,7 +66,11 @@
   "before": true,
   "after": true,
   "added": [
-   "nist"
+   "director",
+   "nist",
+   "kent",
+   "rochford",
+   "acting"
   ]
  },
  {
@@ -63,8 +80,9 @@
   "added": [
    "circular",
    "guideline",
-   "consist",
-   "omb"
+   "requirement",
+   "standard",
+   "authority"
   ]
  },
  {
@@ -72,7 +90,8 @@
   "before": false,
   "after": false,
   "added": [
-   "password"
+   "password",
+   "secret"
   ]
  },
  {
@@ -80,11 +99,7 @@
   "before": true,
   "after": true,
   "added": [
-   "long",
-   "minimum",
-   "length",
-   "requirement",
-   "verifier"
+   "length"
   ]
  },
  {

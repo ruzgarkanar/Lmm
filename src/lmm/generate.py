@@ -468,7 +468,7 @@ def is_identity_question(message):
     return "yes" in out.strip().lower()
 
 
-def phrasings(message, sample=()):
+def phrasings(message, sample=(), lines=()):
     """How might the thing this question asks about be WRITTEN in a
     document? Words and short phrases, nothing else.
 
@@ -485,8 +485,25 @@ def phrasings(message, sample=()):
     against the store's own index before it can widen a search, so a word
     nobody wrote cannot enter — the same rule the field bridge keeps.
     """
-    listing = ("\n\nSome words this collection uses:\n" + ", ".join(sample)
-               if sample else "")
+    # LINES, NOT A WORD LIST (W211). `sample` has been here since this
+    # was written and nothing ever passed one; when something finally
+    # did, it did not work. A flat list of the collection's words is
+    # noise to read — measured on NIST, the engine answered "pass, word,
+    # code, key, pin" to "the shortest password" whether it was shown
+    # sixty words of the document or none, and the two words that
+    # mattered were not in the list under any ordering anyway. Taking
+    # them in document order put them at 67 and 68 of 101; taking the
+    # RAREST put freak words first, because a document's own key term is
+    # by definition common IN that document.
+    #
+    # Shown the LINES instead, the same engine answered "password,
+    # memorized secrets, authenticator, federated identity" — and
+    # "memorized secret" is what NIST SP 800-63B calls a password. The
+    # evidence has to be read, not summarised into a vocabulary.
+    listing = ("\n\nLines this collection writes:\n" + "\n".join(lines)
+               if lines else
+               ("\n\nSome words this collection uses:\n" + ", ".join(sample)
+                if sample else ""))
     # ROOTS, NOT INFLECTIONS. The store matches a query word to its
     # relatives by a short shared opening, so a fully inflected proposal
     # reaches nothing: measured, the engine offered "oturuyor" for a book
@@ -511,6 +528,20 @@ def phrasings(message, sample=()):
               "\n¿de qué está hecho? -> material, hecho, composición"
               "\nnerede yaşıyor -> otur, yaşa, ikamet, ev, konut"
               "\ncombien de personnes -> personne, participant, nombre"
+              # ...AND WHEN THE DOCUMENT IS IN FRONT OF IT, THE QUESTION
+              # IS ABOUT THE DOCUMENT (W211). Asked in general what a
+              # written document "would likely use", the engine answers
+              # from the language — "pass, word, code, key, pin" — and
+              # that is the right reading when it has seen nothing. Shown
+              # lines, the useful question is narrower: what does THIS
+              # text call the thing asked about? Measured on NIST, the
+              # general ask returned "password" (which the question had
+              # already used) and the narrowed one returned "memorized
+              # secrets", which is what that standard calls a password.
+              + ("\n\nThe lines below are from the document being "
+                 "searched. Name the words IT uses for the thing the "
+                 "question asks about, even where they share nothing "
+                 "with the question's own wording." if lines else "")
               + listing)
     out = runtime.generate(message, system=system, max_tokens=40,
                            temperature=0.0, small=True)

@@ -10413,7 +10413,7 @@ def w73():
         "the fixture does not reproduce the miss"
     asked = {}
     real = generate.phrasings
-    def _proposed(question, sample=()):
+    def _proposed(question, sample=(), lines=()):
         asked["q"] = question
         return ["oturur", "ikamet", "konut"]
     generate.phrasings = _proposed

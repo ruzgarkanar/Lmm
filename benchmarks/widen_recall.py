@@ -55,7 +55,11 @@ def main():
             continue                        # a trap has no line to seat
         question = q["soru"]
         before = seated(store, question, gold)
-        proposed = generate.phrasings(question)
+        # THE SAME CALL `find_again` MAKES, lines and all — an earlier
+        # version of this file asked `phrasings(question)` with nothing
+        # else and so measured a reading the library no longer does.
+        proposed = generate.phrasings(question, lines=store.find(question,
+                                                                most=SEATS))
         calls += 1
         # the same rule `find_again` keeps: a word nobody wrote here
         # cannot enter the search
