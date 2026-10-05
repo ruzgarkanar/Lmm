@@ -244,11 +244,27 @@ So the gap is not one problem. The second half is a retrieval problem
 and it cannot be solved by rewording, because a reworder shown the wrong
 lines has nothing to read. It needs a signal that is not lexical.
 
-The meaning channel is that signal, and the one this package bundles is
-not strong enough: measured, the answering lines rank 410th and 930th of
-12,253 by the bundled static table, and for the word "heads" that table
-ranks "hash" and "captcha" above "director". A stronger encoder would
-close it and would cost the thing this library advertises — one
-dependency, no GPU, 1.1 MB. That is a trade to decide rather than a
-defect to fix, and it is written here so the decision is visible.
+The meaning channel is that signal, and the one this package bundles
+cannot find these lines: measured on NIST, the answering lines rank
+410th and 1,251st of 12,253 by cosine and 410th and 429th by late
+interaction, so this is not a matter of which method reads the vectors.
+For the word "heads" the table ranks "hash" and "captcha" above
+"director".
+
+AND THE OBVIOUS CONCLUSION DOES NOT FOLLOW. The encoder was chosen on a
+measurement it wins: 84% first-hit and 0.883 MRR over 180 known-item
+queries, against 66% and 0.710 for `paraphrase-multilingual-MiniLM` and
+at a hundredth of its indexing time. But each of those queries is a line
+with its two most distinctive terms removed, so the query still shares
+most of its words with the line it is looking for — and the failures
+above share almost none. The benchmark is a weaker paraphrase test than
+the paraphrase this limit is about, which is the same trap recorded in
+`measurements.md` for the widened pass: a capability measured where it
+cannot be exercised.
+
+So "buy a stronger encoder" is not evidence, it is a guess, and by this
+project's own numbers the best-known alternative is worse. What would
+settle it is a measurement on queries that share nothing with their
+target. Until that exists, this stays an open limit with a known
+mechanism and no costed remedy.
 
