@@ -1,0 +1,98 @@
+[
+ {
+  "soru": "how many characters shall a subscriber-chosen memorized secret be at least",
+  "before": true,
+  "after": true,
+  "added": [
+   "minimum"
+  ]
+ },
+ {
+  "soru": "what length of memorized secret should verifiers permit",
+  "before": true,
+  "after": true,
+  "added": [
+   "long",
+   "secret",
+   "permit"
+  ]
+ },
+ {
+  "soru": "what is the publication date of this document",
+  "before": false,
+  "after": false,
+  "added": []
+ },
+ {
+  "soru": "what is the series number of this publication",
+  "before": true,
+  "after": true,
+  "added": []
+ },
+ {
+  "soru": "how often should reauthentication be repeated at AAL1",
+  "before": true,
+  "after": true,
+  "added": [
+   "per",
+   "time"
+  ]
+ },
+ {
+  "soru": "how often shall authentication be repeated at AAL2",
+  "before": true,
+  "after": true,
+  "added": [
+   "authentication",
+   "aal",
+   "2"
+  ]
+ },
+ {
+  "soru": "who is the acting NIST director",
+  "before": true,
+  "after": true,
+  "added": [
+   "nist"
+  ]
+ },
+ {
+  "soru": "which OMB circular is this guideline consistent with",
+  "before": true,
+  "after": true,
+  "added": [
+   "circular",
+   "guideline",
+   "consist",
+   "omb"
+  ]
+ },
+ {
+  "soru": "what is the shortest password a user may choose",
+  "before": false,
+  "after": false,
+  "added": [
+   "password"
+  ]
+ },
+ {
+  "soru": "how long a passphrase must verifiers allow",
+  "before": true,
+  "after": true,
+  "added": [
+   "long",
+   "minimum",
+   "length",
+   "requirement",
+   "verifier"
+  ]
+ },
+ {
+  "soru": "who currently heads NIST",
+  "before": false,
+  "after": false,
+  "added": [
+   "nist"
+  ]
+ }
+]

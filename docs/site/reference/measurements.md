@@ -246,6 +246,74 @@ Thirty of five hundred questions, judged by the configured engine
 project's own versions, not with published leaderboards. Per-question
 files, named by commit, are in `benchmarks/longmemeval_runs/`.
 
+## Where a question's calls actually go — October 2026
+
+The cost table on this page predates the shapes and the organs, and so did
+the cost harness's own list of headings: every call the router and the
+organs made filed under `other` until 5 October 2026, by which time that
+heading held the largest number in the system. A heading that holds the
+biggest number is not a heading.
+
+Re-measured on NIST SP 800-63B, 13 questions, a fresh process per arm
+(`benchmarks/gate_arms.py`, per-question results beside it):
+
+| bucket | calls | |
+|---|---|---|
+| routing | 21 | which shape, which language, which two things |
+| answer | 19 | |
+| extract | 13 | |
+| relation-check | 12 | the classifier readings |
+| organ | 8 | |
+| judge | 6 | |
+| read-back | 3 | the exit gate's second reading |
+| widen | 1 | |
+| | **83** | 6.4 a question |
+
+Two readings matter more than the total. **Routing is the largest cost a
+question carries**, and routing with extraction is 41% of it — spent
+before any answer exists. And **the read-back is three calls of
+eighty-three**: the check most often asked about barely runs, because the
+two-tier gate admits a fully covered answer without asking the engine.
+
+### Declaring what the caller knows
+
+`standalone=` and `shape=` have shipped since 0.9.1 and 0.13.0. Same
+thirteen questions, one run each:
+
+| configuration | correct | calls | a question |
+|---|---|---|---|
+| as shipped | 9 / 13 | 83 | 6.4 |
+| `standalone=True` | 9 / 13 | 76 | 5.8 |
+| `ENOUGH` on | 10 / 13 | 84 | 6.5 |
+| `standalone=True, shape="material"` | 10 / 13 | **43** | **3.3** |
+
+No gate was traded for it: `read-back` is 3 in both arms, so the exit gate
+ran exactly as often. What fell to zero was the classifier bucket, not the
+relation gate. The extra correct answer is **not** claimed — the same arm
+has measured 9 and 10 on separate runs. What is claimed is that nothing
+was lost for half the calls.
+
+### Two levers measured and left off
+
+**`ENOUGH`** asks the evidence whether it holds an answer before one is
+written. On these questions it declined four — the two traps, the metadata
+question and one paraphrase — and all four were right, with none of the
+nine answerable questions wrongly stopped. It saved nothing: 84 calls
+against 83, because a refusing turn has already paid its routing and its
+extraction before the verdict is reached. A right decision taken late is
+paid for twice. The switch ships off.
+
+**`WIDEN`**, the widened second retrieval, was measured where it is
+supposed to help: a document that answers "what is the shortest password"
+under *memorized secret*. Retrieval recall before and after, 11 calls, no
+answering noise (`benchmarks/widen_recall.py`): **rescued 0, broken 0,
+8/11 either way**. The reason is structural — `generate.phrasings` is
+shown the QUESTION and never the store, so it proposes only words the
+question already used. The document's own words are in the index
+("memorized" on 1,173 lines, "director" on 24); they are never proposed.
+The vocabulary gap is a measured, open limit, and the widening as built
+does not close it.
+
 ## The scorer's own bugs
 
 A benchmark whose author only ever finds errors that flatter him is not

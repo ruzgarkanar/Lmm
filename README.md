@@ -411,6 +411,61 @@ remaining cost is the verification read-back: the gate re-extracting the
 claims out of a sentence before it may leave. That is fabrication-0 being paid
 for in tokens.
 
+### Where it goes now, and half of it you can stop paying today
+
+**That last sentence was true of the system that was measured, and that
+system no longer exists.** The table above predates the shapes and the
+organs, and the cost harness's own list of headings was never extended —
+so every call the router and the organs made filed under `other` until
+5 October 2026, by which time `other` held the largest number in the
+system. Re-measured on NIST SP 800-63B, 13 questions, a fresh process per
+arm (`benchmarks/gate_arms.py`):
+
+| bucket | calls | |
+|---|---|---|
+| routing | 21 | which shape is this turn, which language, which two things |
+| answer | 19 | |
+| extract | 13 | |
+| relation-check | 12 | the classifier readings |
+| organ | 8 | |
+| judge | 6 | |
+| **read-back** | **3** | the check everyone optimises |
+| widen | 1 | |
+| | **83** | 6.4 a question |
+
+The read-back is three calls of eighty-three. It barely runs, because the
+two-tier gate admits a fully covered answer without asking the engine at
+all. What costs is **routing** — deciding what KIND of question this is,
+before any answer exists — and routing with extraction is 41% of a
+question.
+
+Both re-discover something the caller usually knows. `standalone=True`
+says the question has no conversation on either side of it, which is true
+of every question an API receives, and `shape=` declares the kind. Same
+thirteen questions, one run each:
+
+| configuration | correct | calls | a question |
+|---|---|---|---|
+| as shipped | 9 / 13 | 83 | 6.4 |
+| `standalone=True` | 9 / 13 | 76 | 5.8 |
+| `standalone=True, shape="material"` | 10 / 13 | **43** | **3.3** |
+
+```python
+m.ask(question, standalone=True, shape="material")   # 6.4 calls -> 3.3
+```
+
+The eight questions the memory answers plainly fall from five or seven
+calls to **two** — one answer, one check. **And no gate was traded for
+it**, which is the only reason this is worth printing: `read-back` is 3 in
+both arms, so the exit gate ran exactly as often. What fell to zero was
+the classifier bucket, not the relation gate.
+
+The extra correct answer is **not** claimed — the same arm has measured 9
+and 10 on separate runs, so one run cannot tell a gain from noise. What is
+claimed is that nothing was lost for half the calls. Every question in
+this set is a document lookup, so `material` is the right shape for all of
+them; what a caller who declares the WRONG shape pays is not measured.
+
 What the tokens buy is the other column of the table above — provenance, the
 refusal guarantee, symbolic multi-hop derivation, and a core with no
 dependencies. And on the local engine this project is actually built for, the

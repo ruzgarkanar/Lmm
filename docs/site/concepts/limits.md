@@ -105,3 +105,40 @@ marketing; this one is part of the measurement.
 - **The sample is small.** The published comparisons rest on a handful of
   documents and a few dozen questions. Every question, answer and scoring
   decision is in the repository; widen it and tell us what breaks.
+
+## The vocabulary gap, measured
+
+Sentence retrieval scores a line by how many of the question's content
+words it carries. When a reader asks in their own words and the document
+answers in its own, there is nothing for that scoring to find: NIST
+SP 800-63B answers "what is the shortest password a user may choose" under
+*memorized secret*, and the question reaches the wrong lines because that
+is where its words happen to occur.
+
+The library has a defence built for exactly this — `WIDEN`, a second
+retrieval over wordings the engine proposes, keeping only words the store
+actually holds. On 5 October 2026 it was measured where it should pay, at
+the level of retrieval alone so that no answering noise is in the way
+(`benchmarks/widen_recall.py`, 11 engine calls): **it rescued nothing and
+broke nothing**, recall 8 of 11 either way.
+
+The reason is structural rather than a matter of tuning.
+`generate.phrasings` is shown the QUESTION and never the store, so it can
+only guess generic rewordings — and it proposed, for that question, the
+word "password", which the question had already used. The document's own
+vocabulary is in the index and would have passed the filter: "memorized"
+appears on 1,173 lines, "director" on 24. It is simply never proposed.
+
+Three cheaper repairs were measured and refused. Letting the meaning
+channel choose candidate LINES, rather than reorder the ones the words
+admitted, puts the answering line at rank 410 and 930 of 12,253. A
+word-level bridge built from the bundled meaning table ranks "hash" and
+"captcha" above "director" for the word "heads". And grounding the
+proposal in the block retrieval did return helps only when retrieval was
+already close: the block for the password question does contain
+*memorized secret*, and the block for "who currently heads NIST" contains
+neither "director" nor "acting".
+
+So this is an open limit with a known mechanism, which is a better place
+to be than an open limit without one, and it is not closed.
+
