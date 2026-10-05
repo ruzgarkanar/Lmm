@@ -13339,7 +13339,9 @@ def w203():
         s._plan_answer("how much more did I raise than my goal",
                        want=("derived",))
         assert seen.get("question"), "the planner was never asked"
-        assert seen["block"], "the planner was asked blind"
+        # ...and the lines arrive on the SECOND ask, after the question
+        # alone came back with nothing (W209)
+        assert seen["block"], "the planner was never shown the store"
         # ...AND WHAT IT SEES IS THE STORE'S OWN LINES.
         assert "250" in seen["block"] or "200" in seen["block"], seen["block"]
 
@@ -13679,6 +13681,61 @@ def w208():
     assert "self._find(question" in body, (
         "the planner's gather bypasses the scope")
     assert "self.evidence.find(question" not in body, body[:200]
+
+
+@test("W209 the store is shown to the planner only when the question was not enough")
+def w209():
+    """W203 handed the planner the retrieved lines on every turn, and the
+    thirty-question slice says that is too much of a good thing: it
+    bought one answer and cost another.
+
+    The cost is visible in the proposals. Asked blind, the planner named
+    `amount: mummies the party will face in the temple`; shown lines that
+    say "mummies", it named `amount: mummies`, which matches too much and
+    the plan died where it had worked. The evidence tells it what the
+    store CAN supply and in the same breath tempts it to borrow the
+    store's words. Tightening the instruction against that — "name every
+    phrase in the QUESTION's own words" — was measured on that question
+    and did not work.
+
+    So the question goes alone first, which is what already worked, and
+    the lines are shown only when nothing came back. The second call is
+    bought on a turn that was about to refuse, where a refusal costs
+    about ten.
+
+    No model: the planner is intercepted and counted."""
+    from lmm import generate
+    from lmm.session import Session
+
+    def run(first):
+        asked = []
+        real = generate.plan_of
+
+        def planner(question, block=""):
+            asked.append(block)
+            return first if not block else [("a", "amount", "x")]
+        generate.plan_of = planner
+        try:
+            s = Session(None)
+            s.learn_text("User: I raised 250 for the ride.\n"
+                         "User: my goal was 200.",
+                         source="chat 2024/03/04", deep=False)
+            s._plan_answer("how much more did I raise", want=("derived",))
+            return asked
+        finally:
+            generate.plan_of = real
+
+    # A QUESTION THAT PLANS ON ITS OWN IS NOT SHOWN THE STORE.
+    asked = run([("a", "amount", "raised"), ("b", "amount", "goal"),
+                 ("out", "minus", "a", "b")])
+    assert asked and asked[0] == "", asked
+    assert len(asked) == 1, (
+        "the store was shown although the question alone planned: %r" % asked)
+
+    # ...AND ONE THAT DOES NOT, IS.
+    asked = run([])
+    assert len(asked) == 2, asked
+    assert asked[0] == "" and asked[1], asked
 
 
 def main():

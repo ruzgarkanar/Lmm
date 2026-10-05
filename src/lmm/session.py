@@ -2930,15 +2930,31 @@ class Session:
             # what retrieval already seated, so the planner can see
             # whether the store could feed the plan (W203). Free: `find`
             # makes no engine call.
-            # ...THROUGH `_find`, SO THE TURN'S SCOPE BINDS IT (W208).
-            # Every other gather here goes through it for the reason
-            # W109/W114/W130 record: when the conversation has handed
-            # this turn its documents, nothing outside them may enter.
-            # Reaching `evidence.find` directly would have shown the
-            # planner lines the turn is not allowed to read, and the plan
-            # it proposed would be shaped by them.
-            steps = generate.plan_of(
-                question, block="\n".join(self._find(question, most=6)))
+            # THE STORE IS SHOWN ONLY WHEN THE QUESTION ALONE WAS NOT
+            # ENOUGH (W209). W203 handed the planner the retrieved lines
+            # always, because blind it declined on five derivation
+            # questions of eight and seeing them it planned six. On the
+            # thirty-question slice that bought one answer and cost
+            # another, and the cost is visible in the proposals: asked
+            # blind, the planner named "mummies the party will face in
+            # the temple"; shown lines that say "mummies", it named
+            # "mummies", which matches too much and the plan died. The
+            # evidence tells it what the store CAN supply and at the same
+            # time tempts it to borrow the store's words — and tightening
+            # the instruction against that was measured and did not work.
+            #
+            # So the question goes alone first, which is what already
+            # worked, and the lines are shown only when nothing came
+            # back. The second call is bought on a turn that was about to
+            # refuse, where a refusal costs ten.
+            #
+            # The gather goes through `_find` so the turn's scope binds
+            # it (W208): every other gather here does, for the reason
+            # W109/W114/W130 record.
+            steps = generate.plan_of(question)
+            if not steps:
+                steps = generate.plan_of(
+                    question, block="\n".join(self._find(question, most=6)))
         except Exception:                               # noqa: BLE001
             return None
         if not steps:
