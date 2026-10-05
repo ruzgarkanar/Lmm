@@ -70,6 +70,18 @@ ARMS = {
     # conversation on either side of it, which is true of every question
     # an API is sent, and the classification is then not bought at all.
     "standalone": ({}, {"standalone": True}),
+    # WHAT THE CALLER ALREADY KNOWS, NOT RE-DISCOVERED. Measured on the
+    # base arm, routing is 21 calls of 83 and extract 13 — 41% of a
+    # question spent deciding what kind of question it is, before any
+    # answer exists. An API is not sent conversations and its caller
+    # usually knows the shape; `standalone` drops the extraction and
+    # `shape=` drops the classification. Nothing here is a new feature:
+    # both have shipped since 0.9.1 and 0.13.0. This arm measures what a
+    # caller who uses them actually pays. The shape is declared
+    # "material" because every NIST question is a lookup in a document;
+    # a caller who declares the WRONG shape is measured too, and that
+    # cost is part of the answer.
+    "declared": ({}, {"standalone": True, "shape": "material"}),
 }
 
 

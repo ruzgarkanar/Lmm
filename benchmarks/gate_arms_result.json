@@ -1,6 +1,14 @@
 {
  "base": [
   {
+   "buckets": {
+    "extract": 1,
+    "relation-check": 1,
+    "routing": 2,
+    "widen": 1,
+    "organ": 1,
+    "answer": 1
+   },
    "soru": "how many characters shall a subscriber-chosen memorized secret be at least",
    "altin": [
     "8"
@@ -14,6 +22,13 @@
    "right": true
   },
   {
+   "buckets": {
+    "extract": 1,
+    "relation-check": 1,
+    "routing": 1,
+    "answer": 1,
+    "read-back": 1
+   },
    "soru": "what length of memorized secret should verifiers permit",
    "altin": [
     "64"
@@ -27,6 +42,13 @@
    "right": true
   },
   {
+   "buckets": {
+    "extract": 1,
+    "routing": 3,
+    "organ": 1,
+    "answer": 2,
+    "judge": 1
+   },
    "soru": "what is the publication date of this document",
    "altin": [
     "2017",
@@ -42,6 +64,13 @@
    "right": false
   },
   {
+   "buckets": {
+    "extract": 1,
+    "relation-check": 1,
+    "routing": 1,
+    "answer": 1,
+    "judge": 1
+   },
    "soru": "what is the series number of this publication",
    "altin": [
     "800-63b",
@@ -56,11 +85,18 @@
    "right": true
   },
   {
+   "buckets": {
+    "extract": 1,
+    "relation-check": 1,
+    "routing": 1,
+    "answer": 1,
+    "read-back": 1
+   },
    "soru": "how often should reauthentication be repeated at AAL1",
    "altin": [
     "30"
    ],
-   "cevap": "Reauthentication of the subscriber should be repeated at least once per 30 days at AAL1. (~ #pdf:nist_sp800-63b.pdf)",
+   "cevap": "At AAL1, reauthentication of the subscriber should be repeated at least once per 30 days. (~ #pdf:nist_sp800-63b.pdf)",
    "abstained": false,
    "route": [
     "chain"
@@ -69,6 +105,13 @@
    "right": true
   },
   {
+   "buckets": {
+    "extract": 1,
+    "relation-check": 1,
+    "routing": 1,
+    "answer": 1,
+    "read-back": 1
+   },
    "soru": "how often shall authentication be repeated at AAL2",
    "altin": [
     "12"
@@ -82,6 +125,13 @@
    "right": true
   },
   {
+   "buckets": {
+    "extract": 1,
+    "relation-check": 1,
+    "routing": 1,
+    "answer": 1,
+    "judge": 1
+   },
    "soru": "who is the acting NIST director",
    "altin": [
     "rochford"
@@ -95,6 +145,13 @@
    "right": true
   },
   {
+   "buckets": {
+    "extract": 1,
+    "relation-check": 1,
+    "routing": 1,
+    "answer": 1,
+    "judge": 1
+   },
    "soru": "which OMB circular is this guideline consistent with",
    "altin": [
     "a-130",
@@ -109,6 +166,13 @@
    "right": true
   },
   {
+   "buckets": {
+    "extract": 1,
+    "relation-check": 1,
+    "routing": 2,
+    "organ": 2,
+    "answer": 2
+   },
    "soru": "what does a hardware authenticator cost in dollars",
    "altin": null,
    "cevap": "I don't have that information yet.",
@@ -121,6 +185,13 @@
    "right": true
   },
   {
+   "buckets": {
+    "extract": 1,
+    "relation-check": 1,
+    "routing": 2,
+    "organ": 1,
+    "answer": 2
+   },
    "soru": "what minimum password length does the GDPR require",
    "altin": null,
    "cevap": "I don't have that information yet.",
@@ -129,10 +200,18 @@
     "chain",
     "refuse"
    ],
-   "calls": 8,
+   "calls": 7,
    "right": true
   },
   {
+   "buckets": {
+    "extract": 1,
+    "relation-check": 1,
+    "routing": 2,
+    "organ": 1,
+    "answer": 2,
+    "judge": 1
+   },
    "soru": "what is the shortest password a user may choose",
    "altin": [
     "8"
@@ -147,19 +226,35 @@
    "right": false
   },
   {
+   "buckets": {
+    "extract": 1,
+    "relation-check": 1,
+    "routing": 2,
+    "organ": 1,
+    "answer": 2,
+    "judge": 1
+   },
    "soru": "how long a passphrase must verifiers allow",
    "altin": [
     "64"
    ],
-   "cevap": "Verifiers SHALL require subscriber-chosen memorized secrets to be at least 8 characters. (~ #pdf:nist_sp800-63b.pdf)",
-   "abstained": false,
+   "cevap": "I don't have that information yet.",
+   "abstained": true,
    "route": [
-    "chain"
+    "chain",
+    "refuse"
    ],
-   "calls": 5,
+   "calls": 8,
    "right": false
   },
   {
+   "buckets": {
+    "extract": 1,
+    "relation-check": 1,
+    "routing": 2,
+    "organ": 1,
+    "answer": 2
+   },
    "soru": "who currently heads NIST",
    "altin": [
     "rochford"
@@ -673,6 +768,243 @@
     "refuse"
    ],
    "calls": 7,
+   "right": false
+  }
+ ],
+ "declared": [
+  {
+   "buckets": {
+    "answer": 1,
+    "judge": 1
+   },
+   "soru": "how many characters shall a subscriber-chosen memorized secret be at least",
+   "altin": [
+    "8"
+   ],
+   "cevap": "A subscriber-chosen memorized secret shall be at least 8 characters in length. (~ #pdf:nist_sp800-63b.pdf)",
+   "abstained": false,
+   "route": [
+    "chain"
+   ],
+   "calls": 2,
+   "right": true
+  },
+  {
+   "buckets": {
+    "answer": 1,
+    "read-back": 1
+   },
+   "soru": "what length of memorized secret should verifiers permit",
+   "altin": [
+    "64"
+   ],
+   "cevap": "Verifiers should permit subscriber-chosen memorized secrets to be at least 64 characters in length. (~ #pdf:nist_sp800-63b.pdf)",
+   "abstained": false,
+   "route": [
+    "chain"
+   ],
+   "calls": 2,
+   "right": true
+  },
+  {
+   "buckets": {
+    "answer": 2,
+    "judge": 1,
+    "routing": 2,
+    "organ": 1
+   },
+   "soru": "what is the publication date of this document",
+   "altin": [
+    "2017",
+    "2025"
+   ],
+   "cevap": "I don't have that information yet.",
+   "abstained": true,
+   "route": [
+    "chain",
+    "refuse"
+   ],
+   "calls": 6,
+   "right": false
+  },
+  {
+   "buckets": {
+    "answer": 1,
+    "judge": 1
+   },
+   "soru": "what is the series number of this publication",
+   "altin": [
+    "800-63b",
+    "800-63B"
+   ],
+   "cevap": "The series number of this publication is NIST SP 800-63B-4. (~ #pdf:nist_sp800-63b.pdf)",
+   "abstained": false,
+   "route": [
+    "chain"
+   ],
+   "calls": 2,
+   "right": true
+  },
+  {
+   "buckets": {
+    "answer": 1,
+    "read-back": 1
+   },
+   "soru": "how often should reauthentication be repeated at AAL1",
+   "altin": [
+    "30"
+   ],
+   "cevap": "At AAL1, reauthentication of the subscriber should be repeated at least once per 30 days. (~ #pdf:nist_sp800-63b.pdf)",
+   "abstained": false,
+   "route": [
+    "chain"
+   ],
+   "calls": 2,
+   "right": true
+  },
+  {
+   "buckets": {
+    "answer": 1,
+    "read-back": 1
+   },
+   "soru": "how often shall authentication be repeated at AAL2",
+   "altin": [
+    "12"
+   ],
+   "cevap": "At AAL2, authentication of the subscriber shall be repeated at least once per 12 hours. (~ #pdf:nist_sp800-63b.pdf)",
+   "abstained": false,
+   "route": [
+    "chain"
+   ],
+   "calls": 2,
+   "right": true
+  },
+  {
+   "buckets": {
+    "answer": 1,
+    "judge": 1
+   },
+   "soru": "who is the acting NIST director",
+   "altin": [
+    "rochford"
+   ],
+   "cevap": "The acting NIST director is Kent Rochford. (~ #pdf:nist_sp800-63b.pdf)",
+   "abstained": false,
+   "route": [
+    "chain"
+   ],
+   "calls": 2,
+   "right": true
+  },
+  {
+   "buckets": {
+    "answer": 1,
+    "judge": 1
+   },
+   "soru": "which OMB circular is this guideline consistent with",
+   "altin": [
+    "a-130",
+    "A-130"
+   ],
+   "cevap": "This guideline is consistent with the requirements of the Office of Management and Budget (OMB) Circular A-130. (~ #pdf:nist_sp800-63b.pdf)",
+   "abstained": false,
+   "route": [
+    "chain"
+   ],
+   "calls": 2,
+   "right": true
+  },
+  {
+   "buckets": {
+    "answer": 2,
+    "judge": 1,
+    "routing": 1,
+    "organ": 2
+   },
+   "soru": "what does a hardware authenticator cost in dollars",
+   "altin": null,
+   "cevap": "I don't have that information yet.",
+   "abstained": true,
+   "route": [
+    "chain",
+    "refuse"
+   ],
+   "calls": 6,
+   "right": true
+  },
+  {
+   "buckets": {
+    "answer": 2,
+    "judge": 1,
+    "routing": 1,
+    "organ": 1
+   },
+   "soru": "what minimum password length does the GDPR require",
+   "altin": null,
+   "cevap": "I don't have that information yet.",
+   "abstained": true,
+   "route": [
+    "chain",
+    "refuse"
+   ],
+   "calls": 5,
+   "right": true
+  },
+  {
+   "buckets": {
+    "answer": 2,
+    "judge": 1,
+    "routing": 1,
+    "organ": 1
+   },
+   "soru": "what is the shortest password a user may choose",
+   "altin": [
+    "8"
+   ],
+   "cevap": "I don't have that information yet.",
+   "abstained": true,
+   "route": [
+    "chain",
+    "refuse"
+   ],
+   "calls": 5,
+   "right": false
+  },
+  {
+   "buckets": {
+    "answer": 1,
+    "judge": 1
+   },
+   "soru": "how long a passphrase must verifiers allow",
+   "altin": [
+    "64"
+   ],
+   "cevap": "Verifiers must allow at least 64 characters in length to support the use of passphrases. (~ #pdf:nist_sp800-63b.pdf)",
+   "abstained": false,
+   "route": [
+    "chain"
+   ],
+   "calls": 2,
+   "right": true
+  },
+  {
+   "buckets": {
+    "answer": 2,
+    "judge": 1,
+    "routing": 1,
+    "organ": 1
+   },
+   "soru": "who currently heads NIST",
+   "altin": [
+    "rochford"
+   ],
+   "cevap": "I don't have that information yet.",
+   "abstained": true,
+   "route": [
+    "chain",
+    "refuse"
+   ],
+   "calls": 5,
    "right": false
   }
  ]
