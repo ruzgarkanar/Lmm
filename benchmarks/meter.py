@@ -56,6 +56,30 @@ _BUCKET = {
     "field_for": "relation-check",          # which field does this ask about
     "same_language": "read-back",           # the memory auditing its own tongue
     "_spoken_to": "answer",                 # refusals and offers to research
+    # THE ROUTER AND THE ORGANS, which this map predates. It was written
+    # when a turn was extract → answer → read-back; the shapes and the
+    # organs arrived in 0.5.0 and after, and every call they make has
+    # been filing under "other" ever since. Measured on NIST on 5 October
+    # 2026, "other" was 32 to 37 calls of 76 to 84 — the LARGEST bucket
+    # in the system, and the one the cost chapter cannot see. A heading
+    # that holds the biggest number is not a heading.
+    "turn_shape": "routing",                # which shape is this turn
+    "wants_order": "routing",
+    "wants_count": "routing",
+    "things_of": "routing",                 # the two things a comparison weighs
+    "asked_words": "routing",
+    "language_of": "routing",
+    "plan_of": "organ",                     # the typed plan the organ executes
+    "event_date": "organ",
+    "events_of": "organ",
+    "amounts_of": "organ",
+    "items_of": "organ",
+    "telling_answer": "organ",
+    "quoted_answer": "organ",               # the cheap corner of the gate
+    "compose": "compose",                   # composed documents
+    "phrasings": "widen",                   # the second retrieval's proposals
+    "enough": "enough",                     # the sufficient-context verdict
+    "judged": "judge",                      # a supplied judge's own call
 }
 
 
