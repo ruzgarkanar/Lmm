@@ -167,6 +167,27 @@ make the seam safe to hand to a stranger:
 | `m.learn(what, source=, deep=)` | teach it a file or a string. **`source="#Vendor"`** is the stamp everything from this reading carries — it is what makes a multi-document store answerable per document, and what `scope=` later selects on. `deep` mines each sentence for triples with the engine: `None` (the default) means **False for a file, True for text handed in directly**, so a document costs nothing and a typed fact costs one call per sentence. The returned `Learned` reports `.calls` | no engine for files |
 | `m.ask(q, explain=True, fluent=, shape=)` | answer. `explain=True` returns an `Answer` carrying `.sources`, `.abstained`, `.engine_error`, `.route`; without it you get a plain string. `fluent=True` skips the router for a turn that is known to be conversation. **`shape=`** declares the turn's kind — one of `"material"`, `"count"`, `"sum"`, `"derive"`, `"span"`, `"order"`, `"when"`, `"recap"`, `"none"` (`lmm.generate.SHAPES`); **anything else raises `ValueError`** since 0.13.0 — for a caller that already knows it: the engine is then asked neither what shape the message is nor whether it is about the memory itself — two calls of six, on every turn of a batch. A wrong declaration costs the organ it would have reached. **`standalone=True`** answers the question alone: the turn neither inherits the conversation's subject nor leaves one behind — what a matrix of independent cells needs, and what building a second `Memory` per cell was standing in for. **`quoted=True`** answers from ONE line the store holds and lets the store check it word by word, at the cost of answers that span several lines. The relation check still runs (since 0.9.1), so a carried turn costs two engine calls; the ~30% saving first measured predates that. **Cannot write memory** | engine |
 | `m.compose(brief, seats=24, topics=, on_line=)` | a structured draft from the evidence — per-topic gathering, gated line by line, streamed to `on_line` as lines survive, returned with its sources. `seats` is how many evidence lines each topic may draw on | engine |
+### Without a memory
+
+`check(answer, evidence, question="")` is the gate's free tier as a
+function over two strings — no `Memory`, no store, no engine call, no
+network. It returns `ok`, `figures_ok`, `coverage`, `unsupported` and
+`kept`.
+
+```python
+from lmm import check
+
+v = check(answer, "\n".join(chunks), question)
+if not v.ok:
+    print("not carried:", v.unsupported)
+```
+
+It is a **pre-filter, not a faithfulness judgement**: a paraphrase the
+evidence carries reads as not-carried, a splice of two lines the
+document never joined reads as carried, and relevance is not considered
+at all. The engine-side read-back and relation check are what those cost
+money for.
+
 | `m.reset()` | end the CONVERSATION — the recent turns, the subject the last turn was about, the brief, and the documents the topic had come to be about. Nothing learned is forgotten: the graph, the evidence and the aids are untouched. A batch of independent questions wants this between cells, or `ask(..., standalone=True)` | no engine |
 | `m.where(term)` | which documents mention this — names and counts, the census | no engine |
 | `m.themes(least=3, most=12)` | which documents belong together, and on what entities — community detection over the store's own graph, deterministic. `least` is the smallest group worth reporting, `most` the largest number of groups | no engine |

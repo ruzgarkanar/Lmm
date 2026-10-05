@@ -37,6 +37,40 @@ picks the adapter.
 
 ---
 
+## Try it without changing anything
+
+The smallest useful piece of this library is a function over two
+strings. It needs no `Memory`, no ingestion, no engine call and no
+network — keep your retriever, your vector store and your model:
+
+```python
+from lmm import check
+
+v = check(answer, "\n".join(chunks), question)
+if not v.ok:
+    print("not carried by the evidence:", v.unsupported)
+```
+
+```
+The valve opens at 8 bar.                 ok=True
+The valve opens at 9 bar.                 ok=False   unsupported=['9']
+The valve opens at 8 bar in the cellar.   ok=False   unsupported=['cellar']
+```
+
+It returns `ok`, `figures_ok`, `coverage`, `unsupported` and `kept` —
+the sentences of the answer the evidence does carry.
+
+**It is a pre-filter, not a faithfulness judgement, and the difference
+matters.** These are deterministic lexical readings: a paraphrase the
+evidence *does* carry comes back not-carried, and a sentence spliced
+from two lines the document never put together comes back carried. It
+says nothing about whether the answer is RELEVANT to the question — a
+true, sourced sentence about something else passes. Inside the library
+those cases are what the engine-side read-back and relation check are
+for; this is the free tier, and those are the price of free.
+
+---
+
 ## How it works
 
 <picture>
@@ -1020,14 +1054,30 @@ Kept current, and deliberately specific.
   the bare engine handed the same lines also misses, and misses
   confidently where this memory abstains.
 
-- **A count verifies that its items exist, not that they meet the question.**
-  Asked how many doctor's appointments the user went to in March, the
-  counting organ named three doctors; the answer is two. Every name was
-  written in the evidence, so every name passed — but one appointment was
-  scheduled for April and, in another run, one doctor the user was only
-  considering. Existence in the text is checked; membership in the set the
-  question describes (attended, in March) is not. Every organ that
-  verifies items against lines inherits this.
+- **A count verifies that its items exist; membership is checked only
+  where the set is a stretch of time.** Asked how many doctor's
+  appointments the user went to in March, the counting organ named three
+  doctors where the answer is two: every name was written in the
+  evidence, so every name passed, and one appointment was on April 1st.
+  **Fixed for dates** — each line is given the date its own sentence
+  states rather than the date the message carries, the question's window
+  is read as two dates, and the library compares them. That question
+  answers two now. **Not fixed for anything else**: a doctor the user was
+  only CONSIDERING is excluded by no word of the question and by no date.
+  A word-level repair was built, measured and refused, because the same
+  arithmetic that drops the April appointment drops a true project from
+  the invariant guarding this organ. Every organ that verifies items
+  against lines inherits the remainder.
+- **Relevance is measured now, and it is 8 of 9 either way.** The
+  relation check keeps 8 of 9 relevant answers and stops 8 of 9
+  irrelevant ones on the NIST set, with the negatives built rather than
+  written: each question paired with a true, sourced sentence from the
+  same document about something else (`benchmarks/relevance.py`). Nine
+  questions, so one question is eleven points. Both errors are the same
+  question, and it is the paraphrase one — this document answers "what is
+  the shortest password" under *memorized secret*, and the gate cannot
+  see that the answering line answers it. That gap shows in retrieval, in
+  the rewording pass, and here.
 - **Relevance is the dominant failure mode, and the gate does not touch it.**
   The gate guarantees non-fabrication, not perfect relevance — and a field
   integration measured that this is not one limit among several but *the* one:

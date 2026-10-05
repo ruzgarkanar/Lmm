@@ -4,6 +4,93 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`check(answer, evidence, question)` — the gate without the memory**
+  (W213). Everything here was reachable only by building a `Memory` and
+  re-ingesting; the one thing this project can show a measurement for is
+  a handful of pure functions over two strings. Keep your retriever and
+  your model:
+
+  ```python
+  from lmm import check
+
+  v = check(answer, "\n".join(chunks), question)
+  if not v.ok:
+      print("not carried:", v.unsupported)
+  ```
+
+  No engine call, no store, no state. Returns `ok`, `figures_ok`,
+  `coverage`, `unsupported` and `kept`. **It is a pre-filter, not a
+  faithfulness judgement**: a paraphrase the evidence does carry comes
+  back not-carried, a sentence spliced from two lines the document never
+  put together comes back carried, and it says nothing about whether the
+  answer is relevant. Those are what the engine-side checks cost money
+  for.
+- **A line carries the date it states, not the date it was written on**
+  (W210). `generate.event_dates` reads a date for each of many lines in
+  one call; `_dated_by_text` keeps one only when it equals the line's
+  stamp or its day is written in that line's own text with the year
+  within one — W95's arithmetic, over a set.
+- **`Session.ENOUGH`, off** (W202): the evidence is asked whether it
+  holds an answer before one is written. The verdict is good — four
+  declines on the NIST set, all four right, none of the nine answerable
+  questions wrongly stopped — and it saves nothing, because a refusing
+  turn has already paid its routing by the time it is reached. Shipped
+  off, with the measurement beside it.
+
+### Fixed
+
+- **A count keeps only what falls in the stretch of time asked for**
+  (W212). Asked how many doctor's appointments the user went to in
+  March, the memory answered three where the answer is two: one
+  appointment was on April 1st and all three were mentioned in messages
+  stamped the same day. Dates are now read as dates — each line's own,
+  and the question's window — and the library compares them. No month
+  name is written anywhere in this codebase.
+- **Provenance is written down, not read back off the sentence**
+  (W199–W201, W205–W207). `Answer.sources` was parsed out of the printed
+  text, so a turn that spoke without printing a mark reported a claim
+  resting on nowhere — and the graph path prints its mark only below
+  CERTAIN, so the surer the memory was, the less it could say about
+  where the answer came from. Also: a source whose name does not begin
+  with `#` now reaches `sources` at all; the informed refusal signs the
+  documents it named and no others; a derived figure is stamped with its
+  source rather than with the line it was read from; and a cached turn
+  reports what the paid turn reported.
+- **A derived number says what was done to what** (W204):
+  `12 — 60 (coffee mugs) ÷ 5 (coffee mugs)` where it used to read
+  `12 — coffee mugs (60), coffee mugs (5)`.
+- **The planner and the rewording pass are shown the store**
+  (W203, W209, W211). Both were asked about the memory without being
+  shown it. The planner proposed a plan for three of eight derivation
+  questions blind and six with the lines in front of it; it is shown
+  them only when the question alone produced nothing, because showing
+  them always cost a question that already worked.
+- **The quoted contract's own decline is a decline** (W198, W208), and a
+  decline names no line — `ANSWER: None` citing a line is a value, not a
+  refusal.
+
+### Measured
+
+- **Where a question's calls actually go.** Routing 21 of 83 on the NIST
+  set, answer 19, extract 13, relation-check 12, organ 8, judge 6,
+  read-back 3. The check everyone optimises is three calls of
+  eighty-three; what costs is deciding what KIND of question this is.
+  `standalone=True, shape=...` takes a question from 6.4 calls to 3.3
+  with nothing lost and no gate skipped.
+- **The first answer-relevance figure this project has**: 8 of 9
+  relevant answers kept, 8 of 9 irrelevant ones stopped, with the
+  negatives built rather than written — a true, sourced sentence from
+  the same document, about something else.
+- **The vocabulary gap has two halves.** Where retrieval is close,
+  showing the rewording pass the document now gets the document's own
+  term; where retrieval is lost, nothing downstream can help, and the
+  bundled encoder ranks the answering lines 410th and 1,251st of 12,253.
+  Recorded with the refuted repairs beside it.
+
 ## [0.13.0] — 2026-09-27
 
 ### Changed — read before upgrading
