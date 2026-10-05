@@ -1,0 +1,65 @@
+[
+ {
+  "soru": "how many characters shall a subscriber-chosen memorized secret be at least",
+  "own": "Memorized secrets SHALL be at least 8 characters in length if chosen by the subscriber.",
+  "other": "Series/Number NIST SP 800-63B-4 Title Digital Identity Guidelines: Authentication and Authenticator Management Author(s) David Temoshok, et al.",
+  "kept_own": true,
+  "let_other_in": false
+ },
+ {
+  "soru": "what length of memorized secret should verifiers permit",
+  "own": "Verifiers SHALL require subscriber-chosen memorized secrets to be at least 8 characters in length. Verifiers SHOULD permit subscriber-chosen memorized secrets at least 64 characters in",
+  "other": "Series/Number NIST SP 800-63B-4 Title Digital Identity Guidelines: Authentication and Authenticator Management Author(s) David Temoshok, et al.",
+  "kept_own": true,
+  "let_other_in": false
+ },
+ {
+  "soru": "what is the series number of this publication",
+  "own": "Series/Number NIST SP 800-63B-4 Title Digital Identity Guidelines: Authentication and Authenticator Management Author(s) David Temoshok, et al.",
+  "other": "Verifiers SHALL require subscriber-chosen memorized secrets to be at least 8 characters in length. Verifiers SHOULD permit subscriber-chosen memorized secrets at least 64 characters in",
+  "kept_own": true,
+  "let_other_in": false
+ },
+ {
+  "soru": "how often should reauthentication be repeated at AAL1",
+  "own": "At AAL1, reauthentication of the subscriber SHOULD be repeated at least once per 30 days",
+  "other": "Memorized secrets SHALL be at least 8 characters in length if chosen by the subscriber.",
+  "kept_own": true,
+  "let_other_in": false
+ },
+ {
+  "soru": "how often shall authentication be repeated at AAL2",
+  "own": "At AAL2, authentication of the subscriber SHALL be repeated at least once per 12 hours",
+  "other": "Kent Rochford, Acting NIST Director and Under Secretary of Commerce for Standards and Technology",
+  "kept_own": true,
+  "let_other_in": false
+ },
+ {
+  "soru": "who is the acting NIST director",
+  "own": "Kent Rochford, Acting NIST Director and Under Secretary of Commerce for Standards and Technology",
+  "other": "Verifiers SHALL require subscriber-chosen memorized secrets to be at least 8 characters in length. Verifiers SHOULD permit subscriber-chosen memorized secrets at least 64 characters in",
+  "kept_own": true,
+  "let_other_in": false
+ },
+ {
+  "soru": "which OMB circular is this guideline consistent with",
+  "own": "appropriate federal officials exercising policy authority over such systems. This guideline is consistent with the requirements of the Office of Management and Budget (OMB) Circular A-130.",
+  "other": "Memorized secrets SHALL be at least 8 characters in length if chosen by the subscriber.",
+  "kept_own": true,
+  "let_other_in": false
+ },
+ {
+  "soru": "what is the shortest password a user may choose",
+  "own": "(e.g., when a user requests a new PIN) SHALL be at least 6 characters in length and SHALL be generated using an approved random bit generator [SP 800-90Ar1]. Memorized secret verifiers SHALL NOT permit the subscriber to store a “hint” that is accessible to an unauthenticated claimant. Verifiers SHAL",
+  "other": "Verifiers SHALL require subscriber-chosen memorized secrets to be at least 8 characters in length. Verifiers SHOULD permit subscriber-chosen memorized secrets at least 64 characters in",
+  "kept_own": false,
+  "let_other_in": true
+ },
+ {
+  "soru": "how long a passphrase must verifiers allow",
+  "own": "o Allow at least 64 characters in length to support the use of passphrases.",
+  "other": "Memorized secrets SHALL be at least 8 characters in length if chosen by the subscriber.",
+  "kept_own": true,
+  "let_other_in": false
+ }
+]
