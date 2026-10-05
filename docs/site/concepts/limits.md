@@ -178,3 +178,44 @@ repair, if there is one, is narrower than the rule tried: dates checked
 as dates, not demands checked as words. The limit stands until that is
 built and measured.
 
+## No line reads its own date
+
+Measured on LongMemEval, 5 October 2026. Asked how many doctor's
+appointments the user went to in March, the memory answers three where
+the answer is two, and the three lines say:
+
+| named | the sentence says | the envelope says |
+|---|---|---|
+| Dr Johnson | "on **April 1st**" | chat 2023/03/27 |
+| Dr Smith | "on March 3rd" | chat 2023/03/27 |
+| Dr Thompson | "on March 20th" | chat 2023/03/27 |
+
+All three were *mentioned* on the same day, and one of the appointments
+is in April. Counting the mentions gives three; counting the
+appointments gives two.
+
+The library already knows that a date in a sentence outranks the date on
+its envelope — that is what `anchor` does, reading the event's date from
+the text with an engine proposal that arithmetic confirms. But `anchor`
+resolves ONE event. Every primitive that works over a SET of lines —
+`lines`, `before_lines`, `after_lines`, `month_tally` — takes each
+line's date from its SOURCE STAMP, by reading the digits out of it. When
+a conversation reports several events in one message, those primitives
+see one date for all of them.
+
+So the gap is narrow and nameable: **no primitive reads each line's own
+date from its own text.** It is not a retrieval failure (the answering
+session is seated), not a gate failure (nothing was rejected), and not a
+reading failure (the engine is never asked). The organ is working
+correctly over dates that are not the ones the question is about.
+
+`month_tally` does not close it either: it answers which month is
+busiest, not how many fell in a named one.
+
+Closing it means a reader that is given many lines and returns a date
+for each — one call for the set, not one per line — and primitives that
+prefer that date to the stamp when it exists, under the same arithmetic
+confirmation `anchor` already applies. Until that exists, every count
+and every window over a conversation is a count of MENTIONS, and this
+page says so rather than the number pretending otherwise.
+
