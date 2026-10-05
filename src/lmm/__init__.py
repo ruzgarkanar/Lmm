@@ -45,13 +45,18 @@ def _installed_version():
 
 __version__ = _installed_version()
 
-__all__ = ["Memory", "Answer", "Learned", "Session", "__version__"]
+__all__ = ["Memory", "Answer", "Learned", "Session", "check",
+           "Check", "__version__"]
 
 _LAZY = {
     "Memory": ("lmm.api", "Memory"),
     "Answer": ("lmm.api", "Answer"),
     "Learned": ("lmm.api", "Learned"),
     "Session": ("lmm.session", "Session"),
+    # THE FREE TIER, REACHABLE WITHOUT THE MEMORY (W213): `check(answer,
+    # evidence)` over two strings, no store and no engine behind it.
+    "check": ("lmm.api", "check"),
+    "Check": ("lmm.api", "Check"),
 }
 
 

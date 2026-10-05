@@ -121,6 +121,89 @@ class Answer(str):
                 f"{str(self)!r}>")
 
 
+class Check(tuple):
+    """What the evidence does and does not carry, for one sentence."""
+
+    __slots__ = ()
+
+    def __new__(cls, ok, figures_ok, coverage, unsupported, kept):
+        return tuple.__new__(cls, (ok, figures_ok, coverage,
+                                   tuple(unsupported), kept))
+
+    ok = property(lambda self: self[0])
+    figures_ok = property(lambda self: self[1])
+    coverage = property(lambda self: self[2])
+    unsupported = property(lambda self: self[3])
+    kept = property(lambda self: self[4])
+
+    def __bool__(self):
+        return bool(self[0])
+
+    def __repr__(self):
+        return ("<Check %s figures=%s coverage=%.2f unsupported=%r>"
+                % ("ok" if self[0] else "not carried",
+                   "ok" if self[1] else "INVENTED", self[2],
+                   list(self[3])))
+
+
+def check(answer, evidence, question=""):
+    """Does this evidence carry this sentence? — no memory, no engine.
+
+    THE DOOR THIS LIBRARY DID NOT HAVE (W213). Everything here was
+    reachable only by adopting the whole memory: build a `Memory`,
+    re-ingest your documents, replace your answering path. That is a
+    migration, and nobody migrates to try something. Meanwhile the one
+    thing this project can show a measurement for — the check — is a
+    handful of pure functions over two strings, with no store and no
+    model behind them.
+
+        from lmm import check
+
+        v = check(answer, "\n".join(chunks), question)
+        if not v.ok:
+            print("not carried:", v.unsupported)
+
+    Keep your retriever, your vector store and your model. What comes
+    back is:
+
+        ok           every content word and every figure is carried
+        figures_ok   no digit appears that the evidence does not write
+        coverage     the share of the answer's demand the evidence meets
+        unsupported  the words the evidence does not carry
+        kept         the sentences of the answer that ARE carried
+
+    WHAT IT IS NOT, because the literature is clear about this and so
+    should this docstring be. These are deterministic, lexical checks: a
+    useful pre-filter, not a faithfulness judgement. `ok` is False for a
+    paraphrase the evidence does carry, and True for a sentence spliced
+    from two places that the document never put together (`concepts/
+    limits.md`). It says nothing at all about whether the answer is
+    RELEVANT to the question — a true, sourced sentence about something
+    else passes. Inside the library those cases are what the engine-side
+    read-back and relation check are for; here, what you get is the free
+    tier, and its limits are the price of being free.
+    """
+    from lmm import evidence as _ev                       # noqa: PLC0415
+    answer, evidence = str(answer or ""), str(evidence or "")
+    figures_ok = _ev.digits_ok(answer, evidence)
+    share = _ev.coverage(answer, evidence, question)
+    carried = _ev.covered(answer, evidence, question)
+    kept = _ev.grounded_sentences(answer, evidence, question)
+    # WHICH WORDS, READ THE WAY THE REST OF THE LIBRARY READS WORDS.
+    # `covered` judges a SENTENCE against a block and asking it about one
+    # word at a time answers a question it was not built for — measured,
+    # it called "at" unsupported against evidence reading "opens at 8
+    # bar". The membership test is the stem-folded one every other
+    # reading here uses.
+    from lmm import inflect                              # noqa: PLC0415
+    held = _ev._words(evidence)
+    missing = [w for w in _ev.demands(answer)
+               if not any(inflect.same_stem(w, h) for h in held)]
+    return Check(bool(carried and figures_ok), bool(figures_ok),
+                 float(share), missing,
+                 kept if isinstance(kept, str) else " ".join(kept or ()))
+
+
 def _stamps_in(said):
     """The provenance stamps a spoken answer carries, whole.
 

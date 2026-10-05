@@ -13906,6 +13906,63 @@ def w212():
          generate.event_dates) = real
 
 
+@test("W213 the check is reachable without adopting the memory")
+def w213():
+    """THE DOOR THIS LIBRARY DID NOT HAVE. Everything here was reachable
+    only by adopting the whole memory — build a `Memory`, re-ingest the
+    documents, replace the answering path. That is a migration, and
+    nobody migrates to try something. Meanwhile the one thing this
+    project can show a measurement for is a handful of pure functions
+    over two strings, with no store and no model behind them.
+
+        from lmm import check
+        v = check(answer, "\n".join(chunks), question)
+
+    WHAT IT IS NOT is pinned here too, because a check that is advertised
+    for more than it does is worse than none. These are deterministic
+    lexical readings: a pre-filter, not a faithfulness judgement. A
+    paraphrase the evidence does carry comes back not-carried, and a
+    sentence spliced from two places the document never put together
+    comes back carried. It says nothing about whether the answer is
+    RELEVANT — a true, sourced sentence about something else passes. The
+    engine-side read-back and relation check are what those cost money
+    for; this is the free tier and these are the price of free.
+
+    No model, no store, no network."""
+    from lmm import check
+
+    block = ("Alpha Handbook — the valve opens at 8 bar.\n"
+             "Alpha Handbook — the tank holds 5 kg.")
+
+    carried = check("The valve opens at 8 bar.", block,
+                    "when does the valve open")
+    assert carried.ok and carried.figures_ok, carried
+    assert carried.unsupported == (), carried.unsupported
+    assert bool(carried) is True                 # truthy, for an `if`
+
+    # A FIGURE THE EVIDENCE DOES NOT WRITE IS THE CASE THIS EXISTS FOR.
+    invented = check("The valve opens at 9 bar.", block)
+    assert not invented.ok and not invented.figures_ok, invented
+    assert "9" in invented.unsupported, invented.unsupported
+
+    # ...AND A WORD IT DOES NOT WRITE.
+    added = check("The valve opens at 8 bar in the cellar.", block)
+    assert not added.ok, added
+    assert "cellar" in added.unsupported, added.unsupported
+    assert added.figures_ok, "the figures were right; only the place was not"
+
+    # WHAT IT DOES NOT CATCH, pinned so nobody is surprised by it: a
+    # sentence every word of which is written, assembled from two lines
+    # the document never put together.
+    spliced = check("The valve holds 5 kg.", block)
+    assert spliced.ok, (
+        "the free tier is advertised as catching splices: %r" % (spliced,))
+
+    # NO STORE AND NO ENGINE ARE TOUCHED — the evidence is a string.
+    assert check("anything", "").ok is False
+    assert check("", "Alpha — a line.").unsupported == ()
+
+
 def main():
     # One test at a time while a fix is being iterated: pass any part of
     # the name (`python3 tests/test_core.py W72`). No argument runs all.
