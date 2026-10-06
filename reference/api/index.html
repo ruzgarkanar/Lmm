@@ -1298,47 +1298,35 @@ trusted.</p>
 <td>engine</td>
 </tr>
 <tr>
-<td><code>m.reset()</code></td>
-<td>end the CONVERSATION — the recent turns, the subject the last turn was about, the brief, and the documents the topic had come to be about. Nothing learned is forgotten: the graph, the evidence and the aids are untouched. A batch of independent questions wants this between cells, or <code>ask(..., standalone=True)</code></td>
-<td>no engine</td>
-</tr>
-<tr>
-<td><code>m.where(term)</code></td>
-<td>which documents mention this — names and counts, the census</td>
-<td>no engine</td>
-</tr>
-<tr>
-<td><code>m.themes(least=3, most=12)</code></td>
-<td>which documents belong together, and on what entities — community detection over the store's own graph, deterministic. <code>least</code> is the smallest group worth reporting, <code>most</code> the largest number of groups</td>
-<td>no engine</td>
-</tr>
-<tr>
-<td><code>m.distil(text, source=, speaker=)</code></td>
-<td>write the events AND ongoing facts a passage reports into the graph — the engine lists each as thing/what-happened/KIND, the passage's own words admit the thing, each survivor is one gated dated record; the KIND is an index key beside the bridges, never a claim (0.7)</td>
-<td>one call per passage</td>
-</tr>
-<tr>
-<td><code>m.bridge()</code></td>
-<td>teach the store, once, what words readers ask its fields with — afterwards those questions are answered by the record itself, in milliseconds</td>
-<td>one call per field, once</td>
-</tr>
-<tr>
-<td><code>m.about(label)</code></td>
-<td>the records held on a concept</td>
-<td>no engine</td>
-</tr>
-<tr>
-<td><code>m.facts</code></td>
-<td>how many records exist</td>
-<td>no engine</td>
-</tr>
-<tr>
-<td><code>m.save(path)</code></td>
-<td>graph and evidence, both</td>
-<td>no engine</td>
+<td>### Without a memory</td>
+<td></td>
+<td></td>
 </tr>
 </tbody>
 </table>
+<p><code>check(answer, evidence, question="")</code> is the gate's free tier as a
+function over two strings — no <code>Memory</code>, no store, no engine call, no
+network. It returns <code>ok</code>, <code>figures_ok</code>, <code>coverage</code>, <code>unsupported</code> and
+<code>kept</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">lmm</span><span class="w"> </span><span class="kn">import</span> <span class="n">check</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">v</span> <span class="o">=</span> <span class="n">check</span><span class="p">(</span><span class="n">answer</span><span class="p">,</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chunks</span><span class="p">),</span> <span class="n">question</span><span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">v</span><span class="o">.</span><span class="n">ok</span><span class="p">:</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">"not carried:"</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">unsupported</span><span class="p">)</span>
+</code></pre></div>
+<p>It is a <strong>pre-filter, not a faithfulness judgement</strong>: a paraphrase the
+evidence carries reads as not-carried, a splice of two lines the
+document never joined reads as carried, and relevance is not considered
+at all. The engine-side read-back and relation check are what those cost
+money for.</p>
+<p>| <code>m.reset()</code> | end the CONVERSATION — the recent turns, the subject the last turn was about, the brief, and the documents the topic had come to be about. Nothing learned is forgotten: the graph, the evidence and the aids are untouched. A batch of independent questions wants this between cells, or <code>ask(..., standalone=True)</code> | no engine |
+| <code>m.where(term)</code> | which documents mention this — names and counts, the census | no engine |
+| <code>m.themes(least=3, most=12)</code> | which documents belong together, and on what entities — community detection over the store's own graph, deterministic. <code>least</code> is the smallest group worth reporting, <code>most</code> the largest number of groups | no engine |
+| <code>m.distil(text, source=, speaker=)</code> | write the events AND ongoing facts a passage reports into the graph — the engine lists each as thing/what-happened/KIND, the passage's own words admit the thing, each survivor is one gated dated record; the KIND is an index key beside the bridges, never a claim (0.7) | one call per passage |
+| <code>m.bridge()</code> | teach the store, once, what words readers ask its fields with — afterwards those questions are answered by the record itself, in milliseconds | one call per field, once |
+| <code>m.about(label)</code> | the records held on a concept | no engine |
+| <code>m.facts</code> | how many records exist | no engine |
+| <code>m.save(path)</code> | graph and evidence, both | no engine |</p>
 <h3 id="what-reading-a-document-does-to-its-tables">What reading a document does to its tables<a class="headerlink" href="#what-reading-a-document-does-to-its-tables" title="Permanent link">&para;</a></h3>
 <p>No call to make and nothing to configure — it is what <code>learn()</code> does — but
 it decides what later questions can reach, so it is worth knowing.</p>
@@ -1531,10 +1519,10 @@ turn knows about itself:</p>
 <code>missing</code> says what to ask about next. A caller with grades of its own
 builds them from these; the library ships the measurement, not a
 vocabulary:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">a</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">"Does it consider country of departure, destination, VAT ID "</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>          <span class="s2">"and transport responsibility?"</span><span class="p">,</span> <span class="n">explain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">a</span><span class="o">.</span><span class="n">covered</span>      <span class="c1"># 0.78</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">a</span><span class="o">.</span><span class="n">missing</span>      <span class="c1"># ('transport', 'responsibility')</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">a</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">"Does it consider country of departure, destination, VAT ID "</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>          <span class="s2">"and transport responsibility?"</span><span class="p">,</span> <span class="n">explain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">a</span><span class="o">.</span><span class="n">covered</span>      <span class="c1"># 0.78</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">a</span><span class="o">.</span><span class="n">missing</span>      <span class="c1"># ('transport', 'responsibility')</span>
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title"><code>covered</code> is a count, not a quality score</p>
@@ -1634,13 +1622,13 @@ containment check could see it. That cost <strong>2 of 11 carried turns</strong>
 on our own slice; the two are still answered correctly by the
 ordinary path.</p>
 </div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">a</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">"which interfaces does the validator use?"</span><span class="p">,</span> <span class="n">explain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">engine_error</span><span class="p">:</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="o">...</span>        <span class="c1"># infrastructure: retry, alert, fail over</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">elif</span> <span class="n">a</span><span class="o">.</span><span class="n">abstained</span><span class="p">:</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="o">...</span>        <span class="c1"># the memory genuinely does not hold it</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">sources</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">a</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">"which interfaces does the validator use?"</span><span class="p">,</span> <span class="n">explain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">engine_error</span><span class="p">:</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="o">...</span>        <span class="c1"># infrastructure: retry, alert, fail over</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">elif</span> <span class="n">a</span><span class="o">.</span><span class="n">abstained</span><span class="p">:</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="o">...</span>        <span class="c1"># the memory genuinely does not hold it</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">sources</span><span class="p">)</span>
 </code></pre></div>
 
 

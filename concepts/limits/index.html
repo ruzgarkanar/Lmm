@@ -420,6 +420,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Honest limits
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -436,6 +454,69 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-vocabulary-gap-measured" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The vocabulary gap, measured
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#counting-membership-and-a-repair-that-was-refused" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Counting membership, and a repair that was refused
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#no-line-reads-its-own-date" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        No line reads its own date
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-vocabulary-gap-has-two-halves-and-only-one-is-reachable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The vocabulary gap has two halves, and only one is reachable
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -809,6 +890,58 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-vocabulary-gap-measured" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The vocabulary gap, measured
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#counting-membership-and-a-repair-that-was-refused" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Counting membership, and a repair that was refused
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#no-line-reads-its-own-date" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        No line reads its own date
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-vocabulary-gap-has-two-halves-and-only-one-is-reachable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The vocabulary gap has two halves, and only one is reachable
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -940,6 +1073,162 @@ marketing; this one is part of the measurement.</p>
   decision is in the repository; widen it and tell us what breaks.</p>
 </li>
 </ul>
+<h2 id="the-vocabulary-gap-measured">The vocabulary gap, measured<a class="headerlink" href="#the-vocabulary-gap-measured" title="Permanent link">&para;</a></h2>
+<p>Sentence retrieval scores a line by how many of the question's content
+words it carries. When a reader asks in their own words and the document
+answers in its own, there is nothing for that scoring to find: NIST
+SP 800-63B answers "what is the shortest password a user may choose" under
+<em>memorized secret</em>, and the question reaches the wrong lines because that
+is where its words happen to occur.</p>
+<p>The library has a defence built for exactly this — <code>WIDEN</code>, a second
+retrieval over wordings the engine proposes, keeping only words the store
+actually holds. On 5 October 2026 it was measured where it should pay, at
+the level of retrieval alone so that no answering noise is in the way
+(<code>benchmarks/widen_recall.py</code>, 11 engine calls): <strong>it rescued nothing and
+broke nothing</strong>, recall 8 of 11 either way.</p>
+<p>The reason is structural rather than a matter of tuning.
+<code>generate.phrasings</code> is shown the QUESTION and never the store, so it can
+only guess generic rewordings — and it proposed, for that question, the
+word "password", which the question had already used. The document's own
+vocabulary is in the index and would have passed the filter: "memorized"
+appears on 1,173 lines, "director" on 24. It is simply never proposed.</p>
+<p>Three cheaper repairs were measured and refused. Letting the meaning
+channel choose candidate LINES, rather than reorder the ones the words
+admitted, puts the answering line at rank 410 and 930 of 12,253. A
+word-level bridge built from the bundled meaning table ranks "hash" and
+"captcha" above "director" for the word "heads". And grounding the
+proposal in the block retrieval did return helps only when retrieval was
+already close: the block for the password question does contain
+<em>memorized secret</em>, and the block for "who currently heads NIST" contains
+neither "director" nor "acting".</p>
+<p>So this is an open limit with a known mechanism, which is a better place
+to be than an open limit without one, and it is not closed.</p>
+<h2 id="counting-membership-and-a-repair-that-was-refused">Counting membership, and a repair that was refused<a class="headerlink" href="#counting-membership-and-a-repair-that-was-refused" title="Permanent link">&para;</a></h2>
+<p>A count verifies that its items exist, not that they meet the question.
+Asked how many doctor's appointments the user went to in March, the
+organ named three doctors where the answer is two: every name was
+written in the evidence, so every name passed, and one appointment was
+in April. Every organ that verifies items against lines inherits this.</p>
+<p>The obvious repair was built and measured on 5 October 2026, and it does
+not work. <code>find</code> already refuses to let a word that narrows nothing vote;
+the converse seemed sound — after the survivors are verified, ask each
+demand of the question how many of their home lines carry it, and treat
+a demand that MOST carry but not all as the condition the question is
+selecting on. On the doctors it is right: "march" sits on two home lines
+of three, and the April appointment leaves the count.</p>
+<p>It is wrong by exactly the same arithmetic on the invariant that has
+guarded this organ since 0.7. Asked how many projects the user leads,
+three lines answer, and one of them reads <em>"my second project, Quiet
+Lantern, started well"</em> — a project the user leads, written without the
+word "lead". The demand "lead" sits on two home lines of three, so the
+rule drops a true item with the same confidence that it drops the false
+one. The two cases have the same shape, and no lexical signal separates
+them: a qualifier the question adds ("in March") and a relation the
+question names ("lead") are both just words the lines may or may not
+carry.</p>
+<p>What distinguishes them is that the April line states an ALTERNATIVE —
+another date, in the slot the question constrains — while the Quiet
+Lantern line states nothing instead of "lead". Reading that difference
+means knowing which words are values of the same kind, and the only
+instrument here that knows it is the store's own date machinery. So the
+repair, if there is one, is narrower than the rule tried: dates checked
+as dates, not demands checked as words. The limit stands until that is
+built and measured.</p>
+<h2 id="no-line-reads-its-own-date">No line reads its own date<a class="headerlink" href="#no-line-reads-its-own-date" title="Permanent link">&para;</a></h2>
+<p>Measured on LongMemEval, 5 October 2026. Asked how many doctor's
+appointments the user went to in March, the memory answers three where
+the answer is two, and the three lines say:</p>
+<table>
+<thead>
+<tr>
+<th>named</th>
+<th>the sentence says</th>
+<th>the envelope says</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dr Johnson</td>
+<td>"on <strong>April 1st</strong>"</td>
+<td>chat 2023/03/27</td>
+</tr>
+<tr>
+<td>Dr Smith</td>
+<td>"on March 3rd"</td>
+<td>chat 2023/03/27</td>
+</tr>
+<tr>
+<td>Dr Thompson</td>
+<td>"on March 20th"</td>
+<td>chat 2023/03/27</td>
+</tr>
+</tbody>
+</table>
+<p>All three were <em>mentioned</em> on the same day, and one of the appointments
+is in April. Counting the mentions gives three; counting the
+appointments gives two.</p>
+<p>The library already knows that a date in a sentence outranks the date on
+its envelope — that is what <code>anchor</code> does, reading the event's date from
+the text with an engine proposal that arithmetic confirms. But <code>anchor</code>
+resolves ONE event. Every primitive that works over a SET of lines —
+<code>lines</code>, <code>before_lines</code>, <code>after_lines</code>, <code>month_tally</code> — takes each
+line's date from its SOURCE STAMP, by reading the digits out of it. When
+a conversation reports several events in one message, those primitives
+see one date for all of them.</p>
+<p>So the gap is narrow and nameable: <strong>no primitive reads each line's own
+date from its own text.</strong> It is not a retrieval failure (the answering
+session is seated), not a gate failure (nothing was rejected), and not a
+reading failure (the engine is never asked). The organ is working
+correctly over dates that are not the ones the question is about.</p>
+<p><code>month_tally</code> does not close it either: it answers which month is
+busiest, not how many fell in a named one.</p>
+<p>Closing it means a reader that is given many lines and returns a date
+for each — one call for the set, not one per line — and primitives that
+prefer that date to the stamp when it exists, under the same arithmetic
+confirmation <code>anchor</code> already applies. Until that exists, every count
+and every window over a conversation is a count of MENTIONS, and this
+page says so rather than the number pretending otherwise.</p>
+<h2 id="the-vocabulary-gap-has-two-halves-and-only-one-is-reachable">The vocabulary gap has two halves, and only one is reachable<a class="headerlink" href="#the-vocabulary-gap-has-two-halves-and-only-one-is-reachable" title="Permanent link">&para;</a></h2>
+<p>Measured on NIST SP 800-63B, 5 October 2026, after the rewording pass
+was repaired to see the document (W211).</p>
+<p><strong>Where retrieval is close, rewording now works.</strong> Asked "what is the
+shortest password a user may choose", the lines retrieval returns do
+contain <em>memorized secret</em>, and shown them the engine proposes "secret"
+where it used to propose only "password", a word the question had
+already used. The widened search still does not seat the answering line,
+because "secret" is written on 1,630 of this document's 12,253 lines and
+a word the document uses everywhere narrows nothing.</p>
+<p><strong>Where retrieval is lost, nothing downstream can help.</strong> Asked "who
+currently heads NIST", the lines retrieval returns are about
+<em>"publications currently under development"</em>. Shown those, the engine
+proposes "head, leader, chief, administrat" — generic synonyms, none of
+which this document writes — and the widening cannot run. Yet handed the
+right words by hand (<em>director, acting, Kent, Rochford</em>) the same search
+seats the answering line immediately.</p>
+<p>So the gap is not one problem. The second half is a retrieval problem
+and it cannot be solved by rewording, because a reworder shown the wrong
+lines has nothing to read. It needs a signal that is not lexical.</p>
+<p>The meaning channel is that signal, and the one this package bundles
+cannot find these lines: measured on NIST, the answering lines rank
+410th and 1,251st of 12,253 by cosine and 410th and 429th by late
+interaction, so this is not a matter of which method reads the vectors.
+For the word "heads" the table ranks "hash" and "captcha" above
+"director".</p>
+<p>AND THE OBVIOUS CONCLUSION DOES NOT FOLLOW. The encoder was chosen on a
+measurement it wins: 84% first-hit and 0.883 MRR over 180 known-item
+queries, against 66% and 0.710 for <code>paraphrase-multilingual-MiniLM</code> and
+at a hundredth of its indexing time. But each of those queries is a line
+with its two most distinctive terms removed, so the query still shares
+most of its words with the line it is looking for — and the failures
+above share almost none. The benchmark is a weaker paraphrase test than
+the paraphrase this limit is about, which is the same trap recorded in
+<code>measurements.md</code> for the widened pass: a capability measured where it
+cannot be exercised.</p>
+<p>So "buy a stronger encoder" is not evidence, it is a guess, and by this
+project's own numbers the best-known alternative is worse. What would
+settle it is a measurement on queries that share nothing with their
+target. Until that exists, this stays an open limit with a known
+mechanism and no costed remedy.</p>
 
 
 

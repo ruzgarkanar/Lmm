@@ -845,6 +845,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#where-a-questions-calls-actually-go-october-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where a question's calls actually go — October 2026
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Where a question&#39;s calls actually go — October 2026">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#declaring-what-the-caller-knows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Declaring what the caller knows
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-levers-measured-and-left-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two levers measured and left off
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-scorers-own-bugs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1036,6 +1075,45 @@
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-a-questions-calls-actually-go-october-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where a question's calls actually go — October 2026
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Where a question&#39;s calls actually go — October 2026">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#declaring-what-the-caller-knows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Declaring what the caller knows
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-levers-measured-and-left-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two levers measured and left off
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1579,6 +1657,137 @@ goal (400).</code></p>
 (<code>gpt-4o-mini</code>, the model that answered): a comparison between this
 project's own versions, not with published leaderboards. Per-question
 files, named by commit, are in <code>benchmarks/longmemeval_runs/</code>.</p>
+<h2 id="where-a-questions-calls-actually-go-october-2026">Where a question's calls actually go — October 2026<a class="headerlink" href="#where-a-questions-calls-actually-go-october-2026" title="Permanent link">&para;</a></h2>
+<p>The cost table on this page predates the shapes and the organs, and so did
+the cost harness's own list of headings: every call the router and the
+organs made filed under <code>other</code> until 5 October 2026, by which time that
+heading held the largest number in the system. A heading that holds the
+biggest number is not a heading.</p>
+<p>Re-measured on NIST SP 800-63B, 13 questions, a fresh process per arm
+(<code>benchmarks/gate_arms.py</code>, per-question results beside it):</p>
+<table>
+<thead>
+<tr>
+<th>bucket</th>
+<th>calls</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>routing</td>
+<td>21</td>
+<td>which shape, which language, which two things</td>
+</tr>
+<tr>
+<td>answer</td>
+<td>19</td>
+<td></td>
+</tr>
+<tr>
+<td>extract</td>
+<td>13</td>
+<td></td>
+</tr>
+<tr>
+<td>relation-check</td>
+<td>12</td>
+<td>the classifier readings</td>
+</tr>
+<tr>
+<td>organ</td>
+<td>8</td>
+<td></td>
+</tr>
+<tr>
+<td>judge</td>
+<td>6</td>
+<td></td>
+</tr>
+<tr>
+<td>read-back</td>
+<td>3</td>
+<td>the exit gate's second reading</td>
+</tr>
+<tr>
+<td>widen</td>
+<td>1</td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td><strong>83</strong></td>
+<td>6.4 a question</td>
+</tr>
+</tbody>
+</table>
+<p>Two readings matter more than the total. <strong>Routing is the largest cost a
+question carries</strong>, and routing with extraction is 41% of it — spent
+before any answer exists. And <strong>the read-back is three calls of
+eighty-three</strong>: the check most often asked about barely runs, because the
+two-tier gate admits a fully covered answer without asking the engine.</p>
+<h3 id="declaring-what-the-caller-knows">Declaring what the caller knows<a class="headerlink" href="#declaring-what-the-caller-knows" title="Permanent link">&para;</a></h3>
+<p><code>standalone=</code> and <code>shape=</code> have shipped since 0.9.1 and 0.13.0. Same
+thirteen questions, one run each:</p>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>correct</th>
+<th>calls</th>
+<th>a question</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>as shipped</td>
+<td>9 / 13</td>
+<td>83</td>
+<td>6.4</td>
+</tr>
+<tr>
+<td><code>standalone=True</code></td>
+<td>9 / 13</td>
+<td>76</td>
+<td>5.8</td>
+</tr>
+<tr>
+<td><code>ENOUGH</code> on</td>
+<td>10 / 13</td>
+<td>84</td>
+<td>6.5</td>
+</tr>
+<tr>
+<td><code>standalone=True, shape="material"</code></td>
+<td>10 / 13</td>
+<td><strong>43</strong></td>
+<td><strong>3.3</strong></td>
+</tr>
+</tbody>
+</table>
+<p>No gate was traded for it: <code>read-back</code> is 3 in both arms, so the exit gate
+ran exactly as often. What fell to zero was the classifier bucket, not the
+relation gate. The extra correct answer is <strong>not</strong> claimed — the same arm
+has measured 9 and 10 on separate runs. What is claimed is that nothing
+was lost for half the calls.</p>
+<h3 id="two-levers-measured-and-left-off">Two levers measured and left off<a class="headerlink" href="#two-levers-measured-and-left-off" title="Permanent link">&para;</a></h3>
+<p><strong><code>ENOUGH</code></strong> asks the evidence whether it holds an answer before one is
+written. On these questions it declined four — the two traps, the metadata
+question and one paraphrase — and all four were right, with none of the
+nine answerable questions wrongly stopped. It saved nothing: 84 calls
+against 83, because a refusing turn has already paid its routing and its
+extraction before the verdict is reached. A right decision taken late is
+paid for twice. The switch ships off.</p>
+<p><strong><code>WIDEN</code></strong>, the widened second retrieval, was measured where it is
+supposed to help: a document that answers "what is the shortest password"
+under <em>memorized secret</em>. Retrieval recall before and after, 11 calls, no
+answering noise (<code>benchmarks/widen_recall.py</code>): <strong>rescued 0, broken 0,
+8/11 either way</strong>. The reason is structural — <code>generate.phrasings</code> is
+shown the QUESTION and never the store, so it proposes only words the
+question already used. The document's own words are in the index
+("memorized" on 1,173 lines, "director" on 24); they are never proposed.
+The vocabulary gap is a measured, open limit, and the widening as built
+does not close it.</p>
 <h2 id="the-scorers-own-bugs">The scorer's own bugs<a class="headerlink" href="#the-scorers-own-bugs" title="Permanent link">&para;</a></h2>
 <p>A benchmark whose author only ever finds errors that flatter him is not
 evidence. Three defects have been found in this project's scorers. The
