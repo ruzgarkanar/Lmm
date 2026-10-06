@@ -6,7 +6,7 @@ type: software
 authors:
   - family-names: "KANAR"
     given-names: "Ruzgar Ersin"
-version: "0.13.0"
+version: "0.14.0"
 date-released: "2026-09-27"
 license: Apache-2.0
 repository-code: "https://github.com/ruzgarkanar/Lmm"
